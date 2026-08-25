@@ -1,19 +1,15 @@
-"""Tests for the AD representations of grid-related operators: projections between
-subdomains, mortar (interface) grids and boundary grids, plus the Trace and
-Divergence operators.
+"""Test collection for Ad representations of grid-related operators.
 
-``TestSubdomainProjections``, ``TestMortarProjections`` and ``TestBoundaryProjection``
-each check the numerical correctness of the assembled projection matrix, against a
-matrix built independently of the implementation under test.
-
-Covers, in order (see the ``# MARK:`` comments below for navigation):
-  - Subdomain restriction/prolongation, for both faces and cells:
-    ``TestSubdomainProjections``.
-  - Mortar<->primary/secondary subdomain projections, including empty-list and
-    ``sign_of_mortar_sides`` edge cases: ``TestMortarProjections``.
-  - Subdomain<->boundary-grid projections and their consistency:
-    ``TestBoundaryProjection``.
-  - The discrete Trace and Divergence operators: ``test_trace``, ``test_divergence``.
+Checks performed include the following:
+    test_subdomain_projections: Operators for restriction and prolongation are checked
+        for both faces and cells;
+    test_mortar_projections_empty_list: Projections between empty lists of subdomains
+        and interfaces;
+    test_mortar_projections: Projections between mortar grids and subdomain grids;
+    test_boundary_grid_projection:  Tests are conducted on the boundary projection
+        operator and its inverse;
+    test_trace and test_divergence: Operators for discrete traces and divergences;
+    test_ad_discretization_class: test for AD discretizations.
 
 """
 
@@ -34,15 +30,21 @@ def mdg():
     return md_grid
 
 
-# MARK: Subdomain restriction/prolongation ----------------------------------------
-
-#: (SubdomainProjections method name, grid entity, is_restriction) for each of the four
+#: (SubdomainProjections method name, GridEntity, is_restriction) for each of the four
 #: cell/face x restriction/prolongation combinations tested in TestSubdomainProjections.
 _SUBDOMAIN_PROJECTION_CASES = [
-    pytest.param("cell_restriction", "cells", True, id="cell_restriction"),
-    pytest.param("cell_prolongation", "cells", False, id="cell_prolongation"),
-    pytest.param("face_restriction", "faces", True, id="face_restriction"),
-    pytest.param("face_prolongation", "faces", False, id="face_prolongation"),
+    pytest.param(
+        "cell_restriction", pp.ad.GridEntity.cells, True, id="cell_restriction"
+    ),
+    pytest.param(
+        "cell_prolongation", pp.ad.GridEntity.cells, False, id="cell_prolongation"
+    ),
+    pytest.param(
+        "face_restriction", pp.ad.GridEntity.faces, True, id="face_restriction"
+    ),
+    pytest.param(
+        "face_prolongation", pp.ad.GridEntity.faces, False, id="face_prolongation"
+    ),
 ]
 
 
@@ -65,7 +67,7 @@ def _known_subdomain_projection_matrix(
     Returns:
         Sparse matrix.
     """
-    is_cell = entity == "cells"
+    is_cell = entity == pp.ad.GridEntity.cells
     counts = np.array([sd.num_cells if is_cell else sd.num_faces for sd in subdomains])
     starts = np.cumsum(np.hstack((0, counts)))
     n_total = counts.sum() * proj_dim
@@ -118,22 +120,50 @@ class TestSubdomainProjections:
         n_cells, n_faces, _ = geometry_information(mdg, proj_dim)
         return n_cells, n_faces
 
+    def _check_space(
+        self, op, subdomains, proj_dim, entity, target_grids, is_restriction
+    ):
+        """Check source/target of a single restriction or prolongation operator.
+
+        Parameters:
+            op: The restriction or prolongation operator.
+            subdomains: The full list of subdomains the projection was built on.
+            proj_dim: DOFs per grid entity.
+            entity: The GridEntity (cells or faces) the projection acts on.
+            target_grids: The (sub-)list of grids passed to the restriction or
+                prolongation call.
+            is_restriction: True for a restriction (full -> subset), False for a
+                prolongation (subset -> full).
+
+        """
+        assert op.source.domain_type == pp.ad.DomainType.subdomains
+        assert op.target.domain_type == pp.ad.DomainType.subdomains
+        wide, narrow = (
+            (op.source, op.target) if is_restriction else (op.target, op.source)
+        )
+        assert wide.grids == tuple(subdomains)
+        assert narrow.grids == tuple(target_grids)
+        assert op.source.dof_info == {entity: proj_dim}
+        assert op.target.dof_info == {entity: proj_dim}
+
     @pytest.mark.parametrize(
         "method_name, entity, is_restriction", _SUBDOMAIN_PROJECTION_CASES
     )
     def test_empty_subdomain_list(
-        self, proj, sizes, method_name, entity, is_restriction
+        self, proj, subdomains, proj_dim, sizes, method_name, entity, is_restriction
     ):
         """Restriction/prolongation to/from an empty list of subdomains has the
-        expected degenerate shape.
+        expected degenerate shape, and still reports a typed OperatorSpace (with all
+        subdomains on the "wide" side, and an empty grid list on the "narrow" side).
         """
         n_cells, n_faces = sizes
-        n = n_cells if entity == "cells" else n_faces
+        n = n_cells if entity == pp.ad.GridEntity.cells else n_faces
         expected_shape = (0, n) if is_restriction else (n, 0)
 
         op = getattr(proj, method_name)([])
 
         assert op.shape == expected_shape
+        self._check_space(op, subdomains, proj_dim, entity, [], is_restriction)
 
     @pytest.mark.parametrize("sd_index", range(4), ids=["sd0", "sd1", "sd2", "sd3"])
     @pytest.mark.parametrize(
@@ -150,7 +180,8 @@ class TestSubdomainProjections:
         sd_index,
     ):
         """Restriction/prolongation between the full subdomain list and a single grid
-        matches a manually assembled 0/1 projection matrix.
+        matches a manually assembled 0/1 projection matrix, and reports the grids
+        ``[sd]`` on the "narrow" side of source/target.
 
         The ``sd_index`` parametrization assumes the ``mdg`` fixture always yields
         exactly four subdomains (one each of dim 2, 1, 1, 0).
@@ -162,6 +193,7 @@ class TestSubdomainProjections:
         op = getattr(proj, method_name)([sd])
 
         assert _compare_matrices(op, expected)
+        self._check_space(op, subdomains, proj_dim, entity, [sd], is_restriction)
 
     @pytest.mark.parametrize(
         "method_name, entity, is_restriction", _SUBDOMAIN_PROJECTION_CASES
@@ -181,6 +213,7 @@ class TestSubdomainProjections:
         op = getattr(proj, method_name)([g1, g2])
 
         assert _compare_matrices(op, expected)
+        self._check_space(op, subdomains, proj_dim, entity, [g1, g2], is_restriction)
 
 
 # MARK: Mortar<->primary/secondary subdomain projections ---------------------------
@@ -379,8 +412,10 @@ class TestMortarProjections:
     ``pp.ad.MortarProjections``.
 
     Covers, in order: projections to/from an empty list of subdomains and/or
-    interfaces; and the main projection scenario, checked for numerical correctness
-    (assembled independently from each interface's own local projection matrices).
+    interfaces; ``sign_of_mortar_sides``; and the main projection scenario, checked
+    both for numerical correctness (assembled independently from each interface's own
+    local projection matrices) and for the OperatorSpace (source/target: DomainType,
+    grids, dof_info) reported by the projection operator.
 
     """
 
@@ -388,11 +423,24 @@ class TestMortarProjections:
     def proj_dim(self, request, mdg):
         return 1 if request.param else mdg.dim_max()
 
+    def _check_space(self, op, subdomains, interfaces, proj_dim, pair, is_to_mortar):
+        entity = pp.ad.GridEntity.faces if pair == "primary" else pp.ad.GridEntity.cells
+        sd_space, mortar_space = (
+            (op.source, op.target) if is_to_mortar else (op.target, op.source)
+        )
+        assert sd_space.domain_type == pp.ad.DomainType.subdomains
+        assert sd_space.grids == tuple(subdomains)
+        assert sd_space.dof_info == {entity: proj_dim}
+        assert mortar_space.domain_type == pp.ad.DomainType.interfaces
+        assert mortar_space.grids == tuple(interfaces)
+        assert mortar_space.dof_info == {pp.ad.GridEntity.cells: proj_dim}
+
     @pytest.mark.parametrize("method_name, pair, is_to_mortar", _MORTAR_INT_ONLY_CASES)
     def test_empty_subdomains(self, mdg, method_name, pair, is_to_mortar):
         """With an empty subdomain list, mortar<->primary/secondary projections have
         zero rows or columns (whichever side is the subdomains), but are non-zero
-        along the mortar dimension.
+        along the mortar dimension, and still report a typed-but-empty (not None)
+        OperatorSpace on the subdomains side.
         """
         interfaces = mdg.interfaces()
         _, _, n_mortar_cells = geometry_information(mdg, 1)
@@ -403,12 +451,16 @@ class TestMortarProjections:
 
         expected_shape = (n_mortar_cells, 0) if is_to_mortar else (0, n_mortar_cells)
         assert op.shape == expected_shape
+        subdomain_space = op.source if is_to_mortar else op.target
+        assert subdomain_space.domain_type == pp.ad.DomainType.subdomains
+        assert subdomain_space.grids == ()
 
     @pytest.mark.parametrize("method_name, pair, is_to_mortar", _MORTAR_INT_ONLY_CASES)
     def test_empty_interfaces(self, mdg, method_name, pair, is_to_mortar):
         """With an empty interface list, mortar<->primary/secondary projections have
         zero rows or columns (whichever side is the mortar), but are non-zero along
-        the subdomain dimension.
+        the subdomain dimension, and still report a typed-but-empty (not None)
+        OperatorSpace on the interfaces side.
         """
         subdomains = mdg.subdomains()
         n_cells, n_faces, _ = geometry_information(mdg, 1)
@@ -420,6 +472,9 @@ class TestMortarProjections:
 
         expected_shape = (0, n) if is_to_mortar else (n, 0)
         assert op.shape == expected_shape
+        mortar_space = op.target if is_to_mortar else op.source
+        assert mortar_space.domain_type == pp.ad.DomainType.interfaces
+        assert mortar_space.grids == ()
 
     def test_empty_subdomains_and_interfaces(self, mdg):
         """With both lists empty, all four projections are trivially (0, 0)."""
@@ -428,6 +483,31 @@ class TestMortarProjections:
         assert proj.mortar_to_secondary_int().shape == (0, 0)
         assert proj.primary_to_mortar_int().shape == (0, 0)
         assert proj.secondary_to_mortar_int().shape == (0, 0)
+
+    def test_sign_of_mortar_sides(self, mdg):
+        """sign_of_mortar_sides carries an interfaces-typed space with one DOF per
+        cell, matching the (diagonal) sign matrix it wraps.
+        """
+        interfaces = mdg.interfaces()
+        proj = pp.ad.MortarProjections(
+            subdomains=mdg.subdomains(), interfaces=interfaces, mdg=mdg, dim=1
+        )
+        op = proj.sign_of_mortar_sides()
+        assert op.source == op.target
+        assert op.source.domain_type == pp.ad.DomainType.interfaces
+        assert op.source.grids == tuple(interfaces)
+        assert op.source.dof_info == {pp.ad.GridEntity.cells: 1}
+
+    def test_sign_of_mortar_sides_empty_interfaces(self, mdg):
+        """sign_of_mortar_sides also gets a typed-but-empty space on an empty
+        interface list."""
+        proj = pp.ad.MortarProjections(
+            subdomains=mdg.subdomains(), interfaces=[], mdg=mdg, dim=1
+        )
+        op = proj.sign_of_mortar_sides()
+        assert op.source.domain_type == pp.ad.DomainType.interfaces
+        assert op.source.grids == ()
+        assert op.source == op.target
 
     @pytest.mark.parametrize("non_matching", [True, False])
     @pytest.mark.parametrize(
@@ -495,7 +575,7 @@ class TestMortarProjections:
     ):
         """Mortar<->primary/secondary subdomain projections match matrices assembled
         independently from each interface's own local mortar_to_primary/secondary_
-        int/avg matrices.
+        int/avg matrices, and report the expected OperatorSpace.
 
         The X_to_mortar directions are the transpose of the mortar_to_X direction,
         with integration and averaging swapped; this is a property of the underlying
@@ -534,9 +614,7 @@ class TestMortarProjections:
         op = getattr(proj, method_name)()
 
         assert _compare_matrices(expected, op)
-
-
-# MARK: Subdomain<->boundary-grid projections --------------------------------------
+        self._check_space(op, subdomains, interfaces, proj_dim, pair, is_to_mortar)
 
 
 class TestBoundaryProjection:
@@ -578,6 +656,15 @@ class TestBoundaryProjection:
     @pytest.fixture
     def subset_projection(self, mdg, subset, proj_dim):
         return pp.ad.BoundaryProjection(mdg, subset, proj_dim)
+
+        assert s2b.source.domain_type == pp.ad.DomainType.subdomains
+        assert s2b.source.grids == tuple(subdomains)
+        assert s2b.source.dof_info == {pp.ad.GridEntity.faces: proj_dim}
+        assert s2b.target.domain_type == pp.ad.DomainType.boundary_grids
+        assert s2b.target.grids == tuple(mdg.boundaries())
+        assert s2b.target.dof_info == {pp.ad.GridEntity.cells: proj_dim}
+        assert b2s.source == s2b.target
+        assert b2s.target == s2b.source
 
     @pytest.mark.parametrize(
         "sd_index, expected_sum_factor",
@@ -644,8 +731,25 @@ class TestBoundaryProjection:
         block = subdomain_to_boundary[:, starts[sd_index] : starts[sd_index + 1]]
         assert np.sum(block) == expected_sum_factor * proj_dim
 
+        assert s2b_op.source.grids == tuple(subset)
+        assert s2b_op.target.grids == tuple(
+            mdg.subdomain_to_boundary_grid(sd) for sd in subset
+        )
 
-# MARK: Trace and Divergence operators ----------------------------------------------
+    def test_empty_subdomain_list(self, mdg):
+        """BoundaryProjection has a typed-but-empty space (not None) when constructed
+        on an empty list of subdomains.
+        """
+        mdg.compute_geometry()
+        projection = pp.ad.BoundaryProjection(mdg, [], dim=1)
+        op = projection.subdomain_to_boundary
+        assert op.source.domain_type == pp.ad.DomainType.subdomains
+        assert op.source.grids == ()
+        assert op.target.domain_type == pp.ad.DomainType.boundary_grids
+        assert op.target.grids == ()
+
+
+# Geometry based operators
 def test_trace(mdg: pp.MixedDimensionalGrid):
     """Test Trace operator.
 
@@ -656,7 +760,9 @@ def test_trace(mdg: pp.MixedDimensionalGrid):
     but nevertheless provides some coverage, especially if Trace is carelessly changed.
     The test constructs the expected mixed-dimensional trace matrix and compares it to
     the ones of Trace. Also checks that an error is raised if a non-scalar trace is
-    constructed (not implemented).
+    constructed (not implemented), and that source/target report DomainType.subdomains
+    with the trace's dof_info (one DOF per cell in the source, per face in the
+    target).
     """
     # The operator should work on any subset of mdg.subdomains.
     subdomains = mdg.subdomains(dim=1)
@@ -674,11 +780,24 @@ def test_trace(mdg: pp.MixedDimensionalGrid):
     op = pp.ad.Trace(subdomains)
     assert _compare_matrices(op.trace, sps.bmat([[m] for m in traces]))
 
+    assert op.trace.source.domain_type == pp.ad.DomainType.subdomains
+    assert op.trace.target.domain_type == pp.ad.DomainType.subdomains
+    assert op.trace.source.grids == tuple(subdomains) == op.trace.target.grids
+    assert op.trace.source.dof_info == {pp.ad.GridEntity.cells: 1}
+    assert op.trace.target.dof_info == {pp.ad.GridEntity.faces: 1}
+
     # As of the writing of this test, Trace is not implemented for vector values. If it
     # is ever extended, the test should be extended accordingly (e.g. parametrized with
     # dim=[1, 2]).
     with pytest.raises(NotImplementedError):
         pp.ad.Trace(subdomains, dim=2)
+
+    # Trace also gets a typed-but-empty space (not None) on an empty subdomain list.
+    empty_op = pp.ad.Trace([])
+    assert empty_op.trace.source.domain_type == pp.ad.DomainType.subdomains
+    assert empty_op.trace.source.grids == ()
+    assert empty_op.trace.target.domain_type == pp.ad.DomainType.subdomains
+    assert empty_op.trace.target.grids == ()
 
 
 @pytest.mark.parametrize("dim", [1, 4])
@@ -693,6 +812,11 @@ def test_divergence(mdg: pp.MixedDimensionalGrid, dim: int):
     closely, but nevertheless provides some coverage. Frankly, there is not much more to
     do than comparing against the expected matrices, unless one wants to add more
     integration-type tests e.g. evaluating combinations with other ad entities.
+
+    Also checks that source/target report DomainType.subdomains with one DOF per face
+    in the source and per cell in the target (matching the *constructed* dim, which -
+    note - is left at its default of 1 below regardless of the ``dim`` parameter; see
+    the dof_info assertion).
 
     """
     # The operator should work on any subset of mdg.subdomains.
@@ -709,6 +833,17 @@ def test_divergence(mdg: pp.MixedDimensionalGrid, dim: int):
     op = pp.ad.Divergence(subdomains, dim=dim)
     val = op.parse(mdg)
     assert _compare_matrices(val, sps.block_diag(divergences))
+
+    assert op.source.domain_type == pp.ad.DomainType.subdomains
+    assert op.target.domain_type == pp.ad.DomainType.subdomains
+    assert op.source.grids == tuple(subdomains) == op.target.grids
+    assert op.source.dof_info == {pp.ad.GridEntity.faces: 1}
+    assert op.target.dof_info == {pp.ad.GridEntity.cells: 1}
+
+    # Divergence also gets a typed-but-empty space (not None) on an empty subdomain
+    # list.
+    empty_op = pp.ad.Divergence([])
+    assert empty_op.source.grids == () == empty_op.target.grids
 
 
 def _compare_matrices(m1, m2):
