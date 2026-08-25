@@ -7,6 +7,7 @@ the functionality is thoroughly tested through the test suit for the models.
 
 from __future__ import annotations
 
+import operator as _operator
 from typing import Any, Literal, overload
 
 import numpy as np
@@ -15,6 +16,23 @@ import scipy.sparse as sps
 import porepy as pp
 
 from .operators import Operations
+
+# Maps each binary Operations member to the callable that implements it, so
+# _evaluate_single can dispatch directly instead of building and eval()-ing a source
+# string per node (the latter is costly when repeated many times in a large operator
+# tree).
+_BINARY_OP = {
+    Operations.add: _operator.add,
+    Operations.sub: _operator.sub,
+    Operations.mul: _operator.mul,
+    Operations.rmul: _operator.mul,
+    Operations.div: _operator.truediv,
+    Operations.rdiv: _operator.truediv,
+    Operations.pow: _operator.pow,
+    Operations.rpow: _operator.pow,
+    Operations.matmul: _operator.matmul,
+    Operations.rmatmul: _operator.matmul,
+}
 
 
 class AdParser:
@@ -260,8 +278,7 @@ class AdParser:
                     child_values = child_values[::-1]
                     flipped = True
                 try:
-                    symbol = Operations.to_symbol(operation)
-                    res = eval(f"child_values[0] {symbol} child_values[1]")
+                    res = _BINARY_OP[operation](child_values[0], child_values[1])
 
                 except ValueError as exc:
                     msg = self._get_error_message(
@@ -344,8 +361,7 @@ class AdParser:
                         )
                         raise ValueError(msg) from exc
                 try:
-                    symbol = Operations.to_symbol(operation)
-                    res = eval(f"child_values[0] {symbol} child_values[1]")
+                    res = _BINARY_OP[operation](child_values[0], child_values[1])
                     return res
                 except ValueError as exc:
                     msg = self._get_error_message(
