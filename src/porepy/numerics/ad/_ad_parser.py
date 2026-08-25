@@ -295,7 +295,9 @@ class AdParser:
         other_state = np.zeros_like(state)
 
         other_state[ind_other_vars_stacked] = state[ind_other_vars_stacked]
-        ordinary_vars = pp.ad.init_partial_ad_array(other_state, ind_other_vars_stacked)
+        ordinary_vars = pp.ad.initialize_partial_ad_array(
+            other_state, ind_other_vars_stacked
+        )
 
         # TODO: Clean up. Disable this test for cases where a variable is present both
         # as mixed (and then ammenable for diagonal treatment) and atomic (not ammenable
