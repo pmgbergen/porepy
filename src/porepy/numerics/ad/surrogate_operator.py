@@ -334,8 +334,7 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
             # To convert this into a DiagonalAdArray, it is necessary to also provide
             # indices and offsets of the respective derivatives, but his will have to
             # be handled by the calling function.
-            jac = np.vstack((derivatives))
-            return jac
+            return derivatives
         else:
             # Make sure all the Jacobians are CSR matrices before fetching the indices of
             # the data.
@@ -354,7 +353,7 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
             # indices for the zeroth row comes in the first num_args places etc.
             indices = np.vstack([jac.indices for jac in csr_jacs]).ravel("F")
             # Do the same for the data, which is the derivative values.
-            data = np.vstack(list(derivatives)).ravel("F")
+            data = derivatives.ravel("F")
             # Create the sparse matrix in CSR format and return it.
             return sps.csr_matrix((data, indices, row_ptr), shape=(num_rows, num_cols))
 
