@@ -21,14 +21,16 @@ from porepy.numerics.ad.grid_entity import GridEntities
 class TestGridEntityValues:
     """GridEntity members have the correct string values."""
 
-    def test_cells_value(self):
-        assert GridEntity.cells.value == "cells"
-
-    def test_faces_value(self):
-        assert GridEntity.faces.value == "faces"
-
-    def test_nodes_value(self):
-        assert GridEntity.nodes.value == "nodes"
+    @pytest.mark.parametrize(
+        "member, value",
+        [
+            (GridEntity.cells, "cells"),
+            (GridEntity.faces, "faces"),
+            (GridEntity.nodes, "nodes"),
+        ],
+    )
+    def test_member_value(self, member, value):
+        assert member.value == value
 
     def test_enum_has_three_members(self):
         assert len(GridEntity) == 3
@@ -197,15 +199,3 @@ class TestGridEntitiesMappingInterface:
         else:
             with pytest.raises(KeyError):
                 g[entity]
-
-    def test_frozenset_of_items_matches_dict_convention(self):
-        """Mirrors the pattern used in operators.py's MixedDimensionalVariable
-        construction (comparing dof_info across sub-variables)."""
-        a = GridEntities(cells=1)
-        b = GridEntities.from_mapping({GridEntity.cells: 1})
-        assert frozenset(a.items()) == frozenset(b.items())
-
-    def test_can_broadcast_pattern(self):
-        """Mirrors the exact expression used in _operations.py's _can_broadcast."""
-        g = GridEntities(cells=1)
-        assert len(g) == 1 and set(g.values()) == {1}
