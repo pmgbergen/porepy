@@ -4,7 +4,7 @@ CLI: --scheme {hu, hu-mw}, --consistent (MPFA), --grid-type, --cell-size,
 --q-anomaly [W/m^2, default 5], --z-init (initial uniform NaCl overall
 composition, default 0; also sets the hydrostatic-column and boundary fluid),
 --snap-years (exact snapshot/export schedule, default 0..50000 every 2500),
---dt-nominal/--dt-min/--dt-max (dynamic stepping, default 5/0.001/10 yr).
+--dt-nominal/--dt-min/--dt-max (dynamic stepping, default 5/0.001/100 yr).
 --lag-buoyancy freezes the buoyancy upwind direction per step (CSMP++ policy).
 Output goes to visualization_<tag>/ with tag = case_naming.case_tag(<flags>) --
 non-default components only -- so distinct parametrizations never overwrite each
@@ -20,6 +20,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from case_naming import case_tag                     # noqa: E402
 
 import time
+import json
+import warnings
+import tempfile
+from pathlib import Path
 from typing import cast, Sequence
 
 import numpy as np
@@ -60,10 +64,10 @@ to_Mega = 1.0e-6
 
 # Dynamic time stepping (all CLI-overridable).  The schedule pins EXACT landing -- and
 # VTU export -- at the Fig. 8 snapshot instants; dt adapts freely in between.
-_DEFAULT_SNAP_YEARS = tuple(float(y) for y in range(0, 50001, 2500))  # 0..50 kyr / 2.5 kyr
-DT_NOMINAL = 5.0           # nominal (initial) step [yr] (--dt-nominal)
-DT_MIN = 0.001               # smallest allowed step [yr] (--dt-min)
-DT_MAX = 10.0               # largest allowed step [yr]  (--dt-max)
+_DEFAULT_SNAP_YEARS = tuple(float(y) for y in range(0, 50001, 500))  # 0..50 kyr / 0.5 kyr
+DT_NOMINAL = 10.0           # nominal (initial) step [yr] (--dt-nominal)
+DT_MIN = 0.1               # smallest allowed step [yr] (--dt-min)
+DT_MAX = 50.0              # largest allowed step [yr]  (--dt-max)
 
 # --------------------------------------------------------------------------------------- #
 #  Weis et al. (2014) Fig. 8, condition 2 -- boundary & initial conditions.
@@ -80,6 +84,92 @@ Q_BACKGROUND = 0.05         # background crustal heat flux [W/m^2]
 Q_ANOMALY = 5.0             # anomaly heat flux [W/m^2] over the inlet (--q-anomaly)
 Z_INIT = 0.0                # initial (uniform) NaCl overall composition [-] (--z-init)
 DOMAIN_HEIGHT = 3000.0      # [m]
+
+# --------------------------------------------------------------------------------------- #
+#  --md : approved discrete fault & barrier network on the Fig. 8 domain (F1-F6, B1-B3).
+#  y = ELEVATION (y=0 base, y=DOMAIN_HEIGHT surface).  Conductive faults F1-F5 are inclined
+#  high-k lines (1000 * rock); F6 is a gently-dipping low-angle LINKING connector at reduced
+#  grade (--f6-factor, default 100 * rock -- per the geological assessment, a bedding-parallel
+#  weak layer, not a fault, so it redistributes fluid without short-circuiting the seals it
+#  shares a depth with); sealing barriers B1-B3 are thin curved low-k lines (--barrier-factor *
+#  rock) built piecewise from their vertices.  Meshed with gmsh as a simplex -- or, with
+#  --recombine, unstructured quadrilaterals -- mixed-dimensional grid conforming to every line.
+#  Inclined faults break K-orthogonality, so pair --md with --consistent (MPFA).  Perm / aperture
+#  / material logic mirrors porepy_2d_recharge.py: lines are added in the order faults, links,
+#  barriers, so a 1D subdomain is classified by its frac_num (fault < link < barrier bands).
+# --------------------------------------------------------------------------------------- #
+_F8_MD_FRAC_PERM_FACTOR = 1000.0     # conductive fault k (in-plane & normal) = rock * this
+_F8_LINK_PERM_FACTOR = 100.0         # F6 low-angle linking connector k = rock * this (--f6-factor)
+_F8_BARRIER_FACTOR = 1.0e-3          # sealing-barrier k = rock * this (--barrier-factor)
+_F8_BARRIER_THICKNESS = 2.0          # 1D barrier aperture [m] (seal thickness; 1-2 m)
+_F8_FAULT_CELL_SIZE_FACTOR = 0.5     # cell size along fracture lines = this * cell_size
+
+# Conductive faults F1-F5, DEEP (low-y) endpoint first: (x0, y0, x1, y1) in metres.
+_F8_FAULTS = [
+    (4000.0,    0.0, 2300.0, 3000.0),   # F1 master normal fault ~60 E (west graben wall)
+    (5000.0,  300.0, 6700.0, 3000.0),   # F2 antithetic fault ~58 W (east graben wall)
+    (3320.0, 1200.0, 4000.0, 3000.0),   # F3 W synthetic splay off F1 (intersects F1)
+    (4500.0,  250.0, 5250.0, 2100.0),   # F4 near-vertical central feeder, blind tip (+250 m)
+    (5630.0, 1300.0, 5000.0, 3000.0),   # F5 E synthetic splay off F2 (intersects F2)
+]
+
+# F6 low-angle (~5 deg) linking connector tying F3, F4, F2 beneath the cap; reduced grade.
+_F8_LINK_FAULTS = [
+    (3471.0, 1600.0, 5693.0, 1400.0),   # F6 (drop via --no-f6; grade via --f6-factor)
+]
+
+# Sealing barriers B1-B3: thin curved seals, each a polyline of (x, y) vertices [m].
+_F8_BARRIERS = [
+    [(2200.0, 2150.0), (3000.0, 2350.0), (3800.0, 2460.0), (4500.0, 2500.0),
+     (5200.0, 2460.0), (6000.0, 2350.0), (6800.0, 2150.0)],                    # B1 clay cap
+    [(800.0, 1620.0), (1700.0, 1560.0), (2500.0, 1520.0), (3150.0, 1500.0)],   # B2 west seal
+    [(5787.0, 1550.0), (6600.0, 1590.0), (7500.0, 1560.0), (8300.0, 1600.0)],  # B3 east seal
+]
+
+
+def _lines_from(entries, cu) -> list:
+    """(x0,y0,x1,y1) tuples -> pp.LineFracture objects in the solver's length units."""
+    return [pp.LineFracture(np.array([[cu(x0, "m"), cu(x1, "m")],
+                                      [cu(y0, "m"), cu(y1, "m")]]))
+            for x0, y0, x1, y1 in entries]
+
+
+def _f8_fault_fractures(cu) -> list:
+    """Faults F1-F5 as pp.LineFracture (full conductive grade)."""
+    return _lines_from(_F8_FAULTS, cu)
+
+
+def _f8_link_fractures(cu) -> list:
+    """F6 low-angle linking connector(s) as pp.LineFracture (reduced grade)."""
+    return _lines_from(_F8_LINK_FAULTS, cu)
+
+
+def _f8_barrier_fractures(cu) -> list:
+    """Barriers B1-B3 as pp.LineFracture seals: one straight segment per polyline edge, so a
+    curved seal is a connected chain of low-k blocking lines."""
+    segs = []
+    for poly in _F8_BARRIERS:
+        for (xa, ya), (xb, yb) in zip(poly[:-1], poly[1:]):
+            segs.append(pp.LineFracture(np.array([[cu(xa, "m"), cu(xb, "m")],
+                                                  [cu(ya, "m"), cu(yb, "m")]])))
+    return segs
+
+
+def _unique_gmsh_file() -> Path:
+    """A per-process gmsh output path. PorePy defaults to a fixed cwd-relative
+    'gmsh_frac_file.msh', which several --md runs in one directory would clobber -- a unique
+    name (by PID, in the temp dir) makes parallel meshing race-free."""
+    return Path(tempfile.gettempdir()) / f"porepy_2d_gmsh_{os.getpid()}.msh"
+
+
+def _create_mdg_maybe_recombine(mesh_args, network, file_name):
+    """Simplex mixed-dimensional grid, or gmsh-recombined quad-dominant cells when
+    --recombine is set (via the local _quad_mesh helper -- PorePy's importer reads only
+    triangles, so quad support is monkeypatched in for the meshing call only)."""
+    if _args.recombine:
+        from _quad_mesh import build_recombined_mdg
+        return build_recombined_mdg(mesh_args, network, file_name)
+    return pp.create_mdg("simplex", mesh_args, network, file_name=file_name)
 
 
 class BCFigure8(BC):
@@ -255,9 +345,39 @@ _ap.add_argument("--dt-min", type=float, default=DT_MIN, metavar="YR",
                  help=f"smallest allowed time step [years]; default {DT_MIN}")
 _ap.add_argument("--dt-max", type=float, default=DT_MAX, metavar="YR",
                  help=f"largest allowed time step [years]; default {DT_MAX}")
+_ap.add_argument("--dt-constant", type=float, default=None, metavar="YR",
+                 help="fixed time step [years]: disables adaptation and retries (no "
+                      "dt-cutting), so a stalled step fails outright -- the clean control "
+                      "for testing whether --imex rescues a kink; must divide each snap year")
 _ap.add_argument("--lag-buoyancy", action="store_true",
                  help="freeze the buoyancy upwind direction over each time step "
                       "(CSMP++'s frozen-upwind policy, Weis et al. sec. 2.7)")
+_ap.add_argument("--md", action="store_true", default=False,
+                 help="discrete fault & barrier network (F1-F6, B1-B3) on a gmsh "
+                      "mixed-dimensional mesh; pair with --consistent (MPFA)")
+_ap.add_argument("--recombine", action="store_true", default=False,
+                 help="build the --md mesh with unstructured QUADRILATERALS "
+                      "(gmsh recombination) instead of triangles")
+_ap.add_argument("--no-barriers", dest="barriers", action="store_false", default=True,
+                 help="drop the sealing barriers B1-B3 (faults only) under --md")
+_ap.add_argument("--barrier-factor", type=float, default=_F8_BARRIER_FACTOR, metavar="F",
+                 help=f"sealing-barrier permeability = rock * F; default {_F8_BARRIER_FACTOR:g}")
+_ap.add_argument("--no-f6", dest="f6", action="store_false", default=True,
+                 help="drop the F6 low-angle linking connector (A/B baseline)")
+_ap.add_argument("--f6-factor", type=float, default=_F8_LINK_PERM_FACTOR, metavar="F",
+                 help=f"F6 linking-connector permeability = rock * F; default "
+                      f"{_F8_LINK_PERM_FACTOR:g} (faults use {_F8_MD_FRAC_PERM_FACTOR:g})")
+_ap.add_argument("--imex", action="store_true", default=False,
+                 help="warm-start each Newton step with the IMEX predictor (implicit SPD "
+                      "pressure + explicit forward-flash transport/energy) to cut phase-front "
+                      "stiffness; residual-gated, so it never harms the FI solve")
+_ap.add_argument("--imex-verify", action="store_true", default=False,
+                 help="offline check: prepare the model, run the built-in IMEX residual "
+                      "verification (numpy explicit kernel vs the AD discretization) and exit; "
+                      "does NOT time-step")
+_ap.add_argument("--imex-verify-full", action="store_true", default=False,
+                 help="run the model normally and, at the first converged step (a real state), "
+                      "check the FULL numpy residual dt(acc)+div@flux-source against the AD residual")
 _args = _ap.parse_args()
 if not 0.0 <= _args.z_init <= 1.0:
     raise SystemExit(f"--z-init {_args.z_init} outside the graded table "
@@ -268,25 +388,50 @@ if _args.snap_years[0] != 0.0 or any(
                      "strictly increasing")
 if not 0.0 < _args.dt_min <= _args.dt_nominal <= _args.dt_max:
     raise SystemExit("time steps must satisfy 0 < --dt-min <= --dt-nominal <= --dt-max")
+if _args.recombine and not _args.md:
+    raise SystemExit("--recombine only applies together with --md")
+if _args.md and not _args.consistent:
+    print("NOTE: --md places inclined faults on an unstructured mesh; TPFA gravity is "
+          "inconsistent there -- consider adding --consistent (MPFA).")
 Q_ANOMALY = _args.q_anomaly
 Z_INIT = _args.z_init
 
 # Dynamic time stepping: dt grows/shrinks with Newton effort inside (3, 8) iterations,
 # recomputes at 0.3x on failure, and the schedule forces exact landing on every
-# snapshot instant, which is also exactly where VTUs are exported.
+# snapshot instant, which is also exactly where VTUs are exported.  With --dt-constant
+# the step is frozen instead (no adaptation, no retries): a stall fails the run rather
+# than being masked by dt-cutting -- the clean control for the --imex kink experiment.
 schedule = [y * year_to_second for y in _args.snap_years]
 tf = schedule[-1]
-time_manager = pp.TimeManager(
-    schedule=schedule,
-    dt_init=_args.dt_nominal * year_to_second,
-    dt_min_max=(_args.dt_min * year_to_second, _args.dt_max * year_to_second),
-    constant_dt=False,
-    iter_max=13,
-    iter_optimal_range=(3, 8),
-    iter_relax_factors=(0.5, 1.5),
-    recomp_factor=0.3,
-    print_info=True,
-)
+if _args.dt_constant is not None:
+    if _args.dt_constant <= 0.0:
+        raise SystemExit("--dt-constant must be positive")
+    _bad = [y for y in _args.snap_years
+            if abs(round(y / _args.dt_constant) * _args.dt_constant - y) > 1e-9 * max(1.0, y)]
+    if _bad:
+        raise SystemExit(f"--dt-constant {_args.dt_constant:g} must divide each snap year "
+                         f"evenly; offenders: {_bad} (e.g. an interval of 500 admits "
+                         "dt in {500, 250, 100, 50, 25, 10, 5, ...})")
+    dtc = _args.dt_constant * year_to_second
+    time_manager = pp.TimeManager(
+        schedule=schedule,
+        dt_init=dtc,
+        dt_min_max=(dtc, dtc),
+        constant_dt=True,
+        print_info=True,
+    )
+else:
+    time_manager = pp.TimeManager(
+        schedule=schedule,
+        dt_init=_args.dt_nominal * year_to_second,
+        dt_min_max=(_args.dt_min * year_to_second, _args.dt_max * year_to_second),
+        constant_dt=False,
+        iter_max=13,
+        iter_optimal_range=(3, 8),
+        iter_relax_factors=(0.5, 1.5),
+        recomp_factor=0.3,
+        print_info=True,
+    )
 times_to_export = list(schedule)
 
 params = {
@@ -297,7 +442,9 @@ params = {
                                     _args.q_anomaly, _args.z_init,
                                     _args.dt_nominal, _args.dt_min, _args.dt_max,
                                     _args.snap_years[-1],
-                                    lag=_args.lag_buoyancy)),
+                                    lag=_args.lag_buoyancy,
+                                    md=_args.md, recombine=_args.recombine,
+                                    dt_constant=_args.dt_constant)),
     "enable_buoyancy_effects": True,
     "material_constants": material_constants,
     "time_manager": time_manager,
@@ -316,6 +463,8 @@ params = {
     "slave_eliminated_secondaries": True,
 }
 params["consistent_discretization"] = _args.consistent
+params["imex_predictor"] = _args.imex
+params["imex_verify_full"] = _args.imex_verify_full
 params["lag_buoyancy_direction"] = _args.lag_buoyancy
 if _args.grid_type is not None:
     params["grid_type"] = _args.grid_type            # Figure8Geometry2D reads this key
@@ -335,6 +484,137 @@ class GeothermalBrineFlowModel(
             mesh_args = {**mesh_args,
                          "cell_size": self.units.convert_units(_args.cell_size, "m")}
         return mesh_args
+
+    # -- --md geometry: discrete fault & barrier network via gmsh -------------------------
+    def set_geometry(self) -> None:
+        """Fixed-dimensional Fig. 8 box by default; --md builds the F1-F6 / B1-B3 fault &
+        barrier network as a gmsh mixed-dimensional simplex (or quad, --recombine) grid."""
+        if not _args.md:
+            return super().set_geometry()
+        return self._set_geometry_md()
+
+    def _set_geometry_md(self) -> None:
+        self.set_domain()
+        cu = self.units.convert_units
+        faults = _f8_fault_fractures(cu)
+        links = _f8_link_fractures(cu) if _args.f6 else []
+        barriers = _f8_barrier_fractures(cu) if _args.barriers else []
+        # Order (faults, links, barriers) fixes the frac_num classification bands.
+        self._n_fault_lines = len(faults)
+        self._n_link_lines = len(links)
+        network = pp.create_fracture_network(faults + links + barriers, self._domain)
+        h = cu(100.0 if _args.cell_size is None else _args.cell_size, "m")
+        h_frac = _F8_FAULT_CELL_SIZE_FACTOR * h
+        mesh_args = {"cell_size": h, "cell_size_boundary": h,
+                     "cell_size_fracture": h_frac, "cell_size_min": h_frac}
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message=".*outside the domain boundary.*")
+            self.mdg = _create_mdg_maybe_recombine(mesh_args, network, _unique_gmsh_file())
+        self.nd = self.mdg.dim_max()
+        pp.set_local_coordinate_projections(self.mdg)
+
+    # -- fracture material / permeability / aperture (mirrors porepy_2d_recharge.py) ------
+    def _fracture_perm_factor(self, sd: pp.Grid) -> float:
+        """Rock-permeability multiplier for a lower-dim subdomain, by frac_num band:
+        fault (1000x) < F6 link (--f6-factor) < barrier seal (--barrier-factor). 0D
+        intersections are conductive (fault grade), as in the recharge/3D solvers."""
+        if sd.dim != self.mdg.dim_max() - 1:
+            return _F8_MD_FRAC_PERM_FACTOR
+        fn = int(sd.frac_num)
+        nf = getattr(self, "_n_fault_lines", 0)
+        nl = getattr(self, "_n_link_lines", 0)
+        if fn < nf:
+            return _F8_MD_FRAC_PERM_FACTOR
+        if fn < nf + nl:
+            return _args.f6_factor
+        return _args.barrier_factor
+
+    def _is_barrier_subdomain(self, sd: pp.Grid) -> bool:
+        """True for a 1D sealing barrier (added after faults+links -> frac_num in the top band)."""
+        if sd.dim != self.mdg.dim_max() - 1 or sd.num_cells == 0:
+            return False
+        return int(sd.frac_num) >= (getattr(self, "_n_fault_lines", 0)
+                                    + getattr(self, "_n_link_lines", 0))
+
+    def grid_aperture(self, grid: pp.Grid) -> np.ndarray:
+        if _args.md and self._is_barrier_subdomain(grid):
+            return np.full(grid.num_cells,
+                           self.units.convert_units(_F8_BARRIER_THICKNESS, "m"))
+        return super().grid_aperture(grid)
+
+    def _absolute_permeability(self, subdomains: list[pp.Grid]) -> np.ndarray:
+        vals = []
+        for sd in subdomains:
+            k = np.full(sd.num_cells, self.solid.permeability)
+            if sd.dim < self.mdg.dim_max():           # fault 1000x, F6 --f6-factor, barrier --barrier-factor
+                k *= self._fracture_perm_factor(sd)
+            vals.append(k)
+        return np.concatenate(vals) if vals else np.zeros(0)
+
+    def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        if not _args.md:
+            return super().permeability(subdomains)
+        perm = pp.wrap_as_dense_ad_array(
+            self._absolute_permeability(subdomains), name="permeability")
+        if pp.compositional_flow.is_fractional_flow(self):
+            op = self.isotropic_second_order_tensor(
+                subdomains, self.total_mass_mobility(subdomains) * perm)
+            op.set_name("diffusive_tensor_darcy")
+        else:
+            op = self.isotropic_second_order_tensor(subdomains, perm)
+        return op
+
+    def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        # Rock-only (fault_factor * rock) normal k, NOT the base mass-mobility weighting, which
+        # double-counts mobility on conductive fracture interfaces and blows Newton up (the known
+        # MD double-mobility bug; same fix as the recharge / 3D --md solvers).
+        if not _args.md:
+            return super().normal_permeability(interfaces)
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+        kn_sd = pp.wrap_as_dense_ad_array(
+            np.concatenate(
+                [np.full(sd.num_cells,
+                         self._fracture_perm_factor(sd) * self.solid.permeability)
+                 for sd in subdomains]
+            ) if subdomains else np.zeros(0),
+            name="normal_k",
+        )
+        kn = projection.secondary_to_mortar_avg() @ kn_sd
+        kn.set_name("normal_permeability")
+        return kn
+
+    def _material_id(self, sd: pp.Grid) -> np.ndarray:
+        """Per-cell tag (cached): 0 rock, 1 barrier seal, 2 + frac_num each conductive
+        fault/link (F6 is the frac_num just past F1-F5); 0D intersections inherit the
+        highest-material neighbour."""
+        cache = self.__dict__.setdefault("_material_id_cache", {})
+        if id(sd) in cache:
+            return cache[id(sd)]
+        n, dmax = sd.num_cells, self.mdg.dim_max()
+        if sd.dim == dmax:
+            m = np.zeros(n)                                   # rock
+        elif self._is_barrier_subdomain(sd):
+            m = np.ones(n)                                    # barrier seal
+        elif sd.dim == dmax - 1:
+            m = np.full(n, 2.0 + int(sd.frac_num))            # conductive fault / F6 link
+        else:                                                 # 0D intersection: inherit a neighbour
+            nb = []
+            for intf in self.mdg.subdomain_to_interfaces(sd):
+                a, b = self.mdg.interface_to_subdomain_pair(intf)
+                other = a if b is sd else b
+                if other is not sd and other.dim > sd.dim:
+                    nb.append(float(self._material_id(other)[0]))
+            m = np.full(n, max(nb) if nb else 0.0)
+        cache[id(sd)] = m
+        return m
+
+    def data_to_export(self):
+        data = super().data_to_export()
+        if _args.md:
+            for sd in self.mdg.subdomains():
+                data.append((sd, "material", self._material_id(sd)))
+        return data
 
 
 # Instance of the computational model
@@ -383,11 +663,34 @@ model.schur_complement_primary_variables = (
     pp.compositional_flow.get_primary_variables_cf(model)
 )
 
+# Offline verification of the pure-numpy IMEX explicit kernel against the AD discretization.
+if _args.imex_verify:
+    ok = model.imex_verify_residuals()
+    sys.exit(0 if ok else 1)
+
 # print geometry
 model.exporter.write_vtu()
 tb = time.time()
 runner.run()
 te = time.time()
+# Completion marker, written only when the time loop actually reached the FINAL TIME (not
+# tied to the trailing flux prints). run_scenarios.py treats this file as the authoritative
+# success/cache signal, so a run that finished but then exits via a teardown signal (e.g.
+# SIGPIPE) still counts as complete, and a completed run is never recomputed.
+_reached = model.time_manager.final_time_reached()
+_final_years = model.time_manager.time / year_to_second
+if _reached:
+    print(f"SIMULATION COMPLETE: reached final time {_final_years:g} years in {te - tb:.1f} s")
+    try:
+        with open(os.path.join(params["folder_name"], "run_complete.json"), "w") as _mf:
+            json.dump({"completed": True, "final_time_years": _final_years,
+                       "elapsed_run_seconds": te - tb,
+                       "num_dofs": int(model.equation_system.num_dofs()),
+                       "argv": sys.argv[1:]}, _mf, indent=2)
+    except OSError as _e:
+        print("WARNING: could not write completion marker:", _e)
+else:
+    print(f"SIMULATION INCOMPLETE: stopped at {_final_years:g} years (final time not reached)")
 print("Elapsed time run_time_dependent_model: ", te - tb)
 print("Total number of DoF: ", model.equation_system.num_dofs())
 print("Mixed-dimensional grid information: ", model.mdg)

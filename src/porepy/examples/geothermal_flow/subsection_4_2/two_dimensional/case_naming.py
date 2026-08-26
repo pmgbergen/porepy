@@ -18,8 +18,16 @@ def case_tag(scheme: str, consistent: bool = False, grid_type: str | None = None
              cell_size: float | None = None, q_anomaly: float | None = None,
              z_init: float | None = None, dt_nominal: float | None = None,
              dt_min: float | None = None, dt_max: float | None = None,
-             tf_years: float | None = None, lag: bool = False) -> str:
+             tf_years: float | None = None, lag: bool = False,
+             md: bool = False, recombine: bool = False,
+             dt_constant: float | None = None) -> str:
     parts = [scheme.replace("-", "_")]
+    if md:
+        parts.append("md")
+    if recombine:
+        parts.append("quad")
+    if dt_constant is not None:
+        parts.append(f"dtc{dt_constant:g}")
     if consistent:
         parts.append("mpfa")
     if grid_type not in (None, "cartesian"):
@@ -30,12 +38,13 @@ def case_tag(scheme: str, consistent: bool = False, grid_type: str | None = None
         parts.append(f"q{q_anomaly:g}")
     if z_init not in (None, 0.0):
         parts.append(f"z{z_init:g}")
-    if dt_nominal not in (None, 5.0):
-        parts.append(f"dt{dt_nominal:g}")
-    if dt_min not in (None, 0.01):
-        parts.append(f"dtmin{dt_min:g}")
-    if dt_max not in (None, 25.0):
-        parts.append(f"dtmax{dt_max:g}")
+    if dt_constant is None:            # adaptive-dt knobs are meaningless under a fixed step
+        if dt_nominal not in (None, 10.0):
+            parts.append(f"dt{dt_nominal:g}")
+        if dt_min not in (None, 0.1):
+            parts.append(f"dtmin{dt_min:g}")
+        if dt_max not in (None, 50.0):
+            parts.append(f"dtmax{dt_max:g}")
     if tf_years not in (None, 50000.0):
         parts.append(f"tf{tf_years:g}")
     if lag:

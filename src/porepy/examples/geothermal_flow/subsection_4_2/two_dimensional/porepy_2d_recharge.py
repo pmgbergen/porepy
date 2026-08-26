@@ -124,7 +124,7 @@ Z_TOP = 0.95                 # NaCl overall fraction [-] (z=0.95 -> s_h ~ 0.06 i
 Z_BOTTOM = 0.95              # NaCl overall fraction [-]
 
 # ------------------------------------------------------------------ boundary conditions
-P_RECHARGE = 3.0            # recharge (inlet) pressure [MPa] 
+P_RECHARGE = 4.0            # recharge (inlet) pressure [MPa] 
 T_RECHARGE = 80.0 + 273.15  # recharge temperature [K]  (COLD liquid meteoric water)
 Z_RECHARGE = 0.0            # recharge salinity [-]  (dilute / fresh -> dissolves halite)
 P_DISCHARGE = 2.0           # discharge (outlet) pressure [MPa]
@@ -968,5 +968,10 @@ if __name__ == "__main__":
 # new setting with simplexes:
 # python porepy_2d_recharge.py --report-every-years 1 --end-years 1000 --dt-nominal 1 --dt-min 0.0015625  --dt-max 50 --cell-size 50 --reduced-solver pardiso --simplex --md
 # python porepy_2d_recharge.py --report-every-years 1 --end-years 1000 --dt-nominal 1 --dt-min 0.0015625  --dt-max 50 --cell-size 50 --reduced-solver pardiso --simplex --consistent --md
+
+
+# time python porepy_2d_recharge.py --report-every-years 1 --end-years 500 --dt-nominal 1.0 --dt-min 0.0015625  --dt-max 50 --cell-size 100 --reduced-solver pardiso --simplex --no-barriers
+# 60515.05s user 38492.91s system 387% cpu 7:06:00.56 total
+
 
 

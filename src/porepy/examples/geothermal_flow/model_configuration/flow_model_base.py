@@ -19,6 +19,7 @@ from porepy.models.compositional_flow import (
     update_phase_properties,
 )
 from .transport_predictor import ReorderedTransportPredictor
+from .imex_predictor import IMEXTransportPredictor
 
 # PETSc imports (only if available)
 try:
@@ -313,7 +314,7 @@ class RelativeStorageLebesgueMetric(pp.EquationBasedLebesgueMetric):
                 for name, v in norms.items()}
 
 
-class _FlowModelBaseCore(ReorderedTransportPredictor):
+class _FlowModelBaseCore(IMEXTransportPredictor, ReorderedTransportPredictor):
     """Template-agnostic core of the flow model (all solver/discretisation logic). It is combined
     with one of the two compositional-flow templates below to form a concrete base; its ``super()``
     calls resolve to whichever template is mixed in after it in the concrete class's MRO."""
