@@ -1,3 +1,5 @@
+Please make sure you have read [CONTRIBUTING.md](https://github.com/pmgbergen/porepy/blob/develop/CONTRIBUTING.md) before submitting.
+
 ## Proposed changes
 
 Contributions to PorePy are highly appreciated. Clearly explain why this pull request (PR) is needed and why it should be accepted. If this PR solves an issue, explain how it is done. Please, also summarise the changes to the code.
