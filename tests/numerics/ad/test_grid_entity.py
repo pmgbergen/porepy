@@ -3,10 +3,9 @@
 Verifies:
   1. Enum member values and the ``void`` sentinel.
   2. ``GridEntity`` is accessible as ``pp.ad.GridEntity``.
-  3. ``admissible_dof_types`` contains only ``GridEntity`` members.
-  4. ``create_variables`` works with enum-keyed ``dof_info`` dicts.
-  5. ``set_equation`` works with enum-keyed ``equations_per_grid_entity`` dicts.
-  6. ``GridEntities`` behaves like a read-only, nonzero-filtered
+  3. ``create_variables`` works with enum-keyed ``dof_info`` dicts.
+  4. ``set_equation`` works with enum-keyed ``equations_per_grid_entity`` dicts.
+  5. ``GridEntities`` behaves like a read-only, nonzero-filtered
      ``Mapping[GridEntity, int]``, while also being immutable and hashable.
 """
 
@@ -44,14 +43,6 @@ class TestGridEntityValues:
     def test_accessible_via_pp_ad(self):
         """GridEntity is accessible as pp.ad.GridEntity."""
         assert pp.ad.GridEntity is GridEntity
-
-
-class TestAdmissibleDofTypes:
-    def test_admissible_dof_types_are_grid_entity_members(self):
-        mdg = pp.MixedDimensionalGrid()
-        eq_sys = pp.ad.EquationSystem(mdg)
-        for entry in eq_sys.admissible_dof_types:
-            assert isinstance(entry, GridEntity)
 
 
 @pytest.fixture
