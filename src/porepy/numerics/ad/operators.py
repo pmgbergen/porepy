@@ -15,6 +15,7 @@ from typing import (
     Any,
     Callable,
     Literal,
+    Mapping,
     Optional,
     Sequence,
     TypeVar,
@@ -1441,9 +1442,8 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
 
     Parameters:
         name: Variable name.
-        ndof: Number of dofs per grid element.
-            Valid keys are ``cells``, ``faces`` and ``nodes``. If not given, one DOF
-            per cell is assumed.
+        ndof: Number of dofs per grid element. If not given, one DOF per cell is
+            assumed.
         domain: A subdomain or interface on which the variable is defined.
         tags: A dictionary of tags.
 
@@ -1461,7 +1461,7 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
     def __init__(
         self,
         name: str,
-        ndof: Optional[dict[GridEntity, int]],
+        ndof: Optional[Union[GridEntities, Mapping[GridEntity, int]]],
         domain: GridLike,
         tags: Optional[dict[str, Any]] = None,
     ) -> None:
@@ -1474,7 +1474,8 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
         self._id: int = next(Variable._ids)
         """See :meth:`id`."""
 
-        # Construct the OperatorSpace for this variable's source/target.
+        # Construct the OperatorSpace for this variable's source/target. If no ndof is
+        # given, the called method will assign one dof per cell.
         op_space = OperatorSpace.from_domains([domain], ndof)  # type: ignore[arg-type]
 
         # Block a mypy warning here: Domain is known to be GridLike (grid, mortar grid,
