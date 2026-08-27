@@ -328,26 +328,9 @@ class EquationSystem:
             offset = 0
 
             for domain in equation.domains:
-                dofs_info = dict(equation.target.dof_info)
-                if isinstance(domain, pp.Grid):
-                    dofs_per_grid = (
-                        domain.num_cells
-                        * dofs_info.get(pp.ad.GridEntity.cells, 0)  # cells
-                        + domain.num_faces
-                        * dofs_info.get(pp.ad.GridEntity.faces, 0)  # faces
-                        + domain.num_nodes
-                        * dofs_info.get(pp.ad.GridEntity.nodes, 0)  # nodes
-                    )
-                elif isinstance(domain, pp.MortarGrid):
-                    # Mortar grid has no faces.
-                    dofs_per_grid = (
-                        domain.num_cells
-                        * dofs_info.get(pp.ad.GridEntity.cells, 0)  # cells
-                        + domain.num_nodes
-                        * dofs_info.get(pp.ad.GridEntity.nodes, 0)  # nodes
-                    )
-                else:
-                    raise ValueError(f"Unknown domain type: {domain}")
+                dofs_per_grid = pp.ad.OperatorSpace.from_domains(
+                    (domain,), equation.target.dof_info
+                ).num_dofs()
 
                 assert dofs_per_grid > 0, (
                     f"Equation {name} has no DOFs on domain {domain}."
