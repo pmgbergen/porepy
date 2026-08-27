@@ -8,7 +8,7 @@ combination with the momentum balance model, but can be used as a standalone mod
 """
 
 from functools import partial
-from typing import Callable, Optional, Sequence, cast
+from typing import Callable, Optional, cast
 
 import numpy as np
 
@@ -589,20 +589,11 @@ class ContactMechanics(
 # ! ---- VARIANT BASED ON RADIAL RETURN ---- ! #
 
 
-class RadialReturnTangentialContactMechanicsEquation:
+class RadialReturnTangentialContactMechanicsEquation(pp.PorePyModel):
     """Alternative formulation for tangential fracture deformation based on the
     classical radial return projection.
 
     """
-
-    tangential_component: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Mapping from a full vector to the tangential component."""
-
-    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.Projection]]
-    """Basis vectors for the tangential components."""
-
-    nd: int
-    """Ambient dimension of the problem."""
 
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact traction variable. Normally defined in a mixin instance of
@@ -614,9 +605,6 @@ class RadialReturnTangentialContactMechanicsEquation:
     instance of
     :class:`~porepy.models.constitutive_laws.DisplacementJump`.
     """
-
-    numerical: pp.NumericalConstants
-    """Numerical parameters of the model, used for the open state tolerance."""
 
     friction_bound: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Friction bound of a fracture. Normally provided by a mixin instance of
