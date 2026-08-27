@@ -197,7 +197,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         )
 
 
-class AngularMomentumEquation:
+class AngularMomentumEquation(pp.PorePyModel):
     """Conservation equation for the angular momentum balance.
 
     Intended used for mechanics formulations that employ the two-point stress
@@ -212,16 +212,7 @@ class AngularMomentumEquation:
     """Operator for the total rotation over a face."""
     rotation_stress: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Rotation stress variable."""
-    nd: int
-    """Ambient spatial dimension."""
-    mdg: pp.MixedDimensionalGrid
-    """The mixed-dimensional grid."""
-    equation_system: pp.EquationSystem
-    """The equation system."""
-    volume_integral: Callable[
-        [pp.ad.Operator, pp.SubdomainsOrBoundaries, int], pp.ad.Operator
-    ]
-    """Method to compute volume integrals."""
+
     balance_equation: Callable[
         [
             pp.SubdomainsOrBoundaries,
@@ -232,14 +223,16 @@ class AngularMomentumEquation:
         ],
         pp.ad.Operator,
     ]
-    """Method to construct balance equations."""
+    """Method to construct balance equations. Provided by
+    :class:`~porepy.models.abstract_equations.BalanceEquation`."""
 
     def set_equations(self) -> None:
         """Add the angular momentum equation to the set of equations."""
 
         # Set other equations, including for momentum balance and fracture deformation,
-        # by calling the parent class.
-        super().set_equations()  # type: ignore[misc]
+        # by calling the parent class. Mypy only sees the protocol's trivial body here;
+        # the call resolves to a sibling mixin at runtime.
+        super().set_equations()  # type: ignore[safe-super]
         matrix_subdomains = self.mdg.subdomains(dim=self.nd)
 
         angular_momentum = self.angular_momentum_equation(matrix_subdomains)
@@ -297,7 +290,7 @@ class AngularMomentumEquation:
         )
 
 
-class SolidMassEquation:
+class SolidMassEquation(pp.PorePyModel):
     """Conservation equation for the solid mass balance.
 
     Intended used for mechanics formulations that employ the two-point stress
@@ -310,16 +303,7 @@ class SolidMassEquation:
     """The second Lamé parameter."""
     total_pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
     """The total pressure variable."""
-    nd: int
-    """Ambient spatial dimension."""
-    mdg: pp.MixedDimensionalGrid
-    """The mixed-dimensional grid."""
-    equation_system: pp.EquationSystem
-    """The equation system."""
-    volume_integral: Callable[
-        [pp.ad.Operator, pp.SubdomainsOrBoundaries, int], pp.ad.Operator
-    ]
-    """Method to compute volume integrals."""
+
     balance_equation: Callable[
         [
             pp.SubdomainsOrBoundaries,
@@ -330,11 +314,12 @@ class SolidMassEquation:
         ],
         pp.ad.Operator,
     ]
-    """Method to construct balance equations."""
+    """Method to construct balance equations. Provided by
+    :class:`~porepy.models.abstract_equations.BalanceEquation`."""
 
     def set_equations(self) -> None:
         """Add the solid mass conservation equation to the system."""
-        super().set_equations()  # type: ignore[misc]
+        super().set_equations()  # type: ignore[safe-super]
         matrix_subdomains = self.mdg.subdomains(dim=self.nd)
 
         solid_mass = self.solid_mass_equation(matrix_subdomains)
@@ -506,7 +491,7 @@ class VariablesMomentumBalance(VariableMixin):
         )
 
 
-class VariablesThreeFieldMomentumBalance:
+class VariablesThreeFieldMomentumBalance(pp.PorePyModel):
     """Variables used in the three-field formulation of the momentum balance, needed to
     use the Tpsa discretization scheme.
 
@@ -522,12 +507,6 @@ class VariablesThreeFieldMomentumBalance:
     """String name of the rotation stress variable."""
     total_pressure_variable: str
     """String name of the total pressure variable."""
-    nd: int
-    """Ambient spatial dimension."""
-    mdg: pp.MixedDimensionalGrid
-    """The mixed-dimensional grid."""
-    equation_system: pp.EquationSystem
-    """The equation system."""
 
     def create_variables(self) -> None:
         """Set variables related to the three-field formulation of momentum balance.
@@ -542,12 +521,8 @@ class VariablesThreeFieldMomentumBalance:
             ValueError: If the spatial dimension is less than 2.
 
         """
-        # Call super to create variables defined by other mixin classes. EK: This class
-        # should really inherit from VariableMixin, which contains the necessary
-        # super().create_variables(). However, doing so lead to a completely
-        # incomprehensible MRO issue. Various workarounds did not work, and ignoring a
-        # safe-super issue seemed like the only reasonable approach.
-        super().create_variables()  # type:ignore[misc]
+        # Call super to create variables defined by other mixin classes.
+        super().create_variables()  # type: ignore[safe-super]
 
         # It is unclear to EK what to do with a 1d medium, so we raise an error.
         if self.nd < 2:
@@ -713,7 +688,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         return self.mdg.dim_min() < self.nd
 
 
-class SolutionStrategyThreeFieldMomentumBalance:
+class SolutionStrategyThreeFieldMomentumBalance(pp.PorePyModel):
     """Solution strategy for the three-field formulation of the momentum balance.
 
     This class is not meant to be mixed in directly, but is used by other mixin classes,
@@ -722,9 +697,9 @@ class SolutionStrategyThreeFieldMomentumBalance:
     """
 
     def __init__(self, params: Optional[dict] = None) -> None:
-        # No explicit parent class, but we expect different mixins with __init__ methods
-        # to be available.
-        super().__init__(params)  # type: ignore[call-arg]
+        # Mypy sees the protocol's trivial __init__; at runtime this reaches the
+        # SolutionStrategy of whichever model this is mixed into.
+        super().__init__(params)  # type: ignore[safe-super]
 
         # The only task is to set some keywords.
         self.rotation_stress_variable: str = "rotation_stress"
@@ -896,7 +871,7 @@ class InitialConditionsMomentumBalance(pp.InitialConditionMixin):
         return np.zeros(intf.num_cells * self.nd)
 
 
-class InitialConditionsThreeFieldMomentumBalance:
+class InitialConditionsThreeFieldMomentumBalance(pp.PorePyModel):
     """Mixin for setting initial conditions for the rotation and total pressure
     variables."""
 
@@ -906,12 +881,6 @@ class InitialConditionsThreeFieldMomentumBalance:
     """Operator for the rotation stress variable."""
     total_pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Operator for the total pressure variable."""
-    nd: int
-    """Ambient spatial dimension."""
-    equation_system: pp.ad.EquationSystem
-    """The equation system."""
-    mdg: pp.MixedDimensionalGrid
-    """The mixed-dimensional grid."""
 
     def set_initial_values_primary_variables(self) -> None:
         """Method to set initial values for displacement, contact traction and interface
@@ -923,7 +892,8 @@ class InitialConditionsThreeFieldMomentumBalance:
             - :meth:`ic_values_total_pressure`
 
         """
-        # Super call for compatibility with multi-physics.
+        # Super call for compatibility with multi-physics. The method is not part
+        # of the protocol, so mypy cannot see the sibling mixin providing it.
         super().set_initial_values_primary_variables()  # type: ignore[misc]
 
         for sd in self.mdg.subdomains():
