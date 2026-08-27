@@ -136,8 +136,8 @@ class AdParser:
         if state is None:
             state = equation_system.get_variable_values(iterate_index=0)
 
-        # Create an AdArray representation of the state, if the derivative is requested.
-        # If not, the state is used as is (as a numpy array).
+        # Map each variable in the operator tree to its representation: an AdArray if
+        # the derivative is requested, or a numpy array if not.
         ad_base = self._initialize_variables(
             op if isinstance(op, list) else [op], state, equation_system, derivative
         )
@@ -366,15 +366,16 @@ class AdParser:
     def _evaluate_single(
         self,
         op: pp.ad.Operator,
-        ad_base: np.ndarray | pp.ad.AdArray,
+        ad_base: Mapping[pp.ad.Variable, np.ndarray | pp.ad.AdArray],
         equation_system: pp.EquationSystem,
     ) -> float | np.ndarray | sps.spmatrix | pp.ad.AdArray:
         """Evaluate a single operator.
 
         Parameters:
             op: The operator to evaluate.
-            ad_base: The base for the automatic differentiation. This should be an
-                AdArray if the derivative is requested, and a numpy array if not.
+            ad_base: Mapping from each variable in the operator tree of op to its
+                representation, as produced by :meth:`_initialize_variables`. Values
+                are AdArrays if the derivative is requested, and numpy arrays if not.
             equation_system: The EquationSystem wherein the system state is defined.
 
         Returns:
