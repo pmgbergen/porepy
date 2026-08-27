@@ -49,7 +49,7 @@ class MockFailure(pp.solvers.NonlinearSolverStatusFailed):
 def _make_var(name: str):
     """Create a variable for tests in this file."""
     return pp.ad.Variable(
-        name=name, ndof={pp.ad.GridEntity.cells: 1}, domain=pp.CartGrid(1)
+        name=name, ndof=pp.ad.GridEntities(cells=1), domain=pp.CartGrid(1)
     )
 
 

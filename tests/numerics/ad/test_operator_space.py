@@ -29,7 +29,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.numerics.ad.ad_utils import MergedOperator
-from porepy.numerics.ad.grid_entity import GridEntity
+from porepy.numerics.ad.grid_entity import GridEntities, GridEntity
 from porepy.numerics.ad.operators import (
     DenseArray,
     DomainType,
@@ -257,23 +257,21 @@ class TestScalarSpace:
 
 class TestVariableSpace:
     def test_variable_has_subdomain_space(self, two_subdomains):
-        var = Variable("p", {GridEntity.cells: 1}, two_subdomains[0])
+        var = Variable("p", GridEntities(cells=1), two_subdomains[0])
         assert var.source.domain_type == DomainType.subdomains
         assert var.source == var.target
 
     def test_variable_space_contains_correct_grid(self, two_subdomains):
-        var = Variable("p", {GridEntity.cells: 1}, two_subdomains[0])
+        var = Variable("p", GridEntities(cells=1), two_subdomains[0])
         assert var.source.grids == (two_subdomains[0],)
 
     def test_variable_space_dof_info(self, two_subdomains):
-        var = Variable(
-            "u", {GridEntity.cells: 2, GridEntity.faces: 1}, two_subdomains[0]
-        )
+        var = Variable("u", GridEntities(cells=2, faces=1), two_subdomains[0])
         assert var.source.dof_info == {GridEntity.cells: 2, GridEntity.faces: 1}
 
     def test_variable_on_mortar_grid_has_interface_space(self, one_mortar):
         """Variable on a MortarGrid gets DomainType.interfaces."""
-        var = Variable("lam", {GridEntity.cells: 2}, one_mortar)
+        var = Variable("lam", GridEntities(cells=2), one_mortar)
         assert var.source.domain_type == DomainType.interfaces
         assert var.source.grids == (one_mortar,)
         assert var.source.dof_info == {GridEntity.cells: 2}
@@ -285,8 +283,8 @@ class TestMixedDimensionalVariableSpace:
     @pytest.fixture
     def md_var(self, two_subdomains):
         g1, g2 = two_subdomains
-        v1 = Variable("p", {GridEntity.cells: 1}, g1)
-        v2 = Variable("p", {GridEntity.cells: 1}, g2)
+        v1 = Variable("p", GridEntities(cells=1), g1)
+        v2 = Variable("p", GridEntities(cells=1), g2)
         return MixedDimensionalVariable([v1, v2])
 
     def test_md_variable_source_target_are_union(self, md_var, two_subdomains):
@@ -345,8 +343,8 @@ class TestSurrogateOperatorSpace:
     ):
         """SurrogateOperator instantiated directly with dof_info=None gets cells:1."""
         g1, g2 = two_subdomains
-        v1 = Variable("p", {GridEntity.cells: 1}, g1)
-        v2 = Variable("p", {GridEntity.cells: 1}, g2)
+        v1 = Variable("p", GridEntities(cells=1), g1)
+        v2 = Variable("p", GridEntities(cells=1), g2)
         op = SurrogateOperator(
             name="bare",
             domains=[g1, g2],
