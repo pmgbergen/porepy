@@ -130,7 +130,7 @@ class MockEquationSystem:
         {
             pp.ad.Variable(
                 "x",
-                ndof={pp.ad.GridEntity.cells: 1},
+                ndof=pp.ad.GridEntities(cells=1),
                 domain=pp.CartGrid(nx=1),
             ): np.array([0]),
         }
