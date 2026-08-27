@@ -16,7 +16,7 @@ from typing_extensions import TypeAlias
 import porepy as pp
 
 from . import _ad_parser
-from .grid_entity import GridEntity
+from .grid_entity import GridEntities, GridEntity
 from .operators import MixedDimensionalVariable, Operator, Variable
 
 __all__ = ["EquationSystem"]
@@ -445,6 +445,9 @@ class EquationSystem:
                 raise ValueError(
                     f"Non-admissible DOF types {non_admissible} requested."
                 )
+        grid_entities = (
+            None if dof_info is None else GridEntities.from_mapping(dof_info)
+        )
 
         # Container for all grid variables.
         variables = []
@@ -491,7 +494,7 @@ class EquationSystem:
                     data[key][name] = {}
 
             # Create grid variable.
-            new_variable = Variable(name, dof_info, domain=grid, tags=tags)
+            new_variable = Variable(name, grid_entities, domain=grid, tags=tags)
 
             # Store it in the system
             variables.append(new_variable)
