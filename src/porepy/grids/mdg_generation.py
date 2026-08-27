@@ -857,6 +857,11 @@ def create_mdg(
 
     mdg: pp.MixedDimensionalGrid
 
+    # Keep a reference to the user-provided constraints before they are consumed
+    # (and removed from kwargs) by the simplex preprocessing below. This is needed
+    # for the fractures-outside-domain check further down.
+    constraints: np.ndarray = kwargs.get("constraints", np.array([]))
+
     # Unstructured cases
     dim: int = _infer_dimension_from_network(fracture_network)
     if grid_type == "simplex":
@@ -908,7 +913,6 @@ def create_mdg(
             )
             mdg = pp.meshing.tensor_grid(fracs=fractures, x=xs, y=ys, z=zs, **kwargs)
 
-    constraints = kwargs.get("constraints", np.array([]))
     if (len(mdg.subdomains(dim=dim - 1)) + constraints.size) < len(
         fracture_network.fractures
     ):
