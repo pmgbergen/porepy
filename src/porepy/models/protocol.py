@@ -13,6 +13,34 @@ Warning:
     Protocols use ``__slot__`` which leads to unforeseeable behaviour when combined
     with multiple inheritance and mixing.
 
+    Beyond that, the protocol must not appear in the runtime MRO *at all*, not even
+    as an empty placeholder class. Being a common base of most - but not all - mixins,
+    such a placeholder acts as a linearisation barrier: C3 must order it after every
+    class that inherits it, so anything following it in one base's MRO is pushed
+    behind everything preceding it in another. The effect is silent, since an empty
+    class shadows nothing, but it can demote an override mixin behind the very class
+    it was written to override. The runtime stand-in therefore returns an empty tuple
+    from ``__mro_entries__`` (PEP 560), so that ``class X(pp.PorePyModel)`` is
+    compiled as ``class X:``.
+
+Note:
+    Because the protocol is a base class for mypy but not at runtime, the two see
+    different linearisations of a composed model. Mypy resolves an inter-mixin call to
+    the protocol's declaration and computes an MRO that still contains
+    :class:`PorePyModel`; at runtime the call resolves to whichever mixin the
+    composition actually put first, and :class:`PorePyModel` is absent from
+    ``__mro__`` entirely.
+
+    This is why ``# type: ignore[safe-super]`` is occasionally needed on ``super()``
+    calls into sibling mixins - mypy sees the protocol's trivial body - and why
+    ``isinstance(model, PorePyModel)`` raises a ``TypeError``: the runtime object is
+    not a class, and the protocol is not ``runtime_checkable``. Annotate with the
+    protocol instead of testing against it.
+
+    The divergence is benign precisely as long as every implementation of a protocol
+    member stays signature-compatible with the declaration here, which ``mypy src``
+    enforces.
+
 """
 
 from pathlib import Path
@@ -26,8 +54,36 @@ import numpy as np
 if not TYPE_CHECKING:
     # This branch is accessed in python runtime.
     # NOTE See Warning in module docstring before attempting anything here.
-    class PorePyModel:
-        """This is an empty placeholder of the protocol, used mainly for type hints."""
+    class _PorePyModelPlaceholder:
+        """Runtime stand-in for the PorePyModel protocol.
+
+        Returning an empty tuple from ``__mro_entries__`` (PEP 560) means that
+        ``class X(pp.PorePyModel)`` is compiled as ``class X:``. The protocol
+        contributes *nothing* to the MRO and can therefore never act as a
+        linearisation barrier between mixins.
+
+        Note that this makes ``pp.PorePyModel`` an instance rather than a class at
+        runtime. Annotations, ``type[...]``, ``Optional[...]`` and ``TypeVar``
+        bounds are unaffected; ``isinstance`` against it raises a ``TypeError``.
+
+        Dynamic class assembly must use ``types.new_class`` rather than the
+        three-argument ``type``: only the former resolves ``__mro_entries__``. This
+        concerns the protocol alone - ``type`` remains fine for assembling models from
+        ordinary mixins, as :func:`porepy.applications.test_utils.models.add_mixin`
+        does.
+
+        """
+
+        __name__ = "PorePyModel"
+        __qualname__ = "PorePyModel"
+
+        def __mro_entries__(self, bases: tuple) -> tuple:
+            return ()
+
+        def __repr__(self) -> str:
+            return "<protocol porepy.models.protocol.PorePyModel>"
+
+    PorePyModel = _PorePyModelPlaceholder()
 
 else:
     # This branch is accessed by mypy and linters.
@@ -1200,9 +1256,15 @@ else:
         such as VSCode can properly autocomplete these hints. You must either inherit
         from this class or provide it as a type annotation for the PorePy model object.
 
+        Inheriting from it is safe in any base position: at runtime the protocol is
+        replaced by a placeholder which contributes nothing to the MRO, so it can
+        neither reorder sibling mixins nor provoke a ``TypeError`` about an
+        inconsistent MRO. See the Warning in the module docstring.
+
         Note:
             This can also be considered the list of the functionality which must be
             implemented by an instanciated model, although it does not verify it in
-            runtime, since it is not an abstract base class.
+            runtime, since it is not an abstract base class. In particular,
+            ``isinstance`` cannot be used against this protocol.
 
         """
