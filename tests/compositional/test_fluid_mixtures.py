@@ -39,10 +39,10 @@ def get_mock_model(
 
     # mimicing pressure and temperatur variable
     def pressure(grid):
-        return pp.ad.Variable("pressure", {pp.ad.GridEntity.cells: 1}, grid[0])
+        return pp.ad.Variable("pressure", pp.ad.GridEntities(cells=1), grid[0])
 
     def temperature(grid):
-        return pp.ad.Variable("pressure", {pp.ad.GridEntity.cells: 1}, grid[0])
+        return pp.ad.Variable("pressure", pp.ad.GridEntities(cells=1), grid[0])
 
     class Model(
         compositional.FluidMixin,
