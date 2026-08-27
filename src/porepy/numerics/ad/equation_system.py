@@ -114,19 +114,6 @@ class EquationSystem:
 
     """
 
-    admissible_dof_types: tuple[GridEntity, GridEntity, GridEntity] = (
-        GridEntity.cells,
-        GridEntity.faces,
-        GridEntity.nodes,
-    )
-    """A set denoting admissible types of local DOFs for variables.
-
-    - nodes: DOFs per grid node.
-    - cells: DOFs per grid cell.
-    - faces: DOFS per grid face.
-
-    """
-
     def __init__(self, mdg: pp.MixedDimensionalGrid) -> None:
         ### PUBLIC
         self.mdg: pp.MixedDimensionalGrid = mdg
@@ -470,8 +457,8 @@ class EquationSystem:
         # per cell (see Variable.__init__), which is always admissible.
         if dof_info is not None:
             requested_type = set(dof_info.keys())
-            if not requested_type.issubset(set(self.admissible_dof_types)):
-                non_admissible = requested_type.difference(self.admissible_dof_types)
+            if not requested_type.issubset(set(GridEntity)):
+                non_admissible = requested_type.difference(set(GridEntity))
                 raise ValueError(
                     f"Non-admissible DOF types {non_admissible} requested."
                 )
