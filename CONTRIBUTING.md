@@ -52,8 +52,9 @@ documentation is built and hosted separately).
   or brittle for long-term maintenance (e.g. tests that pin incidental implementation details). If you are unsure
   what constitutes appropriate coverage, ask in the PR.
 * Write a short docstring or comment for non-trivial tests explaining what a failure most likely indicates. This
-  is what saves time when the test fails in CI six months from now.
-* The test directory structure should mirror the source structure: tests for `src/porepy/path/to/file.py` normall belong
+  saves time when the test fails in CI six months from now.
+* The test directory structure should mirror the source structure: tests for `src/porepy/path/to/file.py` normally
+  belong
   in `tests/path/to/test_file.py`. If this rule of thumb makes no sense in your case, ask in the PR.
 
 ## Commit messages
