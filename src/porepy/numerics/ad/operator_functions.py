@@ -270,12 +270,11 @@ class DiagonalJacobianFunction(AbstractFunction):
         self,
         multipliers: float | list[float],
         name: str,
+        *,
+        source: OperatorSpace,
+        target: Optional[OperatorSpace] = None,
     ):
-        # For now, use unclear() for source and target, since the function is not aware
-        # of the grid/dof context of its arguments. This should be improved if this
-        # code is brought back to shape at some point.
-        source = OperatorSpace.unclear()
-        target = OperatorSpace.unclear()
+
         super().__init__(name=name, source=source, target=target)
         # check and format input for further use
         if isinstance(multipliers, list):
