@@ -122,7 +122,7 @@ Example:
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Any, Callable, Optional, Sequence, cast
+from typing import Any, Callable, Mapping, Optional, Sequence, Union, cast
 
 import numpy as np
 import scipy.sparse as sps
@@ -132,7 +132,7 @@ from porepy.numerics.ad.forward_mode import AdArray
 
 from ._operator_states import IterativeOperator, TimeDependentOperator
 from .functions import FloatType
-from .grid_entity import GridEntity
+from .grid_entity import GridEntities, GridEntity
 from .operators import Operations, Operator
 
 __all__ = [
@@ -162,8 +162,8 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         domains: Arguments to its call.
         children: The first-order dependencies of the called
             :class:`SurrogateFactory` in AD form (defined on the same ``domains``).
-        dof_info: Optional mapping from :class:`GridEntity` to the number of DOFs per
-            grid entity. Defaults to ``{GridEntity.cells: 1}``.
+        dof_info: Mapping from grid entities to the number of DOFs per entity. Defaults
+            to ``{GridEntity.cells: 1}``.
         domain_type: The type of domain (subdomains or interfaces) that *domains*
             represents. If not given, it is inferred from the grid types found in
             *domains*.
@@ -174,7 +174,7 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         name: str,
         domains: Sequence[pp.Grid] | Sequence[pp.MortarGrid],
         children: Sequence[pp.ad.Variable],
-        dof_info: Optional[dict[GridEntity, int]] = None,
+        dof_info: Optional[Union[GridEntities, Mapping[GridEntity, int]]] = None,
         domain_type: Optional[pp.ad.DomainType] = None,
     ) -> None:
         op_space = pp.ad.OperatorSpace.from_domains(
@@ -444,7 +444,9 @@ class SurrogateFactory:
             dependencies are defined there.
         dof_info: ``default=None``
 
-            See
+            A :class:`~porepy.numerics.ad.grid_entity.GridEntities`, or (for backwards
+            compatibility) a mapping from :class:`GridEntity` to the number of DOFs
+            per that entity. See also
             :meth:`~porepy.numerics.ad.equation_system.EquationSystem.create_variables`.
 
             The number of DOFs of this expression is used to validate the shape of
@@ -462,7 +464,7 @@ class SurrogateFactory:
         name: str,
         mdg: pp.MixedDimensionalGrid,
         dependencies: Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]],
-        dof_info: Optional[dict[GridEntity, int]] = None,
+        dof_info: Optional[Union[GridEntities, Mapping[GridEntity, int]]] = None,
     ) -> None:
         if len(dependencies) == 0:
             raise ValueError("Surrogate operators must have dependencies.")
@@ -476,7 +478,9 @@ class SurrogateFactory:
         self._name: str = name
         """See :meth:`name`."""
 
-        self._dof_info: Optional[dict[GridEntity, int]] = dof_info
+        self._dof_info: Optional[Union[GridEntities, Mapping[GridEntity, int]]] = (
+            dof_info
+        )
         """Passed at insantiation. ``None`` leads to scalar, cell-wise dofs (see
         :meth:`~porepy.numerics.ad.operator_space.OperatorSpace.from_domains`).
         """
