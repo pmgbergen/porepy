@@ -19,7 +19,7 @@ from . import _ad_parser
 from .grid_entity import GridEntity
 from .operators import MixedDimensionalVariable, Operator, Variable
 
-__all__ = ["EquationSystem", "GridEntity"]
+__all__ = ["EquationSystem"]
 
 
 # For Python3.8, a direct definition of type aliases with list is apparently not posible
