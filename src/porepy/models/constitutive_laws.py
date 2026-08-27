@@ -3225,14 +3225,11 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
         mortar_projection = pp.ad.MortarProjections(
             self.mdg, subdomains, interfaces, self.nd
         )
-        # Spelled out, the stress on the interface is found by mapping the contact
-        # traction (a primary variable) from local to global coordinates (note the
-        # transpose), prolonging the traction from the fracture subdomains to all
-        # subdomains (the domain of definition for the mortar projections), projecting
-        # to the interface, and switching the sign of the traction depending on the sign
-        # of the mortar sides.
-        # Expand the cell-wise scalar characteristic traction to an nd-vector before
-        # scaling the local fracture traction.
+        # The characteristic contact traction is nominally a scalar, but the
+        # implementation allows for a domain-dependent expression. It must is combined
+        # with contact_traction (also defined on fracture_subdomains) while the two
+        # still share that domain. Expand the cell-wise scalar characteristic traction
+        # to an nd-vector before scaling the local fracture traction.
         scalar_to_nd = pp.ad.sum_projection_list(
             self.basis(
                 fracture_subdomains,
@@ -3243,6 +3240,12 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
         scaled_traction = (
             scalar_to_nd @ self.characteristic_contact_traction(fracture_subdomains)
         ) * self.contact_traction(fracture_subdomains)
+        # Spelled out, the stress on the interface is found by mapping the (rescaled)
+        # contact traction from local to global coordinates (note the transpose),
+        # prolonging the traction from the fracture subdomains to all subdomains (the
+        # domain of definition for the mortar projections), projecting to the interface,
+        # and switching the sign of the traction depending on the sign of the mortar
+        # sides.
         traction = (
             mortar_projection.sign_of_mortar_sides()
             @ mortar_projection.secondary_to_mortar_int()
