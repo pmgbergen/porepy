@@ -29,6 +29,25 @@ Beyond what tools can check, we also value:
 * No speculative generality: avoid abstractions, configuration options, or error handling for cases the code
   does not actually need to support yet.
 
+## Models and mixins
+
+Models are assembled by multiple inheritance from a large number of mixin classes, and the method resolution
+order (MRO) decides which implementation wins. A few conventions keep that tractable:
+
+* Inherit `pp.PorePyModel` in every model mixin, and do not re-declare members the protocol already provides.
+  At runtime the protocol is replaced by a placeholder that contributes nothing to the MRO, so inheriting it is
+  safe in any base position: it can neither reorder sibling mixins nor cause an inconsistent-MRO `TypeError`.
+* Prefer `pp.PorePyModel` over a concrete mixin (`pp.BalanceEquation`, `pp.VariableMixin`, `pp.SolutionStrategy`,
+  ...) for a mixin that is only bundled into other mixins. A concrete base imposes a category ordering on every
+  model the bundle is mixed into, which may contradict the ordering that model already uses.
+* Never import `typing.Protocol` outside an `if TYPE_CHECKING:` block.
+* `isinstance(model, pp.PorePyModel)` raises `TypeError` by design; annotate with the protocol instead of testing
+  against it.
+* Mypy and the interpreter compute different MROs, since the protocol is a base class only for mypy. This is why
+  `# type: ignore[safe-super]` is occasionally needed on `super()` calls into sibling mixins. The divergence is
+  safe only as long as every implementation of a protocol member stays signature-compatible with its declaration,
+  which `mypy src` enforces. See the `Note` in `porepy.models.protocol` for details.
+
 ## Documentation
 
 All public functions, classes, and modules should be documented following the
