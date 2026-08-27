@@ -2,21 +2,16 @@
 
 Contributions to PorePy are always welcome, in the form of [pull requests](https://github.com/pmgbergen/porepy/pulls),
 [issues](https://github.com/pmgbergen/porepy/issues/new), or [questions](https://github.com/pmgbergen/porepy/discussions/new/choose).
-This applies equally to human contributors and to coding agents working on the repository.
 
 By submitting a pull request, you license your code under PorePy's [license](https://github.com/pmgbergen/porepy/blob/develop/LICENSE),
 and affirm that you own the copyright of the code or have permission to distribute it under that license.
 
 ## Getting started
 
+For installation instructions, see [Install.md](Install.md).
+
 New feature and bugfix branches should be based on, and target, `develop` (`main` tracks releases only).
-Install PorePy with the development and testing extras:
 
-```bash
-pip install --user -e .[development,testing]
-```
-
-See [Install.md](Install.md) for platform-specific notes.
 
 ## Code style
 
