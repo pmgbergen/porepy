@@ -6,6 +6,7 @@ import pytest
 from scipy.sparse import csr_matrix
 
 import porepy as pp
+from porepy.utils.ui_and_logging import DummyProgressBar, progressbar_class
 
 mock_logger = logging.getLogger(__name__)
 
