@@ -176,6 +176,56 @@ class Well:
         return s
 
 
+def _validate_convex_cell(
+    cell: int,
+    vertices: np.ndarray,
+    normals: np.ndarray,
+    offsets: np.ndarray,
+    tol: float,
+) -> None:
+    """Verify that a cell is convex and has planar faces.
+
+    The segment-cell intersection in :func:`_segment_cell_interval` represents the cell
+    as an intersection of half-spaces, which is exact only for a convex cell with planar
+    faces. Both properties hold for simplices, Cartesian cells and Voronoi cells, but
+    not for agglomerated cells, and planarity may fail for perturbed polyhedral grids.
+    The
+    check is applied only to the cells a well actually passes through, so its cost is
+    proportional to the number of well-cell connections rather than to the grid size.
+
+    Parameters:
+        cell: Index of the cell, used in the error message.
+        vertices: ``shape=(3, num_vertices_of_cell)``
+
+            Vertices of the cell.
+        normals: ``shape=(3, num_faces_of_cell)``
+
+            Outward unit normals of the faces of the cell.
+        offsets: ``shape=(num_faces_of_cell,)``
+
+            Plane constants of the faces of the cell.
+        tol: Relative geometric tolerance, scaled by the diameter of the cell.
+
+    Raises:
+        ValueError: If the cell is not convex, or if one of its faces is not planar.
+
+    """
+    diameter = float(np.linalg.norm(vertices.max(axis=1) - vertices.min(axis=1)))
+    abs_tol = tol * diameter
+
+    # Signed distance from every vertex to every face plane. For a convex cell with
+    # planar faces all vertices lie on the inner side of, or on, every face plane.
+    signed_distance = normals.T @ vertices - offsets[:, None]
+
+    if np.any(signed_distance > abs_tol):
+        raise ValueError(
+            f"Cell {cell} of the rock matrix grid is not convex, or has non-planar "
+            "faces. The well-matrix intersection computation represents cells as "
+            "intersections of half-spaces and is valid only for convex cells with "
+            "planar faces."
+        )
+
+
 def _segment_cell_interval(
     start: np.ndarray,
     end: np.ndarray,

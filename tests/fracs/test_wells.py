@@ -8,6 +8,7 @@ Content:
     boundary of a cell.
   - TestDistributeSharedIntervals: Unit tests of the rule that shares a
     segment between cells without losing or double counting length.
+  - TestValidateConvexCell: Unit tests of the convexity and planarity guard.
 
 The central invariant, used throughout, is that the lengths attributed to the cells a
 well segment passes through must sum to the length of that segment (or, for a segment
@@ -24,7 +25,11 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.fracs.wells_3d import _distribute_shared_intervals, _segment_cell_interval
+from porepy.fracs.wells_3d import (
+    _distribute_shared_intervals,
+    _segment_cell_interval,
+    _validate_convex_cell,
+)
 
 
 class TestWellClass:
@@ -187,3 +192,57 @@ class TestDistributeSharedIntervals:
     def test_no_candidates(self) -> None:
         """A segment outside the grid produces no connections."""
         assert _distribute_shared_intervals({}, 1e-10) == {}
+
+
+class TestValidateConvexCell:
+    """Rejection of cells the half-space representation cannot describe.
+
+    Representing a cell as an intersection of half-spaces is exact only for a convex
+    cell with planar faces. Such a cell must be refused explicitly, because the clipping
+    would otherwise return a plausible but wrong contact length rather than fail.
+    """
+
+    def test_convex_cell_accepted(self) -> None:
+        """The unit cube is convex with planar faces."""
+        normals, offsets = _unit_cube_half_spaces()
+        vertices = np.array(
+            [[x, y, z] for x in (0.0, 1.0) for y in (0.0, 1.0) for z in (0.0, 1.0)]
+        ).T
+        _validate_convex_cell(0, vertices, normals, offsets, 1e-5)
+
+    def test_reflex_vertex_rejected(self) -> None:
+        """A vertex pushed outside a face plane makes the cell non-convex."""
+        normals, offsets = _unit_cube_half_spaces()
+        vertices = np.array(
+            [[x, y, z] for x in (0.0, 1.0) for y in (0.0, 1.0) for z in (0.0, 1.0)]
+        ).T
+        # Move one vertex outside the half-space of the top face.
+        vertices[:, -1] = np.array([1.0, 1.0, 1.3])
+        with pytest.raises(ValueError, match="not convex"):
+            _validate_convex_cell(3, vertices, normals, offsets, 1e-5)
+
+    def test_non_planar_face_rejected(self) -> None:
+        """A face whose vertices do not share a plane is rejected."""
+        normals, offsets = _unit_cube_half_spaces()
+        vertices = np.array(
+            [[x, y, z] for x in (0.0, 1.0) for y in (0.0, 1.0) for z in (0.0, 1.0)]
+        ).T
+        # Lift a single vertex of the top face off its plane.
+        vertices[2, -1] = 1.05
+        with pytest.raises(ValueError, match="not convex"):
+            _validate_convex_cell(7, vertices, normals, offsets, 1e-5)
+
+    def test_tolerance_is_relative_to_cell_size(self) -> None:
+        """A perturbation below tolerance is accepted at any cell scale."""
+        scale = 1e-3
+        normals, offsets = _unit_cube_half_spaces()
+        offsets = offsets * scale
+        vertices = (
+            np.array(
+                [[x, y, z] for x in (0.0, 1.0) for y in (0.0, 1.0) for z in (0.0, 1.0)]
+            ).T
+            * scale
+        )
+        # A perturbation well below the relative tolerance times the cell diameter.
+        vertices[2, -1] += 1e-9 * scale
+        _validate_convex_cell(0, vertices, normals, offsets, 1e-5)
