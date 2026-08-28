@@ -17,8 +17,8 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics import ad
 
-from .operators import Operations
 from .operator_space import DomainType
+from .operators import Operations
 
 # Maps each binary Operations member to the callable that implements it, so
 # _evaluate_single can dispatch directly instead of building and eval()-ing a source
