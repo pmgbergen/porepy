@@ -16,7 +16,7 @@ mixed-dimensional grid by
 from __future__ import annotations
 
 import logging
-from typing import Iterator, Optional
+from typing import Callable, Iterator, Optional
 
 import gmsh
 import numpy as np
@@ -388,6 +388,163 @@ def _distribute_shared_intervals(
     return {cell: f for cell, f in fractions.items() if f > tol}
 
 
+def _well_segments(sd_w: pp.Grid) -> tuple[np.ndarray, np.ndarray]:
+    """Endpoints of the segments a well grid consists of.
+
+    Parameters:
+        sd_w: The well grid, of dimension one.
+
+    Returns:
+        A tuple consisting of
+
+        :obj:`~numpy.ndarray`: ``shape=(3, sd_w.num_cells)``
+
+            Start point of each segment.
+
+        :obj:`~numpy.ndarray`: ``shape=(3, sd_w.num_cells)``
+
+            End point of each segment.
+
+    """
+    cell_nodes = sd_w.cell_nodes()
+    cells = np.arange(sd_w.num_cells)
+    node_pairs = (
+        cell_nodes.indices[
+            pp.array_operations.expand_index_pointers(
+                cell_nodes.indptr[cells], cell_nodes.indptr[cells + 1]
+            )
+        ]
+        .reshape((-1, 2))
+        .T
+    )
+    return sd_w.nodes[:, node_pairs[0]], sd_w.nodes[:, node_pairs[1]]
+
+
+def _segment_connections(
+    start: np.ndarray,
+    end: np.ndarray,
+    tree: pp.adtree.ADTree,
+    half_spaces: Callable[[int], tuple[np.ndarray, np.ndarray]],
+    min_length: float,
+    tol: float,
+) -> dict[int, float]:
+    """Distribute a single well segment over the rock matrix cells it passes through.
+
+    The tree provides the cells whose bounding box the segment may enter, which are then
+    intersected exactly.
+
+    Parameters:
+        start: ``shape=(3,)``
+
+            Start point of the segment.
+        end: ``shape=(3,)``
+
+            End point of the segment.
+        tree: Search tree over the cells of the rock matrix grid.
+        half_spaces: Half space representation of a rock matrix cell, given its index.
+        min_length: Minimum fraction of the segment for a connection to be kept.
+        tol: Relative geometric tolerance.
+
+    Returns:
+        For each rock matrix cell the segment passes through, the fraction of the
+        segment length attributed to it.
+
+    """
+    bounding_box = np.sort(np.vstack((start, end)), axis=0).ravel()
+    candidates = tree.search(pp.adtree.ADTNode("well segment", bounding_box))
+
+    intervals = {}
+    for candidate in candidates:
+        cell = tree.nodes[candidate].key
+        interval = _segment_cell_interval(start, end, *half_spaces(cell), tol)
+        if interval is not None:
+            intervals[cell] = interval
+
+    return _distribute_shared_intervals(intervals, min_length)
+
+
+def _well_matrix_projection(
+    sd_max: pp.Grid,
+    sd_w: pp.Grid,
+    tree: pp.adtree.ADTree,
+    min_length: float,
+    tol: float,
+) -> sps.csc_matrix:
+    """Map the cells of the rock matrix onto the cells of a well.
+
+    Parameters:
+        sd_max: The rock matrix grid.
+        sd_w: The well grid.
+        tree: Search tree over the cells of the rock matrix grid.
+        min_length: Minimum fraction of a well segment for a connection to be kept.
+        tol: Relative geometric tolerance.
+
+    Returns:
+        Matrix with ``shape=(sd_w.num_cells, sd_max.num_cells)``, whose entry
+        ``(i, c)`` is the fraction of well cell ``i`` that lies inside rock matrix
+        cell ``c``.
+
+    """
+    cell_faces = sd_max.cell_faces.tocsc()
+    cell_nodes = sd_max.cell_nodes().tocsc()
+
+    def validated_half_spaces(cell: int) -> tuple[np.ndarray, np.ndarray]:
+        """Half space representation of a rock matrix cell, checked for convexity."""
+        normals, offsets = _cell_half_spaces(sd_max, cell, cell_faces)
+        loc = slice(cell_nodes.indptr[cell], cell_nodes.indptr[cell + 1])
+        vertices = sd_max.nodes[:, cell_nodes.indices[loc]]
+        _validate_convex_cell(cell, vertices, normals, offsets, tol)
+        return normals, offsets
+
+    well_cells, matrix_cells, fractions = [], [], []
+    start, end = _well_segments(sd_w)
+    for well_cell, (segment_start, segment_end) in enumerate(zip(start.T, end.T)):
+        connections = _segment_connections(
+            segment_start, segment_end, tree, validated_half_spaces, min_length, tol
+        )
+        for matrix_cell, fraction in connections.items():
+            well_cells.append(well_cell)
+            matrix_cells.append(matrix_cell)
+            fractions.append(fraction)
+
+    return sps.csc_matrix(
+        (fractions, (well_cells, matrix_cells)),
+        shape=(sd_w.num_cells, sd_max.num_cells),
+    )
+
+
+def _add_well_matrix_interface(
+    mdg: pp.MixedDimensionalGrid,
+    sd_max: pp.Grid,
+    sd_w: pp.Grid,
+    projection: sps.csc_matrix,
+) -> None:
+    """Couple a well to the rock matrix through a new interface.
+
+    The mortar grid is a copy of the well grid, so that each well cell carries one set
+    of interface unknowns, however many rock matrix cells it passes through.
+
+    Parameters:
+        mdg: The mixed-dimensional grid the interface is added to.
+        sd_max: The rock matrix grid.
+        sd_w: The well grid.
+        projection: Map from the cells of the rock matrix onto the cells of the well, as
+            returned by :func:`_well_matrix_projection`.
+
+    """
+    side_grid = {pp.grids.mortar_grid.MortarSides.LEFT_SIDE: sd_w.copy()}
+    mg = pp.MortarGrid(sd_w.dim, side_grid, codim=sd_max.dim - sd_w.dim)
+
+    mg._primary_to_mortar_int = projection
+    mg._primary_to_mortar_avg = projection.copy()
+    mg._secondary_to_mortar_int = sps.diags(np.ones(sd_w.num_cells), format="csc")
+    mg._secondary_to_mortar_avg = sps.diags(np.ones(sd_w.num_cells), format="csc")
+    mg._set_projections()
+    mg.compute_geometry()
+
+    mdg.add_interface(mg, (sd_max, sd_w), projection)
+
+
 def compute_well_rock_matrix_intersections(
     mdg: pp.MixedDimensionalGrid,
     cells: Optional[np.ndarray] = None,
@@ -399,8 +556,7 @@ def compute_well_rock_matrix_intersections(
     To be called after the well grids are constructed. The rock matrix cells are assumed
     to be convex with planar faces, which is verified for the cells the wells pass
     through; see :func:`_validate_convex_cell`. A single grid of highest dimension is
-    assumed. To speed up the geometrical computation an ``ADTree`` is used to find
-    candidate cells, which are then intersected exactly.
+    assumed.
 
     Parameters:
         mdg: The mixed-dimensional grid containing all the elements.
@@ -416,107 +572,22 @@ def compute_well_rock_matrix_intersections(
         tol: ``default=1e-5``
 
             Relative geometric tolerance used in the computations, scaled by a local
-            length scale (the segment length or the cell diameter, as appropriate).
+            length scale, the segment length or the cell diameter as appropriate.
 
     Raises:
         ValueError: If a rock matrix cell traversed by a well is not convex, or has
             non-planar faces.
 
     """
-    # Extract the dimension of the rock matrix, assumed to be of highest dimension.
-    dim_max: int = mdg.dim_max()
-    # We assume only one single higher dimensional grid, needed for the ADTree.
-    sd_max: pp.Grid = mdg.subdomains(dim=dim_max)[0]
-    # Construct an ADTree for fast computation.
+    # The rock matrix is assumed to be the single grid of highest dimension.
+    sd_max: pp.Grid = mdg.subdomains(dim=mdg.dim_max())[0]
     tree = pp.adtree.ADTree(2 * sd_max.dim, sd_max.dim)
     tree.from_grid(sd_max, cells)
 
-    # Extract the grids of the wells of co-dimension 2.
-    well_subdomains: list[pp.Grid] = [
-        g for g in mdg.subdomains(dim=dim_max - 2) if hasattr(g, "well_num")
+    # Wells are of co-dimension two relative to the rock matrix.
+    well_subdomains = [
+        sd for sd in mdg.subdomains(dim=sd_max.dim - 2) if hasattr(sd, "well_num")
     ]
-
-    # Geometric description of the rock matrix, converted once outside the loops.
-    cell_faces_csc = sd_max.cell_faces.tocsc()
-    cell_nodes_csc = sd_max.cell_nodes().tocsc()
-    # Half-space representations are cached, since neighbouring well segments commonly
-    # traverse the same cells.
-    half_spaces: dict[int, tuple[np.ndarray, np.ndarray]] = {}
-
-    def validated_half_spaces(cell: int) -> tuple[np.ndarray, np.ndarray]:
-        """Half-space representation of a cell, computed and validated once."""
-        if cell not in half_spaces:
-            normals, offsets = _cell_half_spaces(sd_max, cell, cell_faces_csc)
-            loc = slice(cell_nodes_csc.indptr[cell], cell_nodes_csc.indptr[cell + 1])
-            vertices = sd_max.nodes[:, cell_nodes_csc.indices[loc]]
-            _validate_convex_cell(cell, vertices, normals, offsets, tol)
-            half_spaces[cell] = (normals, offsets)
-        return half_spaces[cell]
-
-    # Loop on all the well grids.
     for sd_w in well_subdomains:
-        # Get the cells of the well grid as segments (start, end).
-        sd_w_cn = sd_w.cell_nodes()
-        sd_w_cells = np.arange(sd_w.num_cells)
-        first = sd_w_cn.indptr[sd_w_cells]
-        second = sd_w_cn.indptr[sd_w_cells + 1]
-        n_w = (
-            sd_w_cn.indices[pp.array_operations.expand_index_pointers(first, second)]
-            .reshape((-1, 2))
-            .T
-        )
-        start = sd_w.nodes[:, n_w[0]]
-        end = sd_w.nodes[:, n_w[1]]
-
-        # Lists for the cell_cell_map.
-        primary_secondary_I, primary_secondary_J, primary_secondary_data = [], [], []
-
-        # Operate on the segments.
-        for seg_id, (seg_start, seg_end) in enumerate(zip(start.T, end.T)):
-            # Create the box for the segment by ordering its start and end.
-            box = np.sort(np.vstack((seg_start, seg_end)), axis=0).ravel()
-            # Extract the id of the ad nodes.
-            seg_adnodes = tree.search(pp.adtree.ADTNode("dummy_node", box))
-            # Extract the key of the ad nodes which is the cell id.
-            seg_cells = [tree.nodes[n].key for n in seg_adnodes]
-
-            # Intersect the segment with each candidate cell.
-            intervals: dict[int, tuple[float, float]] = {}
-            for c in seg_cells:
-                normals, offsets = validated_half_spaces(c)
-                interval = _segment_cell_interval(
-                    seg_start, seg_end, normals, offsets, tol
-                )
-                if interval is not None:
-                    intervals[c] = interval
-
-            # Resolve parts of the segment claimed by more than one cell, and store the
-            # requested information to build the projection operator.
-            for c, fraction in _distribute_shared_intervals(
-                intervals, min_length
-            ).items():
-                primary_secondary_I.append(seg_id)
-                primary_secondary_J.append(c)
-                primary_secondary_data.append(fraction)
-
-        # Primary to secondary map.
-        primary_secondary_map = sps.csc_matrix(
-            (primary_secondary_data, (primary_secondary_I, primary_secondary_J)),
-            shape=(sd_w.num_cells, sd_max.num_cells),
-        )
-
-        # Add a new edge to the mixed-dimensional grid.
-
-        # Create the mortar grid.
-        side_g = {pp.grids.mortar_grid.MortarSides.LEFT_SIDE: sd_w.copy()}
-        mg = pp.MortarGrid(sd_w.dim, side_g, codim=sd_max.dim - sd_w.dim)
-        # Set the maps.
-        mg._primary_to_mortar_int = primary_secondary_map
-        mg._primary_to_mortar_avg = primary_secondary_map.copy()
-        mg._secondary_to_mortar_int = sps.diags(np.ones(sd_w.num_cells), format="csc")
-        mg._secondary_to_mortar_avg = sps.diags(np.ones(sd_w.num_cells), format="csc")
-        mg._set_projections()
-        # Compute the geometry and save the mortar grid.
-        mg.compute_geometry()
-
-        mdg.add_interface(mg, (sd_max, sd_w), primary_secondary_map)
+        projection = _well_matrix_projection(sd_max, sd_w, tree, min_length, tol)
+        _add_well_matrix_interface(mdg, sd_max, sd_w, projection)
