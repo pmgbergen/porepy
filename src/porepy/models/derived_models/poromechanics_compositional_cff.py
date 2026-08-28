@@ -8,10 +8,10 @@ This module combines:
 - Energy balance (non-isothermal)
 
 The coupling is achieved through:
-1. Effective (total) stress: \sigma = \sigma_mechanical - \alpha·p·I - \beta·K·(T-T_ref)·I
-2. Porosity: \phi = \phi_ref + (\alpha-\phi_ref)(1-\phi)/K·\delta p + \alpha·\div u + thermal_contribution
+1. Effective (total) stress: sigma = sigma_mechanical - alpha·p·I - beta·K·(T-T_ref)·I
+2. Porosity: phi = phi_ref + (alpha-phi_ref)(1-phi)/K·delta p + alpha·div u + thermal_contribution
 3. Fracture aperture from displacement jump (when fractures present),
-where \alpha is the Biot constant given as 0<=\alpha<=1
+where alpha is the Biot constant given as 0<=alpha<=1
 
 Author: Michael Oguntola
 Based on PorePy framework
@@ -38,7 +38,7 @@ class EquationsPoromechanicsCompositional(
 ):
     """Coupled equations for poromechanics with compositional multiphase flow.
     Equations: 
-        - Momentum balance (displacement): \div σ + \rho_s.g = 0
+        - Momentum balance (displacement): div sigma + rho_s.g = 0
         - Total mass balance equation (pressure equation)
         - Component mass balance equations (for NaCl)
         - Energy balance equation (enthalpy equation)
@@ -114,7 +114,7 @@ class ConstitutiveLawsPoromechanicsCompositional(
     """
     def stress(self, subdomains:list[pp.Grid]) -> pp.ad.Operator:
         """Total stress = mechanical + pressure + thermal contributions
-            \sigma = \sigma_mechanical - \alpha·p·I - \beta·K·\delta T·I
+            sigma = sigma_mechanical - alpha·p·I - beta·K·delta T·I
 
         Parameters:
             subdomains: List of nd-dimensional subdomains.
@@ -268,6 +268,21 @@ class SolutionStrategyPoromechanicsCompositional(
             self.add_nonlinear_discretization(
                 self.darcy_flux_discretization(fractures_and_intersections).flux(),
             )
+
+    # def add_nonlinear_darcy_flux_discretization(self) -> None:
+    #     """Poromechanics rely by default on Darcy flux re-discretization.
+
+    #     The re-discretization is performed only on subdomains with
+    #     ``dim < nd`` due to changes in aperture!
+    #     The default behavior defined here concerns only those domains.
+
+    #     """
+
+    #     self.add_nonlinear_diffusive_flux_discretization(
+    #         self.darcy_flux_discretization(
+    #             [sd for sd in self.mdg.subdomains() if sd.dim < self.nd]
+    #         ).flux(),
+    #     )
 
 
 # =======================================================================
