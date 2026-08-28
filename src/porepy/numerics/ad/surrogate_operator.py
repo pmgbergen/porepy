@@ -323,31 +323,22 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         # By assumption, there will be one argument per row per dependency.
         row_ptr = np.arange(0, num_args * num_rows + 1, num_args)
 
-        all_diagonal = True
-        for arg in args:
-            if not isinstance(arg, AdArray) or not arg.is_diagonal:
-                all_diagonal = False
-                break
+        all_diagonal = all(isinstance(arg, AdArray) and arg.is_diagonal for arg in args)
 
         if all_diagonal:
             # The Jacobian matrix is in this case a numpy array of stacked derivatives.
             # To convert this into a DiagonalAdArray, it is necessary to also provide
-            # indices and offsets of the respective derivatives, but his will have to
+            # indices and offsets of the respective derivatives, but this will have to
             # be handled by the calling function.
             return derivatives
         else:
-            # Make sure all the Jacobians are CSR matrices before fetching the indices of
-            # the data.
-            csr_jacs = []
-            for arg in args:
-                if isinstance(arg, AdArray):
-                    if arg.is_diagonal:
-                        # If the arguments are a mix of diagonal and standard AdArrays,
-                        # we will need to convert the former to full beore constructing
-                        # the Jacobian matrix for the surrogate operator.
-                        csr_jacs.append(arg.to_full().jac)
-                    else:
-                        csr_jacs.append(arg.jac.tocsr())
+            # Make sure all the Jacobians are CSR matrices before fetching the
+            # indices of the data. Arguments with a diagonal representation are
+            # converted to full (dense-column) AdArrays first, since this mix of
+            # diagonal and standard AdArrays cannot be summed directly.
+            csr_jacs = [
+                arg.to_full().jac.tocsr() for arg in args if isinstance(arg, AdArray)
+            ]
 
             # Stack the derivative values, then ravel them in Fortran order, so that the
             # indices for the zeroth row comes in the first num_args places etc.
