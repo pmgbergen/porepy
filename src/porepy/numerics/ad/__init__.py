@@ -10,10 +10,10 @@ etc.
 __all__ = []
 
 from . import (
+    ad_array,
     ad_utils,
     discretizations,
     equation_system,
-    forward_mode,
     functions,
     get_set_values,
     grid_entity,
@@ -25,10 +25,10 @@ from . import (
     surrogate_operator,
     time_derivatives,
 )
+from .ad_array import *
 from .ad_utils import *
 from .discretizations import *
 from .equation_system import *
-from .forward_mode import *
 from .functions import *
 from .get_set_values import *
 from .grid_entity import *
@@ -48,7 +48,7 @@ __all__.extend(operator_functions.__all__)
 __all__.extend(operator_space.__all__)
 __all__.extend(discretizations.__all__)
 __all__.extend(functions.__all__)
-__all__.extend(forward_mode.__all__)
+__all__.extend(ad_array.__all__)
 __all__.extend(grid_operators.__all__)
 __all__.extend(equation_system.__all__)
 __all__.extend(time_derivatives.__all__)

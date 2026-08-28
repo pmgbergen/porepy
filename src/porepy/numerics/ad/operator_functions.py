@@ -22,7 +22,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.forward_mode import AdArray
+from porepy.numerics.ad.ad_array import AdArray
 
 from .functions import FloatType
 from .operator_space import OperatorSpace
@@ -243,7 +243,7 @@ class AbstractFunction(Operator):
         """Abstract method for evaluating the callable passed at instantiation.
 
         The returned numpy array will be set as
-        :attr:`~porepy.numerics.ad.forward_mode.AdArray.val` in for cases when any
+        :attr:`~porepy.numerics.ad.ad_array.AdArray.val` in for cases when any
         child is parsed as an Ad array.
         Otherwise the value returned here will be returned directly as the numerical
         representation of this instance.
@@ -267,7 +267,7 @@ class AbstractFunction(Operator):
         by this instance.
 
         The returned matrix will be set as
-        :attr:`~porepy.numerics.ad.forward_mode.AdArray.jac` in for cases when any
+        :attr:`~porepy.numerics.ad.ad_array.AdArray.jac` in for cases when any
         child is parsed as an Ad array.
 
         This method is called in :meth:`func` if any argument is an Ad array.

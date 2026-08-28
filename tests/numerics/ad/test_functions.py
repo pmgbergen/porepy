@@ -22,7 +22,7 @@ import scipy.sparse as sps
 
 from porepy.numerics.ad import AdArray
 from porepy.numerics.ad import functions as af
-from porepy.numerics.ad.forward_mode import DiagonalAdArray
+from porepy.numerics.ad.ad_array import DiagonalAdArray
 
 warnings.simplefilter("ignore", sps.SparseEfficiencyWarning)
 
