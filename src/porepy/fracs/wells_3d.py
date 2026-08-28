@@ -245,6 +245,69 @@ def _segment_cell_interval(
     return t_enter, t_exit
 
 
+def _distribute_shared_intervals(
+    intervals: dict[int, tuple[float, float]], tol: float
+) -> dict[int, float]:
+    """Distribute a segment over the cells it passes through, without double counting.
+
+    A segment that runs along a face or an edge of the grid lies on the boundary of
+    every cell sharing that face or edge, and each of them claims the same part of the
+    segment. The overlapping part is split equally between them, which is symmetric in
+    the sharing cells and preserves the total: the distributed fractions sum to the
+    fraction of the segment covered by at least one cell.
+
+    Note:
+        Splitting equally is a modelling choice. The physical well lies on the interface
+        between the cells, so no cell contains it, and the assignment is discontinuous
+        in the well position regardless of the rule chosen: a well displaced
+        infinitesimally to one side belongs entirely to the cell on that side. An equal
+        split is the average of the two one-sided limits.
+
+    Parameters:
+        intervals: For each cell, the parameter interval of the segment inside it, as
+            returned by :func:`_segment_cell_interval`.
+        tol: Relative tolerance below which a sub-interval is treated as empty.
+
+    Returns:
+        For each cell, the fraction of the segment length attributed to it. Cells whose
+        attributed fraction is zero are omitted.
+
+    """
+    if len(intervals) == 0:
+        return {}
+
+    cells = list(intervals)
+    breakpoints = np.unique(np.array([t for cell in cells for t in intervals[cell]]))
+
+    fractions: dict[int, float] = {cell: 0.0 for cell in cells}
+    shared = False
+    for lower, upper in zip(breakpoints[:-1], breakpoints[1:]):
+        width = upper - lower
+        if width <= tol:
+            continue
+        midpoint = 0.5 * (lower + upper)
+        covering = [
+            cell
+            for cell in cells
+            if intervals[cell][0] <= midpoint <= intervals[cell][1]
+        ]
+        if len(covering) == 0:
+            continue
+        if len(covering) > 1:
+            shared = True
+        for cell in covering:
+            fractions[cell] += width / len(covering)
+
+    if shared:
+        logger.warning(
+            "A well segment runs along a face or an edge of the rock matrix grid. It "
+            "lies on the boundary of several cells, and the shared length has been "
+            "split equally between them."
+        )
+
+    return {cell: f for cell, f in fractions.items() if f > tol}
+
+
 def compute_well_rock_matrix_intersections(
     mdg: pp.MixedDimensionalGrid,
     cells: Optional[np.ndarray] = None,

@@ -6,6 +6,8 @@ Content:
   - TestSegmentCellInterval: Unit tests of the segment-cell clipping,
     including the degenerate configurations in which a well touches the
     boundary of a cell.
+  - TestDistributeSharedIntervals: Unit tests of the rule that shares a
+    segment between cells without losing or double counting length.
 
 The central invariant, used throughout, is that the lengths attributed to the cells a
 well segment passes through must sum to the length of that segment (or, for a segment
@@ -22,7 +24,7 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.fracs.wells_3d import _segment_cell_interval
+from porepy.fracs.wells_3d import _distribute_shared_intervals, _segment_cell_interval
 
 
 class TestWellClass:
@@ -144,3 +146,44 @@ class TestSegmentCellInterval:
         p = np.array([0.5, 0.5, 0.5])
         normals, offsets = _unit_cube_half_spaces()
         assert _segment_cell_interval(p, p, normals, offsets, 1e-5) is None
+
+
+class TestDistributeSharedIntervals:
+    """Distribution of a segment over cells, without loss or double counting."""
+
+    def test_disjoint_intervals_are_kept(self) -> None:
+        """Cells covering different parts of the segment keep their own lengths."""
+        fractions = _distribute_shared_intervals({0: (0.0, 0.4), 1: (0.4, 1.0)}, 1e-10)
+        assert np.isclose(fractions[0], 0.4)
+        assert np.isclose(fractions[1], 0.6)
+
+    def test_fully_shared_interval_is_split_equally(self) -> None:
+        """A segment in a shared face is claimed by both cells, and split evenly."""
+        fractions = _distribute_shared_intervals({3: (0.0, 1.0), 7: (0.0, 1.0)}, 1e-10)
+        assert np.isclose(fractions[3], 0.5)
+        assert np.isclose(fractions[7], 0.5)
+        assert np.isclose(sum(fractions.values()), 1.0)
+
+    def test_edge_shared_by_many_cells(self) -> None:
+        """A segment along an edge is split equally between all cells sharing it."""
+        cells = {c: (0.0, 1.0) for c in range(6)}
+        fractions = _distribute_shared_intervals(cells, 1e-10)
+        assert np.allclose(list(fractions.values()), 1.0 / 6.0)
+        assert np.isclose(sum(fractions.values()), 1.0)
+
+    def test_partial_overlap(self) -> None:
+        """Only the overlapping part is shared; the rest is attributed in full."""
+        fractions = _distribute_shared_intervals({0: (0.0, 0.6), 1: (0.4, 1.0)}, 1e-10)
+        # [0, 0.4] to cell 0, [0.4, 0.6] shared, [0.6, 1.0] to cell 1.
+        assert np.isclose(fractions[0], 0.4 + 0.1)
+        assert np.isclose(fractions[1], 0.4 + 0.1)
+        assert np.isclose(sum(fractions.values()), 1.0)
+
+    def test_segment_partly_outside_all_cells(self) -> None:
+        """Length not covered by any cell is not attributed to one."""
+        fractions = _distribute_shared_intervals({0: (0.25, 0.75)}, 1e-10)
+        assert np.isclose(sum(fractions.values()), 0.5)
+
+    def test_no_candidates(self) -> None:
+        """A segment outside the grid produces no connections."""
+        assert _distribute_shared_intervals({}, 1e-10) == {}
