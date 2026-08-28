@@ -223,9 +223,6 @@ def _validate_convex_cell(
     as an intersection of half-spaces, which is exact only for a convex cell with planar
     faces. Both properties hold for simplices, Cartesian cells and Voronoi cells, but
     not for agglomerated cells, and planarity may fail for perturbed polyhedral grids.
-    The
-    check is applied only to the cells a well actually passes through, so its cost is
-    proportional to the number of well-cell connections rather than to the grid size.
 
     Parameters:
         cell: Index of the cell, used in the error message.
@@ -270,10 +267,9 @@ def _segment_cell_interval(
     """Intersect a line segment with a convex cell.
 
     The cell is represented as an intersection of half-spaces, and the parameter
-    interval ``[0, 1]`` of the segment is clipped against each of them in turn. Unlike
-    an approach based on explicit segment-face intersections, this treats a segment that
-    touches the boundary of the cell as an ordinary case rather than a special one: a
-    segment running along a face or an edge of the cell is reported with its full
+    interval ``[0, 1]`` of the segment is clipped against each of them in turn.
+
+    A segment running along a face or an edge of the cell is reported with its full
     length, and a segment merely grazing a vertex is reported with zero length. A
     segment running along a shared face or edge is therefore claimed by every cell
     sharing it, which :func:`_distribute_shared_intervals` resolves.

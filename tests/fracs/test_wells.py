@@ -302,10 +302,7 @@ def test_search_matches_brute_force_oracle(trajectory, grid_type) -> None:
 def test_well_length_is_conserved(trajectory, num_cells) -> None:
     """All of a well segment inside the domain must be attributed to some cell.
 
-    This is the invariant that the previous implementation violated: it silently dropped
-    cells whose intersection with the well touched a face or an edge, so part of the
-    well was in contact with no cell at all. A failure here means well-matrix mass
-    transfer is being lost or double counted.
+    A failure here means well-matrix mass transfer is being lost or double counted.
     """
     matrix = pp.StructuredTetrahedralGrid([num_cells] * 3, [1, 1, 1])
     matrix.compute_geometry()
@@ -418,8 +415,6 @@ def test_search_examines_a_shrinking_fraction_of_the_grid() -> None:
     of it. Wall-clock timings of the individual phases are reported alongside, so that
     the test doubles as a benchmark record when the search is changed.
 
-    Marked as ``skipped`` so that it runs on the weekly schedule rather than on every
-    pull request; see the project ``conftest.py``.
     """
     points = np.array([[0.31, 0.31, 0.31], [0.27, 0.27, 0.27], [0.05, 0.5, 0.95]])
 
