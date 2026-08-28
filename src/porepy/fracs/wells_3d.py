@@ -176,6 +176,75 @@ class Well:
         return s
 
 
+def _segment_cell_interval(
+    start: np.ndarray,
+    end: np.ndarray,
+    normals: np.ndarray,
+    offsets: np.ndarray,
+    tol: float,
+) -> Optional[tuple[float, float]]:
+    """Intersect a line segment with a convex cell.
+
+    The cell is represented as an intersection of half-spaces, and the parameter
+    interval ``[0, 1]`` of the segment is clipped against each of them in turn. Unlike
+    an approach based on explicit segment-face intersections, this treats a segment that
+    touches the boundary of the cell as an ordinary case rather than a special one: a
+    segment running along a face or an edge of the cell is reported with its full
+    length, and a segment merely grazing a vertex is reported with zero length. A
+    segment running along a shared face or edge is therefore claimed by every cell
+    sharing it, which :func:`_distribute_shared_intervals` resolves.
+
+    Parameters:
+        start: ``shape=(3,)``
+
+            Start point of the segment.
+        end: ``shape=(3,)``
+
+            End point of the segment.
+        normals: ``shape=(3, num_faces_of_cell)``
+
+            Outward unit normals of the faces of the cell.
+        offsets: ``shape=(num_faces_of_cell,)``
+
+            Plane constants of the faces of the cell.
+        tol: Relative geometric tolerance, scaled by the length of the segment.
+
+    Returns:
+        The parameter interval ``(t_enter, t_exit)``, with ``0 <= t_enter <= t_exit <=
+        1``, of the part of the segment inside the cell, or ``None`` if the segment does
+        not intersect the cell.
+
+    """
+    direction = end - start
+    length = np.linalg.norm(direction)
+    if length == 0.0:
+        return None
+    abs_tol = tol * length
+
+    # Signed distance from the start point to each face plane, positive outside, and the
+    # rate at which that distance changes along the segment.
+    distance = normals.T @ start - offsets
+    rate = normals.T @ direction
+
+    t_enter, t_exit = 0.0, 1.0
+    for dist, dt in zip(distance, rate):
+        if np.abs(dt) <= abs_tol:
+            # The segment is parallel to this face. It is either entirely inside the
+            # half-space (possibly lying in the face itself) or entirely outside it.
+            if dist > abs_tol:
+                return None
+            continue
+        t = -dist / dt
+        if dt > 0:
+            t_exit = min(t_exit, t)
+        else:
+            t_enter = max(t_enter, t)
+        if t_enter > t_exit:
+            return None
+
+    return t_enter, t_exit
+
+
 def compute_well_rock_matrix_intersections(
     mdg: pp.MixedDimensionalGrid,
     cells: Optional[np.ndarray] = None,
