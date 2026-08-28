@@ -146,8 +146,9 @@ class TestSegmentCellInterval:
     def test_boundary_positions(self, start, end, expected) -> None:
         """A segment touching the boundary of the cell.
 
-        These are the configurations that the previous, intersection-point based
-        implementation silently reported as zero length.
+        A well does not conform to the rock matrix mesh, so these configurations arise
+        routinely rather than exceptionally, and each must be measured rather than
+        discarded as degenerate.
         """
         length = _clip_length(np.array(start, dtype=float), np.array(end, dtype=float))
         assert np.isclose(length, expected)
