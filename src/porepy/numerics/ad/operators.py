@@ -534,26 +534,6 @@ class Operator:
 
     ### Special methods ----------------------------------------------------------------
 
-    def __check_domains(self, other, op):
-        # Do a rough test of domain compatibility for the operators, and return a
-        # notion of a common domain. This is far from complete, since not all operators
-        # have domains (see GH 1601), but it is gives sufficient functionality for the
-        # diagonal ad array project for now. TODO: Fix.
-
-        if isinstance(self, Scalar):
-            return other.domains
-        elif isinstance(other, Scalar):
-            return self.domains
-        elif op in [Operations.add, Operations.sub, Operations.div, Operations.mul]:
-            if self.domains == []:
-                return other.domains
-            elif other.domains == []:
-                return self.domains
-            if self.domains != other.domains:
-                raise ValueError("Mismatching domains")
-            return self.domains
-        # TODO: What to do with matrix multiplications?
-
     def __str__(self) -> str:
         return self._name if self._name is not None else ""
 
@@ -695,7 +675,6 @@ class Operator:
         children = self._parse_other(other)
         return Operator(
             children=children,
-            domains=new_domains,
             operation=Operations.rmul,
             name="right * operator",
             source=source,
@@ -741,7 +720,6 @@ class Operator:
         children = self._parse_other(other)
         return Operator(
             children=children,
-            domains=new_domains,
             operation=Operations.rdiv,
             name="right / operator",
             source=source,
@@ -811,7 +789,6 @@ class Operator:
         children = self._parse_other(other)
         return Operator(
             children=children,
-            domains=new_domains,
             operation=Operations.rpow,
             name="reverse ** operator",
             source=source,
