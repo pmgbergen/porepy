@@ -176,6 +176,40 @@ class Well:
         return s
 
 
+def _cell_half_spaces(
+    sd: pp.Grid, cell: int, cell_faces_csc: sps.csc_matrix
+) -> tuple[np.ndarray, np.ndarray]:
+    """Represent a cell as an intersection of half-spaces.
+
+    Parameters:
+        sd: The grid the cell belongs to.
+        cell: Index of the cell.
+        cell_faces_csc: ``sd.cell_faces`` in CSC format, passed in to avoid repeated
+            conversion when looping over cells.
+
+    Returns:
+        A tuple consisting of
+
+        :obj:`~numpy.ndarray`: ``shape=(3, num_faces_of_cell)``
+
+            Outward unit normal of each face of the cell.
+
+        :obj:`~numpy.ndarray`: ``shape=(num_faces_of_cell,)``
+
+            Plane constant of each face, so that the cell interior is the set of points
+            ``x`` with ``normals.T @ x <= offsets`` for every face.
+
+    """
+    loc = slice(cell_faces_csc.indptr[cell], cell_faces_csc.indptr[cell + 1])
+    faces = cell_faces_csc.indices[loc]
+    signs = cell_faces_csc.data[loc]
+
+    normals = signs * sd.face_normals[:, faces]
+    normals = normals / np.linalg.norm(normals, axis=0)
+    offsets = np.einsum("ij,ij->j", normals, sd.face_centers[:, faces])
+    return normals, offsets
+
+
 def _validate_convex_cell(
     cell: int,
     vertices: np.ndarray,
@@ -366,9 +400,11 @@ def compute_well_rock_matrix_intersections(
 ) -> None:
     """Compute intersections and add edge coupling between the well and the rock matrix.
 
-    To be called after the well grids are constructed. We are assuming convex cells
-    and a single high dimensional grid. To speed up the geometrical computation we
-    construct an ``ADTree``.
+    To be called after the well grids are constructed. The rock matrix cells are assumed
+    to be convex with planar faces, which is verified for the cells the wells pass
+    through; see :func:`_validate_convex_cell`. A single grid of highest dimension is
+    assumed. To speed up the geometrical computation an ``ADTree`` is used to find
+    candidate cells, which are then intersected exactly.
 
     Parameters:
         mdg: The mixed-dimensional grid containing all the elements.
@@ -379,11 +415,16 @@ def compute_well_rock_matrix_intersections(
             cells.
         min_length: ``default=1e-10``
 
-            Minimum length a segment that intersect a cell needs to have to be
-            considered in the mapping.
+            Minimum length of the part of a well segment inside a cell for the pair
+            to be included in the mapping. Relative to the length of the well segment.
         tol: ``default=1e-5``
 
-            Geometric tolerance used in the computations.
+            Relative geometric tolerance used in the computations, scaled by a local
+            length scale (the segment length or the cell diameter, as appropriate).
+
+    Raises:
+        ValueError: If a rock matrix cell traversed by a well is not convex, or has
+            non-planar faces.
 
     """
     # Extract the dimension of the rock matrix, assumed to be of highest dimension.
@@ -399,32 +440,35 @@ def compute_well_rock_matrix_intersections(
         g for g in mdg.subdomains(dim=dim_max - 2) if hasattr(g, "well_num")
     ]
 
-    # Pre-compute some well information.
-    nodes_w = []
+    # Geometric description of the rock matrix, converted once outside the loops.
+    cell_faces_csc = sd_max.cell_faces.tocsc()
+    cell_nodes_csc = sd_max.cell_nodes().tocsc()
+    # Half-space representations are cached, since neighbouring well segments commonly
+    # traverse the same cells.
+    half_spaces: dict[int, tuple[np.ndarray, np.ndarray]] = {}
+
+    def validated_half_spaces(cell: int) -> tuple[np.ndarray, np.ndarray]:
+        """Half-space representation of a cell, computed and validated once."""
+        if cell not in half_spaces:
+            normals, offsets = _cell_half_spaces(sd_max, cell, cell_faces_csc)
+            loc = slice(cell_nodes_csc.indptr[cell], cell_nodes_csc.indptr[cell + 1])
+            vertices = sd_max.nodes[:, cell_nodes_csc.indices[loc]]
+            _validate_convex_cell(cell, vertices, normals, offsets, tol)
+            half_spaces[cell] = (normals, offsets)
+        return half_spaces[cell]
+
+    # Loop on all the well grids.
     for sd_w in well_subdomains:
+        # Get the cells of the well grid as segments (start, end).
         sd_w_cn = sd_w.cell_nodes()
         sd_w_cells = np.arange(sd_w.num_cells)
-        # Get the cells of the 0d as segments (start, end).
         first = sd_w_cn.indptr[sd_w_cells]
         second = sd_w_cn.indptr[sd_w_cells + 1]
-
-        nodes_w.append(
+        n_w = (
             sd_w_cn.indices[pp.array_operations.expand_index_pointers(first, second)]
             .reshape((-1, 2))
             .T
         )
-
-    # Operate on the rock matrix grid.
-    faces, cells, _ = sparse_array_to_row_col_data(sd_max.cell_faces.tocsc())
-    cells_order = np.argsort(cells)  # type: ignore
-    faces = faces[cells_order]
-
-    nodes, *_ = sparse_array_to_row_col_data(sd_max.face_nodes)
-    indptr = sd_max.face_nodes.indptr
-
-    # Loop on all the well grids.
-    for sd_w, n_w in zip(well_subdomains, nodes_w):
-        # Extract the start and end point of the segments.
         start = sd_w.nodes[:, n_w[0]]
         end = sd_w.nodes[:, n_w[1]]
 
@@ -439,30 +483,25 @@ def compute_well_rock_matrix_intersections(
             seg_adnodes = tree.search(pp.adtree.ADTNode("dummy_node", box))
             # Extract the key of the ad nodes which is the cell id.
             seg_cells = [tree.nodes[n].key for n in seg_adnodes]
-            # Loop on all the higher dimensional cells.
+
+            # Intersect the segment with each candidate cell.
+            intervals: dict[int, tuple[float, float]] = {}
             for c in seg_cells:
-                # For the current cell retrieve its faces.
-                loc = slice(
-                    sd_max.cell_faces.indptr[c], sd_max.cell_faces.indptr[c + 1]
+                normals, offsets = validated_half_spaces(c)
+                interval = _segment_cell_interval(
+                    seg_start, seg_end, normals, offsets, tol
                 )
-                faces_loc = faces[loc]
-                # Get the local nodes, face based.
-                poly = np.array(
-                    [
-                        sd_max.nodes[:, nodes[indptr[f] : indptr[f + 1]]]
-                        for f in faces_loc
-                    ]
-                )
-                # Compute the intersections between the segment and the current higher-
-                # dimensional cell.
-                _, _, _, ratio = pp.intersections.segments_polyhedron(
-                    seg_start, seg_end, poly, tol
-                )
-                # Store the requested information to build the projection operator.
-                if ratio > min_length:
-                    primary_secondary_I += [seg_id]
-                    primary_secondary_J += [c]
-                    primary_secondary_data += ratio.tolist()
+                if interval is not None:
+                    intervals[c] = interval
+
+            # Resolve parts of the segment claimed by more than one cell, and store the
+            # requested information to build the projection operator.
+            for c, fraction in _distribute_shared_intervals(
+                intervals, min_length
+            ).items():
+                primary_secondary_I.append(seg_id)
+                primary_secondary_J.append(c)
+                primary_secondary_data.append(fraction)
 
         # Primary to secondary map.
         primary_secondary_map = sps.csc_matrix(

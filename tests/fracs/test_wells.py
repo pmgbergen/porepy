@@ -8,6 +8,8 @@ Content:
     boundary of a cell.
   - TestDistributeSharedIntervals: Unit tests of the rule that shares a
     segment between cells without losing or double counting length.
+  - Tests of compute_well_rock_matrix_intersections, covering agreement with a
+    brute-force oracle and conservation of well length.
   - TestValidateConvexCell: Unit tests of the convexity and planarity guard.
 
 The central invariant, used throughout, is that the lengths attributed to the cells a
@@ -26,6 +28,7 @@ import pytest
 
 import porepy as pp
 from porepy.fracs.wells_3d import (
+    _cell_half_spaces,
     _distribute_shared_intervals,
     _segment_cell_interval,
     _validate_convex_cell,
@@ -192,6 +195,159 @@ class TestDistributeSharedIntervals:
     def test_no_candidates(self) -> None:
         """A segment outside the grid produces no connections."""
         assert _distribute_shared_intervals({}, 1e-10) == {}
+
+
+def _well_mdg(matrix: pp.Grid, points: np.ndarray) -> pp.MixedDimensionalGrid:
+    """Build a mixed-dimensional grid with one rock matrix grid and one well.
+
+    Parameters:
+        matrix: The three-dimensional rock matrix grid.
+        points: ``shape=(3, num_points)``
+
+            Vertices of the well polyline, in order.
+
+    Returns:
+        A mixed-dimensional grid holding the two subdomains, without any interface.
+
+    """
+    well = pp.TensorGrid(np.linspace(0, 1, points.shape[1]))
+    well.nodes = points
+    well.compute_geometry()
+    # Tag the grid as a well, which is how the search identifies well subdomains.
+    well.well_num = 0
+
+    mdg = pp.MixedDimensionalGrid()
+    mdg.add_subdomains([matrix, well])
+    return mdg
+
+
+def _connection_matrix(mdg: pp.MixedDimensionalGrid) -> np.ndarray:
+    """Dense well-to-matrix connection map of the single interface in ``mdg``."""
+    interfaces = list(mdg.interfaces())
+    assert len(interfaces) == 1
+    return interfaces[0]._primary_to_mortar_int.toarray()
+
+
+def _brute_force_connections(
+    matrix: pp.Grid, points: np.ndarray, tol: float = 1e-5
+) -> np.ndarray:
+    """Reference implementation of the well-matrix search.
+
+    Every well segment is tested against every cell of the rock matrix, bypassing the
+    ``ADTree`` entirely. This is far too slow for production use but is obviously
+    correct, which makes it the natural oracle for the tree-based search.
+    """
+    cell_faces = matrix.cell_faces.tocsc()
+    connections = np.zeros((points.shape[1] - 1, matrix.num_cells))
+    for seg in range(points.shape[1] - 1):
+        start, end = points[:, seg], points[:, seg + 1]
+        intervals = {}
+        for c in range(matrix.num_cells):
+            normals, offsets = _cell_half_spaces(matrix, c, cell_faces)
+            interval = _segment_cell_interval(start, end, normals, offsets, tol)
+            if interval is not None:
+                intervals[c] = interval
+        for c, fraction in _distribute_shared_intervals(intervals, 1e-10).items():
+            connections[seg, c] = fraction
+    return connections
+
+
+# Well trajectories exercising the configurations that a non-conforming well may take
+# relative to the rock matrix mesh. Ids are used to make failures readable.
+WELL_TRAJECTORIES = {
+    "interior_vertical": np.array(
+        [[0.31, 0.31, 0.31], [0.27, 0.27, 0.27], [0.1, 0.5, 0.9]]
+    ),
+    "on_cell_faces": np.array([[0.5, 0.5, 0.5], [0.5, 0.5, 0.5], [0.1, 0.5, 0.9]]),
+    "slanted": np.array([[0.13, 0.5, 0.87], [0.17, 0.45, 0.81], [0.08, 0.5, 0.92]]),
+    "kinked": np.array([[0.3, 0.6, 0.3], [0.3, 0.3, 0.6], [0.2, 0.5, 0.8]]),
+    "along_grid_line": np.array(
+        [[0.25, 0.25, 0.25], [0.25, 0.25, 0.25], [0.05, 0.5, 0.95]]
+    ),
+}
+
+
+@pytest.mark.parametrize(
+    "trajectory", list(WELL_TRAJECTORIES), ids=list(WELL_TRAJECTORIES)
+)
+@pytest.mark.parametrize("grid_type", ["simplex", "cartesian"])
+def test_search_matches_brute_force_oracle(trajectory, grid_type) -> None:
+    """The tree-based search must agree exactly with an exhaustive search.
+
+    A failure means the ``ADTree`` broad phase is discarding cells that the well
+    genuinely intersects, since both paths share the same narrow phase.
+    """
+    if grid_type == "simplex":
+        matrix = pp.StructuredTetrahedralGrid([3, 3, 3], [1, 1, 1])
+    else:
+        matrix = pp.CartGrid([3, 3, 3], [1, 1, 1])
+    matrix.compute_geometry()
+
+    points = WELL_TRAJECTORIES[trajectory]
+    mdg = _well_mdg(matrix, points)
+    pp.fracs.wells_3d.compute_well_rock_matrix_intersections(mdg)
+
+    np.testing.assert_allclose(
+        _connection_matrix(mdg), _brute_force_connections(matrix, points), atol=1e-10
+    )
+
+
+@pytest.mark.parametrize(
+    "trajectory", list(WELL_TRAJECTORIES), ids=list(WELL_TRAJECTORIES)
+)
+@pytest.mark.parametrize("num_cells", [2, 3, 5])
+def test_well_length_is_conserved(trajectory, num_cells) -> None:
+    """All of a well segment inside the domain must be attributed to some cell.
+
+    This is the invariant that the previous implementation violated: it silently dropped
+    cells whose intersection with the well touched a face or an edge, so part of the
+    well was in contact with no cell at all. A failure here means well-matrix mass
+    transfer is being lost or double counted.
+    """
+    matrix = pp.StructuredTetrahedralGrid([num_cells] * 3, [1, 1, 1])
+    matrix.compute_geometry()
+
+    points = WELL_TRAJECTORIES[trajectory]
+    mdg = _well_mdg(matrix, points)
+    pp.fracs.wells_3d.compute_well_rock_matrix_intersections(mdg)
+
+    # All trajectories lie inside the unit cube, so every segment is fully covered.
+    row_sums = _connection_matrix(mdg).sum(axis=1)
+    np.testing.assert_allclose(row_sums, 1.0, atol=1e-10)
+
+
+def test_well_partially_outside_domain() -> None:
+    """A well leaving the domain is attributed only its interior part."""
+    matrix = pp.CartGrid([2, 2, 2], [1, 1, 1])
+    matrix.compute_geometry()
+
+    # The single segment runs from below the domain to its mid-height, so exactly one
+    # third of it is inside.
+    points = np.array([[0.3, 0.3], [0.3, 0.3], [-1.0, 0.5]])
+    mdg = _well_mdg(matrix, points)
+    pp.fracs.wells_3d.compute_well_rock_matrix_intersections(mdg)
+
+    np.testing.assert_allclose(_connection_matrix(mdg).sum(axis=1), [1.0 / 3.0])
+
+
+def test_well_in_shared_face_is_split_between_neighbours(caplog) -> None:
+    """A well lying in a face shared by two cells is split equally between them.
+
+    The well runs along the interior face of a two-cell grid, so it belongs to neither
+    cell's interior. Splitting equally keeps the total contact length correct and is
+    symmetric in the two cells; see the note in ``_distribute_shared_intervals``.
+    """
+    matrix = pp.CartGrid([2, 1, 1], [1, 1, 1])
+    matrix.compute_geometry()
+
+    points = np.array([[0.5, 0.5], [0.5, 0.5], [0.25, 0.75]])
+    mdg = _well_mdg(matrix, points)
+    with caplog.at_level("WARNING"):
+        pp.fracs.wells_3d.compute_well_rock_matrix_intersections(mdg)
+
+    connections = _connection_matrix(mdg)
+    np.testing.assert_allclose(np.sort(connections[0]), [0.5, 0.5])
+    assert "split equally" in caplog.text
 
 
 class TestValidateConvexCell:
