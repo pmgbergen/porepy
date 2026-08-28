@@ -708,8 +708,7 @@ class ArraySlicer:
         elif isinstance(x, (sps.spmatrix, sps.sparray)):
             sliced = self._slice_matrix(x)
         elif isinstance(x, pp.ad.AdArray):
-            if x.is_diagonal:
-                x = x.to_full()
+            x = x.to_full()
             val = self._slice_vector(x.val)
             jac = self._slice_matrix(x.jac)
             sliced = pp.ad.AdArray(val, jac)
