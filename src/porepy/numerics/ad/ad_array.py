@@ -214,8 +214,7 @@ class AdArray:
             ``other``, converted to full (non-diagonal) format if necessary.
 
         """
-        if other._is_diagonal:
-            other = other.to_full()
+        other = other.to_full()
         if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
             raise ValueError(f"Incompatible sizes for AdArray {op_name}.")
         return other
@@ -669,6 +668,19 @@ class AdArray:
 
         """
         return self._is_diagonal
+
+    def to_full(self) -> AdArray:
+        """Return this AdArray, unchanged.
+
+        This is a no-op counterpart to :meth:`DiagonalAdArray.to_full`, allowing calling
+        code to unconditionally call ``.to_full()`` on either representation instead of
+        branching on :attr:`is_diagonal` first.
+
+        Returns:
+            This AdArray.
+
+        """
+        return self
 
     def diagvec_mul_jac(self, a: np.ndarray) -> sps.spmatrix:
         """Left-multiply the Jacobian by a diagonal matrix represented as a vector.
