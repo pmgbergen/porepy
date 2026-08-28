@@ -524,6 +524,23 @@ def _add_well_matrix_interface(
     The mortar grid is a copy of the well grid, so that each well cell carries one set
     of interface unknowns, however many rock matrix cells it passes through.
 
+    Warning:
+        The projection from the rock matrix is used unchanged for both the extensive
+        and the intensive map, which is provisional. Its rows sum to unity, as
+        ``primary_to_mortar_avg`` requires, but ``primary_to_mortar_int`` is defined
+        with column sums of unity. The columns sum to the number of well cells inside a
+        rock matrix cell when the matrix is coarse relative to the well, and to the
+        covered fraction of a well cell when it is fine, so the extensive map is wrong
+        in both regimes and correct only for a one-to-one matching.
+
+        This is presently harmless, because the well models use only
+        ``primary_to_mortar_avg``, for pressures, and ``mortar_to_primary_int``, for
+        fluxes, and the latter is built from the former by
+        :meth:`~porepy.grids.mortar_grid.MortarGrid._set_projections`. Both therefore
+        descend from the row-normalised map, and mass is conserved. The extensive map
+        must be corrected before anything projects an extensive quantity from the rock
+        matrix onto a well, or an intensive one the other way.
+
     Parameters:
         mdg: The mixed-dimensional grid the interface is added to.
         sd_max: The rock matrix grid.
