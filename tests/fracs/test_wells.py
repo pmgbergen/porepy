@@ -11,6 +11,8 @@ Content:
   - Tests of compute_well_rock_matrix_intersections, covering agreement with a
     brute-force oracle and conservation of well length.
   - TestValidateConvexCell: Unit tests of the convexity and planarity guard.
+  - test_search_examines_a_shrinking_fraction_of_the_grid: a scaling
+    benchmark, run on the weekly schedule rather than per pull request.
 
 The central invariant, used throughout, is that the lengths attributed to the cells a
 well segment passes through must sum to the length of that segment (or, for a segment
@@ -21,6 +23,7 @@ downstream as lost or duplicated mass transfer rather than as a crash.
 """
 
 import numbers
+import time
 from typing import List
 
 import numpy as np
@@ -402,3 +405,61 @@ class TestValidateConvexCell:
         # A perturbation well below the relative tolerance times the cell diameter.
         vertices[2, -1] += 1e-9 * scale
         _validate_convex_cell(0, vertices, normals, offsets, 1e-5)
+
+
+@pytest.mark.skipped
+def test_search_examines_a_shrinking_fraction_of_the_grid() -> None:
+    """Locating a well must not require looking at the whole rock matrix.
+
+    Restricting the expensive exact intersection to a small set of candidate cells is
+    what the ``ADTree`` exists for. The assertion is on the fraction of cells the tree
+    offers as candidates, which is deterministic and therefore free of timing noise: as
+    the grid is refined, a well of fixed trajectory must touch a steadily smaller share
+    of it. Wall-clock timings of the individual phases are reported alongside, so that
+    the test doubles as a benchmark record when the search is changed.
+
+    Marked as ``skipped`` so that it runs on the weekly schedule rather than on every
+    pull request; see the project ``conftest.py``.
+    """
+    points = np.array([[0.31, 0.31, 0.31], [0.27, 0.27, 0.27], [0.05, 0.5, 0.95]])
+
+    def measure(divisions: int) -> tuple[int, float, float, float]:
+        matrix = pp.StructuredTetrahedralGrid([divisions] * 3, [1, 1, 1])
+        matrix.compute_geometry()
+        mdg = _well_mdg(matrix, points)
+
+        build_start = time.perf_counter()
+        tree = pp.adtree.ADTree(2 * matrix.dim, matrix.dim)
+        tree.from_grid(matrix)
+        build = time.perf_counter() - build_start
+
+        # Candidates the tree offers for the segments of this well.
+        candidates = 0
+        for seg in range(points.shape[1] - 1):
+            box = np.sort(
+                np.vstack((points[:, seg], points[:, seg + 1])), axis=0
+            ).ravel()
+            candidates += tree.search(pp.adtree.ADTNode("query", box)).size
+
+        total_start = time.perf_counter()
+        pp.fracs.wells_3d.compute_well_rock_matrix_intersections(mdg)
+        total = time.perf_counter() - total_start
+
+        return matrix.num_cells, candidates / matrix.num_cells, build, total - build
+
+    coarse_cells, coarse_share, coarse_build, coarse_query = measure(8)
+    fine_cells, fine_share, fine_build, fine_query = measure(20)
+
+    print(
+        f"\ncells {coarse_cells} -> {fine_cells}"
+        f"\ncandidate share {coarse_share:.4f} -> {fine_share:.4f}"
+        f"\nADTree build    {coarse_build:.3f} s -> {fine_build:.3f} s"
+        f"\nquery + clip    {coarse_query:.3f} s -> {fine_query:.3f} s"
+    )
+
+    # Refining the grid must not increase the share of it that has to be examined.
+    assert fine_share < coarse_share
+    # The well is a one-dimensional object in a three-dimensional grid, so the share of
+    # cells it can touch has to become small. A loose bound is enough to catch a search
+    # that has degenerated towards inspecting everything.
+    assert fine_share < 0.05
