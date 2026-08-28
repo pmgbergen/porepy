@@ -1,14 +1,23 @@
 from __future__ import annotations
 
+
 from typing import Any, Union, Optional
 import logging
 import warnings
 
+import scipy.sparse as sps
+
+
 import numpy as np
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import porepy as pp
 from porepy.numerics.solvers.anderson_acceleration import AndersonAcceleration
+
+from porepy.numerics.solvers.convergence_check import (
+    ConvergenceStatus,
+    ConvergenceStatusCollection,
+)
+
 
 import porepy.models.compositional_flow as cf
 
@@ -114,17 +123,50 @@ class NewtonAndersonArmijoSolver(pp.solvers.NewtonSolver, AndersonAcceleration):
             dx[dofs] = d
 
         return dx
+
+    def after_nonlinear_iteration(self, model, nonlinear_increment):
+        """Report a model-side failure on BOTH sides of the status pair.
+
+        The base method returns an empty convergence collection when
+        model.after_nonlinear_iteration raises. ConvergenceStatusCollection.
+        is_converged() is an all() over its values, which is vacuously True on
+        an empty collection - so the step is summarized as CONVERGED, the time
+        stepper advances, and recomp_factor is never applied.
+        """
+        convergence_status, divergence_status = super().after_nonlinear_iteration(
+            model, nonlinear_increment
+        )
+        if divergence_status.is_failed() and len(convergence_status) == 0:
+            convergence_status = ConvergenceStatusCollection(
+                {"model_side_failure": ConvergenceStatus.FAILED}
+            )
+        return convergence_status, divergence_status
     
     def iteration(self, model: pp.PorePyModel) -> tuple[np.ndarray, pp.solvers.LinearSolverStatus]:
         """An iteration consists of performing the Newton step, obtaining the step size
         from the line search, and then performing the Anderson acceleration based on
         the iterates which are obtained using the step size."""
 
+        # ls = model.equation_system.assemble()
+        # A, b = ls.matrix.tocsc(), ls.rhs
+
+        # dx_solver, status = pp.solvers.NewtonSolver.iteration(self, model)
+        # print("solver dx finite:", np.isfinite(dx_solver).all(),
+        #     "| status failure:", status.is_failure())
+
+        # dx_scipy = sps.linalg.spsolve(A, b)
+        # print("scipy  dx finite:", np.isfinite(dx_scipy).all())
+
+        # lu = sps.linalg.splu(A)
+        # print("smallest |U| pivot:", np.abs(lu.U.diagonal()).min())
+
+        # Debugging ends here.
+
         dx, linear_solver_status = pp.solvers.NewtonSolver.iteration(self, model)
 
         # If the linear solve failed, the failure is handled upwards.
-        if linear_solver_status.is_failure():
-            return dx, linear_solver_status
+        # if linear_solver_status.is_failure():
+        #     return dx, linear_solver_status
         
         # Appleyard chop (before Anderson and line search)
         if self.params.get("appleyard_chop", False):
