@@ -79,7 +79,7 @@ NL_MAX_ITER = 15          # max Newton iterations before a step cut (--max-iter)
 #  and adiabatic.  IC: uniform 10 degC, uniform Z_INIT salt, and a brine-column
 #  hydrostatic pressure profile integrated at (Z_INIT, T_TOP).
 # --------------------------------------------------------------------------------------- #
-P_TOP = 1.0                 # surface pressure [MPa]; idealized (paper: atmospheric 0.1) and kept
+P_TOP = 1.0                 # surface pressure [MPa]
                             # well above the 0.5 MPa EOS table floor
 T_TOP = 283.15              # surface temperature [K] (10 degC)
 Q_BACKGROUND = 0.05         # background crustal heat flux [W/m^2]
