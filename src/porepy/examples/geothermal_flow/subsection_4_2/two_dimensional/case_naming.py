@@ -4,7 +4,7 @@ Shared by the solver (output folder ``visualization_<tag>/``) and the figure scr
 (input folder + ``fig_8_plume_<tag>.png``), so distinct parametrizations never
 overwrite each other.  Components appear only when they differ from the defaults:
 
-    <scheme>[_mpfa][_<grid_type>][_cs<cell_size>][_q<q_anomaly>][_z<z_init>]
+    <scheme>[_md][_quad][_mpfa][_<grid_type>][_cs<cell_size>][_trunc][_q<q_anomaly>][_z<z_init>]
             [_dt<dt_nominal>][_dtmin<dt_min>][_dtmax<dt_max>][_tf<final_years>][_lag]
     e.g.  hu  |  hu_mw_mpfa  |  hu_simplex_cs200  |  hu_q10_dt5  |  hu_z0.1_tf20000
 
@@ -20,6 +20,7 @@ def case_tag(scheme: str, consistent: bool = False, grid_type: str | None = None
              dt_min: float | None = None, dt_max: float | None = None,
              tf_years: float | None = None, lag: bool = False,
              md: bool = False, recombine: bool = False,
+             truncated_domain: bool = False,
              dt_constant: float | None = None) -> str:
     parts = [scheme.replace("-", "_")]
     if md:
@@ -34,6 +35,8 @@ def case_tag(scheme: str, consistent: bool = False, grid_type: str | None = None
         parts.append(grid_type)
     if cell_size is not None:
         parts.append(f"cs{cell_size:g}")
+    if truncated_domain:
+        parts.append("trunc")
     if q_anomaly not in (None, 5.0):
         parts.append(f"q{q_anomaly:g}")
     if z_init not in (None, 0.0):

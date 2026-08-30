@@ -40,20 +40,48 @@ from datetime import datetime
 HERE = os.path.dirname(os.path.abspath(__file__))
 SOLVER = os.path.join(HERE, "porepy_2d_solver.py")
 
+sys.path.insert(0, HERE)
+from case_naming import case_tag                          # noqa: E402  (label == solver output-folder tag)
+
+# HARD-CODED globals: every scenario runs at 50 m resolution on the truncated domain.
+_GLOBAL_ARGS = ["--cell-size", "50", "--truncated-domain"]
+
+# Each scenario is defined by its distinguishing case_tag kwargs.  The LABEL and the CLI args are BOTH
+# derived from it (+ the globals below), so the label can never desync from the solver's
+# visualization_<tag>/ folder -- add/remove a flag in one place only.
+_SCEN_SPECS: list[dict] = [
+    dict(scheme="hu"),
+    dict(scheme="hu", md=True),
+    dict(scheme="hu", md=True, recombine=True),
+    dict(scheme="hu", md=True, consistent=True),
+    dict(scheme="hu", md=True, recombine=True, consistent=True),
+    dict(scheme="hu", md=True, recombine=True, q_anomaly=9.0),
+    dict(scheme="hu", md=True, recombine=True, consistent=True, q_anomaly=9.0),
+    dict(scheme="hu", md=True, recombine=True, q_anomaly=9.0, z_init=0.032),
+    dict(scheme="hu", md=True, recombine=True, consistent=True, q_anomaly=9.0, z_init=0.032),
+]
+
+
+def _spec_args(spec: dict) -> list[str]:
+    """The distinguishing CLI flags for one scenario spec (the globals are appended separately)."""
+    a = ["--scheme", spec["scheme"]]
+    if spec.get("md"):
+        a.append("--md")
+    if spec.get("recombine"):
+        a.append("--recombine")
+    if spec.get("consistent"):
+        a.append("--consistent")
+    if spec.get("q_anomaly") is not None:
+        a += ["--q-anomaly", f"{spec['q_anomaly']:g}"]
+    if spec.get("z_init") is not None:
+        a += ["--z-init", f"{spec['z_init']:g}"]
+    return a
+
+
 # (label == solver output-folder tag, extra CLI args for porepy_2d_solver.py)
 SCENARIOS: list[tuple[str, list[str]]] = [
-    ("hu",                        ["--scheme", "hu"]),
-    ("hu_md",                     ["--scheme", "hu", "--md"]),
-    ("hu_md_quad",                ["--scheme", "hu", "--md", "--recombine"]),
-    ("hu_md_mpfa",                ["--scheme", "hu", "--md", "--consistent"]),
-    ("hu_md_quad_mpfa",           ["--scheme", "hu", "--md", "--recombine", "--consistent"]),
-    ("hu_md_quad_q9",             ["--scheme", "hu", "--md", "--recombine", "--q-anomaly", "9.0"]),
-    ("hu_md_quad_mpfa_q9",        ["--scheme", "hu", "--md", "--recombine", "--q-anomaly", "9.0",
-                                   "--consistent"]),
-    ("hu_md_quad_q9_z0.032",      ["--scheme", "hu", "--md", "--recombine", "--q-anomaly", "9.0",
-                                   "--z-init", "0.032"]),
-    ("hu_md_quad_mpfa_q9_z0.032", ["--scheme", "hu", "--md", "--recombine", "--q-anomaly", "9.0",
-                                   "--z-init", "0.032", "--consistent"]),
+    (case_tag(cell_size=50.0, truncated_domain=True, **spec), _spec_args(spec) + _GLOBAL_ARGS)
+    for spec in _SCEN_SPECS
 ]
 
 _THREAD_ENV_VARS = ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS",

@@ -64,10 +64,12 @@ to_Mega = 1.0e-6
 
 # Dynamic time stepping (all CLI-overridable).  The schedule pins EXACT landing -- and
 # VTU export -- at the Fig. 8 snapshot instants; dt adapts freely in between.
-_DEFAULT_SNAP_YEARS = tuple(float(y) for y in range(0, 50001, 500))  # 0..50 kyr / 0.5 kyr
-DT_NOMINAL = 10.0           # nominal (initial) step [yr] (--dt-nominal)
-DT_MIN = 0.1               # smallest allowed step [yr] (--dt-min)
-DT_MAX = 50.0              # largest allowed step [yr]  (--dt-max)
+_DEFAULT_SNAP_YEARS = tuple(float(y) for y in range(0, 15001, 250))  # 0..15 kyr / 0.25 kyr
+DT_NOMINAL = 20.0           # nominal (initial) step [yr] (--dt-nominal)
+DT_MIN = 0.0001               # smallest allowed step [yr] (--dt-min)
+DT_MAX = 100.0              # largest allowed step [yr]  (--dt-max)
+NL_TOL = 1.0e-4            # Newton convergence tolerance on the row-scaled residual (--tol)
+NL_MAX_ITER = 15          # max Newton iterations before a step cut (--max-iter)
 
 # --------------------------------------------------------------------------------------- #
 #  Weis et al. (2014) Fig. 8, condition 2 -- boundary & initial conditions.
@@ -77,13 +79,15 @@ DT_MAX = 50.0              # largest allowed step [yr]  (--dt-max)
 #  and adiabatic.  IC: uniform 10 degC, uniform Z_INIT salt, and a brine-column
 #  hydrostatic pressure profile integrated at (Z_INIT, T_TOP).
 # --------------------------------------------------------------------------------------- #
-P_TOP = 0.101325                 # surface pressure [MPa]; paper: atmospheric (0.1) -- the EOS
-                            # table floor is 0.5 MPa, so the surface is idealized at 1 MPa
+P_TOP = 1.0                 # surface pressure [MPa]; idealized (paper: atmospheric 0.1) and kept
+                            # well above the 0.5 MPa EOS table floor
 T_TOP = 283.15              # surface temperature [K] (10 degC)
 Q_BACKGROUND = 0.05         # background crustal heat flux [W/m^2]
 Q_ANOMALY = 5.0             # anomaly heat flux [W/m^2] over the inlet (--q-anomaly)
 Z_INIT = 0.0                # initial (uniform) NaCl overall composition [-] (--z-init)
 DOMAIN_HEIGHT = 3000.0      # [m]
+_TRUNCATE_METERS = 2000.0   # --truncated-domain: metres removed from EACH lateral side (far-field)
+_VERTICAL_CUT = 1000.0      # --truncated-domain: metres removed from the BOTTOM (deepest, hottest slab)
 
 # --------------------------------------------------------------------------------------- #
 #  --md : approved discrete fault & barrier network on the Fig. 8 domain (F1-F6, B1-B3).
@@ -109,7 +113,7 @@ _F8_FAULTS = [
     (4000.0,    0.0, 2300.0, 3000.0),   # F1 master normal fault ~60 E (west graben wall)
     (5000.0,  300.0, 6700.0, 3000.0),   # F2 antithetic fault ~58 W (east graben wall)
     (3320.0, 1200.0, 4000.0, 3000.0),   # F3 W synthetic splay off F1 (intersects F1)
-    (4500.0,  250.0, 5250.0, 2100.0),   # F4 near-vertical central feeder, blind tip (+250 m)
+    (4500.0, 1250.0, 5250.0, 2100.0),   # F4 near-vertical central feeder, blind tip (+250 m)
     (5630.0, 1300.0, 5000.0, 3000.0),   # F5 E synthetic splay off F2 (intersects F2)
 ]
 
@@ -347,14 +351,19 @@ _ap.add_argument("--dt-max", type=float, default=DT_MAX, metavar="YR",
                  help=f"largest allowed time step [years]; default {DT_MAX}")
 _ap.add_argument("--dt-constant", type=float, default=None, metavar="YR",
                  help="fixed time step [years]: disables adaptation and retries (no "
-                      "dt-cutting), so a stalled step fails outright -- the clean control "
-                      "for testing whether --imex rescues a kink; must divide each snap year")
+                      "dt-cutting), so a stalled step fails outright; must divide each snap year")
 _ap.add_argument("--lag-buoyancy", action="store_true",
                  help="freeze the buoyancy upwind direction over each time step "
                       "(CSMP++'s frozen-upwind policy, Weis et al. sec. 2.7)")
 _ap.add_argument("--md", action="store_true", default=False,
                  help="discrete fault & barrier network (F1-F6, B1-B3) on a gmsh "
                       "mixed-dimensional mesh; pair with --consistent (MPFA)")
+_ap.add_argument("--truncated-domain", action="store_true", default=False,
+                 help=f"remove the quiescent far-field: drop {_TRUNCATE_METERS:g} m from the left AND right "
+                      f"(9 km -> {(9000.0 - 2 * _TRUNCATE_METERS) / 1000:g} km) and {_VERTICAL_CUT:g} m from the "
+                      f"BOTTOM (3 km -> {(DOMAIN_HEIGHT - _VERTICAL_CUT) / 1000:g} km deep), to cut cell count "
+                      f"and lower the base pressure. Coordinates stay ABSOLUTE (plume x=4500, surface at "
+                      f"3 km); --md CLIPS the fault/barrier network to the box, fixed-dim shifts the mesh")
 _ap.add_argument("--recombine", action="store_true", default=False,
                  help="build the --md mesh with unstructured QUADRILATERALS "
                       "(gmsh recombination) instead of triangles")
@@ -367,17 +376,14 @@ _ap.add_argument("--no-f6", dest="f6", action="store_false", default=True,
 _ap.add_argument("--f6-factor", type=float, default=_F8_LINK_PERM_FACTOR, metavar="F",
                  help=f"F6 linking-connector permeability = rock * F; default "
                       f"{_F8_LINK_PERM_FACTOR:g} (faults use {_F8_MD_FRAC_PERM_FACTOR:g})")
-_ap.add_argument("--imex", action="store_true", default=False,
-                 help="warm-start each Newton step with the IMEX predictor (implicit SPD "
-                      "pressure + explicit forward-flash transport/energy) to cut phase-front "
-                      "stiffness; residual-gated, so it never harms the FI solve")
-_ap.add_argument("--imex-verify", action="store_true", default=False,
-                 help="offline check: prepare the model, run the built-in IMEX residual "
-                      "verification (numpy explicit kernel vs the AD discretization) and exit; "
-                      "does NOT time-step")
-_ap.add_argument("--imex-verify-full", action="store_true", default=False,
-                 help="run the model normally and, at the first converged step (a real state), "
-                      "check the FULL numpy residual dt(acc)+div@flux-source against the AD residual")
+_ap.add_argument("--diagnose-binding", action="store_true", default=False,
+                 help="on each time-step cut, run the STEP-0 binding diagnostic on the stalled iterate: "
+                      "identify the failing cells and test kink vs negative compressibility (sign of "
+                      "dRho/dp) + line-search merit alignment. Logs only, no behaviour change")
+_ap.add_argument("--tol", type=float, default=NL_TOL, metavar="T",
+                 help=f"Newton convergence tolerance on the row-scaled residual (default {NL_TOL:g})")
+_ap.add_argument("--max-iter", type=int, default=NL_MAX_ITER, metavar="N",
+                 help=f"max Newton iterations before a step is cut (default {NL_MAX_ITER})")
 _args = _ap.parse_args()
 if not 0.0 <= _args.z_init <= 1.0:
     raise SystemExit(f"--z-init {_args.z_init} outside the graded table "
@@ -400,7 +406,7 @@ Z_INIT = _args.z_init
 # recomputes at 0.3x on failure, and the schedule forces exact landing on every
 # snapshot instant, which is also exactly where VTUs are exported.  With --dt-constant
 # the step is frozen instead (no adaptation, no retries): a stall fails the run rather
-# than being masked by dt-cutting -- the clean control for the --imex kink experiment.
+# than being masked by dt-cutting.
 schedule = [y * year_to_second for y in _args.snap_years]
 tf = schedule[-1]
 if _args.dt_constant is not None:
@@ -426,9 +432,9 @@ else:
         dt_init=_args.dt_nominal * year_to_second,
         dt_min_max=(_args.dt_min * year_to_second, _args.dt_max * year_to_second),
         constant_dt=False,
-        iter_max=13,
+        iter_max=15,
         iter_optimal_range=(3, 8),
-        iter_relax_factors=(0.5, 1.5),
+        iter_relax_factors=(0.25, 1.5),
         recomp_factor=0.3,
         print_info=True,
     )
@@ -440,10 +446,16 @@ params = {
         "visualization_" + case_tag(_args.scheme, _args.consistent,
                                     _args.grid_type, _args.cell_size,
                                     _args.q_anomaly, _args.z_init,
-                                    _args.dt_nominal, _args.dt_min, _args.dt_max,
-                                    _args.snap_years[-1],
+                                    # pass None at the SOLVER's defaults so the tag omits them
+                                    # (non-default-only), independent of case_naming's own defaults.
+                                    _args.dt_nominal if _args.dt_nominal != DT_NOMINAL else None,
+                                    _args.dt_min if _args.dt_min != DT_MIN else None,
+                                    _args.dt_max if _args.dt_max != DT_MAX else None,
+                                    (_args.snap_years[-1]
+                                     if _args.snap_years[-1] != _DEFAULT_SNAP_YEARS[-1] else None),
                                     lag=_args.lag_buoyancy,
                                     md=_args.md, recombine=_args.recombine,
+                                    truncated_domain=_args.truncated_domain,
                                     dt_constant=_args.dt_constant)),
     "enable_buoyancy_effects": True,
     "material_constants": material_constants,
@@ -463,9 +475,8 @@ params = {
     "slave_eliminated_secondaries": True,
 }
 params["consistent_discretization"] = _args.consistent
-params["imex_predictor"] = _args.imex
-params["imex_verify_full"] = _args.imex_verify_full
 params["lag_buoyancy_direction"] = _args.lag_buoyancy
+params["diagnose_binding"] = _args.diagnose_binding
 if _args.grid_type is not None:
     params["grid_type"] = _args.grid_type            # Figure8Geometry2D reads this key
 params.update(_SCHEME_CONFIG[_args.scheme])
@@ -485,13 +496,53 @@ class GeothermalBrineFlowModel(
                          "cell_size": self.units.convert_units(_args.cell_size, "m")}
         return mesh_args
 
+    def set_domain(self) -> None:
+        """Full 9 km x 3 km Fig. 8 box by default; with --truncated-domain drop _TRUNCATE_METERS from
+        EACH lateral side (quiescent far-field) AND _VERTICAL_CUT from the BOTTOM (deepest, hottest slab)
+        to cut cell count -- the box becomes the ABSOLUTE [TRUNC, 9km-TRUNC] x [CUT, 3km] in BOTH modes,
+        so coordinates (plume x=4500, surface at 3 km, fault positions) are preserved.
+
+        --md: gmsh honours nonzero xmin/ymin, so the box is set absolute directly and the fault/barrier
+        network is CLIPPED to it. Fixed-dim: the cartesian mesher IGNORES a nonzero min, so we mesh a box
+        of the right SIZE at the origin here and shift the nodes to absolute in set_geometry (the removed
+        bottom is the deepest slab, so the base pressure drops regardless of the mode)."""
+        if not _args.truncated_domain:
+            return super().set_domain()
+        cu = self.units.convert_units
+        self._inlet_centre = np.array([4500.0, _VERTICAL_CUT, 0.0])       # base is now at y=_VERTICAL_CUT
+        self._outlet_centre = np.array([4500.0, DOMAIN_HEIGHT, 0.0])      # surface stays at 3 km
+        if _args.md:                                          # absolute box directly; gmsh clips the network
+            self._domain = pp.Domain({"xmin": cu(_TRUNCATE_METERS, "m"),
+                                      "xmax": cu(9000.0 - _TRUNCATE_METERS, "m"),
+                                      "ymin": cu(_VERTICAL_CUT, "m"), "ymax": cu(DOMAIN_HEIGHT, "m")})
+        else:                                                 # SIZE box at the origin; shifted in set_geometry
+            self._domain = pp.Domain({"xmax": cu(9000.0 - 2.0 * _TRUNCATE_METERS, "m"),
+                                      "ymax": cu(DOMAIN_HEIGHT - _VERTICAL_CUT, "m")})
+
     # -- --md geometry: discrete fault & barrier network via gmsh -------------------------
     def set_geometry(self) -> None:
         """Fixed-dimensional Fig. 8 box by default; --md builds the F1-F6 / B1-B3 fault &
         barrier network as a gmsh mixed-dimensional simplex (or quad, --recombine) grid."""
-        if not _args.md:
-            return super().set_geometry()
-        return self._set_geometry_md()
+        if _args.md:
+            return self._set_geometry_md()
+        super().set_geometry()
+        if _args.truncated_domain:
+            self._shift_grid_to_absolute()
+
+    def _shift_grid_to_absolute(self) -> None:
+        """Cartesian meshing builds at the origin (it ignores a nonzero xmin/ymin), so after meshing the
+        truncated SIZE box we shift the node coordinates by (_TRUNCATE_METERS, _VERTICAL_CUT) to restore
+        the ABSOLUTE Fig-8 positions -- plume at x=4500, surface at 3 km -- matching the --md coordinate
+        system. Boundary grids follow the shift once the subdomain and mdg geometry are recomputed."""
+        cu = self.units.convert_units
+        shift = np.array([[cu(_TRUNCATE_METERS, "m")], [cu(_VERTICAL_CUT, "m")], [0.0]])
+        for sd in self.mdg.subdomains():
+            sd.nodes = sd.nodes + shift
+            sd.compute_geometry()
+        self.mdg.compute_geometry()
+        self._domain = pp.Domain({"xmin": cu(_TRUNCATE_METERS, "m"),
+                                  "xmax": cu(9000.0 - _TRUNCATE_METERS, "m"),
+                                  "ymin": cu(_VERTICAL_CUT, "m"), "ymax": cu(DOMAIN_HEIGHT, "m")})
 
     def _set_geometry_md(self) -> None:
         self.set_domain()
@@ -649,7 +700,7 @@ _attach_samplers(model)
 tb = time.time()
 # Shared base stopping criterion (== subsection_4_2 1D/3D solvers): relative-storage Lebesgue
 # metric, tol 1e-4, max_iter 20. Was an inline dict at max_iter 13.
-solver_params = model.default_nonlinear_criteria()
+solver_params = model.default_nonlinear_criteria(tol=_args.tol, max_iterations=_args.max_iter)
 runner = pp.ModelRunner(model, solver_params,
                         nonlinear_solver=geothermal_nonlinear_solver(solver_params))
 te = time.time()
@@ -662,11 +713,6 @@ model.schur_complement_primary_equations = (
 model.schur_complement_primary_variables = (
     pp.compositional_flow.get_primary_variables_cf(model)
 )
-
-# Offline verification of the pure-numpy IMEX explicit kernel against the AD discretization.
-if _args.imex_verify:
-    ok = model.imex_verify_residuals()
-    sys.exit(0 if ok else 1)
 
 # print geometry
 model.exporter.write_vtu()

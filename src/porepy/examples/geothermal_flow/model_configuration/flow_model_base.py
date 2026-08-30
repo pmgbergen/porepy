@@ -19,7 +19,6 @@ from porepy.models.compositional_flow import (
     update_phase_properties,
 )
 from .transport_predictor import ReorderedTransportPredictor
-from .imex_predictor import IMEXTransportPredictor
 
 # PETSc imports (only if available)
 try:
@@ -314,7 +313,7 @@ class RelativeStorageLebesgueMetric(pp.EquationBasedLebesgueMetric):
                 for name, v in norms.items()}
 
 
-class _FlowModelBaseCore(IMEXTransportPredictor, ReorderedTransportPredictor):
+class _FlowModelBaseCore(ReorderedTransportPredictor):
     """Template-agnostic core of the flow model (all solver/discretisation logic). It is combined
     with one of the two compositional-flow templates below to form a concrete base; its ``super()``
     calls resolve to whichever template is mixed in after it in the concrete class's MRO."""
@@ -1482,7 +1481,7 @@ class _FlowModelBaseCore(IMEXTransportPredictor, ReorderedTransportPredictor):
         iteration and a larger minimum step (``rho**(cap-1)``), at the cost of a coarser search.
         """
         max_iterations = int(self.params.get("line_search_max_iterations", max_iterations))
-        nrm_current = float(np.linalg.norm(current_residual))
+        nrm_current = self._line_search_merit(current_residual)
         alpha = 1.0
         for i in range(max_iterations):
             alpha = rho ** i                                   # 1, 1/2, 1/4, ...
@@ -1496,16 +1495,30 @@ class _FlowModelBaseCore(IMEXTransportPredictor, ReorderedTransportPredictor):
                     trial, restore_state=True)
             except Exception:
                 continue
-            if (np.all(np.isfinite(residual_trial))
-                    and float(np.linalg.norm(residual_trial)) < nrm_current):
-                if i > 0:
-                    print(f"  Line search (weis): alpha={alpha:.4f}, "
-                          f"||r||={float(np.linalg.norm(residual_trial)):.4e} "
-                          f"< {nrm_current:.4e}")
-                self._cur_step_timing.n_line_searches += i + 1   # backtracking trials this call
-                return alpha
+            if np.all(np.isfinite(residual_trial)):
+                nrm_trial = self._line_search_merit(residual_trial)
+                if nrm_trial < nrm_current:
+                    if i > 0:
+                        print(f"  Line search (weis): alpha={alpha:.4f}, "
+                              f"merit={nrm_trial:.4e} < {nrm_current:.4e}")
+                    self._cur_step_timing.n_line_searches += i + 1   # backtracking trials this call
+                    return alpha
         self._cur_step_timing.n_line_searches += max_iterations
         return alpha
+
+    def _line_search_merit(self, residual: np.ndarray) -> float:
+        """Scalar the backtracking line search descends: the SAME row-scaled RelativeStorageLebesgueMetric
+        max the convergence criterion tests, so the search and the stopping test are aligned on the same
+        (binding) equation -- fixing the case where the LS reduced raw-L2 (dominated by an already-small
+        energy row) while the mass row bound.  Falls back to raw L2 only if the scaled metric is
+        unavailable (no row scales yet / empty)."""
+        try:
+            per_eq = RelativeStorageLebesgueMetric(self)(np.asarray(residual, float))
+            if per_eq:
+                return float(max(per_eq.values()))
+        except Exception:
+            pass
+        return float(np.linalg.norm(residual))
 
     # ----------------------------------------------------------------------------------
     #  Overridable hooks used by the step control above. Base implementations are generic
@@ -1835,6 +1848,7 @@ class _FlowModelBaseCore(IMEXTransportPredictor, ReorderedTransportPredictor):
         super().after_nonlinear_convergence()  # type:ignore[safe-super]
         print("Number of iterations: ", self.nonlinear_solver_statistics.num_iterations)
         print("Time value (year): ", self.time_manager.time * second_to_year)
+        print("Delta t (year): ", self.time_manager.dt * second_to_year)
         print("Time index: ", self.time_manager.time_index)
         print("*" * 60)
         print("")
@@ -1842,6 +1856,11 @@ class _FlowModelBaseCore(IMEXTransportPredictor, ReorderedTransportPredictor):
     def after_nonlinear_failure(self) -> None:
         """Count a rejected nonlinear loop (a time-step cut) before deferring to the template."""
         self.n_time_step_cuts = getattr(self, "n_time_step_cuts", 0) + 1
+        if self.params.get("diagnose_binding", False):        # STEP-0 probe on the stalled iterate
+            try:
+                self._diagnose_binding_mechanism()
+            except Exception as exc:                          # a diagnostic must never break the run
+                logger.warning("binding diagnostic skipped: %s", exc)
         # The rejected attempt's cost is not attributed to any accepted step; tally it separately
         # and remember the cut so the next accepted step records how many cuts preceded it.
         self._cut_time_ms += self._cur_step_timing.t_total_ms
@@ -1917,6 +1936,122 @@ class _FlowModelBaseCore(IMEXTransportPredictor, ReorderedTransportPredictor):
             return scales
         except Exception:
             return {}                    # any issue -> fall back to the absolute Lebesgue bar
+
+    # ---- STEP-0 binding-mechanism diagnostic (kink vs negative compressibility) ----------------
+    def _diagnose_binding_mechanism(self, top_k: int = 20) -> None:
+        """Offline diagnostic at a STALLED Newton iterate: why does the mass_balance (pressure) row bind?
+
+        No solve -- pure post-processing on the current iterate.  It (1) identifies the FAILING CELLS --
+        there is no per-cell 'fail' (Newton converges globally), so a failing cell is operationally a top
+        contributor to the row-scaled mass_balance residual, i.e. a cell holding the binding norm above tol
+        (these are typically the phase-front cells); (2) folds in the sign(c_cell) test for NEGATIVE
+        COMPRESSIBILITY -- the mass accumulation is phi*rho*V, so its pressure diagonal is phi*V*dRho/dp and
+        dRho/dp|_{h,z} is exactly grad_Rho's p-component; dRho/dp<0 makes that diagonal negative -> the
+        pressure operator loses diagonal dominance (indefinite), which no kink smoothing fixes; (3) checks
+        whether the line-search merit (raw L2) binds the SAME row the criterion (row-scaled) does.
+        Gated by params['diagnose_binding'], fired from after_nonlinear_failure so it lands on the failing
+        state (PorePy reverts the iterate only in the outer time-step loop, after this hook)."""
+        import porepy as pp                                              # local: avoid import cycle noise
+        es = self.equation_system
+        sampler = getattr(self, "obl_sampler", None)
+        if sampler is None or "z_NaCl" not in {v.name for v in es.variables}:
+            return
+        try:
+            p = es.get_variable_values([self.pressure_variable], iterate_index=0)
+            h = es.get_variable_values([self.enthalpy_variable], iterate_index=0)
+            z = es.get_variable_values(["z_NaCl"], iterate_index=0)
+            sampler.sample_at(np.column_stack([z, h, p]))
+            pd = sampler.sampled_could.point_data
+            s_v = np.asarray(pd["S_v"], float)
+            s_h = np.asarray(pd["S_h"], float)
+            dRho_dp = np.asarray(pd["grad_Rho"], float)[:, 2]           # dRho/dp|_{h,z}; sign robust to scaling
+            rho_l = np.asarray(pd["Rho_l"], float)
+            rho_v = np.asarray(pd["Rho_v"], float)
+            T = np.asarray(pd["Temperature"], float)
+            pr = np.asarray(pd["phase_region"], float) if "phase_region" in pd else None
+        except Exception as exc:
+            logger.warning("binding diagnostic: flash/grad read failed (%s)", exc)
+            return
+        sds = list(self.mdg.subdomains())
+        vol = np.concatenate([sd.cell_volumes for sd in sds]) if sds else np.zeros(0)
+        dims = (np.concatenate([np.full(sd.num_cells, sd.dim) for sd in sds])
+                if sds else np.zeros(0, int))
+        n = vol.size
+
+        # FAILING CELLS: top per-cell contribution to the (row-scaled) mass residual (scale is a global
+        # constant, so it is ranking-invariant; use the raw per-cell Lebesgue contribution |r|*sqrt(V)).
+        mass_eq = pp.compositional_flow.get_primary_equations_cf(self)[0]
+        try:
+            r_mass = np.abs(np.asarray(
+                es.assemble(evaluate_jacobian=False, equations={mass_eq: sds}), float))
+        except Exception as exc:
+            logger.warning("binding diagnostic: mass residual assemble failed (%s)", exc)
+            return
+        if r_mass.size != n:
+            logger.warning("binding diagnostic: residual/cell size mismatch (%d vs %d)", r_mass.size, n)
+            return
+        contrib = r_mass * np.sqrt(np.maximum(vol, 0.0))
+        k = int(min(top_k, n))
+        fail = np.argsort(contrib)[::-1][:k]
+
+        neg = dRho_dp < 0.0
+        neg_fail = int(np.sum(neg[fail]))
+        two_phase_fail = int(np.sum((s_v[fail] > 1e-9) & (s_v[fail] < 1.0 - 1e-9)))
+        salt_fail = int(np.sum(s_h[fail] > 1e-9))
+        imin = int(np.argmin(dRho_dp)) if n else -1
+        # CRITICAL-POINT proximity: the phase densities MERGE at the mixture critical point, so
+        # rho_v/rho_l -> 1 (sub-critical two-phase has rho_v << rho_l). Near critical the EOS derivatives
+        # diverge -> the Jacobian is near-singular and NEITHER a smaller dt NOR a trust region helps
+        # (alpha collapses with no residual progress -- a thermodynamic singularity, not a step-size issue).
+        dens_ratio = rho_v / np.maximum(rho_l, 1e-30)
+        near_crit_fail = int(np.sum(dens_ratio[fail] > 0.5))
+        yr = 365.0 * 86400.0
+
+        logger.info("=" * 68)
+        logger.info("BINDING DIAGNOSTIC @ stalled iterate (t=%.1f yr, dt=%.3g yr, cells=%d)",
+                    self.time_manager.time / yr, self.time_manager.dt / yr, n)
+        logger.info("failing cells = top %d by row-scaled mass_balance residual", k)
+        logger.info("  of those:  two-phase=%d  salt(s_h>0)=%d  dRho/dp<0=%d   |   global dRho/dp<0 frac=%.2f",
+                    two_phase_fail, salt_fail, neg_fail, float(np.mean(neg)) if n else 0.0)
+        logger.info("  min dRho/dp = %+.3e (cell %d, s_v=%.3f s_h=%.3f)",
+                    float(dRho_dp[imin]) if n else 0.0, imin,
+                    float(s_v[imin]) if n else 0.0, float(s_h[imin]) if n else 0.0)
+        logger.info("  CRITICAL proximity: failing cells with rho_v/rho_l>0.5 = %d/%d | max ratio in fail = %.3f",
+                    near_crit_fail, k, float(np.max(dens_ratio[fail])) if k else 0.0)
+        for j in fail[:min(8, k)]:
+            tag = ("CRITICAL" if dens_ratio[j] > 0.5 else
+                   ("NEG-COMPR" if dRho_dp[j] < 0 else
+                    ("two-phase" if 1e-9 < s_v[j] < 1 - 1e-9 else ("salt" if s_h[j] > 1e-9 else "single"))))
+            pr_str = "" if pr is None else "  pr=%.1f" % float(pr[j])
+            logger.info("    cell %6d dim%d | mass=%.3e  s_v=%.4f  T=%.1fK  rho_v/rho_l=%.3f  dRho/dp=%+.3e  %s%s",
+                        int(j), int(dims[j]), float(contrib[j]), float(s_v[j]), float(T[j]),
+                        float(dens_ratio[j]), float(dRho_dp[j]), tag, pr_str)
+
+        if near_crit_fail >= max(1, k // 2):
+            verdict = ("CRITICAL-POINT crossing (rho_v/rho_l -> 1) -> SINGULAR EOS derivatives; the Jacobian "
+                       "is near-singular, so dt / LS / TR cannot help. Regularize the critical band, not the solver")
+        elif neg_fail >= max(1, k // 2):
+            verdict = "NEGATIVE COMPRESSIBILITY -> indefinite pressure diagonal; PTC / compressibility floor"
+        elif two_phase_fail + salt_fail >= max(1, k // 2):
+            verdict = "KINK at a phase front (definite, discontinuous) -> gradient recovery / step limiting"
+        else:
+            verdict = "single-phase, positive compressibility -> elliptic / CPR-AMG linear-solver issue"
+        logger.info("  VERDICT: %s", verdict)
+
+        # MERIT ALIGNMENT: does the raw-L2 line-search merit bind the same row as the row-scaled criterion?
+        try:
+            r_full = np.asarray(es.assemble(evaluate_jacobian=False), float)
+            raw = pp.EquationBasedLebesgueMetric(self)(r_full)
+            scaled = RelativeStorageLebesgueMetric(self)(r_full)
+            rb = max(raw, key=raw.get) if raw else "?"
+            sb = max(scaled, key=scaled.get) if scaled else "?"
+            logger.info("  norms: raw-L2 binds '%s'(%.3e); row-scaled (= LS merit = criterion) binds "
+                        "'%s'(%.3e)  [%s]", rb, raw.get(rb, 0.0), sb, scaled.get(sb, 0.0),
+                        "same row" if rb == sb
+                        else "differ: LS now descends the row-scaled (binding) row")
+        except Exception:
+            pass
+        logger.info("=" * 68)
 
     def collect_run_stats(self) -> NonlinearRunStats:
         """Return a picklable :class:`NonlinearRunStats` snapshot of the run.
