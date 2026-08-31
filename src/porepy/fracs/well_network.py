@@ -361,7 +361,8 @@ def _remove_constraint_only_intersection_points(
     from the start and must be kept).
 
     Parameters:
-        intersections: List of well-fracture intersections.
+        intersections: List of well-fracture intersections, possibly including
+            well-constraint cases.
         mdg: Mixed-dimensional grid containing the fracture subdomains.
 
     Returns:
