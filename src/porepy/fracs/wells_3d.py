@@ -608,6 +608,8 @@ def _connection_side_grid(connections: list[_WellMatrixConnection]) -> pp.Grid:
         (np.ones(2 * num, dtype=bool), (np.arange(2 * num), np.arange(2 * num))),
         shape=(2 * num, 2 * num),
     )
+    # In case it becomes important, the sign convention assigned here is essentially
+    # random.
     cell_faces = sps.csc_matrix(
         (
             np.tile([-1.0, 1.0], num),
@@ -626,24 +628,20 @@ def _connection_projections(
 ) -> dict[str, sps.csc_matrix]:
     """Build the projections between the neighbouring grids and the connections.
 
-    Each connection touches exactly one cell on either side, so the two normalisations
-    PorePy distinguishes are both available. The intensive maps carry a value unchanged
-    from a neighbouring cell to the connections inside it, and so have unit row sums.
-    The extensive maps divide a quantity between those connections in proportion to
-    contact length, and so have unit column sums. See
-    :func:`~porepy.grids.match_grids.match_1d` for the definition of the two.
+    Each connection touches exactly one cell on the rock matrix and will sides, and both
+    the integrating (extensive) and non-integrating (intensive) maps are constructed.
 
     Note:
         The intensive maps come out as matrices of ones, which reads like a sum rather
         than an average. It is both: a connection lies inside a single cell on either
         side, so the average over the cells overlapping it is an average of one value.
-        The extensive maps are the ones carrying a weight, because a rock matrix cell
-        may host several connections and its share has to be divided between them.
+        The extensive maps are the ones carrying a weight, because a rock matrix (or
+        well) cell may host several connections and its share has to be divided between
+        them.
 
     Parameters:
-        sd_max: The rock matrix grid.
-        sd_w: The well grid.
-        connections: The contacts between the well and the rock matrix.
+        sd_max: The rock matrix grid. sd_w: The well grid. connections: The contacts
+        between the well and the rock matrix.
 
     Returns:
         The four projection matrices, keyed by the attribute of
@@ -709,6 +707,7 @@ def _add_well_matrix_interface(
 
     for name, projection in _connection_projections(sd_max, sd_w, connections).items():
         setattr(mg, name, projection)
+    # _set_projections() will set the mortar-to-{primary, secondary} maps.
     mg._set_projections()
     mg.compute_geometry()
 
