@@ -20,6 +20,7 @@ __all__ = [
     "TimeStepperStatus",
     "TimeStepperStatusSuccess",
     "TimeStepperStatusFailure",
+    "TimeStepperStatusInProgress",
 ]
 
 
@@ -79,6 +80,15 @@ class TimeStepperStatusSuccess(TimeStepperStatus):
         if len(self.attempts) == 0:
             raise ValueError
         return self.attempts[-1].dt
+
+
+@dataclass
+class TimeStepperStatusInProgress(TimeStepperStatus):
+    # TODO YZ
+    attempts: list[TimeStepperAttemptData]
+
+    def serialize(self) -> str:
+        return "in_progress"
 
 
 @dataclass

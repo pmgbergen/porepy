@@ -486,7 +486,7 @@ class TimeStatistics(SolverStatistics):
         # TODO: Rethink during upgrade of time integration.
         for simulation_status in self.simulation_status_history:
             total_num_time_steps += 1
-            if not simulation_status.is_converged():
+            if not simulation_status.is_success():
                 total_num_failed_time_steps += 1
 
         # Update global data.

@@ -62,7 +62,7 @@ def test_run_examples(example_path: Path):
 
     for model in models:
         status = model.nonlinear_solver_statistics
-        assert status.simulation_status.is_converged(), (
+        assert status.simulation_status.is_success(), (
             f"{module_name} did not complete successfully."
             f"Simulation status: {status.simulation_status}."
         )

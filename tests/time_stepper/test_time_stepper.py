@@ -606,7 +606,7 @@ def test_solve_convergence_time_dependent_statistics(statistics_path: Path):
         },
         "0": {
             "final_time_reached": 0,
-            "time_index": 1,
+            "time_index": 1,  # Note that time_index is off-by-one from the dict key.
             "time": 0.5,
             "dt": 0.5,
             "num_iterations": 2,
@@ -671,10 +671,10 @@ def test_solve_failure_time_dependent_statistics(statistics_path: Path):
     """
     model = MockModel(statistics_path=statistics_path)
     solver = default_newton_solver(iter_converge=5)
-    time_manager = TimeManager(
-        schedule=[0, 1], dt_init=1, constant_dt=False, dt_min_max=(0.5, 1)
+    scheduler = assemble_default_time_scheduler(
+        schedule=[0, 1], dt_init=1, constant_dt=False, dt_min=0.5, dt_max=1
     )
-    time_stepper = TimeStepper(time_manager=time_manager)
+    time_stepper = TimeStepper(scheduler=scheduler)
 
     # It will attempt to make a time step twice here, with dt=1 and dt=0.5. Both will
     # fail after two unsuccessful nonlinear iterations.
@@ -804,4 +804,11 @@ def test_solve_failure_time_dependent_statistics(statistics_path: Path):
         },
     }
 
-    assert DeepDiff(data, reference_data) == {}
+    assert (
+        DeepDiff(
+            data,
+            reference_data,
+            ignore_numeric_type_changes=True,  # to treat 1 and 1.0 as equal.
+        )
+        == {}
+    )
