@@ -1024,7 +1024,7 @@ else:
             """Interface method for the solution strategy to be called to set initial
             values for all variables.
 
-            Calls the methods :meth:`set_initial_values_primary_variables`.
+            Calls the method :meth:`set_initial_values_primary_variables`.
 
             Can be overridden to set other initial conditions after a super-call.
 
@@ -1034,6 +1034,10 @@ else:
                 get a runable model.
 
             """
+
+        def set_initial_values_primary_variables(self) -> None:
+            """Set the initial values for the primary variables."""
+
 
     class EquationProtocol(Protocol):
         """This protocol provides declarations of methods and properties related to

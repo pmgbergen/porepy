@@ -892,9 +892,10 @@ class InitialConditionsThreeFieldMomentumBalance(pp.PorePyModel):
             - :meth:`ic_values_total_pressure`
 
         """
-        # Super call for compatibility with multi-physics. The method is not part
-        # of the protocol, so mypy cannot see the sibling mixin providing it.
-        super().set_initial_values_primary_variables()  # type: ignore[misc]
+        # Super call for compatibility with multi-physics. Mypy only sees the protocol's
+        # trivial body; the call resolves to a sibling mixin at runtime.
+        super().set_initial_values_primary_variables()  # type: ignore[safe-super]
+
 
         for sd in self.mdg.subdomains():
             # Displacement is only defined on grids with ambient dimension.
