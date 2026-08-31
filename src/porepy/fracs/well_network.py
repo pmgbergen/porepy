@@ -690,10 +690,11 @@ def _add_well_fracture_interfaces(
         [g.cell_centers[:, 0] for g in well_mdg.subdomains(dim=0)]
     ).T
 
-    # Map from the PorePy fracture index (i.e., the position of the fracture in the
-    # full fracture list passed to the fracture network) to the corresponding
-    # subdomain in the mdg. This is needed since the two need not be enumerated in
-    # the same order.
+    # Map from the PorePy fracture index (which reflects the position of the fracture in
+    # the full fracture list passed to the fracture network) to the corresponding
+    # subdomain in the mdg. This is needed since the two need not be enumerated in the
+    # same order (for instance, a fracture may be a meshing constraint and not
+    # represented as a subdomain in the mdg).
     frac_num_to_subdomain = {
         sd.frac_num: sd for sd in mdg.subdomains(dim=mdg.dim_max() - 1)
     }
