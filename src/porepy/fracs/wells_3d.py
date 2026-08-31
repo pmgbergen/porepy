@@ -327,14 +327,15 @@ def _segment_cell_interval(
 
 def _distribute_shared_intervals(
     intervals: dict[int, tuple[float, float]], tol: float
-) -> dict[int, float]:
+) -> dict[int, list[tuple[float, float]]]:
     """Distribute a segment over the cells it passes through, without double counting.
 
     A segment that runs along a face or an edge of the grid lies on the boundary of
     every cell sharing that face or edge, and each of them claims the same part of the
-    segment. The overlapping part is split equally between them, which is symmetric in
-    the sharing cells and preserves the total: the distributed fractions sum to the
-    fraction of the segment covered by at least one cell.
+    segment. The shared part is divided equally between them, by splitting it into
+    consecutive pieces of equal length rather than by attaching a weight to a shared
+    piece. Dividing it geometrically keeps the division intact when the mortar grid
+    built from these intervals recomputes its cell volumes from its own geometry.
 
     Note:
         Splitting equally is a modelling choice. The physical well lies on the interface
@@ -346,20 +347,22 @@ def _distribute_shared_intervals(
     Parameters:
         intervals: For each cell, the parameter interval of the segment inside it, as
             returned by :func:`_segment_cell_interval`.
-        tol: Relative tolerance below which a sub-interval is treated as empty.
+        tol: Relative tolerance below which a piece is treated as empty.
 
     Returns:
-        For each cell, the fraction of the segment length attributed to it. Cells whose
-        attributed fraction is zero are omitted.
+        For each cell the segment touches, the parameter intervals attributed to it.
+        Pieces that meet are merged, so a cell is normally given a single interval; it
+        is given more than one only where its contact with the segment is genuinely
+        disconnected, as when the segment leaves the cell and re-enters it.
 
     """
     if len(intervals) == 0:
         return {}
 
-    cells = list(intervals)
+    cells = sorted(intervals)
     breakpoints = np.unique(np.array([t for cell in cells for t in intervals[cell]]))
 
-    fractions: dict[int, float] = {cell: 0.0 for cell in cells}
+    pieces: dict[int, list[tuple[float, float]]] = {cell: [] for cell in cells}
     shared = False
     for lower, upper in zip(breakpoints[:-1], breakpoints[1:]):
         width = upper - lower
@@ -375,8 +378,12 @@ def _distribute_shared_intervals(
             continue
         if len(covering) > 1:
             shared = True
-        for cell in covering:
-            fractions[cell] += width / len(covering)
+        # Hand each claiming cell a consecutive piece of equal length.
+        share = width / len(covering)
+        for position, cell in enumerate(covering):
+            pieces[cell].append(
+                (lower + position * share, lower + (position + 1) * share)
+            )
 
     if shared:
         logger.warning(
@@ -385,7 +392,34 @@ def _distribute_shared_intervals(
             "split equally between them."
         )
 
-    return {cell: f for cell, f in fractions.items() if f > tol}
+    return {
+        cell: merged
+        for cell, cell_pieces in pieces.items()
+        if (merged := _merge_touching_intervals(cell_pieces, tol))
+    }
+
+
+def _merge_touching_intervals(
+    pieces: list[tuple[float, float]], tol: float
+) -> list[tuple[float, float]]:
+    """Join intervals that meet, and drop those shorter than the tolerance.
+
+    Parameters:
+        pieces: Intervals along a segment, in increasing order.
+        tol: Length below which an interval is dropped, and gap below which two
+            intervals are considered to meet.
+
+    Returns:
+        The merged intervals.
+
+    """
+    merged: list[tuple[float, float]] = []
+    for lower, upper in pieces:
+        if merged and lower - merged[-1][1] <= tol:
+            merged[-1] = (merged[-1][0], upper)
+        else:
+            merged.append((lower, upper))
+    return [(a, b) for a, b in merged if b - a > tol]
 
 
 def _well_segments(sd_w: pp.Grid) -> tuple[np.ndarray, np.ndarray]:
@@ -460,7 +494,10 @@ def _segment_connections(
         if interval is not None:
             intervals[cell] = interval
 
-    return _distribute_shared_intervals(intervals, min_length)
+    return {
+        cell: sum(upper - lower for lower, upper in pieces)
+        for cell, pieces in _distribute_shared_intervals(intervals, min_length).items()
+    }
 
 
 def _well_matrix_projection(

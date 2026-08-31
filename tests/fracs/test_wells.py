@@ -163,38 +163,67 @@ class TestSegmentCellInterval:
 class TestDistributeSharedIntervals:
     """Distribution of a segment over cells, without loss or double counting."""
 
+    @staticmethod
+    def _lengths(pieces: dict) -> dict:
+        """Total length attributed to each cell."""
+        return {c: sum(b - a for a, b in iv) for c, iv in pieces.items()}
+
     def test_disjoint_intervals_are_kept(self) -> None:
         """Cells covering different parts of the segment keep their own lengths."""
-        fractions = _distribute_shared_intervals({0: (0.0, 0.4), 1: (0.4, 1.0)}, 1e-10)
-        assert np.isclose(fractions[0], 0.4)
-        assert np.isclose(fractions[1], 0.6)
+        out = _distribute_shared_intervals({0: (0.0, 0.4), 1: (0.4, 1.0)}, 1e-10)
+        assert np.isclose(self._lengths(out)[0], 0.4)
+        assert np.isclose(self._lengths(out)[1], 0.6)
 
     def test_fully_shared_interval_is_split_equally(self) -> None:
         """A segment in a shared face is claimed by both cells, and split evenly."""
-        fractions = _distribute_shared_intervals({3: (0.0, 1.0), 7: (0.0, 1.0)}, 1e-10)
-        assert np.isclose(fractions[3], 0.5)
-        assert np.isclose(fractions[7], 0.5)
-        assert np.isclose(sum(fractions.values()), 1.0)
+        out = _distribute_shared_intervals({3: (0.0, 1.0), 7: (0.0, 1.0)}, 1e-10)
+        lengths = self._lengths(out)
+        assert np.isclose(lengths[3], 0.5)
+        assert np.isclose(lengths[7], 0.5)
+        assert np.isclose(sum(lengths.values()), 1.0)
+
+    def test_shared_pieces_do_not_overlap(self) -> None:
+        """The pieces handed to the sharing cells are disjoint.
+
+        The division has to be geometric rather than a weight, because the mortar grid
+        built from these intervals recomputes its cell volumes from its own geometry. A
+        failure here means the shared length would be counted once per sharing cell.
+        """
+        out = _distribute_shared_intervals({3: (0.2, 0.8), 7: (0.2, 0.8)}, 1e-10)
+        all_pieces = sorted(iv for pieces in out.values() for iv in pieces)
+        for (_, upper), (lower, _) in zip(all_pieces[:-1], all_pieces[1:]):
+            assert lower >= upper - 1e-12
+        assert np.isclose(sum(b - a for a, b in all_pieces), 0.6)
 
     def test_edge_shared_by_many_cells(self) -> None:
         """A segment along an edge is split equally between all cells sharing it."""
-        cells = {c: (0.0, 1.0) for c in range(6)}
-        fractions = _distribute_shared_intervals(cells, 1e-10)
-        assert np.allclose(list(fractions.values()), 1.0 / 6.0)
-        assert np.isclose(sum(fractions.values()), 1.0)
+        out = _distribute_shared_intervals({c: (0.0, 1.0) for c in range(6)}, 1e-10)
+        lengths = self._lengths(out)
+        assert np.allclose(list(lengths.values()), 1.0 / 6.0)
+        assert np.isclose(sum(lengths.values()), 1.0)
 
     def test_partial_overlap(self) -> None:
         """Only the overlapping part is shared; the rest is attributed in full."""
-        fractions = _distribute_shared_intervals({0: (0.0, 0.6), 1: (0.4, 1.0)}, 1e-10)
+        out = _distribute_shared_intervals({0: (0.0, 0.6), 1: (0.4, 1.0)}, 1e-10)
+        lengths = self._lengths(out)
         # [0, 0.4] to cell 0, [0.4, 0.6] shared, [0.6, 1.0] to cell 1.
-        assert np.isclose(fractions[0], 0.4 + 0.1)
-        assert np.isclose(fractions[1], 0.4 + 0.1)
-        assert np.isclose(sum(fractions.values()), 1.0)
+        assert np.isclose(lengths[0], 0.4 + 0.1)
+        assert np.isclose(lengths[1], 0.4 + 0.1)
+        assert np.isclose(sum(lengths.values()), 1.0)
+
+    def test_contiguous_contact_is_one_interval(self) -> None:
+        """A cell touching the segment along one stretch is given a single interval.
+
+        Each interval becomes one mortar cell, so gratuitous splitting would inflate the
+        number of interface unknowns without changing the physics.
+        """
+        out = _distribute_shared_intervals({0: (0.0, 0.5), 1: (0.5, 1.0)}, 1e-10)
+        assert all(len(pieces) == 1 for pieces in out.values())
 
     def test_segment_partly_outside_all_cells(self) -> None:
         """Length not covered by any cell is not attributed to one."""
-        fractions = _distribute_shared_intervals({0: (0.25, 0.75)}, 1e-10)
-        assert np.isclose(sum(fractions.values()), 0.5)
+        out = _distribute_shared_intervals({0: (0.25, 0.75)}, 1e-10)
+        assert np.isclose(sum(self._lengths(out).values()), 0.5)
 
     def test_no_candidates(self) -> None:
         """A segment outside the grid produces no connections."""
@@ -251,8 +280,8 @@ def _brute_force_connections(
             interval = _segment_cell_interval(start, end, normals, offsets, tol)
             if interval is not None:
                 intervals[c] = interval
-        for c, fraction in _distribute_shared_intervals(intervals, 1e-10).items():
-            connections[seg, c] = fraction
+        for c, pieces in _distribute_shared_intervals(intervals, 1e-10).items():
+            connections[seg, c] = sum(upper - lower for lower, upper in pieces)
     return connections
 
 
