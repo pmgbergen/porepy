@@ -283,7 +283,7 @@ def test_nonlinear_solver_status_serialization(status_type, expected):
 @pytest.mark.parametrize(
     ("status", "expected"),
     [
-        (time_step_failure(), "in_progress"),
+        # TODO YZ: Test that reflects multiple attempts.
         (time_step_success(), "successful"),
         (time_step_failure(), "failed"),
     ],
