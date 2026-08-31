@@ -630,7 +630,15 @@ def _connection_projections(
     PorePy distinguishes are both available. The intensive maps carry a value unchanged
     from a neighbouring cell to the connections inside it, and so have unit row sums.
     The extensive maps divide a quantity between those connections in proportion to
-    contact length, and so have unit column sums.
+    contact length, and so have unit column sums. See
+    :func:`~porepy.grids.match_grids.match_1d` for the definition of the two.
+
+    Note:
+        The intensive maps come out as matrices of ones, which reads like a sum rather
+        than an average. It is both: a connection lies inside a single cell on either
+        side, so the average over the cells overlapping it is an average of one value.
+        The extensive maps are the ones carrying a weight, because a rock matrix cell
+        may host several connections and its share has to be divided between them.
 
     Parameters:
         sd_max: The rock matrix grid.
