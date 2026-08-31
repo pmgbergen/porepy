@@ -683,3 +683,30 @@ class TestDamageLength:
             d * np.sqrt(2.0) * np.ones(nc),
             rtol=1e-10,
         )
+
+    @pytest.mark.parametrize(
+        "isotropic", [True, False], ids=["isotropic", "anisotropic"]
+    )
+    def test_3d_zero_check_uses_norm_not_component_sum(self, isotropic: bool):
+        """The increment measure must not vanish for a cancelling 3D increment.
+
+        ``damage_convolution_integral`` drops a history term when this second return
+        value falls below tolerance, so it may vanish only when the increment itself
+        does. With ``u_t = (a, -a)`` the tangential components sum to zero while the
+        increment is plainly non-zero. A failure here means the check has reverted to
+        summing components, which silently discards real slip history in 3D.
+        """
+        model = _prepared_model(isotropic=isotropic, damages=["dilation"], dim=3)
+        fractures = self._fractures(model)
+        nc = sum(sd.num_cells for sd in fractures)
+        a = 3.0e-4
+
+        self._set_tangential_jump(model, a, -a, iterate=True)
+        self._set_tangential_jump(model, 0.0, 0.0, time_step_index=0)
+
+        _, increment_norm = model.damage_length(fractures, 0)
+        np.testing.assert_allclose(
+            increment_norm.value(model.equation_system),
+            a * np.sqrt(2.0) * np.ones(nc),
+            rtol=1e-10,
+        )
