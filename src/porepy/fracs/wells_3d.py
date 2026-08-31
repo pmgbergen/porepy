@@ -16,7 +16,7 @@ mixed-dimensional grid by
 from __future__ import annotations
 
 import logging
-from typing import Callable, Iterator, Optional
+from typing import Callable, Iterator, NamedTuple, Optional
 
 import gmsh
 import numpy as np
@@ -174,6 +174,31 @@ class Well:
             s += f"Minimum coordinates: {self.pts.min(axis=1)}\n"
 
         return s
+
+
+class _WellMatrixConnection(NamedTuple):
+    """One stretch of contact between a well cell and a rock matrix cell.
+
+    A well is not conforming to the rock matrix mesh, so a well cell generally crosses
+    several rock matrix cells and a rock matrix cell is generally crossed by several
+    well cells. A connection is one such contact, and becomes one cell of the mortar
+    grid coupling the two.
+
+    """
+
+    well_cell: int
+    """Index of the well cell."""
+    matrix_cell: int
+    """Index of the rock matrix cell."""
+    start: np.ndarray
+    """``shape=(3,)`` Start point of the contact."""
+    end: np.ndarray
+    """``shape=(3,)`` End point of the contact."""
+
+    @property
+    def length(self) -> float:
+        """Length of the contact."""
+        return float(np.linalg.norm(self.end - self.start))
 
 
 def _cell_half_spaces(
@@ -455,19 +480,21 @@ def _well_segments(sd_w: pp.Grid) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _segment_connections(
+    well_cell: int,
     start: np.ndarray,
     end: np.ndarray,
     tree: pp.adtree.ADTree,
     half_spaces: Callable[[int], tuple[np.ndarray, np.ndarray]],
     min_length: float,
     tol: float,
-) -> dict[int, float]:
-    """Distribute a single well segment over the rock matrix cells it passes through.
+) -> list[_WellMatrixConnection]:
+    """Find the contacts between one well cell and the rock matrix.
 
     The tree provides the cells whose bounding box the segment may enter, which are then
     intersected exactly.
 
     Parameters:
+        well_cell: Index of the well cell the segment represents.
         start: ``shape=(3,)``
 
             Start point of the segment.
@@ -476,12 +503,11 @@ def _segment_connections(
             End point of the segment.
         tree: Search tree over the cells of the rock matrix grid.
         half_spaces: Half space representation of a rock matrix cell, given its index.
-        min_length: Minimum fraction of the segment for a connection to be kept.
+        min_length: Minimum fraction of the segment for a contact to be kept.
         tol: Relative geometric tolerance.
 
     Returns:
-        For each rock matrix cell the segment passes through, the fraction of the
-        segment length attributed to it.
+        The contacts between this well cell and the rock matrix cells it passes through.
 
     """
     bounding_box = np.sort(np.vstack((start, end)), axis=0).ravel()
@@ -494,32 +520,38 @@ def _segment_connections(
         if interval is not None:
             intervals[cell] = interval
 
-    return {
-        cell: sum(upper - lower for lower, upper in pieces)
+    direction = end - start
+    return [
+        _WellMatrixConnection(
+            well_cell, cell, start + lower * direction, start + upper * direction
+        )
         for cell, pieces in _distribute_shared_intervals(intervals, min_length).items()
-    }
+        for lower, upper in pieces
+    ]
 
 
-def _well_matrix_projection(
+def _well_connections(
     sd_max: pp.Grid,
     sd_w: pp.Grid,
     tree: pp.adtree.ADTree,
     min_length: float,
     tol: float,
-) -> sps.csc_matrix:
-    """Map the cells of the rock matrix onto the cells of a well.
+) -> list[_WellMatrixConnection]:
+    """Find every contact between a well and the rock matrix.
 
     Parameters:
         sd_max: The rock matrix grid.
         sd_w: The well grid.
         tree: Search tree over the cells of the rock matrix grid.
-        min_length: Minimum fraction of a well segment for a connection to be kept.
+        min_length: Minimum fraction of a well cell for a contact to be kept.
         tol: Relative geometric tolerance.
 
     Returns:
-        Matrix with ``shape=(sd_w.num_cells, sd_max.num_cells)``, whose entry
-        ``(i, c)`` is the fraction of well cell ``i`` that lies inside rock matrix
-        cell ``c``.
+        The contacts, ordered by well cell.
+
+    Raises:
+        ValueError: If a rock matrix cell traversed by the well is not convex, or has
+            non-planar faces.
 
     """
     cell_faces = sd_max.cell_faces.tocsc()
@@ -533,19 +565,46 @@ def _well_matrix_projection(
         _validate_convex_cell(cell, vertices, normals, offsets, tol)
         return normals, offsets
 
-    well_cells, matrix_cells, fractions = [], [], []
     start, end = _well_segments(sd_w)
-    for well_cell, (segment_start, segment_end) in enumerate(zip(start.T, end.T)):
-        connections = _segment_connections(
-            segment_start, segment_end, tree, validated_half_spaces, min_length, tol
+    return [
+        connection
+        for well_cell, (segment_start, segment_end) in enumerate(zip(start.T, end.T))
+        for connection in _segment_connections(
+            well_cell,
+            segment_start,
+            segment_end,
+            tree,
+            validated_half_spaces,
+            min_length,
+            tol,
         )
-        for matrix_cell, fraction in connections.items():
-            well_cells.append(well_cell)
-            matrix_cells.append(matrix_cell)
-            fractions.append(fraction)
+    ]
 
+
+def _well_matrix_projection(
+    sd_max: pp.Grid,
+    sd_w: pp.Grid,
+    connections: list[_WellMatrixConnection],
+) -> sps.csc_matrix:
+    """Map the cells of the rock matrix onto the cells of a well.
+
+    Parameters:
+        sd_max: The rock matrix grid.
+        sd_w: The well grid.
+        connections: The contacts between the well and the rock matrix.
+
+    Returns:
+        Matrix with ``shape=(sd_w.num_cells, sd_max.num_cells)``, whose entry
+        ``(i, c)`` is the fraction of well cell ``i`` that lies inside rock matrix
+        cell ``c``.
+
+    """
+    well_lengths = sd_w.cell_volumes
     return sps.csc_matrix(
-        (fractions, (well_cells, matrix_cells)),
+        (
+            [c.length / well_lengths[c.well_cell] for c in connections],
+            ([c.well_cell for c in connections], [c.matrix_cell for c in connections]),
+        ),
         shape=(sd_w.num_cells, sd_max.num_cells),
     )
 
@@ -643,5 +702,6 @@ def compute_well_rock_matrix_intersections(
         sd for sd in mdg.subdomains(dim=sd_max.dim - 2) if hasattr(sd, "well_num")
     ]
     for sd_w in well_subdomains:
-        projection = _well_matrix_projection(sd_max, sd_w, tree, min_length, tol)
+        connections = _well_connections(sd_max, sd_w, tree, min_length, tol)
+        projection = _well_matrix_projection(sd_max, sd_w, connections)
         _add_well_matrix_interface(mdg, sd_max, sd_w, projection)

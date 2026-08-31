@@ -35,6 +35,7 @@ from porepy.fracs.wells_3d import (
     _distribute_shared_intervals,
     _segment_cell_interval,
     _validate_convex_cell,
+    _well_connections,
 )
 
 
@@ -432,6 +433,63 @@ class TestValidateConvexCell:
         # A perturbation well below the relative tolerance times the cell diameter.
         vertices[2, -1] += 1e-9 * scale
         _validate_convex_cell(0, vertices, normals, offsets, 1e-5)
+
+
+class TestWellConnections:
+    """The contacts between a well and the rock matrix, as a list of records.
+
+    Each connection becomes one cell of the mortar grid, so a failure here changes the
+    number of interface unknowns as well as the geometry they are attached to.
+    """
+
+    @staticmethod
+    def _connections(matrix: pp.Grid, points: np.ndarray):
+        well = _well_mdg(matrix, points).subdomains(dim=1)[0]
+        tree = pp.adtree.ADTree(2 * matrix.dim, matrix.dim)
+        tree.from_grid(matrix)
+        return _well_connections(matrix, well, tree, 1e-10, 1e-5)
+
+    def test_contacts_cover_the_well(self) -> None:
+        """The contacts of a well cell account for its whole length."""
+        matrix = pp.StructuredTetrahedralGrid([3, 3, 3], [1, 1, 1])
+        matrix.compute_geometry()
+        points = WELL_TRAJECTORIES["slanted"]
+        connections = self._connections(matrix, points)
+
+        well = _well_mdg(matrix, points).subdomains(dim=1)[0]
+        for cell in range(well.num_cells):
+            covered = sum(c.length for c in connections if c.well_cell == cell)
+            assert np.isclose(covered, well.cell_volumes[cell], atol=1e-10)
+
+    def test_contacts_lie_on_the_well(self) -> None:
+        """Every contact is a sub-segment of the well cell it belongs to."""
+        matrix = pp.CartGrid([3, 3, 3], [1, 1, 1])
+        matrix.compute_geometry()
+        points = WELL_TRAJECTORIES["interior_vertical"]
+        connections = self._connections(matrix, points)
+
+        for c in connections:
+            for point in (c.start, c.end):
+                # Distance from the point to the line through the well cell endpoints.
+                a, b = points[:, c.well_cell], points[:, c.well_cell + 1]
+                direction = (b - a) / np.linalg.norm(b - a)
+                offset = point - a
+                assert np.isclose(
+                    np.linalg.norm(offset - np.dot(offset, direction) * direction),
+                    0.0,
+                    atol=1e-10,
+                )
+
+    def test_shared_face_gives_one_contact_per_cell(self) -> None:
+        """A well in a shared face contacts both neighbours, over disjoint stretches."""
+        matrix = pp.CartGrid([2, 1, 1], [1, 1, 1])
+        matrix.compute_geometry()
+        points = np.array([[0.5, 0.5], [0.5, 0.5], [0.25, 0.75]])
+        connections = self._connections(matrix, points)
+
+        assert len(connections) == 2
+        assert {c.matrix_cell for c in connections} == {0, 1}
+        assert np.allclose([c.length for c in connections], 0.25)
 
 
 @pytest.mark.skipped
