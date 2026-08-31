@@ -236,11 +236,11 @@ class FractureDamageEquations(pp.PorePyModel):
 
         Parameters:
             length_function: Function that takes (subdomains, time_step_index) and
-                returns (contribution, constant_part) tuple.
+                returns a (contribution, increment_norm) tuple.
             damage_coefficient_function: Function returning the damage coefficient
                 operator for the current time step.
             subdomains: List of fracture subdomains.
-            tolerance: Tolerance for checking if constant part is non-zero.
+            tolerance: Tolerance for checking if the increment norm is non-zero.
 
         Returns:
             Operator for the damage equation.
@@ -256,14 +256,14 @@ class FractureDamageEquations(pp.PorePyModel):
         for i in range(1, num_steps):
             # i = number of steps back in time.
             damage_coefficient_i = damage_coefficient.previous_timestep(i)
-            length_i, constant_part_i = length_function(subdomains, i)
-            # Provided the contribution is the product of the constant part and some
-            # variable, constant_part_i = 0 implies contribution_i = 0 regardless of the
-            # variable's value. The damage coefficient is also treated as constant (it
-            # is evaluated at the previous time step).
+            length_i, increment_norm_i = length_function(subdomains, i)
+            # A vanishing slip increment gives a vanishing contribution for both length
+            # functions, regardless of the current state they are evaluated against, so
+            # such terms can be dropped from the sum. Both factors are evaluated at a
+            # previous time step and are therefore constant.
             constant_value = cast(
                 np.ndarray,
-                (constant_part_i * damage_coefficient_i).value(self.equation_system),
+                (increment_norm_i * damage_coefficient_i).value(self.equation_system),
             )
             if np.any(np.abs(constant_value) > tolerance):  # tolerance for zero check
                 eq += length_i * damage_coefficient_i
@@ -407,15 +407,11 @@ class IsotropicFractureDamageLength(pp.PorePyModel):
             time_step_index: Index of the time step.
 
         Returns:
-            Tuple containing the contribution to the equation and the displacement
-            increment at the specified time step. If the displacement increment is zero,
-            the full contribution is also zero.
+            Tuple containing the contribution to the equation and the norm of the
+            displacement increment at the specified time step. If the increment norm is
+            zero, the full contribution is also zero.
         """
         nd_vec_to_tangential = self.tangential_component(subdomains)
-        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
-        tangential_to_scalar = pp.ad.sum_projection_list(
-            [e_i.T for e_i in tangential_basis]
-        )
         u_t = nd_vec_to_tangential @ self.plastic_displacement_jump(subdomains)
         u_t_increment = u_t.previous_timestep(time_step_index) - u_t.previous_timestep(
             time_step_index + 1
@@ -423,9 +419,12 @@ class IsotropicFractureDamageLength(pp.PorePyModel):
 
         f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
 
-        contribution = f_norm(u_t_increment)
+        # The norm vanishes if and only if the increment does, which is what the caller
+        # needs in order to discard a history term. Summing the tangential components
+        # instead would report an increment such as (a, -a) as zero.
+        increment_norm = f_norm(u_t_increment)
 
-        return contribution, tangential_to_scalar @ u_t_increment
+        return increment_norm, increment_norm
 
 
 class AnisotropicFractureDamageLength(pp.PorePyModel):
@@ -467,9 +466,9 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
             time_step_index: Index of the time step.
 
         Returns:
-            Tuple containing the contribution to the equation and the displacement
-            increment at the specified time step. If the displacement increment is zero,
-            the full contribution is also zero.
+            Tuple containing the contribution to the equation and the norm of the
+            displacement increment at the specified time step. If the increment norm is
+            zero, the full contribution is also zero.
         """
         # Fracture coordinate basis functions.
         tangential_basis = self.basis(subdomains, dim=self.nd - 1)
@@ -501,10 +500,13 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
         f_abs = pp.ad.Function(pp.ad.abs, "abs_function")
         contribution = f_abs(max_1 - max_0)
         # If time_step_index > 0, we can safely disregard the contribution if the
-        # displacement increment is zero. Return increment for checking before adding
-        # the contribution.
+        # displacement increment is zero. Return the increment norm for checking before
+        # adding the contribution; the norm vanishes if and only if the increment does,
+        # whereas summing the tangential components would report an increment such as
+        # (a, -a) as zero.
         increment = u_t_0 - u_t_1
-        return contribution, tangential_to_scalar @ increment
+        f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
+        return contribution, f_norm(increment)
 
     def normalized_tangential_plastic_jump(
         self, subdomains: list[pp.Grid]
