@@ -1,0 +1,18 @@
+# Changelog
+
+All notable changes to PorePy are documented in this file. It is updated by
+every pull request (PR) that changes user-facing behavior, and is used as the
+basis for release notes.
+
+Format: each entry is one line, `YYYY-MM-DD: Summary of the change (#PR).`
+Keep summaries to 1-2 sentences and written for a PorePy user, not just the
+author.
+
+## Unreleased
+
+### Changes
+
+### Breaking changes
+
+Changes to the front end (user-facing code: multiphysics models, solvers, grids, and
+similar) that require users to update their own code when upgrading.
