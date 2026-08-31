@@ -22,6 +22,7 @@ _Put an `x` in the boxes that apply._
 
 _Put an `x` in the boxes that apply or explain briefly why the box is not relevant._
 
+- [ ] [CHANGELOG.md](https://github.com/pmgbergen/porepy/blob/develop/CHANGELOG.md) has been updated, including the "Breaking changes" section if applicable.
 - [ ] The documentation is up-to-date.
 - [ ] Static typing is included in the update.
 - [ ] This PR does not duplicate existing functionality.
