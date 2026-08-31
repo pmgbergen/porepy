@@ -674,81 +674,37 @@ def _connection_projections(
     }
 
 
-def _well_matrix_projection(
-    sd_max: pp.Grid,
-    sd_w: pp.Grid,
-    connections: list[_WellMatrixConnection],
-) -> sps.csc_matrix:
-    """Map the cells of the rock matrix onto the cells of a well.
-
-    Parameters:
-        sd_max: The rock matrix grid.
-        sd_w: The well grid.
-        connections: The contacts between the well and the rock matrix.
-
-    Returns:
-        Matrix with ``shape=(sd_w.num_cells, sd_max.num_cells)``, whose entry
-        ``(i, c)`` is the fraction of well cell ``i`` that lies inside rock matrix
-        cell ``c``.
-
-    """
-    well_lengths = sd_w.cell_volumes
-    return sps.csc_matrix(
-        (
-            [c.length / well_lengths[c.well_cell] for c in connections],
-            ([c.well_cell for c in connections], [c.matrix_cell for c in connections]),
-        ),
-        shape=(sd_w.num_cells, sd_max.num_cells),
-    )
-
-
 def _add_well_matrix_interface(
     mdg: pp.MixedDimensionalGrid,
     sd_max: pp.Grid,
     sd_w: pp.Grid,
-    projection: sps.csc_matrix,
+    connections: list[_WellMatrixConnection],
 ) -> None:
     """Couple a well to the rock matrix through a new interface.
 
-    The mortar grid is a copy of the well grid, so that each well cell carries one set
-    of interface unknowns, however many rock matrix cells it passes through.
-
-    Warning:
-        The projection from the rock matrix is used unchanged for both the extensive
-        and the intensive map, which is provisional. Its rows sum to unity, as
-        ``primary_to_mortar_avg`` requires, but ``primary_to_mortar_int`` is defined
-        with column sums of unity. The columns sum to the number of well cells inside a
-        rock matrix cell when the matrix is coarse relative to the well, and to the
-        covered fraction of a well cell when it is fine, so the extensive map is wrong
-        in both regimes and correct only for a one-to-one matching.
-
-        This is presently harmless, because the well models use only
-        ``primary_to_mortar_avg``, for pressures, and ``mortar_to_primary_int``, for
-        fluxes, and the latter is built from the former by
-        :meth:`~porepy.grids.mortar_grid.MortarGrid._set_projections`. Both therefore
-        descend from the row-normalised map, and mass is conserved. The extensive map
-        must be corrected before anything projects an extensive quantity from the rock
-        matrix onto a well, or an intensive one the other way.
+    The mortar grid has one cell per contact, so each contact carries its own set of
+    interface unknowns. A well cell crossing several rock matrix cells therefore has one
+    flux per crossing, each driven by the pressure of the cell it lies in, rather than a
+    single flux driven by an average over them.
 
     Parameters:
         mdg: The mixed-dimensional grid the interface is added to.
         sd_max: The rock matrix grid.
         sd_w: The well grid.
-        projection: Map from the cells of the rock matrix onto the cells of the well, as
-            returned by :func:`_well_matrix_projection`.
+        connections: The contacts between the well and the rock matrix.
 
     """
-    side_grid = {pp.grids.mortar_grid.MortarSides.LEFT_SIDE: sd_w.copy()}
+    side_grid = {
+        pp.grids.mortar_grid.MortarSides.LEFT_SIDE: _connection_side_grid(connections)
+    }
     mg = pp.MortarGrid(sd_w.dim, side_grid, codim=sd_max.dim - sd_w.dim)
 
-    mg._primary_to_mortar_int = projection
-    mg._primary_to_mortar_avg = projection.copy()
-    mg._secondary_to_mortar_int = sps.diags(np.ones(sd_w.num_cells), format="csc")
-    mg._secondary_to_mortar_avg = sps.diags(np.ones(sd_w.num_cells), format="csc")
+    for name, projection in _connection_projections(sd_max, sd_w, connections).items():
+        setattr(mg, name, projection)
     mg._set_projections()
     mg.compute_geometry()
 
-    mdg.add_interface(mg, (sd_max, sd_w), projection)
+    mdg.add_interface(mg, (sd_max, sd_w), mg._primary_to_mortar_int)
 
 
 def compute_well_rock_matrix_intersections(
@@ -796,5 +752,4 @@ def compute_well_rock_matrix_intersections(
     ]
     for sd_w in well_subdomains:
         connections = _well_connections(sd_max, sd_w, tree, min_length, tol)
-        projection = _well_matrix_projection(sd_max, sd_w, connections)
-        _add_well_matrix_interface(mdg, sd_max, sd_w, projection)
+        _add_well_matrix_interface(mdg, sd_max, sd_w, connections)

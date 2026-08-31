@@ -257,11 +257,24 @@ def _well_mdg(matrix: pp.Grid, points: np.ndarray) -> pp.MixedDimensionalGrid:
     return mdg
 
 
-def _connection_matrix(mdg: pp.MixedDimensionalGrid) -> np.ndarray:
-    """Dense well-to-matrix connection map of the single interface in ``mdg``."""
+def _contact_lengths(mdg: pp.MixedDimensionalGrid) -> np.ndarray:
+    """Length of contact between each well cell and each rock matrix cell.
+
+    Read back from the interface of ``mdg``, whose mortar cells are the individual
+    contacts: each mortar cell lies in one well cell and one rock matrix cell, and its
+    volume is the contact length.
+    """
     interfaces = list(mdg.interfaces())
     assert len(interfaces) == 1
-    return interfaces[0]._primary_to_mortar_int.toarray()
+    intf = interfaces[0]
+    well_cells = intf._secondary_to_mortar_avg.tocsr().indices
+    matrix_cells = intf._primary_to_mortar_avg.tocsr().indices
+
+    _, well = mdg.interface_to_subdomain_pair(intf)
+    matrix, _ = mdg.interface_to_subdomain_pair(intf)
+    lengths = np.zeros((well.num_cells, matrix.num_cells))
+    np.add.at(lengths, (well_cells, matrix_cells), intf.cell_volumes)
+    return lengths
 
 
 def _brute_force_connections(
@@ -321,11 +334,11 @@ def test_search_matches_brute_force_oracle(trajectory, grid_type) -> None:
 
     points = WELL_TRAJECTORIES[trajectory]
     mdg = _well_mdg(matrix, points)
+    well_lengths = mdg.subdomains(dim=1)[0].cell_volumes
     pp.fracs.wells_3d.compute_well_rock_matrix_intersections(mdg)
 
-    np.testing.assert_allclose(
-        _connection_matrix(mdg), _brute_force_connections(matrix, points), atol=1e-10
-    )
+    expected = _brute_force_connections(matrix, points) * well_lengths[:, None]
+    np.testing.assert_allclose(_contact_lengths(mdg), expected, atol=1e-10)
 
 
 @pytest.mark.parametrize(
@@ -342,11 +355,13 @@ def test_well_length_is_conserved(trajectory, num_cells) -> None:
 
     points = WELL_TRAJECTORIES[trajectory]
     mdg = _well_mdg(matrix, points)
+    well_lengths = mdg.subdomains(dim=1)[0].cell_volumes
     pp.fracs.wells_3d.compute_well_rock_matrix_intersections(mdg)
 
     # All trajectories lie inside the unit cube, so every segment is fully covered.
-    row_sums = _connection_matrix(mdg).sum(axis=1)
-    np.testing.assert_allclose(row_sums, 1.0, atol=1e-10)
+    np.testing.assert_allclose(
+        _contact_lengths(mdg).sum(axis=1), well_lengths, atol=1e-10
+    )
 
 
 def test_well_partially_outside_domain() -> None:
@@ -360,7 +375,8 @@ def test_well_partially_outside_domain() -> None:
     mdg = _well_mdg(matrix, points)
     pp.fracs.wells_3d.compute_well_rock_matrix_intersections(mdg)
 
-    np.testing.assert_allclose(_connection_matrix(mdg).sum(axis=1), [1.0 / 3.0])
+    # The segment is 1.5 long, of which the third above z = 0 lies in the domain.
+    np.testing.assert_allclose(_contact_lengths(mdg).sum(axis=1), [0.5])
 
 
 def test_well_in_shared_face_is_split_between_neighbours(caplog) -> None:
@@ -378,8 +394,9 @@ def test_well_in_shared_face_is_split_between_neighbours(caplog) -> None:
     with caplog.at_level("WARNING"):
         pp.fracs.wells_3d.compute_well_rock_matrix_intersections(mdg)
 
-    connections = _connection_matrix(mdg)
-    np.testing.assert_allclose(np.sort(connections[0]), [0.5, 0.5])
+    lengths = _contact_lengths(mdg)
+    # The segment is 0.5 long and lies in the face between the two cells.
+    np.testing.assert_allclose(np.sort(lengths[0])[-2:], [0.25, 0.25])
     assert "split equally" in caplog.text
 
 
@@ -566,6 +583,65 @@ class TestConnectionMortarPieces:
 
         for name in proj:
             assert np.all(np.diff(proj[name].tocsr().indptr) == 1), name
+
+
+def test_interface_has_one_cell_per_contact() -> None:
+    """The mortar grid resolves each contact separately.
+
+    This is the property the coupling is built on: a well cell crossing several rock
+    matrix cells gets one flux per crossing, so it can take fluid from one cell and
+    deliver it to another. A regression to one mortar cell per well cell would leave the
+    total contact length right but make such a state unrepresentable.
+    """
+    matrix = pp.StructuredTetrahedralGrid([3, 3, 3], [1, 1, 1])
+    matrix.compute_geometry()
+    points = WELL_TRAJECTORIES["slanted"]
+    mdg = _well_mdg(matrix, points)
+    well = mdg.subdomains(dim=1)[0]
+    pp.fracs.wells_3d.compute_well_rock_matrix_intersections(mdg)
+
+    intf = list(mdg.interfaces())[0]
+    lengths = _contact_lengths(mdg)
+    assert intf.num_cells == np.count_nonzero(lengths)
+    # The well is genuinely non-conforming, so there is more than one contact per cell.
+    assert intf.num_cells > well.num_cells
+
+
+def test_flux_distributed_to_the_matrix_is_conserved() -> None:
+    """Interface fluxes reach the rock matrix without loss or duplication.
+
+    ``mortar_to_primary_int`` is what carries the well flux into the rock matrix mass
+    balance. A failure here is lost or invented mass rather than a misplaced one.
+    """
+    matrix = pp.CartGrid([3, 3, 3], [1, 1, 1])
+    matrix.compute_geometry()
+    mdg = _well_mdg(matrix, WELL_TRAJECTORIES["kinked"])
+    pp.fracs.wells_3d.compute_well_rock_matrix_intersections(mdg)
+
+    intf = list(mdg.interfaces())[0]
+    unit_flux = np.ones(intf.num_cells)
+    to_matrix = intf.mortar_to_primary_int() @ unit_flux
+    to_well = intf.mortar_to_secondary_int() @ unit_flux
+
+    assert np.isclose(to_matrix.sum(), intf.num_cells)
+    assert np.isclose(to_well.sum(), intf.num_cells)
+
+
+def test_pressure_projected_to_the_interface_is_not_rescaled() -> None:
+    """A constant rock matrix pressure reaches the interface unchanged.
+
+    ``primary_to_mortar_avg`` is intensive, so it must average rather than sum. Under
+    the previous arrangement the same matrix served both roles, and projecting an
+    extensive quantity silently rescaled it.
+    """
+    matrix = pp.CartGrid([3, 3, 3], [1, 1, 1])
+    matrix.compute_geometry()
+    mdg = _well_mdg(matrix, WELL_TRAJECTORIES["interior_vertical"])
+    pp.fracs.wells_3d.compute_well_rock_matrix_intersections(mdg)
+
+    intf = list(mdg.interfaces())[0]
+    constant = np.full(matrix.num_cells, 3.5)
+    np.testing.assert_allclose(intf.primary_to_mortar_avg() @ constant, 3.5)
 
 
 @pytest.mark.skipped
