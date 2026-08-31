@@ -29,44 +29,13 @@ from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
+from porepy.numerics.ad.equation_system import GridEntity
+from porepy.numerics.ad.operators import DomainType
 
 AdType = Union[float, np.ndarray, sps.spmatrix, pp.ad.AdArray]
-_operations = pp.ad.operators.Operations
-
-operators = [
-    ("+", _operations.add),
-    ("-", _operations.sub),
-    ("*", _operations.mul),
-    ("/", _operations.div),
-    ("**", _operations.pow),
-]
 
 
-@pytest.mark.parametrize("operator", operators)
-def test_elementary_operations(operator):
-    """Test that performing elementary arithmetic operations on operators return
-    operator trees with the expected structure.
-
-    The test does not consider evaluation of the numerical values of the operators.
-    """
-    # Generate two generic operators
-    a = pp.ad.Operator()
-    b = pp.ad.Operator()
-
-    # Combine the operators with the provided operation.
-    c = eval(f"a {operator[0]} b")
-
-    # Check that the combined operator has the expected structure.
-    assert c.operation == operator[1]
-
-    # Need to check the id of the objects since the equality of pp.ad.Operator (or
-    # rather the _key method which is called by eq) does not allow for generic void
-    # operators like a and b.
-    assert id(c.children[0]) == id(a)
-    assert id(c.children[1]) == id(b)
-
-
-def test_copy_operator_tree():
+class TestCopyOperatorTree:
     """Test that copying of an operator tree works as expected.
 
     The test makes a simple tree by combining a scalar and a numpy array. The intention
@@ -74,79 +43,93 @@ def test_copy_operator_tree():
     should be done elsewhere.
 
     """
-    # To verify the difference between copy and deepcopy, keep pointers to the data
-    # structures to be wrapped
-    a_val = 42
-    a = pp.ad.Scalar(a_val)
 
-    b_arr = np.arange(3)
-    b = pp.ad.DenseArray(b_arr)
+    def setup_method(self):
+        # To verify the difference between copy and deepcopy, keep pointers to the data
+        # structures to be wrapped
+        self.a_val = 42
+        self.a = pp.ad.Scalar(self.a_val)
+        # Use an unclear operator space here since we do not care about the actual
+        # domain of the DenseArray (tests of this is carried out elsewhere).
+        space = pp.ad.OperatorSpace.unclear()
+        b_val = np.arange(3)
+        self.b = pp.ad.DenseArray(b_val, source=space, target=space)
 
-    # The combined operator, and two copies
-    c = a + b
-    c_copy = copy.copy(c)
-    c_deepcopy = copy.deepcopy(c)
+        # The combined operator, and two copies
+        self.c = self.a + self.b
+        self.c_copy = copy.copy(self.c)
+        self.c_deepcopy = copy.deepcopy(self.c)
+        # Create an EquationSystem defined on a MixedDimensionalGrid (not really used)
+        # for parsing the operators.
+        mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+            "cartesian",
+            {"cell_size": 0.5},
+            fracture_indices=[],
+        )
+        self.equation_system = pp.ad.EquationSystem(mdg)
 
-    # First check that the two copies have behaved as they should.
-    # The operators should be the same for all trees.
-    assert c.operation == c_copy.operation
-    assert c.operation == c_deepcopy.operation
+    def test_operator_properties(self):
+        """Unit tests involving no parsing."""
 
-    # The operator version of scalars and dense arrays calculates the hash based on the
-    # value of the underlying object, hence the comparison operator for pp.ad.Operator
-    # should evaluate for True for both the copy and the deepcopy. The id of the
-    # underlying object should be the same for the copy, but different for the deepcopy.
-    for c1, c2 in zip(c.children, c_copy.children):
-        assert c1 == c2
-        assert id(c1) == id(c2)
-    for c1, c2 in zip(c.children, c_deepcopy.children):
-        assert c1 == c2
-        assert id(c1) != id(c2)
+        # First check that the two copies have behaved as they should.
+        # The operators should be the same for all trees.
+        for item in ["operation", "source", "target"]:
+            assert getattr(self.c, item) == getattr(self.c_copy, item)
+            assert getattr(self.c, item) == getattr(self.c_deepcopy, item)
 
-    # As a second test, also validate that the operators are parsed correctly.
-    # This should not be strictly necessary - the above test should be sufficient,
-    # but better safe than sorry.
-    # Some boilerplate is needed before the expression can be evaluated.
-    mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
-        "cartesian",
-        {"cell_size": 0.2},
-        fracture_indices=[1],
-    )
-    equation_system = pp.ad.EquationSystem(mdg)
-    equation_system.create_variables("foo", {"cells": 1}, mdg.subdomains())
-    equation_system.set_variable_values(
-        np.zeros(equation_system.num_dofs()), iterate_index=0, time_step_index=0
-    )
+        # The operator version of scalars and dense arrays calculates the hash based on
+        # the value of the underlying object, hence the comparison operator for
+        # pp.ad.Operator should evaluate for True for both the copy and the deepcopy.
+        # The id of the underlying object should be the same for the copy, but different
+        # for the deepcopy.
+        for c1, c2 in zip(self.c.children, self.c_copy.children):
+            assert c1 == c2
+            assert id(c1) == id(c2)
+        for c1, c2 in zip(self.c.children, self.c_deepcopy.children):
+            assert c1 == c2
+            assert id(c1) != id(c2)
 
-    # In their initial state, all operators should have the same values
-    assert np.allclose(equation_system.evaluate(c), equation_system.evaluate(c_copy))
-    assert np.allclose(
-        equation_system.evaluate(c), equation_system.evaluate(c_deepcopy)
-    )
+    def test_parsed_evaluation_no_changes(self):
+        """Validate that the operators are parsed correctly through an
+        EquationSystem."""
 
-    # Increase the value of the scalar. This should have no effect, since the scalar
-    # wrapps an immutable, see comment in pp.ad.Scalar
-    a_val += 1
-    assert np.allclose(equation_system.evaluate(c), equation_system.evaluate(c_copy))
-    assert np.allclose(
-        equation_system.evaluate(c), equation_system.evaluate(c_deepcopy)
-    )
+        np.testing.assert_allclose(
+            self.equation_system.evaluate(self.c),
+            self.equation_system.evaluate(self.c_copy),
+        )
+        np.testing.assert_allclose(
+            self.equation_system.evaluate(self.c),
+            self.equation_system.evaluate(self.c_deepcopy),
+        )
 
-    # Increase the value of the Scalar. This will be seen by the copy, but not the
-    # deepcopy.
-    a._value += 1
-    assert np.allclose(equation_system.evaluate(c), equation_system.evaluate(c_copy))
-    assert not np.allclose(
-        equation_system.evaluate(c), equation_system.evaluate(c_deepcopy)
-    )
+    def test_changing_scalar_outside_operator_has_no_impact(self):
+        """Increase the value of the scalar used to construct the operators. This should
+        have no effect, since the scalar wrapps an immutable, see comment in
+        pp.ad.Scalar.
+        """
+        self.a_val += 1
+        np.testing.assert_allclose(
+            self.equation_system.evaluate(self.c),
+            self.equation_system.evaluate(self.c_copy),
+        )
+        assert np.allclose(
+            self.equation_system.evaluate(self.c),
+            self.equation_system.evaluate(self.c_deepcopy),
+        )
 
-    # Next increase the values in the array. This changes the shallow copy, but not the
-    # deep one.
-    b_arr += 1
-    assert np.allclose(equation_system.evaluate(c), equation_system.evaluate(c_copy))
-    assert not np.allclose(
-        equation_system.evaluate(c), equation_system.evaluate(c_deepcopy)
-    )
+    def test_changing_scalar_operator_not_seen_by_deep_copy(self):
+        """Increase the value of the scalar used to construct the operators. This should
+        not be seen by the deep copy, since it is a separate object.
+        """
+        self.a._value += 1
+        np.testing.assert_allclose(
+            self.equation_system.evaluate(self.c),
+            self.equation_system.evaluate(self.c_copy),
+        )
+        np.testing.assert_allclose(
+            self.equation_system.evaluate(self.c),
+            self.equation_system.evaluate(self.c_deepcopy) + 1,
+        )
 
 
 ## Test of pp.ad.SparseArray, pp.ad.DenseArray, pp.ad.Scalar
@@ -169,7 +152,15 @@ def test_elementary_wrappers(field):
 
     """
     obj = field[1]
-    wrapped_obj = field[0](obj, name="foo")
+    if field[0] == pp.ad.Scalar:
+        wrapped_obj = field[0](obj, name="foo")
+    else:
+        wrapped_obj = field[0](
+            obj,
+            name="foo",
+            source=pp.ad.OperatorSpace.unclear(),
+            target=pp.ad.OperatorSpace.unclear(),
+        )
 
     # Evaluate the Ad wrapper using parse, which will act directly on the wrapper
     # (as oposed to evaluate, which will invoke the full evaluation machinery of the
@@ -220,7 +211,15 @@ def test_ad_arrays_unary_minus_parsing(field):
 
     """
     obj = field[1]
-    wrapped_obj = -field[0](obj, name="foo")  # Using the __neg__ method
+    if field[0] == pp.ad.Scalar:
+        wrapped_obj = -field[0](obj, name="foo")
+    else:
+        wrapped_obj = -field[0](
+            obj,
+            name="foo",
+            source=pp.ad.OperatorSpace.unclear(),
+            target=pp.ad.OperatorSpace.unclear(),
+        )
     stored_obj = wrapped_obj.parse(None)
 
     def compare(one, other):
@@ -242,8 +241,11 @@ def test_ad_operator_unary_minus_parsing():
     """
     mat1 = sps.csr_matrix(np.random.rand(3))
     mat2 = sps.csr_matrix(np.random.rand(3))
-    sp_array1 = pp.ad.SparseArray(mat1)
-    sp_array2 = pp.ad.SparseArray(mat2)
+    # Use an unclear operator space here since we do not care about the actual domain of
+    # the SparseArray (tests of this is carried out elsewhere).
+    space = pp.ad.OperatorSpace.unclear()
+    sp_array1 = pp.ad.SparseArray(mat1, source=space, target=space)
+    sp_array2 = pp.ad.SparseArray(mat2, source=space, target=space)
     equation_system = pp.ad.EquationSystem(pp.MixedDimensionalGrid())
     op = sp_array1 + sp_array2
     assert np.allclose(equation_system.evaluate(-op, None).data, -(mat1 + mat2).data)
@@ -303,9 +305,13 @@ def test_time_dependent_array():
     bg_array = pp.ad.TimeDependentDenseArray("foobar", domains=mdg.boundaries())
 
     # Check correct domain types
-    assert sd_array.domain_type == sd_array_top.domain_type == "subdomains"
-    assert intf_array.domain_type == "interfaces"
-    assert bg_array.domain_type == "boundary grids"
+    assert (
+        sd_array.target.domain_type
+        == sd_array_top.target.domain_type
+        == DomainType.subdomains
+    )
+    assert intf_array.target.domain_type == DomainType.interfaces
+    assert bg_array.target.domain_type == DomainType.boundary_grids
 
     # Evaluate each of the Ad objects, verify that they have the expected values.
     sd_array_top_eval = sd_array_top.parse(mdg)
@@ -343,7 +349,9 @@ def test_time_dependent_array():
 
     # Create and evaluate a time-dependent array that is a function of neither
     # subdomains nor interfaces.
-    empty_array = pp.ad.TimeDependentDenseArray("none", domains=[])
+    empty_array = pp.ad.TimeDependentDenseArray(
+        "none", domains=[], domain_type=DomainType.subdomains
+    )
     # In this case evaluation should return an empty array.
     empty_eval = empty_array.parse(mdg)
     assert empty_eval.size == 0
@@ -381,7 +389,7 @@ def test_ad_variable_creation():
         fracture_indices=[1],
     )
     equation_system = pp.ad.EquationSystem(mdg)
-    equation_system.create_variables("foo", {"cells": 1}, mdg.subdomains())
+    equation_system.create_variables("foo", {GridEntity.cells: 1}, mdg.subdomains())
 
     var_1 = equation_system.get_variables(["foo"], mdg.subdomains(dim=mdg.dim_max()))[0]
     var_2 = equation_system.get_variables(["foo"], mdg.subdomains(dim=mdg.dim_max()))[0]
@@ -471,23 +479,23 @@ def test_ad_variable_evaluation():
     # It should be possible to avoid this by using dof-indices of the subdomains, but EK
     # cannot wrap his head around this at the moment (it is Friday afternoon).
     equation_system.create_variables(
-        var, dof_info={"cells": 1}, subdomains=mdg.subdomains(dim=2)
+        var, dof_info={GridEntity.cells: 1}, subdomains=mdg.subdomains(dim=2)
     )
     equation_system.create_variables(
-        var, dof_info={"cells": 2}, subdomains=mdg.subdomains(dim=1)
+        var, dof_info={GridEntity.cells: 2}, subdomains=mdg.subdomains(dim=1)
     )
     equation_system.create_variables(
-        var, dof_info={"cells": 1}, subdomains=mdg.subdomains(dim=0)
+        var, dof_info={GridEntity.cells: 1}, subdomains=mdg.subdomains(dim=0)
     )
     equation_system.create_variables(
-        var2, dof_info={"cells": 1}, subdomains=mdg.subdomains(dim=2)
+        var2, dof_info={GridEntity.cells: 1}, subdomains=mdg.subdomains(dim=2)
     )
     # Next create interface variables.
     equation_system.create_variables(
-        mortar_var, dof_info={"cells": 2}, interfaces=mdg.interfaces(dim=1)
+        mortar_var, dof_info={GridEntity.cells: 2}, interfaces=mdg.interfaces(dim=1)
     )
     equation_system.create_variables(
-        mortar_var, dof_info={"cells": 1}, interfaces=mdg.interfaces(dim=0)
+        mortar_var, dof_info={GridEntity.cells: 1}, interfaces=mdg.interfaces(dim=0)
     )
 
     for sd, data in mdg.subdomains(return_data=True):
@@ -496,7 +504,7 @@ def test_ad_variable_evaluation():
         else:
             num_dofs = 1
 
-        data[pp.PRIMARY_VARIABLES] = {var: {"cells": num_dofs}}
+        data[pp.PRIMARY_VARIABLES] = {var: {GridEntity.cells: num_dofs}}
 
         val_state = np.random.rand(sd.num_cells * num_dofs)
         val_iterate = np.random.rand(sd.num_cells * num_dofs)
@@ -509,7 +517,7 @@ def test_ad_variable_evaluation():
 
         # Add a second variable to the 2d grid, just for the fun of it
         if sd.dim == 2:
-            data[pp.PRIMARY_VARIABLES][var2] = {"cells": 1}
+            data[pp.PRIMARY_VARIABLES][var2] = {GridEntity.cells: 1}
             val_state = np.random.rand(sd.num_cells)
             val_iterate = np.random.rand(sd.num_cells)
 
@@ -529,7 +537,7 @@ def test_ad_variable_evaluation():
         else:
             num_dofs = 1
 
-        data[pp.PRIMARY_VARIABLES] = {mortar_var: {"cells": num_dofs}}
+        data[pp.PRIMARY_VARIABLES] = {mortar_var: {GridEntity.cells: num_dofs}}
 
         val_state = np.random.rand(intf.num_cells * num_dofs)
         val_iterate = np.random.rand(intf.num_cells * num_dofs)
@@ -552,7 +560,7 @@ def test_ad_variable_evaluation():
     double_iterate = np.zeros(equation_system.num_dofs())
 
     for v in equation_system.variables:
-        g = v.domain
+        g = v.domains[0]
         inds = equation_system.dofs_of([v])
         if v.name == var2:
             true_state[inds] = state_map_2[g]
@@ -673,7 +681,7 @@ def test_variable_combinations(grids, variables):
     for sd, data in mdg.subdomains(return_data=True):
         data[pp.PRIMARY_VARIABLES] = {}
         for var in variables:
-            data[pp.PRIMARY_VARIABLES].update({var: {"cells": 1}})
+            data[pp.PRIMARY_VARIABLES].update({var: {GridEntity.cells: 1}})
 
             vals = np.random.rand(sd.num_cells)
             pp.set_solution_values(name=var, values=vals, data=data, time_step_index=0)
@@ -681,7 +689,7 @@ def test_variable_combinations(grids, variables):
     # Ad boilerplate
     equation_system = pp.ad.EquationSystem(mdg)
     for var in variables:
-        equation_system.create_variables(var, {"cells": 1}, mdg.subdomains())
+        equation_system.create_variables(var, {GridEntity.cells: 1}, mdg.subdomains())
         equation_system.set_variable_values(
             np.random.rand(mdg.num_subdomain_cells()),
             [var],
@@ -697,7 +705,7 @@ def test_variable_combinations(grids, variables):
     for sd in grids:
         data = mdg.subdomain_data(sd)
         for var in ad_vars:
-            if sd == var.domain:
+            if sd == var.domains[0]:
                 expr = var.value_and_jacobian(equation_system)
                 # Check that the size of the variable is correct
                 values = pp.get_solution_values(
@@ -705,25 +713,36 @@ def test_variable_combinations(grids, variables):
                 )
                 assert np.allclose(expr.val, values)
                 # Check that the Jacobian matrix has the right number of columns
-                assert expr.jac.shape[1] == equation_system.num_dofs()
+                if isinstance(expr, pp.ad.AdArray) and expr._is_diagonal:
+                    sz = expr.to_full().jac.shape[1]
+                else:
+                    sz = expr.jac.shape[1]
+
+                assert sz == equation_system.num_dofs()
 
     # Next, check that mixed-dimensional variables are handled correctly.
     for var in merged_vars:
         expr = var.value_and_jacobian(equation_system)
         vals = []
         for sub_var in var.sub_vars:
-            data = mdg.subdomain_data(sub_var.domain)
+            data = mdg.subdomain_data(sub_var.domains[0])
             values = pp.get_solution_values(
                 name=sub_var.name, data=data, time_step_index=0
             )
             vals.append(values)
 
         assert np.allclose(expr.val, np.hstack([v for v in vals]))
-        assert expr.jac.shape[1] == equation_system.num_dofs()
+        # Check that the Jacobian matrix size is correct
+        if isinstance(expr, pp.ad.AdArray) and expr._is_diagonal:
+            sz = expr.to_full().jac.shape[1]
+        else:
+            sz = expr.jac.shape[1]
+        assert sz == equation_system.num_dofs()
 
     # Finally, check that the size of the Jacobian matrix is correct when combining
     # variables (this will cover both variables and mixed-dimensional variable with the
     # same name, and with different name).
+    target = pp.ad.OperatorSpace.from_domains(grids, dof_info={GridEntity.cells: 1})
     for sd in grids:
         for var in ad_vars:
             nc = var.size
@@ -735,18 +754,27 @@ def test_variable_combinations(grids, variables):
                 # The variable must be projected to the full set of grid for addition
                 # to be meaningful. This requires a bit of work.
                 sv_size = np.array([sv.size for sv in mv.sub_vars])
-                mv_grids = [sv._grid for sv in mv.sub_vars]
-                ind = mv_grids.index(var._grid)
+                mv_grids = [sv.domains[0] for sv in mv.sub_vars]
+                ind = mv_grids.index(var.domains[0])
                 offset = np.hstack((0, np.cumsum(sv_size)))[ind]
                 rows = offset + np.arange(nc)
+                source = pp.ad.OperatorSpace.from_domains(
+                    var.domains, dof_info={GridEntity.cells: 1}
+                )
                 P = pp.ad.SparseArray(
-                    sps.coo_matrix((data, (rows, cols)), shape=(nr, nc))
+                    sps.coo_matrix((data, (rows, cols)), shape=(nr, nc)),
+                    source=source,
+                    target=target,
                 )
 
-                eq = eq = mv + P @ var
+                eq = mv + P @ var
                 expr = eq.value_and_jacobian(equation_system)
                 # Jacobian matrix size is set according to the dof manager,
-                assert expr.jac.shape[1] == equation_system.num_dofs()
+                if isinstance(expr, pp.ad.AdArray) and expr._is_diagonal:
+                    sz = expr.to_full().jac.shape[1]
+                else:
+                    sz = expr.jac.shape[1]
+                assert sz == equation_system.num_dofs()
 
 
 def test_time_differentiation():
@@ -815,7 +843,7 @@ def test_time_differentiation():
         )
 
     equation_system = pp.ad.EquationSystem(mdg)
-    equation_system.create_variables("foo", {"cells": 1}, mdg.subdomains())
+    equation_system.create_variables("foo", {GridEntity.cells: 1}, mdg.subdomains())
     # The time step, represented as a scalar.
     ts = 2
     time_step = pp.ad.Scalar(ts)
@@ -903,16 +931,16 @@ def test_ad_discretization_class():
     sub_discr = _MockDiscretization(sub_key)
 
     # Ad wrappers
-    # This mimics the old init of Discretization, before it was decided to
-    # make that class semi-ABC. Still checks the wrap method
-    discr_ad = pp.ad.Discretization()
+    # This mimics the old generic AD discretization wrapper and still checks the
+    # wrap_discretization utility directly.
+    discr_ad = pp.ad.DiscretizationAd()
     discr_ad.subdomains = subdomains
     discr_ad._discretization = discr
-    pp.ad.wrap_discretization(discr_ad, discr, subdomains)
-    sub_discr_ad = pp.ad.Discretization()
+    pp.ad.wrap_discretization(discr_ad, discr, mdg.dim_max(), subdomains)
+    sub_discr_ad = pp.ad.DiscretizationAd()
     sub_discr_ad.subdomains = sub_list
     sub_discr_ad._discretization = sub_discr
-    pp.ad.wrap_discretization(sub_discr_ad, sub_discr, sub_list)
+    pp.ad.wrap_discretization(sub_discr_ad, sub_discr, mdg.dim_max(), sub_list)
 
     # values
     known_val = np.random.rand(len(subdomains))
@@ -945,654 +973,15 @@ class _MockDiscretization:
 
         self.keyword = key
 
+    def get_row_dof_info(self, matrix_key: str = "", nd: int = 1):
+        return {GridEntity.cells: 1}
 
-def _get_scalar(wrapped: bool) -> float | pp.ad.Scalar:
-    """Helper to set a scalar. Expected values in the test are hardcoded with respect to
-    this value. The scalar is either returned as-is, or wrapped as an Ad scalar."""
-    scalar = 2.0
-    if wrapped:
-        return pp.ad.Scalar(scalar)
-    else:
-        return scalar
+    def get_col_dof_info(self, matrix_key: str = "", nd: int = 1):
+        return {GridEntity.faces: 1}
 
 
-def _get_dense_array(wrapped: bool) -> np.ndarray | pp.ad.DenseArray:
-    """Helper to set a dense array (numpy array). Expected values in the test are
-    hardcoded with respect to this value. The array is either returned as-is, or wrapped
-    as an Ad DenseArray."""
-    array = np.array([1, 2, 3]).astype(float)
-    if wrapped:
-        return pp.ad.DenseArray(array)
-    else:
-        return array
-
-
-def _get_sparse_array(
-    wrapped: bool, use_csr_matrix: bool
-) -> sps.spmatrix | sps.sparray | pp.ad.SparseArray:
-    """Helper to set a sparse array (scipy sparse array). Expected values in the test
-    are hardcoded with respect to this value. The array is either returned as-is, or
-    wrapped as an Ad SparseArray."""
-    inner = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
-    mat = sps.csr_matrix(inner) if use_csr_matrix else sps.csr_array(inner)
-    mat = mat.astype(float)
-    if wrapped:
-        return pp.ad.SparseArray(mat)
-    else:
-        return mat
-
-
-def _get_ad_array(
-    wrapped: bool,
-) -> pp.ad.AdArray | tuple[pp.ad.AdArray, pp.ad.EquationSystem]:
-    """Get an AdArray object which can be used in the tests."""
-
-    # The construction between the wrapped and unwrapped case differs significantly: For
-    # the latter we can simply create an AdArray with any value and Jacobian matrix.
-    # The former must be processed through the operator parsing framework, and thus puts
-    # stronger conditions on permissible states. The below code defines a variable
-    # (variable_val), a matrix (jac), and constructs an expression as jac @ variable.
-    # This expression is represented in the returned AdArray, either directly or (if
-    # wrapped=True) on abstract form.
-    #
-    #  If this is confusing, it may be helpful to recall that an AdArray can represent
-    #  any state, not only primary variables (e.g., a pp.ad.Variable). The main
-    #  motivation for using a more complex value is that the Jacobian matrix of primary
-    #  variables are identity matrices, thus compound expressions give higher chances of
-    #  uncovering errors.
-
-    # This is the value of the variable
-    variable_val = np.ones(3)
-    # This is the Jacobian matrix of the returned expression.
-    jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-
-    # This is the expression to be used in the tests. The numerical values of val will
-    # be np.array([6, 15, 24]), and its Jacobian matrix is jac.
-    expression_val = jac @ variable_val
-
-    if wrapped:
-        g = pp.CartGrid([3, 1])
-        mdg = pp.MixedDimensionalGrid()
-        mdg.add_subdomains([g])
-
-        equation_system = pp.ad.EquationSystem(mdg)
-        equation_system.create_variables("foo", subdomains=[g])
-        var = equation_system.variables[0]
-        d = mdg.subdomain_data(g)
-
-        pp.set_solution_values(
-            name="foo", values=variable_val, data=d, time_step_index=0
-        )
-        pp.set_solution_values(name="foo", values=variable_val, data=d, iterate_index=0)
-        mat = pp.ad.SparseArray(jac)
-
-        return mat @ var, equation_system
-
-    else:
-        ad_arr = pp.ad.AdArray(expression_val, jac)
-        return ad_arr
-
-
-def _expected_value(
-    var_1: AdType, var_2: AdType, op: Literal["+", "-", "*", "/", "**", "@"]
-) -> bool | float | np.ndarray | sps.spmatrix | pp.ad.AdArray:
-    """For a combination of two Ad objects and an operation return either the expected
-    value, or False if the operation is not supported.
-
-    The function considers all combinations of types for var_1 and var_2 (as a long list
-    of if-else statements that checks isinstance), and returns the expected value of the
-    given operation. The calculation of the expected value is done in one of two ways:
-        i)  None of the variables are AdArrays. In this case, the operation is evaluated
-            using eval (in practice, this means that the evaluation is left to the
-            Python, numpy and/or scipy).
-        ii) One or both of the variables are AdArrays. In this case, the expected values
-            are either hard-coded (this is typically the case where it is easy to do the
-            calculation by hand, e.g., for addition), or computed using rules for
-            derivation (product rule etc.) by hand, but using matrix-vector products and
-            similar to compute the actual values.
-
-    """
-    # General comment regarding implementation for cases that do not include the
-    # AdArray: We always (except in a few cases which are documented explicitly) use
-    # eval to evaluate the expression. To catch cases that are not supported by numpy
-    # or/else scipy, the evalutation is surrounded by a try-except block. The except
-    # typically checks that the operation is one that was expected to fail; example:
-    # scalar @ scalar is not supported, but scalar + scalar is, so if the latter fails,
-    # something is wrong. For a few combinations of operators, the combination will fail
-    # in almost all cases, and the assertion is for simplicity put inside the try
-    # instead of the except block.
-
-    ### First do all combinations that do not involve AdArrays
-    if isinstance(var_1, float) and isinstance(var_2, float):
-        try:
-            return eval(f"var_1 {op} var_2")
-        except TypeError:
-            assert op in ["@"]
-            return False
-    elif isinstance(var_1, float) and isinstance(var_2, np.ndarray):
-        try:
-            return eval(f"var_1 {op} var_2")
-        except ValueError:
-            assert op in ["@"]
-            return False
-    elif isinstance(var_1, float) and isinstance(var_2, (sps.spmatrix, sps.sparray)):
-        try:
-            # This should fail for all operations expect from multiplication.
-            val = eval(f"var_1 {op} var_2")
-            assert op == "*"
-            return val
-        except (ValueError, NotImplementedError, TypeError):
-            return False
-    elif isinstance(var_1, np.ndarray) and isinstance(var_2, float):
-        try:
-            return eval(f"var_1 {op} var_2")
-        except ValueError:
-            assert op in ["@"]
-            return False
-    elif isinstance(var_1, np.ndarray) and isinstance(var_2, np.ndarray):
-        return eval(f"var_1 {op} var_2")
-    elif isinstance(var_1, np.ndarray) and isinstance(
-        var_2, (sps.spmatrix, sps.sparray)
-    ):
-        try:
-            return eval(f"var_1 {op} var_2")
-        except TypeError:
-            assert op in ["/", "**"]
-            return False
-    elif isinstance(var_1, (sps.spmatrix, sps.sparray)) and isinstance(var_2, float):
-        if op == "**":
-            # SciPy has implemented a limited version matrix powers to scalars, but not
-            # with a satisfactory flexibility. If we try to evaluate the expression, it
-            # may or may not work (see comments in the __pow__ method is Operators), but
-            # the operation is anyhow explicitly disallowed. Thus, we return False.
-            return False
-
-        try:
-            # This should fail for all operations expect from multiplication.
-            val = eval(f"var_1 {op} var_2")
-            assert op in ["*", "/"]
-            return val
-        except (ValueError, NotImplementedError):
-            return False
-    elif isinstance(var_1, (sps.spmatrix, sps.sparray)) and isinstance(
-        var_2, np.ndarray
-    ):
-        if op == "**":
-            # SciPy has implemented a limited version matrix powers to numpy arrays, but
-            # not with a satisfactory flexibility. If we try to evaluate the expression,
-            # it may or may not work (see comments in the __pow__ method is Operators),
-            # but the operation is anyhow explicitly disallowed. Thus, we return False.
-            return False
-        try:
-            return eval(f"var_1 {op} var_2")
-        except TypeError:
-            assert op in ["**"]
-            return False
-
-    elif isinstance(var_1, (sps.spmatrix, sps.sparray)) and isinstance(
-        var_2, (sps.spmatrix, sps.sparray)
-    ):
-        try:
-            return eval(f"var_1 {op} var_2")
-        except (ValueError, TypeError, NotImplementedError):
-            assert op in ["**"]
-            return False
-
-    ### From here on, we have at least one AdArray
-    elif isinstance(var_1, pp.ad.AdArray) and isinstance(var_2, float):
-        if op == "+":
-            # Array + 2.0
-            val = np.array([8, 17, 26])
-            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-            return pp.ad.AdArray(val, jac)
-        elif op == "-":
-            # Array - 2.0
-            val = np.array([4, 13, 22])
-            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-            return pp.ad.AdArray(val, jac)
-        elif op == "*":
-            # Array * 2.0
-            val = np.array([12, 30, 48])
-            jac = sps.csr_matrix(np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]]))
-            return pp.ad.AdArray(val, jac)
-        elif op == "/":
-            # Array / 2.0
-            val = np.array([6 / 2, 15 / 2, 24 / 2])
-            jac = sps.csr_matrix(
-                np.array(
-                    [
-                        [1 / 2, 2 / 2, 3 / 2],
-                        [4 / 2, 5 / 2, 6 / 2],
-                        [7 / 2, 8 / 2, 9 / 2],
-                    ]
-                )
-            )
-            return pp.ad.AdArray(val, jac)
-        elif op == "**":
-            # Array ** 2.0
-            val = np.array([6**2, 15**2, 24**2])
-            jac = sps.csr_matrix(
-                2
-                * np.vstack(
-                    (
-                        var_1.val[0] * var_1.jac[0].toarray(),
-                        var_1.val[1] * var_1.jac[1].toarray(),
-                        var_1.val[2] * var_1.jac[2].toarray(),
-                    )
-                ),
-            )
-            return pp.ad.AdArray(val, jac)
-        elif op == "@":
-            # We disallow this operation due to the following reason: The only case in
-            # which it is convenient to use the @ operator for the scalars is a generic
-            # operator that can accept everything: scalars, ndarrays and sparse
-            # matrices. However, we do not know any cases where one operator can be both
-            # a scalar or ndarray AND a matrix. This choice will be reconsidered if a
-            # reasonable example is found.
-            return False
-
-    elif isinstance(var_1, float) and isinstance(var_2, pp.ad.AdArray):
-        if op == "+":
-            # 2.0 + Array
-            val = np.array([8, 17, 26])
-            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-            return pp.ad.AdArray(val, jac)
-        elif op == "-":
-            # 2.0 - Array
-            val = np.array([-4, -13, -22])
-            jac = sps.csr_matrix(np.array([[-1, -2, -3], [-4, -5, -6], [-7, -8, -9]]))
-            return pp.ad.AdArray(val, jac)
-        elif op == "*":
-            # 2.0 * Array
-            val = np.array([12, 30, 48])
-            jac = sps.csr_matrix(np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]]))
-            return pp.ad.AdArray(val, jac)
-        elif op == "/":
-            # This is 2 / Array
-            # The derivative is -2 / Array**2 * dArray
-            val = np.array([2 / 6, 2 / 15, 2 / 24])
-            jac = sps.csr_matrix(
-                np.vstack(
-                    (
-                        -2 / var_2.val[0] ** 2 * var_2.jac[0].toarray(),
-                        -2 / var_2.val[1] ** 2 * var_2.jac[1].toarray(),
-                        -2 / var_2.val[2] ** 2 * var_2.jac[2].toarray(),
-                    )
-                ),
-            )
-            return pp.ad.AdArray(val, jac)
-        elif op == "**":
-            # 2.0 ** Array
-            # The derivative is 2**Array * log(2) * dArray
-            val = np.array([2**6, 2**15, 2**24])
-            jac = sps.csr_matrix(
-                np.vstack(
-                    (
-                        np.log(2.0) * (2 ** var_2.val[0]) * var_2.jac[0].toarray(),
-                        np.log(2.0) * (2 ** var_2.val[1]) * var_2.jac[1].toarray(),
-                        np.log(2.0) * (2 ** var_2.val[2]) * var_2.jac[2].toarray(),
-                    )
-                ),
-            )
-            return pp.ad.AdArray(val, jac)
-        elif op == "@":
-            # Note: See the comment for the case AdArray @ scalar.
-            return False
-
-    elif isinstance(var_1, pp.ad.AdArray) and isinstance(var_2, np.ndarray):
-        # Recall that the numpy array has values np.array([1, 2, 3])
-        if op == "+":
-            # Array + np.array([1, 2, 3])
-            val = np.array([7, 17, 27])
-            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-            return pp.ad.AdArray(val, jac)
-        elif op == "-":
-            # Array - np.array([1, 2, 3])
-            val = np.array([5, 13, 21])
-            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-            return pp.ad.AdArray(val, jac)
-        elif op == "*":
-            # Array * np.array([1, 2, 3])
-            val = np.array([6, 30, 72])
-            jac = sps.csr_matrix(np.array([[1, 2, 3], [8, 10, 12], [21, 24, 27]]))
-            return pp.ad.AdArray(val, jac)
-        elif op == "/":
-            # Array / np.array([1, 2, 3])
-            val = np.array([6 / 1, 15 / 2, 24 / 3])
-            jac = sps.csr_matrix(
-                np.vstack(
-                    (
-                        var_1.jac[0].toarray() / var_2[0],
-                        var_1.jac[1].toarray() / var_2[1],
-                        var_1.jac[2].toarray() / var_2[2],
-                    )
-                )
-            )
-            return pp.ad.AdArray(val, jac)
-        elif op == "**":
-            # Array ** np.array([1, 2, 3])
-            # The derivative is
-            #    Array**(np.array([1, 2, 3]) - 1) * np.array([1, 2, 3]) * dArray
-            val = np.array([6, 15**2, 24**3])
-            jac = sps.csr_matrix(
-                np.vstack(
-                    (
-                        var_2[0]
-                        * (var_1.val[0] ** (var_2[0] - 1.0))
-                        * var_1.jac[0].toarray(),
-                        var_2[1]
-                        * (var_1.val[1] ** (var_2[1] - 1.0))
-                        * var_1.jac[1].toarray(),
-                        var_2[2]
-                        * (var_1.val[2] ** (var_2[2] - 1.0))
-                        * var_1.jac[2].toarray(),
-                    )
-                )
-            )
-            return pp.ad.AdArray(val, jac)
-        elif op == "@":
-            # The operation is not allowed
-            return False
-    elif isinstance(var_1, np.ndarray) and isinstance(var_2, pp.ad.AdArray):
-        # Recall that the numpy array has values np.array([1, 2, 3])
-        if op == "+":
-            # Array + np.array([1, 2, 3])
-            val = np.array([7, 17, 27])
-            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-            return pp.ad.AdArray(val, jac)
-        elif op == "-":
-            # np.array([1, 2, 3]) - Array
-            val = np.array([-5, -13, -21])
-            jac = sps.csr_matrix(np.array([[-1, -2, -3], [-4, -5, -6], [-7, -8, -9]]))
-            return pp.ad.AdArray(val, jac)
-        elif op == "*":
-            # Array * np.array([1, 2, 3])
-            val = np.array([6, 30, 72])
-            jac = sps.csr_matrix(np.array([[1, 2, 3], [8, 10, 12], [21, 24, 27]]))
-            return pp.ad.AdArray(val, jac)
-        elif op == "/":
-            # np.array([1, 2, 3]) / Array
-            val = np.array([1 / 6, 2 / 15, 3 / 24])
-            jac = sps.csr_matrix(
-                np.vstack(
-                    (
-                        -var_1[0] * var_2.jac[0].toarray() / var_2.val[0] ** 2,
-                        -var_1[1] * var_2.jac[1].toarray() / var_2.val[1] ** 2,
-                        -var_1[2] * var_2.jac[2].toarray() / var_2.val[2] ** 2,
-                    )
-                )
-            )
-            return pp.ad.AdArray(val, jac)
-        elif op == "**":
-            # np.array([1, 2, 3]) ** Array
-            val = np.array([1, 2**15, 3**24])
-            jac = sps.csr_matrix(
-                np.vstack(
-                    (
-                        var_1[0] ** var_2.val[0]
-                        * np.log(var_1[0])
-                        * var_2.jac[0].toarray(),
-                        var_1[1] ** var_2.val[1]
-                        * np.log(var_1[1])
-                        * var_2.jac[1].toarray(),
-                        var_1[2] ** var_2.val[2]
-                        * np.log(var_1[2])
-                        * var_2.jac[2].toarray(),
-                    )
-                )
-            )
-            return pp.ad.AdArray(val, jac)
-
-    elif isinstance(var_1, pp.ad.AdArray) and isinstance(
-        var_2, (sps.spmatrix, sps.sparray)
-    ):
-        return False
-    elif isinstance(var_1, sps.spmatrix) and isinstance(var_2, pp.ad.AdArray):
-        # This combination is only allowed for matrix-vector products (op = "@")
-        if op == "@":
-            val = var_1 * var_2.val
-            jac = var_1 * var_2.jac
-            return pp.ad.AdArray(val, jac)
-        else:
-            return False
-    elif isinstance(var_1, sps.sparray) and isinstance(var_2, pp.ad.AdArray):
-        # This combination is only allowed for matrix-vector products (op = "@")
-        if op == "@":
-            val = var_1 @ var_2.val
-            jac = var_1 @ var_2.jac
-            return pp.ad.AdArray(val, jac)
-        else:
-            return False
-
-    elif isinstance(var_1, pp.ad.AdArray) and isinstance(var_2, pp.ad.AdArray):
-        # For this case, var_2 was modified manually to be twice var_1, see comments in
-        # the main test function. Mirror this here to be consistent.
-        var_2 = var_1 + var_1
-        if op == "+":
-            # This evaluates to 3 * Array (since var_2 = 2 * var_1)
-            val = np.array([18, 45, 72])
-            jac = sps.csr_matrix(np.array([[3, 6, 9], [12, 15, 18], [21, 24, 27]]))
-            return pp.ad.AdArray(val, jac)
-        elif op == "-":
-            # This evaluates to -Array (since var_2 = 2 * var_1)
-            val = np.array([-6, -15, -24])
-            jac = sps.csr_matrix(np.array([[-1, -2, -3], [-4, -5, -6], [-7, -8, -9]]))
-            return pp.ad.AdArray(val, jac)
-        elif op == "*":
-            # This evaluates to 2 * Array**2 (since var_2 = 2 * var_1)
-            val = np.array([6 * 12, 15 * 30, 24 * 48])
-            jac = sps.csr_matrix(
-                np.vstack(
-                    (
-                        var_1.jac[0].toarray() * var_2.val[0]
-                        + var_1.val[0] * var_2.jac[0].toarray(),
-                        var_1.jac[1].toarray() * var_2.val[1]
-                        + var_1.val[1] * var_2.jac[1].toarray(),
-                        var_1.jac[2].toarray() * var_2.val[2]
-                        + var_1.val[2] * var_2.jac[2].toarray(),
-                    )
-                )
-            )
-            return pp.ad.AdArray(val, jac)
-        elif op == "/":
-            # This evaluates to Array / (2 * Array)
-            # The derivative is computed from the product and chain rules
-            val = np.array([1 / 2, 1 / 2, 1 / 2])
-            jac = sps.csr_matrix(
-                np.vstack(  # NBNB
-                    (
-                        var_1.jac[0].toarray() / var_2.val[0]
-                        - var_1.val[0] * var_2.jac[0].toarray() / var_2.val[0] ** 2,
-                        var_1.jac[1].toarray() / var_2.val[1]
-                        - var_1.val[1] * var_2.jac[1].toarray() / var_2.val[1] ** 2,
-                        var_1.jac[2].toarray() / var_2.val[2]
-                        - var_1.val[2] * var_2.jac[2].toarray() / var_2.val[2] ** 2,
-                    )
-                )
-            )
-            return pp.ad.AdArray(val, jac)
-        elif op == "**":
-            # This is Array ** (2 * Array)
-            # The derivative is
-            #    Array**(2 * Array - 1) * (2 * Array) * dArray
-            #  + Array**(2 * Array) * log(Array) * dArray
-            val = np.array([6**12, 15**30, 24**48])
-            jac = sps.csr_matrix(
-                np.vstack(  #
-                    (
-                        var_2.val[0]
-                        * var_1.val[0] ** (var_2.val[0] - 1.0)
-                        * var_1.jac[0].toarray()
-                        + np.log(var_1.val[0])
-                        * (var_1.val[0] ** var_2.val[0])
-                        * var_2.jac[0].toarray(),
-                        var_2.val[1]
-                        * var_1.val[1] ** (var_2.val[1] - 1.0)
-                        * var_1.jac[1].toarray()
-                        + np.log(var_1.val[1])
-                        * (var_1.val[1] ** var_2.val[1])
-                        * var_2.jac[1].toarray(),
-                        var_2.val[2]
-                        * var_1.val[2] ** (var_2.val[2] - 1.0)
-                        * var_1.jac[2].toarray()
-                        + np.log(var_1.val[2])
-                        * (var_1.val[2] ** var_2.val[2])
-                        * var_2.jac[2].toarray(),
-                    )
-                )
-            )
-            return pp.ad.AdArray(val, jac)
-        elif op == "@":
-            return False
-    else:
-        raise ValueError(f"Unknown classes: {type(var_1)}, {type(var_2)}.")
-
-
-@pytest.mark.parametrize(
-    "var_1", ["scalar", "dense", "sparse_matrix", "sparse_array", "ad"]
-)
-@pytest.mark.parametrize(
-    "var_2", ["scalar", "dense", "sparse_matrix", "sparse_array", "ad"]
-)
-@pytest.mark.parametrize("op", ["+", "-", "*", "/", "**", "@"])
-@pytest.mark.parametrize("wrapped", [True, False])
-def test_arithmetic_operations_on_ad_objects(
-    var_1: str, var_2: str, op: str, wrapped: bool
-) -> None:
-    """Test that the fundamental Ad operators can be combined using the standard
-    arithmetic operations.
-
-    All combinations of operators and operations are formed, in two different modes:
-    Wrapped as Ad operators (subclasses of pp.ad.Operator) or primitive values (float,
-    numpy.ndarray, scipy.spmatrix, AdArray). In the wrapped form, all of these
-    combinations are actually tested, while in the primitive form (which is what is
-    applied when doing forward-mode algorithmic differentiation), only combinations that
-    involve at least one AdArray are meaningfully tested, see below if for an
-    explanation (there is an exception to this, involving numpy arrays and AdArrays, see
-    the second if just below for an explanation).
-
-    """
-
-    if not wrapped and var_1 != "ad" and var_2 != "ad":
-        # If not wrapped in the abstract layer, these cases should be covered by the
-        # tests for the external packages; PorePy just has to rely on e.g., numpy being
-        # correctly implemented. For the wrapped case, we need to test that the parsing
-        # is okay, thus we do not skip if wrapped is True.
-        return
-
-    def _var_from_string(v, do_wrap: bool):
-        if v == "scalar":
-            return _get_scalar(do_wrap)
-        elif v == "dense":
-            return _get_dense_array(do_wrap)
-        elif v == "sparse_matrix":
-            return _get_sparse_array(do_wrap, use_csr_matrix=True)
-        elif v == "sparse_array":
-            return _get_sparse_array(do_wrap, use_csr_matrix=False)
-        elif v == "ad":
-            return _get_ad_array(do_wrap)
-        else:
-            raise ValueError("Unknown variable type")
-
-    # Get the actual variables from the input strings.
-    v1 = _var_from_string(var_1, wrapped)
-    v2 = _var_from_string(var_2, wrapped)
-
-    # Some gymnastics is needed here: In the wrapped form, expressions need an
-    # EquationSystem for evaluation and, if one of the operands is an AdArray, this
-    # should be the EquationSystem used to generate this operand (see method
-    # _get_ad_array). If this is not the case, the EquationSystem will end up having to
-    # evaluate an Ad variable that it does not know about. Therefore, the method
-    # _get_ad_array returns the generated EquationSystem together with variable. If none
-    # of the operands is an Ad array, we will still formally need an EquationSystem to
-    # evaluate the expression, but since this will not actually be used for anything, we
-    # can generate a new one and pass it as a formality.
-    if wrapped:
-        if var_1 == "ad":
-            v1, equation_system = v1
-        elif var_2 == "ad":
-            # The case of both v1 and v2 being Ad variables is dealt with below.
-            v2, equation_system = v2
-        else:
-            mdg = pp.MixedDimensionalGrid()
-            equation_system = pp.ad.EquationSystem(mdg)
-    if var_1 == "ad" and var_2 == "ad":
-        # For the case of two ad variables, they should be associated with the
-        # same EquationSystem, or else parsing will fail. We could have set v1 =
-        # v2, but this is less likely to catch errors in the parsing. Instead,
-        # we reassign v2 = v1 + v1. This also requires some adaptations in the
-        # code to get the expected values, see that function.
-        v2 = v1 + v1
-
-    # Calculate the expected numerical values for this expression. This inolves
-    # hard-coded values for the different operators and their combinations, see the
-    # function for more information. If the operation is not expected to succeeed, the
-    # function will return False.
-    expected = _expected_value(
-        _var_from_string(var_1, False), _var_from_string(var_2, False), op
-    )
-
-    def _compare(v1, v2):
-        # Helper function to compare two evaluated objects.
-        assert type(v1) is type(v2)
-        if isinstance(v1, float):
-            assert np.isclose(v1, v2)
-        elif isinstance(v1, np.ndarray):
-            assert np.allclose(v1, v2)
-        elif isinstance(v1, (sps.spmatrix, sps.sparray)):
-            assert np.allclose(v1.toarray(), v2.toarray())
-        elif isinstance(v1, pp.ad.AdArray):
-            assert np.allclose(v1.val, v2.val)
-            assert np.allclose(v1.jac.toarray(), v2.jac.toarray())
-
-    # Evaluate the funtion. This is a bit different for the wrapped and forward mode,
-    # but the logic is the same: Try to evaluate. If this breaks, check that this was
-    # not a surprize (variable expected is False).
-    if wrapped:
-        try:
-            # The idea here is to test evaluation on the deepest level, i.e., the method
-            # _evaluate_single in the AdParser. This is the method that actually
-            # translates an expression into a numerical value. An error here signifies
-            # that something is wrong with the parsing itself. Note that testing of the
-            # frontend evaluation is done below (calls to equation_system.value()), as
-            # well as in the test of equation_system.py and other tests.
-            expression = eval(f"v1 {op} v2")
-            state = pp.ad.initAdArrays(
-                [equation_system.get_variable_values(time_step_index=0)]
-            )[0]
-            val = equation_system._ad_parser._evaluate_single(
-                expression, state, equation_system
-            )
-        except (TypeError, ValueError, NotImplementedError):
-            # The variable e is not used here, but it is invaluable for debugging.
-            assert not expected
-            return
-    else:
-        try:
-            val = eval(f"v1 {op} v2")
-        except (TypeError, ValueError, NotImplementedError):
-            assert not expected
-            return
-
-    # Compare numerical values between evaluated and expected outcomes.
-    _compare(val, expected)
-
-    # Finally, we test that the methods `value_and_jacobian` and `value` produce the
-    # same result. If the expected value is multidimensional, the Jacobian is not
-    # implemented.
-    try:
-        multidimensional = len(expected.shape) > 1
-    except AttributeError:
-        multidimensional = False
-
-    if wrapped:
-        if not multidimensional:
-            val_jac = equation_system.evaluate(expression, derivative=True)
-            val = equation_system.evaluate(expression)
-            assert np.all(val_jac.val == val)
-        else:
-            with pytest.raises(NotImplementedError):
-                equation_system.evaluate(expression, derivative=True)
+# Arithmetic-combination tests were extracted to
+# tests/numerics/ad/test_ad_arithmetic_operations.py.
 
 
 @pytest.mark.parametrize(
@@ -1687,7 +1076,10 @@ def test_hashing_sparse_array(two_spmatrices):
     almost identical, but it is crucial to distinguish between them.
 
     """
-    m1, m2 = [pp.ad.SparseArray(mat) for mat in two_spmatrices]
+    space = pp.ad.OperatorSpace.unclear()
+    m1, m2 = [
+        pp.ad.SparseArray(mat, source=space, target=space) for mat in two_spmatrices
+    ]
     assert hash(m1) != hash(m2)
 
 

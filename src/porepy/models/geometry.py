@@ -360,6 +360,7 @@ class ModelGeometry(pp.PorePyModel):
         attr: str,
         *,
         dim: int,
+        grid_entity: pp.ad.GridEntity = pp.ad.GridEntity.cells,
     ) -> pp.ad.DenseArray:
         """Wrap a grid attribute as an ad matrix.
 
@@ -372,6 +373,8 @@ class ModelGeometry(pp.PorePyModel):
                 exclude the z-component of a vector attribute in 2d, to achieve
                 compatibility with code which is explicitly 2d (e.g. fv
                 discretizations).
+            grid_entity: The grid entity (cells, faces, or nodes) that ``attr`` is
+                actually defined on.
 
         Returns:
             class:`porepy.numerics.ad.DenseArray`: `(shape=(dim *
@@ -415,11 +418,27 @@ class ModelGeometry(pp.PorePyModel):
             # For an empty list of grids, return an empty matrix
             vals = np.zeros(0)
 
-        array = pp.ad.DenseArray(vals)
+        if grid_entity == pp.ad.GridEntity.faces:
+            num_entities = sum(g.num_faces for g in grids if isinstance(g, pp.Grid))
+        elif grid_entity == pp.ad.GridEntity.nodes:
+            num_entities = sum(
+                g.num_nodes for g in grids if isinstance(g, (pp.Grid, pp.MortarGrid))
+            )
+        else:
+            num_entities = sum(g.num_cells for g in grids)
+        size = int(vals.size / num_entities) if num_entities > 0 else 1
+
+        domain_and_range = pp.ad.OperatorSpace.from_domains(grids, {grid_entity: size})
+        array = pp.ad.DenseArray(vals, source=domain_and_range, target=domain_and_range)
         array.set_name(f"Array wrapping attribute {attr} on {len(grids)} grids.")
         return array
 
-    def basis(self, grids: Sequence[pp.GridLike], dim: int) -> list[pp.ad.Projection]:
+    def basis(
+        self,
+        grids: Sequence[pp.GridLike],
+        dim: int,
+        domain_type: Optional[pp.ad.DomainType] = None,
+    ) -> list[pp.ad.Projection]:
         """Return a cell-wise basis for all subdomains.
 
         The basis is represented as a list of projections, each of which represents a
@@ -443,7 +462,8 @@ class ModelGeometry(pp.PorePyModel):
         Parameters:
             grids: List of grids on which the basis is defined.
             dim: Dimension of the basis.
-
+            domain_type: The type of domain (subdomains, interfaces, or boundary
+                grids) that *grids* represents.
         Returns:
             List of pp.ad.SparseArray, each of which represents a basis
             function.
@@ -452,13 +472,18 @@ class ModelGeometry(pp.PorePyModel):
         # Collect the basis functions for each dimension.
         basis: list[pp.ad.Projection] = []
         for i in range(dim):
-            basis.append(self.e_i(grids, i=i, dim=dim))
+            basis.append(self.e_i(grids, i=i, dim=dim, domain_type=domain_type))
         # Stack the basis functions horizontally.
         return basis
 
     @pp.ad.cached_method
     def e_i(
-        self, grids: Sequence[pp.GridLike], *, i: int, dim: int
+        self,
+        grids: Sequence[pp.GridLike],
+        *,
+        i: int,
+        dim: int,
+        domain_type: Optional[pp.ad.DomainType] = None,
     ) -> pp.ad.Projection:
         """Return a cell-wise basis function in a specified dimension.
 
@@ -485,6 +510,8 @@ class ModelGeometry(pp.PorePyModel):
             grids: List of grids on which the basis vector is defined.
             i: Index of the basis function. Note: Counts from 0.
             dim: Dimension of the functions.
+            domain_type: The type of domain (subdomains, interfaces, or boundary
+                grids) that *grids* represents. See :meth:`basis` for details.
 
         Returns:
             Ad projection that represents a basis function.
@@ -504,11 +531,34 @@ class ModelGeometry(pp.PorePyModel):
         num_cells = sum([g.num_cells for g in grids])
         range_ind = np.arange(i, dim * num_cells, dim)
 
+        if (
+            domain_type is None
+            and len(grids) > 0
+            and not (
+                all(isinstance(g, pp.Grid) for g in grids)
+                or all(isinstance(g, pp.MortarGrid) for g in grids)
+                or all(isinstance(g, pp.BoundaryGrid) for g in grids)
+            )
+        ):
+            # The grids mix subdomains, interfaces, and/or boundary grids, as is
+            # supported by this method. Mark the operator space as unclear.
+            source: pp.ad.OperatorSpace = pp.ad.OperatorSpace.unclear()
+            target: pp.ad.OperatorSpace = pp.ad.OperatorSpace.unclear()
+        else:
+            source = pp.ad.OperatorSpace.from_domains(
+                list(grids), domain_type=domain_type
+            )
+            target = pp.ad.OperatorSpace.from_domains(
+                list(grids), {pp.ad.GridEntity.cells: dim}, domain_type=domain_type
+            )
+
         slicer = pp.ad.Projection(
             domain_indices=np.arange(num_cells),
             range_indices=range_ind,
             range_size=num_cells * dim,
             domain_size=num_cells,
+            source=source,
+            target=target,
         )
 
         return slicer
@@ -539,8 +589,18 @@ class ModelGeometry(pp.PorePyModel):
         # secondly t_i (column vector).
         op: pp.ad.Operator = pp.ad.sum_projection_list(
             [
-                self.e_i(subdomains, i=i, dim=self.nd - 1)
-                @ self.e_i(subdomains, i=i, dim=self.nd).T
+                self.e_i(
+                    subdomains,
+                    i=i,
+                    dim=self.nd - 1,
+                    domain_type=pp.ad.DomainType.subdomains,
+                )
+                @ self.e_i(
+                    subdomains,
+                    i=i,
+                    dim=self.nd,
+                    domain_type=pp.ad.DomainType.subdomains,
+                ).T
                 for i in range(self.nd - 1)
             ]
         )
@@ -572,7 +632,12 @@ class ModelGeometry(pp.PorePyModel):
         """
         # Create the basis function for the normal component (which is known to be the
         # last component).
-        e_n = self.e_i(subdomains, i=self.nd - 1, dim=self.nd)
+        e_n = self.e_i(
+            subdomains,
+            i=self.nd - 1,
+            dim=self.nd,
+            domain_type=pp.ad.DomainType.subdomains,
+        )
         e_n.set_name("normal_component")
         return e_n.T
 
@@ -612,7 +677,10 @@ class ModelGeometry(pp.PorePyModel):
         else:
             # Also treat no subdomains.
             local_coord_proj = sps.csr_matrix((0, 0))
-        return pp.ad.SparseArray(local_coord_proj)
+        space = pp.ad.OperatorSpace.from_domains(
+            subdomains, {pp.ad.GridEntity.cells: self.nd}
+        )
+        return pp.ad.SparseArray(local_coord_proj, source=space, target=space)
 
     def subdomain_projections(self, dim: int) -> pp.ad.SubdomainProjections:
         """Return the projection operators for all subdomains in md-grid.
@@ -754,9 +822,16 @@ class ModelGeometry(pp.PorePyModel):
             Operator with flipped signs if normal vector points inwards.
 
         """
+        space = pp.ad.OperatorSpace.from_domains(
+            subdomains,
+            {pp.ad.GridEntity.faces: dim},
+            domain_type=pp.ad.DomainType.subdomains,
+        )
         if len(subdomains) == 0:
             # Special case if no interfaces.
-            sign_flipper = pp.ad.SparseArray(sps.csr_matrix((0, 0)))
+            sign_flipper = pp.ad.SparseArray(
+                sps.csr_matrix((0, 0)), source=space, target=space
+            )
         else:
             # There is already a method to construct a switcher matrix in grid_utils,
             # so we use that. Loop over all subdomains, construct a local switcher
@@ -777,7 +852,9 @@ class ModelGeometry(pp.PorePyModel):
 
             # Construct the block diagonal matrix.
             sign_flipper = pp.ad.SparseArray(
-                pp.matrix_operations.sparse_dia_from_sparse_blocks(matrices)
+                pp.matrix_operations.sparse_dia_from_sparse_blocks(matrices),
+                source=space,
+                target=space,
             )
         sign_flipper.set_name("Flip_normal_vectors")
         return sign_flipper
@@ -803,7 +880,12 @@ class ModelGeometry(pp.PorePyModel):
         """
         if len(interfaces) == 0:
             # Special case if no interfaces.
-            return pp.ad.DenseArray(np.zeros(0))
+            space = pp.ad.OperatorSpace.from_domains(
+                interfaces,
+                {pp.ad.GridEntity.cells: self.nd},
+                domain_type=pp.ad.DomainType.interfaces,
+            )
+            return pp.ad.DenseArray(np.zeros(0), source=space, target=space)
 
         # Main ingredients: Normal vectors for primary subdomains for each interface,
         # and a switcher matrix to flip the sign if the normal vector points inwards.
@@ -824,7 +906,10 @@ class ModelGeometry(pp.PorePyModel):
             self.mdg, primary_subdomains, interfaces, dim=self.nd
         )
         primary_face_normals = self.wrap_grid_attribute(
-            primary_subdomains, "face_normals", dim=self.nd
+            primary_subdomains,
+            "face_normals",
+            dim=self.nd,
+            grid_entity=pp.ad.GridEntity.faces,
         )
         # Account for sign of boundary face normals. This will give a matrix with a
         # shape equal to the total number of faces in all primary subdomains.
@@ -846,14 +931,19 @@ class ModelGeometry(pp.PorePyModel):
         # Normalize by face area if requested.
         if unitary:
             # 1 over cell volumes on the interfaces
-            cell_volumes_inv = pp.ad.Scalar(1) / self.wrap_grid_attribute(
-                interfaces, "cell_volumes", dim=self.nd
-            )
+            cell_volumes_inv = pp.ad.Scalar(
+                1, domains=interfaces
+            ) / self.wrap_grid_attribute(interfaces, "cell_volumes", dim=self.nd)
 
-            # Expand cell volumes to nd by multiplying from left by e_i and summing
-            # over all dimensions.
+            # Expand cell volumes to nd by multiplying from left by e_i and summing over
+            # all dimensions.
             cell_volumes_inv_nd = pp.ad.sum_operator_list(
-                [e @ cell_volumes_inv for e in self.basis(interfaces, self.nd)]
+                [
+                    e @ cell_volumes_inv
+                    for e in self.basis(
+                        interfaces, self.nd, domain_type=pp.ad.DomainType.interfaces
+                    )
+                ]
             )
             # Scale normals.
             outwards_normals = cell_volumes_inv_nd * outwards_normals

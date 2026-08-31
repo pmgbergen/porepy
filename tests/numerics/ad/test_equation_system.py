@@ -19,9 +19,11 @@ The tests focus on various assembly methods:
 
 import numpy as np
 import pytest
+import scipy.sparse as sps
 
 import porepy as pp
 from porepy.applications.md_grids.mdg_library import square_with_orthogonal_fractures
+from porepy.numerics.ad.equation_system import GridEntity
 
 
 def test_evaluate_variables():
@@ -68,7 +70,11 @@ def test_evaluate_variables():
         ad_array = var.value_and_jacobian(equation_system)
         assert isinstance(ad_array, pp.ad.AdArray)
         assert np.allclose(ad_array.val, 2)
-        assert np.allclose(ad_array.jac.toarray(), known_jac)
+        if ad_array._is_diagonal:
+            jac = sps.diags(ad_array.jac.ravel())
+        else:
+            jac = ad_array.jac
+        assert np.allclose(jac.toarray(), known_jac)
 
         # Now create the variable at the previous iterate. This should also give the
         # most recent value in pp.ITERATE_SOLUTIONS, but it should not yield an AdArray.
@@ -97,7 +103,12 @@ def test_evaluate_variables():
         assert np.allclose(
             ad_array_increment.val, ad_array.val - ad_array_prev_timestep.val
         )
-        assert np.allclose(ad_array_increment.jac.toarray(), known_jac)
+        if ad_array_increment._is_diagonal:
+            assert np.allclose(
+                sps.diags(ad_array_increment.jac.ravel()).toarray(), known_jac
+            )
+        else:
+            assert np.allclose(ad_array_increment.jac.toarray(), known_jac)
 
 
 def test_variable_creation():
@@ -116,8 +127,11 @@ def test_variable_creation():
     # Define the number of variables per grid item. Faces are included just to test that
     # this also works.
     num_dof_per_cell, num_dof_per_face = 1, 2
-    dof_info_sd = {"cells": num_dof_per_cell, "faces": num_dof_per_face}
-    dof_info_intf = {"cells": num_dof_per_cell}
+    dof_info_sd = {
+        GridEntity.cells: num_dof_per_cell,
+        GridEntity.faces: num_dof_per_face,
+    }
+    dof_info_intf = {GridEntity.cells: num_dof_per_cell}
 
     # Create variables on subdomain and interface.
     subdomains = mdg.subdomains()
@@ -157,7 +171,7 @@ def test_variable_creation():
     assert len(single_subdomain_variable_fetched.sub_vars) == 1
     assert (
         single_subdomain_variable_fetched.sub_vars[0].name == "var_1"
-        and single_subdomain_variable_fetched.domain[0] == single_subdomain[0]
+        and single_subdomain_variable_fetched.domains[0] == single_subdomain[0]
     )
 
     # Check that the variables are created correctly
@@ -215,8 +229,11 @@ def test_remove_variables(variable_to_be_removed):
     # Define the number of variables per grid item. Faces are included just to test that
     # # this also works.
     num_dof_per_cell, num_dof_per_face = 1, 2
-    dof_info_sd = {"cells": num_dof_per_cell, "faces": num_dof_per_face}
-    dof_info_intf = {"cells": num_dof_per_cell}
+    dof_info_sd = {
+        GridEntity.cells: num_dof_per_cell,
+        GridEntity.faces: num_dof_per_face,
+    }
+    dof_info_intf = {GridEntity.cells: num_dof_per_cell}
 
     # Create variables on subdomain and interface.
     subdomains = mdg.subdomains()
@@ -287,7 +304,7 @@ def test_variable_tags():
 
     # Define the number of variables per grid item. Faces are included just to test that
     # this also works.
-    dof_info = {"cells": 1}
+    dof_info = {GridEntity.cells: 1}
 
     # Create variables on subdomain and interface.
     subdomains = mdg.subdomains()
@@ -350,7 +367,7 @@ def test_variable_tags():
     # Filter on grids.
     retrieved_var_3 = equation_system.get_variables(grids=single_subdomain)
     assert len(retrieved_var_3) == 2
-    assert all([var.domain == single_subdomain[0] for var in retrieved_var_3])
+    assert all([var.domains[0] == single_subdomain[0] for var in retrieved_var_3])
 
     # Filter on combination of grid and variable
     retrieved_var_4 = equation_system.get_variables(
@@ -382,7 +399,7 @@ def test_variable_tags():
     # Filter on tag_3, which takes boolean values. This should give only var_2
     retrieved_var_10 = equation_system.get_variables(tag_name="tag_3", tag_value=True)
     assert len(retrieved_var_10) == 1
-    assert retrieved_var_10[0].domain == single_subdomain[0]
+    assert retrieved_var_10[0].domains[0] == single_subdomain[0]
 
 
 class EquationSystemMockModel:
@@ -421,7 +438,9 @@ class EquationSystemMockModel:
         # in the testing of assembly.
         self.name_intf_variable = "y"
         self.intf_variable = equation_system.create_variables(
-            self.name_intf_variable, dof_info={"cells": 2}, interfaces=interfaces
+            self.name_intf_variable,
+            dof_info={GridEntity.cells: 2},
+            interfaces=interfaces,
         )
 
         self.name_sd_top_variable = "z"
@@ -431,7 +450,9 @@ class EquationSystemMockModel:
 
         self.name_intf_top_variable = "w"
         self.intf_top_variable = equation_system.create_variables(
-            self.name_intf_top_variable, dof_info={"cells": 2}, interfaces=[intf_top]
+            self.name_intf_top_variable,
+            dof_info={GridEntity.cells: 2},
+            interfaces=[intf_top],
         )
 
         # Set the time step and iterate solution values for the variables.
@@ -476,18 +497,16 @@ class EquationSystemMockModel:
         self.eq_single_subdomain = self.sd_top_variable * self.sd_top_variable
         self.eq_single_subdomain.set_name("eq_single_subdomain")
 
-        dof_all_subdomains = {"cells": 1}
-        dof_single_subdomain = {"cells": 1}
-        dof_combined = {"cells": 1}
+        dof_all_subdomains = {GridEntity.cells: 1}
+        dof_single_subdomain = {GridEntity.cells: 1}
+        dof_combined = {GridEntity.cells: 1}
 
         equation_system.set_equation(
             self.eq_all_subdomains,
-            grids=subdomains,
             equations_per_grid_entity=dof_all_subdomains,
         )
         equation_system.set_equation(
             self.eq_single_subdomain,
-            grids=[sd_top],
             equations_per_grid_entity=dof_single_subdomain,
         )
 
@@ -500,16 +519,14 @@ class EquationSystemMockModel:
         self.eq_single_interface.set_name("eq_single_interface")
 
         # TODO: Should we do something on a combination as well?
-        dof_all_interfaces = {"cells": 2}
-        dof_single_interface = {"cells": 2}
+        dof_all_interfaces = {GridEntity.cells: 2}
+        dof_single_interface = {GridEntity.cells: 2}
         equation_system.set_equation(
             self.eq_all_interfaces,
-            grids=interfaces,
             equations_per_grid_entity=dof_all_interfaces,
         )
         equation_system.set_equation(
             self.eq_single_interface,
-            grids=[intf_top],
             equations_per_grid_entity=dof_single_interface,
         )
         self.eq_inds = np.array(
@@ -527,7 +544,7 @@ class EquationSystemMockModel:
             self.eq_combined = self.sd_top_variable * (proj @ self.sd_variable)
             self.eq_combined.set_name("eq_combined")
             equation_system.set_equation(
-                self.eq_combined, grids=[sd_top], equations_per_grid_entity=dof_combined
+                self.eq_combined, equations_per_grid_entity=dof_combined
             )
             self.eq_inds = np.append(self.eq_inds, mdg.subdomains()[0].num_cells)
 
@@ -604,7 +621,7 @@ class EquationSystemMockModel:
         empty_equation = empty_var * empty_var
         empty_equation.set_name("empty_equation")
         self.equation_system.set_equation(
-            empty_equation, grids=[], equations_per_grid_entity={"cells": 1}
+            empty_equation, equations_per_grid_entity={GridEntity.cells: 1}
         )
 
 
@@ -912,14 +929,13 @@ def test_projection_matrix(model: EquationSystemMockModel, var_names):
 def test_set_remove_equations(model: EquationSystemMockModel):
     equation_system = model.equation_system
 
-    dof_info_subdomain = {"cells": 1}
-    dof_info_interface = {"cells": 2}
+    dof_info_subdomain = {GridEntity.cells: 1}
+    dof_info_interface = {GridEntity.cells: 2}
 
     # First try to set an equation that is already present. This should raise an error.
     with pytest.raises(ValueError):
         equation_system.set_equation(
             model.eq_all_subdomains,
-            grids=model.subdomains,
             equations_per_grid_entity=dof_info_subdomain,
         )
 
@@ -935,7 +951,6 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     # Now set the equation again.
     equation_system.set_equation(
         model.eq_single_subdomain,
-        grids=[model.sd_top],
         equations_per_grid_entity=dof_info_subdomain,
     )
 
@@ -949,20 +964,18 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     )
     assert np.allclose(
         equation_subdomain_blocks[model.eq_single_subdomain.name][model.sd_top],
-        np.arange(model.sd_top.num_cells * dof_info_subdomain["cells"]),
+        np.arange(model.sd_top.num_cells * dof_info_subdomain[GridEntity.cells]),
     )
     # Check that the mapping of equation to grid entity block size
     # is set correctly.
-    equation_grid_entity_blocks = equation_system.equation_image_size_info
     assert (
-        equation_grid_entity_blocks[model.eq_single_subdomain.name]
+        equation_system.equations[model.eq_single_subdomain.name].target.dof_info
         == dof_info_subdomain
     )
 
     # Add a second equation, defined on both subdomains
     equation_system.set_equation(
         model.eq_all_subdomains,
-        grids=model.subdomains,
         equations_per_grid_entity=dof_info_subdomain,
     )
     equation_subdomain_blocks = (
@@ -972,9 +985,9 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     for sd in model.subdomains:
         assert np.allclose(
             equation_subdomain_blocks[model.eq_all_subdomains.name][sd],
-            offset + np.arange(sd.num_cells * dof_info_subdomain["cells"]),
+            offset + np.arange(sd.num_cells * dof_info_subdomain[GridEntity.cells]),
         )
-        offset += sd.num_cells * dof_info_subdomain["cells"]
+        offset += sd.num_cells * dof_info_subdomain[GridEntity.cells]
 
     # Add a third equation, defined on the interface.
     # This time we switch the order of the interfaces. This should not matter for the
@@ -982,7 +995,6 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     # mdg.interfaces()
     equation_system.set_equation(
         model.eq_all_interfaces,
-        grids=model.interfaces[::-1],
         equations_per_grid_entity=dof_info_interface,
     )
     equation_subdomain_blocks = (
@@ -992,19 +1004,27 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     for intf in model.interfaces:
         assert np.allclose(
             equation_subdomain_blocks[model.eq_all_interfaces.name][intf],
-            offset + np.arange(intf.num_cells * dof_info_interface["cells"]),
+            offset + np.arange(intf.num_cells * dof_info_interface[GridEntity.cells]),
         )
-        offset += intf.num_cells * dof_info_interface["cells"]
+        offset += intf.num_cells * dof_info_interface[GridEntity.cells]
 
     # Test updating an existing equation. Here we update the equation with a different
     # equation expression and a different number of degrees of freedom per cell. We
     # switch the order of the interfaces here as well, similarly to in the test above.
-    mock_equation = model.intf_variable * model.intf_variable * model.intf_variable
-    dof_all_interfaces = {"cells": 3}
+    # The new equation is built from a genuinely 3-dofs-per-cell variable (not a mock
+    # dof count grafted onto model.intf_variable, which has only 2), so that the
+    # equation operator's own target.dof_info actually matches the declared
+    # equations_per_grid_entity below.
+    mock_variable = equation_system.create_variables(
+        "mock_interface_variable_dof3",
+        dof_info={GridEntity.cells: 3},
+        interfaces=model.interfaces,
+    )
+    mock_equation = mock_variable * mock_variable
+    dof_all_interfaces = {GridEntity.cells: 3}
     equation_system.update_equation(
         new_equation=mock_equation,
         equation_name="eq_all_interfaces",
-        grids=model.interfaces[::-1],
         equations_per_grid_entity=dof_all_interfaces,
     )
     equation_subdomain_blocks = (
@@ -1015,9 +1035,9 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     for intf in model.interfaces:
         assert np.allclose(
             equation_subdomain_blocks[model.eq_all_interfaces.name][intf],
-            offset + np.arange(intf.num_cells * dof_all_interfaces["cells"]),
+            offset + np.arange(intf.num_cells * dof_all_interfaces[GridEntity.cells]),
         )
-        offset += intf.num_cells * dof_all_interfaces["cells"]
+        offset += intf.num_cells * dof_all_interfaces[GridEntity.cells]
 
     # Test updating an existing equation without changing grids and dof info.
     equation_system.update_equation(
@@ -1032,9 +1052,9 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     for intf in model.interfaces:
         assert np.allclose(
             equation_subdomain_blocks[model.eq_all_interfaces.name][intf],
-            offset + np.arange(intf.num_cells * dof_all_interfaces["cells"]),
+            offset + np.arange(intf.num_cells * dof_all_interfaces[GridEntity.cells]),
         )
-        offset += intf.num_cells * dof_all_interfaces["cells"]
+        offset += intf.num_cells * dof_all_interfaces[GridEntity.cells]
 
     assert (
         list(equation_subdomain_blocks["eq_all_interfaces"].keys()) == model.interfaces
@@ -1131,7 +1151,7 @@ def test_parse_variable_type_rejects_unknown_variable(
 
     """
     unknown_variable = pp.ad.Variable(
-        "unknown", {"cells": 1}, model.mdg.subdomains()[0]
+        "unknown", pp.ad.GridEntities(cells=1), model.mdg.subdomains()[0]
     )
 
     with pytest.raises(ValueError, match="not registered"):

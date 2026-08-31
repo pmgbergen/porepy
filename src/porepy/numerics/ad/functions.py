@@ -26,7 +26,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.forward_mode import AdArray
+from porepy.numerics.ad.ad_array import AdArray
 
 FloatType = TypeVar("FloatType", AdArray, np.ndarray, float)
 
@@ -63,8 +63,12 @@ __all__ = [
 def exp(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.exp(var.val)
-        der = var._diagvec_mul_jac(val)
-        return AdArray(val, der)
+        if var.is_diagonal:
+            der = val * var.jac
+            return var.replace(val, der)
+        else:
+            der = var.diagvec_mul_jac(np.exp(var.val))
+            return AdArray(val, der)
     else:
         return np.exp(var)
 
@@ -72,8 +76,12 @@ def exp(var: FloatType) -> FloatType:
 def log(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.log(var.val)
-        der = var._diagvec_mul_jac(1 / var.val)
-        return AdArray(val, der)
+        if var.is_diagonal:
+            der = var.jac / var.val
+            return var.replace(val, der)
+        else:
+            der = var.diagvec_mul_jac(1 / var.val)
+            return AdArray(val, der)
     else:
         return np.log(var)
 
@@ -98,6 +106,8 @@ def clip(var: FloatType, min_val: float, max_val: float) -> FloatType:
         mask = (var.val > min_val) & (var.val < max_val)
         mask_diag = mask.astype(float)
 
+        if var.is_diagonal:
+            return var.replace(val, var.jac * mask_diag)
         mask_matrix = sps.diags(mask_diag)
         jac = mask_matrix @ var.jac
         return AdArray(val, jac)
@@ -114,8 +124,12 @@ def clip(var: FloatType, min_val: float, max_val: float) -> FloatType:
 def abs(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.abs(var.val)
-        jac = var._diagvec_mul_jac(np.sign(var.val))
-        return AdArray(val, jac)
+        if var.is_diagonal:
+            der = np.sign(var.val) * var.jac
+            return var.replace(val, der)
+        else:
+            jac = var.diagvec_mul_jac(np.sign(var.val))
+            return AdArray(val, jac)
     else:
         return np.abs(var)
 
@@ -148,6 +162,9 @@ def l2_norm(dim: int, var: pp.ad.AdArray) -> pp.ad.AdArray:
         # For scalar variables, the cell-wise L2 norm is equivalent to
         # taking the absolute value.
         return pp.ad.functions.abs(var)
+    # The norm mixes dim separate degrees of freedom into one output entry, which
+    # cannot be represented in the diagonal format.
+    var = var.to_full()
     resh = np.reshape(var.val, (dim, -1), order="F")
     vals = np.linalg.norm(resh, axis=0)
     # Avoid dividing by zero
@@ -202,7 +219,11 @@ def safe_power(power: float, zero_val: float, tol: float, var: AdArray) -> AdArr
     vals[nonzero_inds] = _val[nonzero_inds] ** power
     if isinstance(var, np.ndarray):
         return vals
-    new_jac = var._diagvec_mul_jac(power * vals ** (power - 1.0))
+    der_factor = np.zeros_like(_val)
+    der_factor[nonzero_inds] = power * _val[nonzero_inds] ** (power - 1.0)
+    if var.is_diagonal:
+        return var.replace(vals, der_factor * var.jac)
+    new_jac = var.diagvec_mul_jac(der_factor)
     return AdArray(vals, new_jac)
 
 
@@ -210,7 +231,10 @@ def safe_power(power: float, zero_val: float, tol: float, var: AdArray) -> AdArr
 def sin(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.sin(var.val)
-        jac = var._diagvec_mul_jac(np.cos(var.val))
+        der_factor = np.cos(var.val)
+        if var.is_diagonal:
+            return var.replace(val, der_factor * var.jac)
+        jac = var.diagvec_mul_jac(der_factor)
         return AdArray(val, jac)
     else:
         return np.sin(var)
@@ -219,7 +243,10 @@ def sin(var: FloatType) -> FloatType:
 def cos(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.cos(var.val)
-        jac = var._diagvec_mul_jac(-np.sin(var.val))
+        der_factor = -np.sin(var.val)
+        if var.is_diagonal:
+            return var.replace(val, der_factor * var.jac)
+        jac = var.diagvec_mul_jac(der_factor)
         return AdArray(val, jac)
     else:
         return np.cos(var)
@@ -228,7 +255,10 @@ def cos(var: FloatType) -> FloatType:
 def tan(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.tan(var.val)
-        jac = var._diagvec_mul_jac((np.cos(var.val) ** 2) ** (-1))
+        der_factor = (np.cos(var.val) ** 2) ** (-1)
+        if var.is_diagonal:
+            return var.replace(val, der_factor * var.jac)
+        jac = var.diagvec_mul_jac(der_factor)
         return AdArray(val, jac)
     else:
         return np.tan(var)
@@ -237,7 +267,10 @@ def tan(var: FloatType) -> FloatType:
 def arcsin(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.arcsin(var.val)
-        jac = var._diagvec_mul_jac((1 - var.val**2) ** (-0.5))
+        der_factor = (1 - var.val**2) ** (-0.5)
+        if var.is_diagonal:
+            return var.replace(val, der_factor * var.jac)
+        jac = var.diagvec_mul_jac(der_factor)
         return AdArray(val, jac)
     else:
         return np.arcsin(var)
@@ -246,7 +279,10 @@ def arcsin(var: FloatType) -> FloatType:
 def arccos(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.arccos(var.val)
-        jac = var._diagvec_mul_jac(-((1 - var.val**2) ** (-0.5)))
+        der_factor = -((1 - var.val**2) ** (-0.5))
+        if var.is_diagonal:
+            return var.replace(val, der_factor * var.jac)
+        jac = var.diagvec_mul_jac(der_factor)
         return AdArray(val, jac)
     else:
         return np.arccos(var)
@@ -255,7 +291,10 @@ def arccos(var: FloatType) -> FloatType:
 def arctan(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.arctan(var.val)
-        jac = var._diagvec_mul_jac((var.val**2 + 1) ** (-1))
+        der_factor = (var.val**2 + 1) ** (-1)
+        if var.is_diagonal:
+            return var.replace(val, der_factor * var.jac)
+        jac = var.diagvec_mul_jac(der_factor)
         return AdArray(val, jac)
     else:
         return np.arctan(var)
@@ -265,7 +304,10 @@ def arctan(var: FloatType) -> FloatType:
 def sinh(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.sinh(var.val)
-        jac = var._diagvec_mul_jac(np.cosh(var.val))
+        der_factor = np.cosh(var.val)
+        if var.is_diagonal:
+            return var.replace(val, der_factor * var.jac)
+        jac = var.diagvec_mul_jac(der_factor)
         return AdArray(val, jac)
     else:
         return np.sinh(var)
@@ -274,7 +316,10 @@ def sinh(var: FloatType) -> FloatType:
 def cosh(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.cosh(var.val)
-        jac = var._diagvec_mul_jac(np.sinh(var.val))
+        der_factor = np.sinh(var.val)
+        if var.is_diagonal:
+            return var.replace(val, der_factor * var.jac)
+        jac = var.diagvec_mul_jac(der_factor)
         return AdArray(val, jac)
     else:
         return np.cosh(var)
@@ -283,7 +328,10 @@ def cosh(var: FloatType) -> FloatType:
 def tanh(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.tanh(var.val)
-        jac = var._diagvec_mul_jac(np.cosh(var.val) ** (-2))
+        der_factor = np.cosh(var.val) ** (-2)
+        if var.is_diagonal:
+            return var.replace(val, der_factor * var.jac)
+        jac = var.diagvec_mul_jac(der_factor)
         return AdArray(val, jac)
     else:
         return np.tanh(var)
@@ -292,7 +340,10 @@ def tanh(var: FloatType) -> FloatType:
 def arcsinh(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.arcsinh(var.val)
-        jac = var._diagvec_mul_jac((var.val**2 + 1) ** (-0.5))
+        der_factor = (var.val**2 + 1) ** (-0.5)
+        if var.is_diagonal:
+            return var.replace(val, der_factor * var.jac)
+        jac = var.diagvec_mul_jac(der_factor)
         return AdArray(val, jac)
     else:
         return np.arcsinh(var)
@@ -303,7 +354,10 @@ def arccosh(var: FloatType) -> FloatType:
         val = np.arccosh(var.val)
         den1 = (var.val - 1) ** (-0.5)
         den2 = (var.val + 1) ** (-0.5)
-        jac = var._diagvec_mul_jac(den1 * den2)
+        der_factor = den1 * den2
+        if var.is_diagonal:
+            return var.replace(val, der_factor * var.jac)
+        jac = var.diagvec_mul_jac(der_factor)
         return AdArray(val, jac)
     else:
         return np.arccosh(var)
@@ -312,7 +366,10 @@ def arccosh(var: FloatType) -> FloatType:
 def arctanh(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.arctanh(var.val)
-        jac = var._diagvec_mul_jac((1 - var.val**2) ** (-1))
+        der_factor = (1 - var.val**2) ** (-1)
+        if var.is_diagonal:
+            return var.replace(val, der_factor * var.jac)
+        jac = var.diagvec_mul_jac(der_factor)
         return AdArray(val, jac)
     else:
         return np.arctanh(var)
@@ -341,8 +398,11 @@ def heaviside(zerovalue: float, var: FloatType) -> FloatType:
         or ndarray (depending on the input).
     """
     if isinstance(var, pp.ad.AdArray):
+        val = np.heaviside(var.val, zerovalue)
+        if var.is_diagonal:
+            return var.replace(val, np.zeros_like(var.jac))
         zero_jac = sps.csr_matrix(var.jac.shape)
-        return pp.ad.AdArray(np.heaviside(var.val, zerovalue), zero_jac)
+        return pp.ad.AdArray(val, zero_jac)
     else:
         return np.heaviside(var, zerovalue)
 
@@ -370,7 +430,10 @@ def heaviside_smooth(var, eps: float = 1e-3):
     """
     if isinstance(var, AdArray):
         val = 0.5 * (1 + 2 * np.pi ** (-1) * np.arctan(var.val * eps ** (-1)))
-        jac = var._diagvec_mul_jac(np.pi ** (-1) * eps * (eps**2 + var.val**2) ** (-1))
+        der_factor = np.pi ** (-1) * eps * (eps**2 + var.val**2) ** (-1)
+        if var.is_diagonal:
+            return var.replace(val, der_factor * var.jac)
+        jac = var.diagvec_mul_jac(der_factor)
         return AdArray(val, jac)
     else:
         return 0.5 * (1 + 2 * np.pi ** (-1) * np.arctan(var * eps ** (-1)))
@@ -384,10 +447,11 @@ class RegularizedHeaviside:
         if isinstance(var, AdArray):
             val = np.heaviside(var.val, 0.0)
             regularization = self._regularization(var)
-            jac = regularization.jac
-            return AdArray(val, jac)
+            if regularization.is_diagonal:
+                return regularization.replace(val, regularization.jac)
+            return AdArray(val, regularization.jac)
         else:
-            return np.heaviside(var)  # type: ignore
+            return np.heaviside(var, zerovalue)
 
 
 def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
@@ -424,6 +488,23 @@ def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
     if not isinstance(var_0, AdArray) and not isinstance(var_1, AdArray):
         # FIXME: According to the type hints, this should not be possible.
         return np.maximum(var_0, var_1)
+
+    # Diagonal AdArrays have a Jacobian shape the rest of this function does not
+    # understand. If both arguments are diagonal, the maximum can be computed
+    # directly in the diagonal representation; otherwise, convert any diagonal
+    # argument to full (non-diagonal) format before proceeding as before.
+    if isinstance(var_0, AdArray) and isinstance(var_1, AdArray):
+        if var_0.is_diagonal and var_1.is_diagonal:
+            val = np.maximum(var_0.val, var_1.val)
+            pick_1 = var_1.val > var_0.val
+            jac = np.where(pick_1, var_1.jac, var_0.jac)
+            return var_0.replace(val, jac)
+        var_0 = var_0.to_full()
+        var_1 = var_1.to_full()
+    elif isinstance(var_0, AdArray):
+        var_0 = var_0.to_full()
+    elif isinstance(var_1, AdArray):
+        var_1 = var_1.to_full()
 
     # Make a fall-back zero Jacobian for constant arguments.
     # EK: It is not clear if this is relevant, or if we filter out these cases with the
@@ -482,9 +563,7 @@ def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
     max_jac = jacs[0].copy()
 
     if isinstance(max_jac, (sps.spmatrix, sps.sparray)):
-        # Enforce csr format, unless the matrix is csc, in which case we keep it.
-        if not max_jac.getformat() == "csc":
-            max_jac = max_jac.tocsr()
+        max_jac = max_jac.tocsr()
         lines = pp.matrix_operations.slice_sparse_matrix(jacs[1].tocsr(), inds)
         pp.matrix_operations.merge_matrices(max_jac, lines, inds, max_jac.getformat())
     else:
@@ -516,6 +595,8 @@ def characteristic_function(tol: float, var: FloatType) -> FloatType:
     vals = np.zeros(var.val.size)
     zero_inds = np.isclose(var.val, 0, atol=tol)
     vals[zero_inds] = 1.0
+    if var.is_diagonal:
+        return var.replace(vals, np.zeros_like(var.jac))
     jac = sps.csr_matrix(var.jac.shape)
     return AdArray(vals, jac)
 
@@ -560,6 +641,9 @@ def mask_by_threshold(tol: float, char_var: FloatType, var: FloatType) -> FloatT
                 return float(char_inds) * var
     vals = var.val.copy()
     vals[np.logical_not(char_inds)] = 0.0
-    jac = var.jac.copy()
+    if var.is_diagonal:
+        return var.replace(vals, var.jac * char_inds.astype(float))
+    # zero_rows requires csr format; var.jac may be csc (or another sparse format).
+    jac = var.jac.tocsr() if var.jac.getformat() != "csr" else var.jac.copy()
     pp.matrix_operations.zero_rows(jac, np.where(~char_inds)[0])
     return AdArray(vals, jac)

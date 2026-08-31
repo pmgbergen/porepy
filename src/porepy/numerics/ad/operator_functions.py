@@ -16,15 +16,16 @@ from __future__ import annotations
 
 import abc
 from functools import partial
-from typing import Callable, Optional, Sequence, Type
+from typing import Callable, Optional, Sequence, Type, cast
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.forward_mode import AdArray
+from porepy.numerics.ad.ad_array import AdArray
 
 from .functions import FloatType
+from .operator_space import OperatorSpace
 from .operators import Operations, Operator
 
 __all__ = [
@@ -38,6 +39,54 @@ __all__ = [
 
 def _raise_no_arithmetics_with_functions_error():
     raise TypeError("Operator functions must be called before applying any operation.")
+
+
+def _diagonal_result(
+    values: np.ndarray,
+    jac: np.ndarray,
+    args: Sequence[pp.ad.DiagonalAdArray],
+) -> pp.ad.DiagonalAdArray:
+    """Assemble a DiagonalAdArray from a dense Jacobian.
+
+    This is the counterpart to the plain-AdArray case in :meth:`AbstractFunction.func`,
+    used when all arguments are DiagonalAdArrays, so that
+    :meth:`~AbstractFunction.get_jacobian` returned the derivatives as a dense 2d array
+    with one row of derivatives per argument (the primary variables). The diagonal
+    representation additionally needs zero rows for the secondary variables covered by
+    the arguments' combined structural indices; those are inserted here.
+
+    Parameters:
+        values: Values of the function, one entry per degree of freedom.
+        jac: Derivatives of the function with respect to each argument, one row per
+            argument, as returned by :meth:`~AbstractFunction.get_jacobian`.
+        args: The arguments the function was evaluated on; used for their structural
+            row/column indices and number of derivatives.
+
+    Returns:
+        A DiagonalAdArray representing the function value and derivatives.
+
+    """
+    num_derivatives = args[0].num_derivatives
+    primary_indices = [arg.row_indices for arg in args]
+    column_indices = args[0].col_indices
+
+    # The Jacobian only contains derivatives with respect to the primary variables,
+    # while the diagonal AdArray must have values and indices also for derivatives
+    # with respect to secondary variables. By assumption, these derivatives are
+    # zero, but they need to be included in the correct row in the Jacobian.
+    full_jac = np.zeros((len(column_indices), values.size))
+
+    # Identify the row of a primary variable in the full Jacobian by comparing the
+    # first row index of the rows and columns.
+    row_starts = [i[0] for i in column_indices]
+    for ri, inds in enumerate(primary_indices):
+        row_ind_in_full = row_starts.index(inds[0])
+        # Transfer the non-zero entries.
+        full_jac[row_ind_in_full] = jac[ri]
+
+    return pp.ad.DiagonalAdArray(
+        values, full_jac, np.arange(values.size), column_indices, num_derivatives
+    )
 
 
 class AbstractFunction(Operator):
@@ -57,6 +106,9 @@ class AbstractFunction(Operator):
 
     Parameters:
         name: Name of this instance as an AD operator.
+        source: Algebraic source space of this function.
+        target: Algebraic target space of this function. Defaults to ``source`` if not
+            given.
 
     """
 
@@ -66,19 +118,23 @@ class AbstractFunction(Operator):
     def __init__(
         self,
         name: Optional[str] = None,
-        domains: Optional[pp.GridLikeSequence] = None,
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
+        *,
+        source: OperatorSpace,
+        target: Optional[OperatorSpace] = None,
         **kwargs,  # Left for inheritance for more complex functions
     ) -> None:
         # NOTE Constructor is overwritten to have a consistent signature
         # But the operation is always overwritten to point to evaluate.
         # Done for reasons of multiple inheritance.
+
         super().__init__(
             name=name,
-            domains=domains,
             operation=pp.ad.operators.Operations.evaluate,
             children=children,
+            source=source,
+            target=target,
         )
 
     def __call__(self, *args: pp.ad.Operator) -> pp.ad.Operator:
@@ -98,12 +154,12 @@ class AbstractFunction(Operator):
         assert len(args) > 0, (
             "Operator functions must be called with at least 1 argument."
         )
-
         op = Operator(
             name=f"{self.name}{[a.name for a in args]}",
-            # domains=self.domains,
             operation=pp.ad.operators.Operations.evaluate,
             children=args,
+            source=self._source,
+            target=self._target,
         )
         # Assigning the functional representation by the implementation of this instance
         op.func = self.func  # type: ignore
@@ -191,7 +247,18 @@ class AbstractFunction(Operator):
             if isinstance(values, float):
                 assert jac.shape[0] == 1, "Inconsistent Jacobian of scalar function."
                 values = np.array([values])
-            return AdArray(values, jac)
+                return AdArray(values, jac)
+            elif isinstance(jac, np.ndarray):
+                assert jac.ndim == 2, "Diagonal AdArrays should have 2d Jacobians"
+                assert jac.shape[1] == values.size, (
+                    "Inconsistent shape of values and Jacobian for diagonal AdArray"
+                )
+                # A dense 2d Jacobian is only returned by get_jacobian when all
+                # arguments are DiagonalAdArrays.
+                diagonal_args = cast(Sequence[pp.ad.DiagonalAdArray], args)
+                return _diagonal_result(values, jac, diagonal_args)
+            else:
+                return AdArray(values, jac)
         else:
             return values
 
@@ -200,7 +267,7 @@ class AbstractFunction(Operator):
         """Abstract method for evaluating the callable passed at instantiation.
 
         The returned numpy array will be set as
-        :attr:`~porepy.numerics.ad.forward_mode.AdArray.val` in for cases when any
+        :attr:`~porepy.numerics.ad.ad_array.AdArray.val` in for cases when any
         child is parsed as an Ad array.
         Otherwise the value returned here will be returned directly as the numerical
         representation of this instance.
@@ -224,7 +291,7 @@ class AbstractFunction(Operator):
         by this instance.
 
         The returned matrix will be set as
-        :attr:`~porepy.numerics.ad.forward_mode.AdArray.jac` in for cases when any
+        :attr:`~porepy.numerics.ad.ad_array.AdArray.jac` in for cases when any
         child is parsed as an Ad array.
 
         This method is called in :meth:`func` if any argument is an Ad array.
@@ -262,8 +329,12 @@ class DiagonalJacobianFunction(AbstractFunction):
         self,
         multipliers: float | list[float],
         name: str,
+        *,
+        source: OperatorSpace,
+        target: Optional[OperatorSpace] = None,
     ):
-        super().__init__(name=name)
+
+        super().__init__(name=name, source=source, target=target)
         # check and format input for further use
         if isinstance(multipliers, list):
             self._multipliers = [float(val) for val in multipliers]
@@ -300,11 +371,20 @@ class Function(AbstractFunction):
     Paramters:
         func: A callable returning a numpy array for numpy array arguments, and an
             Ad array for arguments containing Ad arrays.
+        source: The source of the function.
+        target: The target of the function. If not given (or explicitly ``None``),
+            defaults to ``source``.
 
     """
 
-    def __init__(self, func: Callable[..., FloatType], name: str) -> None:
-        super().__init__(name=name)
+    def __init__(
+        self,
+        func: Callable[..., FloatType],
+        name: str,
+        source: OperatorSpace,
+        target: Optional[OperatorSpace] = None,
+    ) -> None:
+        super().__init__(name=name, source=source, target=target)
 
         self._func: Callable[..., float | np.ndarray | AdArray] = func
         """Reference to the callable passed at instantiation."""
@@ -369,7 +449,12 @@ class InterpolatedFunction(AbstractFunction):
         order: int = 1,
         preval: bool = False,
     ):
-        super().__init__(name=name)
+        # For now, use unclear() for source and target, since the function is not aware
+        # of the grid/dof context of its arguments. This should be improved if this
+        # code is brought back to shape at some point.
+        source = OperatorSpace.unclear()
+        target = OperatorSpace.unclear()
+        super().__init__(name=name, source=source, target=target)
 
         ### PUBLIC
         self.order: int = order

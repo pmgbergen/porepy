@@ -8,13 +8,16 @@ the functionality is thoroughly tested through the test suit for the models.
 from __future__ import annotations
 
 import operator as _operator
+from collections.abc import Mapping
 from typing import Any, Literal, overload
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics import ad
 
+from .operator_space import DomainType
 from .operators import Operations
 
 # Maps each binary Operations member to the callable that implements it, so
@@ -55,6 +58,7 @@ class AdParser:
         Efficient use of caching has turned out to be difficult to achieve, and the
         cache is at the moment used sparingly. This will be revisited in the future.
         """
+        self._num_subdomains = len(mdg.subdomains())
 
     def clear_cache(self) -> None:
         """Clear the cache of parsed operators."""
@@ -132,10 +136,11 @@ class AdParser:
         if state is None:
             state = equation_system.get_variable_values(iterate_index=0)
 
-        # Create an AdArray representation of the state, if the derivative is requested.
-        # If not, the state is used as is (as a numpy array).
-        ad_base = pp.ad.initAdArrays([state])[0] if derivative else state
-
+        # Map each variable in the operator tree to its representation: an AdArray if
+        # the derivative is requested, or a numpy array if not.
+        ad_base = self._initialize_variables(
+            op if isinstance(op, list) else [op], state, equation_system, derivative
+        )
         # Evaluate the operators. A single operator is treated as a list to simplify the
         # post-processing below.
         if isinstance(op, list):
@@ -185,18 +190,192 @@ class AdParser:
         else:
             return result_list[0]
 
+    def _initialize_variables(
+        self,
+        op_list: list[pp.ad.Operator],
+        state: np.ndarray,
+        equation_system: pp.EquationSystem,
+        derivative: bool = True,
+    ) -> Mapping[pp.ad.Variable, np.ndarray | pp.ad.AdArray]:
+        """Represent all variables appearing in op_list in a mixed form.
+
+        Variables that are suited for a diagonal representation (see
+        :func:`pp.ad.initialize_diagonal_ad_arrays`) receive this, more efficient,
+        representation. The remaining variables share a single, standard AdArray
+        covering the full system.
+
+        Parameters:
+            op_list: List of operators whose variables should be represented.
+            state: Global state vector, used to look up variable values.
+            equation_system: The EquationSystem wherein the system state is defined.
+            derivative: If True, variables are represented as (Diagonal)AdArrays, so
+                that derivatives can be tracked. If False, only the values of the
+                variables are returned, as numpy arrays.
+
+        Returns:
+            A mapping from each variable found in op_list (and its sub-tree) to its
+            representation: A numpy array if derivative is False, or a
+            (Diagonal)AdArray if derivative is True.
+
+        """
+
+        def _variables_in_operator_tree() -> list[pp.ad.Variable]:
+            """Collect the unique variables appearing anywhere in op_list."""
+            all_operators = set(self._flatten_operator_tree(op_list))
+            return [op for op in all_operators if isinstance(op, pp.ad.Variable)]
+
+        def _is_diagonal_representable(variable: pp.ad.Variable) -> bool:
+            """Check whether a variable is suited for a diagonal representation.
+
+            By assumption of this implementation, this requires the variable to 1) be
+            defined at the current iterate (not a previous iteration or time step, since
+            these have no derivative), 2) be defined on subdomains (not on interfaces or
+            boundary grids), 3) be defined on all subdomains, and 4) have a single
+            degree of freedom per cell.
+
+            """
+            if variable.is_previous_iterate or variable.is_previous_time:
+                return False
+            source = variable.source
+            if source.domain_type in [
+                DomainType.interfaces,
+                DomainType.boundary_grids,
+            ]:
+                # For now, we only support diagonal representations of variables defined
+                # on subdomains.
+                return False
+            domains = source.grids
+            if len(domains) < self._num_subdomains:
+                # This variable is not defined on all subdomains, so we cannot readily
+                # use a diagonal representation. This can be improved, but does not seem
+                # worth the effort at the moment.
+                return False
+            if variable.size != np.sum([sd.num_cells for sd in domains]):
+                # The variable has more than one dof per cell, so we cannot use a
+                # diagonal representation.
+                return False
+            return True
+
+        def _classify_variables() -> tuple[list[pp.ad.Variable], list[pp.ad.Variable]]:
+            """Split the variables in op_list into those suited for a diagonal
+            representation, and the rest."""
+            diagonal_variables = []
+            other_variables = []
+            for variable in _variables_in_operator_tree():
+                if _is_diagonal_representable(variable):
+                    diagonal_variables.append(variable)
+                else:
+                    other_variables.append(variable)
+            return diagonal_variables, other_variables
+
+        def _variable_value_map(
+            variables: list[pp.ad.Variable],
+        ) -> dict[pp.ad.Variable, np.ndarray]:
+            """Map each variable to its value in state, without tracking derivatives.
+            This is a cheap alternative to the AdArray-based representations below, used
+            when only the value (not the Jacobian) of an operator is needed.
+
+            """
+            return {
+                variable: state[equation_system.dofs_of([variable])]
+                for variable in variables
+            }
+
+        def _diagonal_array_map(
+            variables: list[pp.ad.Variable],
+        ) -> dict[pp.ad.Variable, pp.ad.AdArray]:
+            """Build a DiagonalAdArray for each variable suited for this
+            representation."""
+            diagonal_states = []
+            diagonal_dofs = []
+            for variable in variables:
+                dofs = equation_system.dofs_of([variable])
+                diagonal_states.append(state[dofs])
+                diagonal_dofs.append(dofs)
+
+            diagonal_arrays = pp.ad.initialize_diagonal_ad_arrays(
+                diagonal_states, diagonal_dofs, equation_system.num_dofs()
+            )
+            return dict(zip(variables, diagonal_arrays))
+
+        def _ordinary_array_map(
+            variables: list[pp.ad.Variable],
+        ) -> dict[pp.ad.Variable, pp.ad.AdArray]:
+            """Build a single, shared AdArray covering the variables not suited for
+            a diagonal representation.
+
+            """
+            unique_variables = list(set(variables))
+            variable_dofs = [
+                equation_system.dofs_of([variable]) for variable in unique_variables
+            ]
+            # Stack the per-variable dofs to construct the shared array below. The
+            # per-variable dofs are kept to split the array again afterwards.
+            if len(variable_dofs) == 0:
+                all_dofs = np.array([], dtype=int)
+            else:
+                all_dofs = np.hstack(variable_dofs)
+
+            # Only the entries belonging to these variables are populated; the rest
+            # (covered elsewhere by the diagonal representation) are left at zero.
+            ordinary_state = np.zeros_like(state)
+            ordinary_state[all_dofs] = state[all_dofs]
+            ordinary_array = pp.ad.initialize_partial_ad_array(ordinary_state, all_dofs)
+
+            # NOTE: In principle, the entries of ordinary_array belonging to the
+            # diagonally represented variables should be zero. This is not verified
+            # here, since a variable can be present both in a diagonal form (covering
+            # all subdomains) and as an atomic, single-subdomain instance that does not
+            # qualify for the diagonal representation; the latter would then show up
+            # here despite overlapping with the former.
+
+            return {
+                variable: ordinary_array[dofs]
+                for variable, dofs in zip(unique_variables, variable_dofs)
+            }
+
+        diagonal_variables, other_variables = _classify_variables()
+
+        # Sanity check: duplicates should not be possible, since the variables are
+        # derived from a deduplicated set of operators in _variables_in_operator_tree.
+        assert len(diagonal_variables) == len(set(diagonal_variables))
+
+        if not derivative:
+            # We don't need Ad arrays at all here. This avoids the cost of
+            # constructing (Diagonal)AdArrays for all variables in the system.
+            return _variable_value_map(diagonal_variables + other_variables)
+
+        array_map: dict[pp.ad.Variable, pp.ad.AdArray] = {}
+        array_map.update(_diagonal_array_map(diagonal_variables))
+        array_map.update(_ordinary_array_map(other_variables))
+        return array_map
+
+    def _flatten_operator_tree(
+        self, op_list: list[pp.ad.Operator]
+    ) -> list[pp.ad.Operator]:
+        # Loop over the operator tree to flatten it into a list of operators. This is
+        # used to simplify the parsing of the operators, and to enable caching of
+        # results for sub-operators.
+
+        flattened = []
+        for op in op_list:
+            flattened.extend(self._flatten_operator_tree(op.children))
+            flattened.append(op)
+        return flattened
+
     def _evaluate_single(
         self,
         op: pp.ad.Operator,
-        ad_base: np.ndarray | pp.ad.AdArray,
+        ad_base: Mapping[pp.ad.Variable, np.ndarray | pp.ad.AdArray],
         equation_system: pp.EquationSystem,
     ) -> float | np.ndarray | sps.spmatrix | pp.ad.AdArray:
         """Evaluate a single operator.
 
         Parameters:
             op: The operator to evaluate.
-            ad_base: The base for the automatic differentiation. This should be an
-                AdArray if the derivative is requested, and a numpy array if not.
+            ad_base: Mapping from each variable in the operator tree of op to its
+                representation, as produced by :meth:`_initialize_variables`. Values
+                are AdArrays if the derivative is requested, and numpy arrays if not.
             equation_system: The EquationSystem wherein the system state is defined.
 
         Returns:
@@ -218,9 +397,7 @@ class AdParser:
                 if op.is_previous_iterate or op.is_previous_time or op.is_reference:
                     # Empty vector like the global vector of unknowns for prev time/iter
                     # insert the values at the right dofs and slice.
-                    vals = np.empty_like(
-                        ad_base.val if isinstance(ad_base, pp.ad.AdArray) else ad_base
-                    )
+                    vals = np.zeros(equation_system.num_dofs(), dtype=float)
                     # List of indices for sub variables.
                     dofs = []
                     for sub_var in op.sub_vars:
@@ -231,7 +408,7 @@ class AdParser:
                     return vals[np.hstack(dofs, dtype=int)] if dofs else np.array([])
                 else:
                     # Fetch the values from the state vector.
-                    return ad_base[equation_system.dofs_of([op])]
+                    return ad_base[op]
 
             # Atomic variables.
             elif isinstance(op, pp.ad.Variable):
@@ -240,8 +417,8 @@ class AdParser:
                     return op.parse(equation_system.mdg)
                 # Otherwise use the current time and iteration values.
                 else:
-                    return ad_base[equation_system.dofs_of([op])]
-            # All other leafs like discretizations or some wrapped data.
+                    return ad_base[op]
+            # All other leaves like discretizations or some wrapped data.
             else:
                 # Mypy complains because the return type of parse is Any.
                 res = op.parse(equation_system.mdg)  # type:ignore
@@ -305,7 +482,7 @@ class AdParser:
                 assert len(child_values) == 2
 
                 if operation == Operations.matmul and isinstance(child_values[0], list):
-                    # This is a special case for dealing with pp.ad.PorjectionList.
+                    # This is a special case for dealing with pp.ad.ProjectionList.
                     if all(
                         [
                             isinstance(c, pp.matrix_operations.ArraySlicer)
@@ -326,7 +503,7 @@ class AdParser:
                         )
 
                 if isinstance(child_values[0], np.ndarray) and isinstance(
-                    child_values[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
+                    child_values[1], pp.ad.AdArray
                 ):
                     if operation == Operations.mul:
                         # In the implementation of multiplication between an AdArray and

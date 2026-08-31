@@ -9,40 +9,70 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-AdType = Union[float, np.ndarray, sps.spmatrix, "AdArray"]
+AdType = Union[int, float, np.ndarray, sps.spmatrix, sps.sparray, "AdArray"]
 
-__all__ = ["initAdArrays", "AdArray"]
+_SPARSE_TYPES = (sps.spmatrix, sps.sparray)
+"""Convenience tuple for isinstance checks accepting both scipy sparse matrix and
+sparse array types."""
 
 
-def initAdArrays(variables: list[np.ndarray]) -> list[AdArray]:
-    """Initialize a set of AdArrays.
+def _check_1d(val: np.ndarray) -> None:
+    """Raise a ValueError unless ``val`` is a one dimensional array."""
+    if val.ndim != 1:
+        raise ValueError("The Ad array value should be one dimensional")
 
-    The variables' gradients will be taken with respect to all variables jointly.
 
-    Parameters:
-        variables: A list of numpy arrays, each of which will be represented by an
-            AdArray.
+def _as_float(
+    array: np.ndarray | sps.spmatrix | sps.sparray,
+) -> np.ndarray | sps.spmatrix | sps.sparray:
+    """Coerce a dense array, or the data of a sparse matrix/array, to float dtype.
 
-    Returns:
-        A list of AdArrays, each of which represents one of the variables in the
-        ``variables`` list.
+    Enforcing float format for all data limits the number of cases that need to be
+    handled and tested elsewhere.
 
     """
+    if isinstance(array, _SPARSE_TYPES):
+        if array.data.dtype != float:
+            array.data = array.data.astype(float)
+        return array
+    if array.dtype != float:
+        array = array.astype(float)
+    return array
 
-    num_values_per_variable = [v.size for v in variables]
-    ad_arrays: list[AdArray] = []
 
-    for i, val in enumerate(variables):
-        # initiate zero jacobian
-        n = num_values_per_variable[i]
-        jac = [sps.csc_matrix((n, m)) for m in num_values_per_variable]
-        # Set jacobian of variable i to I
-        jac[i] = sps.diags(np.ones(num_values_per_variable[i])).tocsr()
-        # initiate AdArray
-        jac = sps.bmat([jac])
-        ad_arrays.append(AdArray(val, jac))
+__all__ = [
+    "AdArray",
+    "DiagonalAdArray",
+    "initialize_diagonal_ad_arrays",
+    "initialize_partial_ad_array",
+]
 
-    return ad_arrays
+
+def initialize_partial_ad_array(state: np.ndarray, indices: np.ndarray) -> AdArray:
+    """Initialize an AdArray for the part of a system not represented by
+    :class:`DiagonalAdArray`.
+
+    The returned array has one entry (and one derivative) per entry of ``state``. Only
+    the entries at ``indices`` are treated as independent variables (a unit derivative
+    with respect to themselves); all other entries get a zero derivative row, since they
+    are assumed to be represented elsewhere by a :class:`DiagonalAdArray` (see
+    :func:`initialize_diagonal_ad_arrays`).
+
+    Parameters:
+        state: The full state vector for this part of the system.
+        indices: Indices, into ``state``, of the entries that should be treated as
+            independent variables.
+
+    Returns:
+        An AdArray with value ``state`` and a diagonal Jacobian that is the identity
+        restricted to ``indices``.
+
+    """
+    sz = state.size
+    derivatives = np.zeros(sz, dtype=float)
+    derivatives[indices] = 1.0
+    jac = sps.dia_matrix((derivatives, 0), shape=(sz, sz)).tocsr()
+    return AdArray(state, jac)
 
 
 class AdArray:
@@ -80,31 +110,34 @@ class AdArray:
     # arise if this is not done.
     __array_ufunc__ = None
 
-    def __init__(self, val: np.ndarray, jac: sps.spmatrix) -> None:
+    def __init__(
+        self, val: np.ndarray, jac: sps.spmatrix | sps.sparray | np.ndarray
+    ) -> None:
         # Consistency checks, to limit the possibilities for errors when combining this
         # array with other objects.
-        if val.ndim != 1:
-            raise ValueError("The Ad array value should be one dimensional")
-        if jac.shape[0] != val.size:
+        _check_1d(val)
+
+        self._is_diagonal = False
+
+        num_derivatives = jac.shape[0]
+
+        if num_derivatives != val.size:
             raise ValueError(
                 "The Jacobian matrix should have one row per array degree of freedom"
             )
 
         # Enforce float format of all data to limit the number of cases we need to
         # handle and test.
-        self.val: np.ndarray = val
-        if self.val.dtype != float:
-            self.val = self.val.astype(float)
+        self.val: np.ndarray = _as_float(val)
         """The value of the AdArray, stored as a 1d numpy array."""
 
-        self.jac: sps.spmatrix = jac
-        if self.jac.data.dtype != float:
-            self.jac.data = self.jac.data.astype(float)
+        self.jac: sps.spmatrix | sps.sparray | np.ndarray = _as_float(jac)
         """The Jacobian matrix of the AdArray, stored as a sparse matrix."""
 
     def __str__(self) -> str:
+        num_jac_elements = self.jac.size if self._is_diagonal else self.jac.data.size
         s = f"Ad array of size {self.val.size}\n"
-        s += f"Jacobian is of size {self.jac.shape} and has {self.jac.data.size}"
+        s += f"Jacobian is of size {self.jac.shape} and has {num_jac_elements}"
         s += " elements."
         return s
 
@@ -164,6 +197,39 @@ class AdArray:
         else:
             raise NotImplementedError("Setting")
 
+    def _prepare_other_ad(self, other: AdArray, op_name: str) -> AdArray:
+        """Convert a diagonal ``other`` to full format and validate that its size and
+        Jacobian shape are compatible with this array, ahead of a binary operation
+        between two AdArrays.
+
+        Parameters:
+            other: The other AdArray in the operation.
+            op_name: Name of the operation, used in the error message if the sizes
+                are incompatible.
+
+        Raises:
+            ValueError: If the sizes of the two arrays are incompatible.
+
+        Returns:
+            ``other``, converted to full (non-diagonal) format if necessary.
+
+        """
+        other = other.to_full()
+        if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
+            raise ValueError(f"Incompatible sizes for AdArray {op_name}.")
+        return other
+
+    def _check_1d_operand(self, other: np.ndarray, op_name: str) -> None:
+        """Raise a ValueError unless ``other`` is a one dimensional numpy array.
+
+        Parameters:
+            other: The numpy array to check.
+            op_name: Name of the operation, used in the error message.
+
+        """
+        if other.ndim != 1:
+            raise ValueError(f"Only 1d numpy arrays can be used for AdArray {op_name}.")
+
     def __add__(self, other: AdType) -> AdArray:
         """Add the AdArray to another object.
 
@@ -178,26 +244,23 @@ class AdArray:
             An AdArray which combines ``self`` and ``other``.
 
         """
-        # Use if-else with isinstance (would have preferred match-case, but that is
-        # only available in python 3.10)
+        # Dispatch on the type of other via isinstance, consistent with the rest of
+        # the ad package.
         if isinstance(other, (int, float)):
             # Strictly speaking, we require scalars to be floats, but add casting of
             # ints to floats for convenience.
             return AdArray(self.val + float(other), self.jac)
 
         elif isinstance(other, np.ndarray):
-            if other.ndim != 1:
-                raise ValueError("Only 1d numpy arrays can be added to AdArrays")
+            self._check_1d_operand(other, "addition")
             return AdArray(self.val + other, self.jac)
 
-        elif isinstance(other, (sps.spmatrix, sps.sparray)):
+        elif isinstance(other, _SPARSE_TYPES):
             raise ValueError("Sparse matrices cannot be added to AdArrays")
 
         elif isinstance(other, pp.ad.AdArray):
-            if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
-                raise ValueError("Incompatible sizes for AdArray addition")
+            other = self._prepare_other_ad(other, "addition")
             return AdArray(self.val + other.val, self.jac + other.jac)
-
         else:
             raise ValueError(f"Unknown type {type(other)} for AdArray addition")
 
@@ -271,19 +334,16 @@ class AdArray:
             return AdArray(self.val * other, self.jac * other)
 
         elif isinstance(other, np.ndarray):
-            if other.ndim != 1:
-                raise ValueError(
-                    "Only 1d numpy arrays can be multiplied elementwise with AdArrays."
-                )
+            self._check_1d_operand(other, "elementwise multiplication")
             # The below line will invoke numpy's __mul__ method on the values.
             new_val = self.val * other
             # The Jacobian will have its columns scaled with the values in other.
             # Achieve this by left-multiplying with other, represented as a diagonal
             # matrix.
-            new_jac = self._diagvec_mul_jac(other)
+            new_jac = self.diagvec_mul_jac(other)
             return AdArray(new_val, new_jac)
 
-        elif isinstance(other, (sps.spmatrix, sps.sparray)):
+        elif isinstance(other, _SPARSE_TYPES):
             raise ValueError(
                 """Sparse matrices cannot be multiplied with  AdArrays elementwise.
                 Did you mean to use the @ operator?
@@ -291,10 +351,7 @@ class AdArray:
             )
 
         elif isinstance(other, pp.ad.AdArray):
-            if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
-                raise ValueError(
-                    "Incompatible sizes for AdArray elementwise multiplication."
-                )
+            other = self._prepare_other_ad(other, "elementwise multiplication")
 
             # For the values, use elementwise multiplication, as implemented by
             # numpy's __mul__ method
@@ -302,9 +359,7 @@ class AdArray:
             # Compute the derivative of the product using the product rule. Since
             # the gradients in jac is stored row-wise, the columns in self.jac
             # should be scaled with the values of other and vice versa.
-            new_jac = self._diagvec_mul_jac(other.val) + other._diagvec_mul_jac(
-                self.val
-            )
+            new_jac = self.diagvec_mul_jac(other.val) + other.diagvec_mul_jac(self.val)
             return AdArray(new_val, new_jac)
 
         elif isinstance(other, pp.matrix_operations.ArraySlicer):
@@ -330,7 +385,7 @@ class AdArray:
 
         """
 
-        if isinstance(other, (float, sps.spmatrix, sps.sparray, np.ndarray, int)):
+        if isinstance(other, (float, int, np.ndarray, *_SPARSE_TYPES)):
             # In these cases, there is no difference between left and right
             # multiplication, so we simply invoke the standard __mul__ function.
             return self.__mul__(other)
@@ -366,14 +421,11 @@ class AdArray:
             # Left-multiply jac with a diagonal-matrix version of the differentiated
             # polynomial, this will give the desired column-wise scaling of the
             # gradients.
-            new_jac = self._diagvec_mul_jac(float(other) * self.val ** float(other - 1))
+            new_jac = self.diagvec_mul_jac(float(other) * self.val ** float(other - 1))
             return AdArray(new_val, new_jac)
 
         elif isinstance(other, np.ndarray):
-            if other.ndim != 1:
-                raise ValueError(
-                    "AdArrays can only be raised to powers of 1d numpy arrays."
-                )
+            self._check_1d_operand(other, "power")
             # This is a polynomial, but with different coefficients for each element
             # in self.val. Numpy can be picky on raising arrays to negative powers,
             # without EK ever understanding why, so we convert to a float
@@ -382,18 +434,17 @@ class AdArray:
             # The Jacobian will have its columns scaled with the values in other,
             # again in array-form. Achieve this by left-multiplying with other,
             # represented as a diagonal matrix.
-            new_jac = self._diagvec_mul_jac(other * (self.val ** (other - 1)))
+            new_jac = self.diagvec_mul_jac(other * (self.val ** (other - 1)))
             return AdArray(new_val, new_jac)
 
-        elif isinstance(other, (sps.spmatrix, sps.sparray)):
+        elif isinstance(other, _SPARSE_TYPES):
             raise ValueError("Cannot raise AdArrays to power of sparse matrices.")
 
         elif isinstance(other, pp.matrix_operations.ArraySlicer):
             return other.__rpow__(self)
 
         elif isinstance(other, pp.ad.AdArray):
-            if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
-                raise ValueError("Incompatible sizes for AdArray power.")
+            other = self._prepare_other_ad(other, "power")
 
             # This is an expression of the type f = x^y, with derivative
             #
@@ -403,9 +454,9 @@ class AdArray:
             # avoid spurious behavior form numpy, just to be sure.
             new_val = self.val ** other.val.astype(float)
             # The derivative, computed by the chain rule.
-            new_jac = self._diagvec_mul_jac(
+            new_jac = self.diagvec_mul_jac(
                 other.val * self.val ** (other.val.astype(float) - 1.0)
-            ) + other._diagvec_mul_jac(
+            ) + other.diagvec_mul_jac(
                 self.val ** other.val.astype(float) * np.log(self.val)
             )
 
@@ -432,16 +483,13 @@ class AdArray:
             # Left-multiply jac with a diagonal-matrix version of the differentiated
             # polynomial, this will give the desired column-wise scaling of the
             # gradients.
-            new_jac = self._diagvec_mul_jac(
+            new_jac = self.diagvec_mul_jac(
                 (float(other) ** self.val) * np.log(float(other))
             )
             return AdArray(new_val, new_jac)
 
         elif isinstance(other, np.ndarray):
-            if other.ndim != 1:
-                raise ValueError(
-                    "Only 1d numpy arrays can be raised to the power of an AdArray."
-                )
+            self._check_1d_operand(other, "power")
             # This is an exponent with different coefficients for each element in
             # self.val. Numpy appears to be using dtype instead of values to determine
             # the output type. Consequently, the multiplicative inverse / negative
@@ -452,16 +500,14 @@ class AdArray:
             # The Jacobian will have its columns scaled with the values in other, again
             # in array-form. Achieve this by left-multiplying with other, represented as
             # a diagonal matrix.
-            new_jac = self._diagvec_mul_jac((other**self.val) * np.log(other))
+            new_jac = self.diagvec_mul_jac((other**self.val) * np.log(other))
             return AdArray(new_val, new_jac)
 
-        elif isinstance(other, (sps.spmatrix, sps.sparray)):
+        elif isinstance(other, _SPARSE_TYPES):
             raise ValueError("Cannot raise sparse matrices to the power of Ad arrays.")
 
         elif isinstance(other, pp.ad.AdArray):
-            if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
-                raise ValueError("Incompatible sizes for AdArray power.")
-
+            other = self._prepare_other_ad(other, "power")
             return other.__pow__(self)
 
         else:
@@ -487,26 +533,23 @@ class AdArray:
             return AdArray(new_val, new_jac)
 
         elif isinstance(other, np.ndarray):
-            if other.ndim != 1:
-                raise ValueError("AdArrays can only be divided by 1d numpy arrays.")
+            self._check_1d_operand(other, "division")
 
             new_val = self.val * other.astype(float) ** (-1.0)
             # The Jacobian will have its columns scaled with the values in other,
             # again in array-form. Achieve this by left-multiplying with other,
             # represented as a diagonal matrix.
-            new_jac = self._diagvec_mul_jac(other.astype(float) ** (-1.0))
+            new_jac = self.diagvec_mul_jac(other.astype(float) ** (-1.0))
             return AdArray(new_val, new_jac)
 
-        elif isinstance(other, (sps.spmatrix, sps.sparray)):
+        elif isinstance(other, _SPARSE_TYPES):
             raise ValueError("AdArrays cannot be divided by sparse matrices.")
 
         elif isinstance(other, pp.matrix_operations.ArraySlicer):
             return other.__rtruediv__(self)
 
         elif isinstance(other, pp.ad.AdArray):
-            if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
-                raise ValueError("Incompatible sizes for AdArray division.")
-
+            other = self._prepare_other_ad(other, "division")
             return self.__mul__(other.__pow__(-1.0))
 
         else:
@@ -525,17 +568,15 @@ class AdArray:
 
         """
 
-        if isinstance(other, (float, int, np.ndarray, sps.spmatrix, sps.sparray)):
+        if isinstance(other, (float, int, np.ndarray, *_SPARSE_TYPES)):
             # Divide a float or a numpy array by self is the same as raising self to
             # the power of -1 and multiplying by the float. The multiplication will
-            # end upcalling self.__mul__, which will do the right checks for numpy
+            # end up calling self.__mul__, which will do the right checks for numpy
             # arrays and sparse matrices.
             return self.__pow__(-1.0) * other
 
         elif isinstance(other, pp.ad.AdArray):
-            if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
-                raise ValueError("Incompatible sizes for AdArray division.")
-
+            other = self._prepare_other_ad(other, "division")
             return other.__mul__(self.__pow__(-1.0))
 
         else:
@@ -560,7 +601,7 @@ class AdArray:
                 f""" {type(other)}."""
             )
 
-        elif isinstance(other, (sps.spmatrix, sps.sparray)):
+        elif isinstance(other, _SPARSE_TYPES):
             # This goes against the way equations should be formulated in the AD
             # framework, variables should not be right-multiplied by anything. Raise
             # a value error to make sure this is not done.
@@ -589,7 +630,7 @@ class AdArray:
                 f""" {type(other)}."""
             )
 
-        elif isinstance(other, (sps.spmatrix, sps.sparray)):
+        elif isinstance(other, _SPARSE_TYPES):
             # This is the standard matrix-vector multiplication
             if self.jac.shape[0] != other.shape[1]:
                 raise ValueError(
@@ -619,15 +660,42 @@ class AdArray:
         b = AdArray(self.val.copy(), self.jac.copy())
         return b
 
-    def _diagvec_mul_jac(self, a: np.ndarray) -> sps.spmatrix:
-        A = sps.diags(a)
+    @property
+    def is_diagonal(self) -> bool:
+        """Whether the Jacobian is stored in the compact diagonal representation.
 
-        return A * self.jac
+        See :class:`DiagonalAdArray`.
 
-    def _jac_mul_diagvec(self, a: np.ndarray) -> sps.spmatrix:
-        A = sps.diags(a)
+        """
+        return self._is_diagonal
 
-        return self.jac * A
+    def to_full(self) -> AdArray:
+        """Return this AdArray, unchanged.
+
+        This is a no-op counterpart to :meth:`DiagonalAdArray.to_full`, allowing calling
+        code to unconditionally call ``.to_full()`` on either representation instead of
+        branching on :attr:`is_diagonal` first.
+
+        Returns:
+            This AdArray.
+
+        """
+        return self
+
+    def diagvec_mul_jac(self, a: np.ndarray) -> sps.spmatrix:
+        """Left-multiply the Jacobian by a diagonal matrix represented as a vector.
+
+        Only defined for the non-diagonal representation.
+
+        Parameters:
+            a: The diagonal entries of the (implicit) diagonal matrix to
+                left-multiply the Jacobian with.
+
+        Returns:
+            The product, as a sparse matrix.
+
+        """
+        return sps.diags(a) * self.jac
 
     def __lt__(self, other: AdType) -> bool | np.ndarray:
         """Overload of operation ``self < other``.
@@ -689,3 +757,282 @@ class AdArray:
             return self.val != other.val
         else:
             return self.val != other
+
+
+def initialize_diagonal_ad_arrays(
+    variables: list[np.ndarray],
+    indices: list[np.ndarray],
+    num_derivatives: int,
+    derivatives: list[np.ndarray] | None = None,
+) -> list[DiagonalAdArray]:
+    """Initialize a set of DiagonalAdArrays, each depending only on itself.
+
+    Each returned array has, by default, a unit derivative with respect to its own
+    entries and no dependence on the other variables in ``variables``.
+
+    Parameters:
+        variables: A list of numpy arrays, each of which will be represented by a
+            DiagonalAdArray.
+        indices: For each array in ``variables``, the indices, into the full system
+            of ``num_derivatives`` degrees of freedom, of that array's entries.
+        num_derivatives: Total number of derivatives (degrees of freedom) in the
+            full system.
+        derivatives: If provided, the diagonal Jacobian entries to use for each
+            variable, instead of the default of 1.0 (a unit derivative). Used e.g.
+            to represent the derivative of a SurrogateOperator with respect to its
+            primary variable.
+
+    Returns:
+        A list of DiagonalAdArrays, each of which represents one of the variables
+        in the ``variables`` list.
+
+    Raises:
+        ValueError: If the number of ``variables`` and ``indices`` do not match, or
+            if the size of an array in ``variables`` does not match the size of the
+            corresponding array in ``indices``.
+
+    """
+    if len(variables) != len(indices):
+        raise ValueError("Number of variables should match number of offsets.")
+    for var, ind in zip(variables, indices):
+        if var.size != ind.size:
+            raise ValueError("Number of variables should match number of indices.")
+
+    num_vars = len(variables)
+    sz_vars = variables[0].size if len(variables) > 0 else 0
+
+    diagonal_variables = []
+
+    for ind in range(num_vars):
+        val = variables[ind]
+        jac = np.zeros((num_vars, sz_vars))
+        if derivatives is not None:
+            jac[ind] = derivatives[ind]
+        else:
+            jac[ind] = 1.0
+        diagonal_variables.append(
+            DiagonalAdArray(val, jac, indices[ind], indices, num_derivatives)
+        )
+    return diagonal_variables
+
+
+class DiagonalAdArray(AdArray):
+    """An AdArray where the Jacobian is stored as a 1d numpy array, representing the
+    diagonal of the Jacobian matrix.
+
+    This is a special case of AdArray, where the Jacobian is stored as a 1d numpy array,
+    representing the diagonal of the Jacobian matrix. This can be used for quantities
+    which only depend on themselves, and not on any other variables. The operations are
+    implemented in a way that they take advantage of this structure to speed up
+    calculations.
+
+    """
+
+    def __init__(
+        self,
+        val: np.ndarray,
+        jac: np.ndarray,
+        row_indices: np.ndarray,
+        col_indices: list[np.ndarray],
+        num_derivatives,
+    ) -> None:
+        _check_1d(val)
+        if jac.ndim == 1:
+            jac = jac[np.newaxis, :]
+        self._is_diagonal = True
+
+        # Enforce float format, consistent with AdArray.__init__. Note that we cannot
+        # call super().__init__() here: jac.shape[0] is the number of stacked diagonal
+        # argument blocks, not the number of degrees of freedom (val.size), so
+        # AdArray.__init__'s consistency check between the two does not apply to the
+        # diagonal representation.
+        self.val = _as_float(val)
+        self.jac = _as_float(jac)
+
+        self._num_derivatives = num_derivatives
+        """Total number of derivatives in the system."""
+        self._row_indices = row_indices
+        self._col_indices = col_indices
+
+    @property
+    def row_indices(self) -> np.ndarray:
+        """The row indices of this array's entries in the full, non-diagonal
+        representation of the Jacobian."""
+        return self._row_indices
+
+    @property
+    def col_indices(self) -> list[np.ndarray]:
+        """The column indices of this array's entries in the full, non-diagonal
+        representation of the Jacobian."""
+        return self._col_indices
+
+    @property
+    def num_derivatives(self) -> int:
+        """Total number of derivatives in the system."""
+        return self._num_derivatives
+
+    def replace(self, val: np.ndarray, jac: np.ndarray) -> DiagonalAdArray:
+        """Return a new DiagonalAdArray with the given value and Jacobian data,
+        reusing this array's structural indices (row indices, column indices, and
+        total number of derivatives).
+
+        Intended both to avoid repeated reconstruction boilerplate in the arithmetic
+        dunders below, and as the sanctioned way for external code to build a new
+        diagonal-representation result from an existing one.
+
+        Parameters:
+            val: Value for the new array.
+            jac: Jacobian, in diagonal representation, for the new array.
+
+        Returns:
+            A new DiagonalAdArray with the given ``val`` and ``jac``, and this array's
+            row indices, column indices and number of derivatives.
+
+        """
+        return DiagonalAdArray(
+            val, jac, self._row_indices, self._col_indices, self._num_derivatives
+        )
+
+    def __getitem__(self, key: slice | np.ndarray[Any, np.dtype[np.int_]]) -> AdArray:
+        # Slicing changes the structural indices themselves (row/column indices are
+        # sliced along with the values), so replace() -- which reuses self's indices
+        # unchanged -- does not apply here.
+        vals = self.val[key]
+        jac = self.jac[:, key]
+
+        row_indices = self._row_indices[key]
+        col_indices = [col_ind[key] for col_ind in self._col_indices]
+        return DiagonalAdArray(
+            vals, jac, row_indices, col_indices, self._num_derivatives
+        )
+
+    def __setitem__(
+        self, key: slice | np.ndarray[Any, np.dtype[np.int_]], new_value: AdType
+    ) -> None:
+        if isinstance(new_value, (float, np.ndarray)):
+            self.val[key] = new_value
+        elif isinstance(new_value, AdArray):
+            self.val[key] = new_value.val
+            self.jac[:, key] = new_value.jac
+        else:
+            raise NotImplementedError("Setting")
+
+    def __add__(self, other: AdType) -> AdArray:
+        if isinstance(other, (float, int, np.ndarray)):
+            return self.replace(self.val + other, self.jac)
+        elif isinstance(other, AdArray) and other._is_diagonal:
+            val = self.val + other.val
+            jac = self.jac + other.jac
+            return self.replace(val, jac)
+
+        else:
+            return self.to_full().__add__(other)
+
+    def copy(self) -> DiagonalAdArray:
+        """Return a copy of this DiagonalAdArray.
+
+        Returns:
+            A deep copy of this DiagonalAdArray.
+
+        """
+        b = DiagonalAdArray(
+            self.val.copy(),
+            self.jac.copy(),
+            self._row_indices.copy(),
+            [col_ind.copy() for col_ind in self._col_indices],
+            self._num_derivatives,
+        )
+        return b
+
+    def __mul__(self, other: AdType) -> AdArray:
+        if isinstance(other, (float, int, np.ndarray)):
+            return self.replace(self.val * other, self.jac * other)
+        elif isinstance(other, AdArray) and other._is_diagonal:
+            val = self.val * other.val
+            # Row-broadcast against self.jac/other.jac (shape (num_blocks, n)).
+            jac = (
+                self.jac * other.val[np.newaxis, :]
+                + other.jac * self.val[np.newaxis, :]
+            )
+            return self.replace(val, jac)
+
+        else:
+            return self.to_full().__mul__(other)
+
+    def __pow__(self, other: AdType) -> AdArray:
+        if isinstance(other, (float, int, np.ndarray)):
+            val = self.val**other
+            jac = other * self.val ** (other - 1) * self.jac
+            return self.replace(val, jac)
+        elif isinstance(other, AdArray) and other._is_diagonal:
+            val = self.val**other.val
+            jac = (
+                other.val * self.val ** (other.val - 1) * self.jac
+                + self.val**other.val * np.log(self.val) * other.jac
+            )
+            return self.replace(val, jac)
+
+        else:
+            return self.to_full().__pow__(other)
+
+    def __rpow__(self, other):
+        if isinstance(other, (float, int, np.ndarray)):
+            val = other**self.val
+            jac = (other**self.val) * np.log(other) * self.jac
+            return self.replace(val, jac)
+        elif isinstance(other, AdArray) and other._is_diagonal:
+            return other.__pow__(self)
+        else:
+            return other.__pow__(self)
+
+    def __truediv__(self, other):
+        if isinstance(other, (float, int, np.ndarray)):
+            val = self.val / other
+            jac = self.jac / other
+            return self.replace(val, jac)
+        elif isinstance(other, AdArray) and other._is_diagonal:
+            val = self.val / other.val
+            jac = (self.jac * other.val - self.val * other.jac) / (other.val**2)
+            return self.replace(val, jac)
+        else:
+            return other.__rtruediv__(self)
+
+    def __rtruediv__(self, other):
+        if isinstance(other, (float, int, np.ndarray)):
+            val = other / self.val
+            jac = -other * self.jac / (self.val**2)
+            return self.replace(val, jac)
+        elif isinstance(other, AdArray) and other._is_diagonal:
+            return other.__truediv__(self)
+        else:
+            return other.__truediv__(self)
+
+    def __rmatmul__(self, other):
+        # When multiplying with a sparse matrix, the expectation is that the result will
+        # no longer be suitable for a diagonal representation, so we convert to a full
+        # AdArray and perform the multiplication there. The only (reasonably simple)
+        # potential simplifications would be if the matrix is either diagonal or a
+        # permutation matrix, but we do not expect these cases to be common enough to
+        # warrant a special implementation.
+        return self.to_full().__rmatmul__(other)
+
+    def to_full(self) -> AdArray:
+        """Convert this DiagonalAdArray to a full AdArray, where the Jacobian is stored
+        as a sparse matrix.
+
+        Returns:
+            An AdArray with the same value and Jacobian as this DiagonalAdArray, but
+            with the Jacobian stored as a sparse matrix.
+
+        """
+        num_vars = self.jac.shape[0]
+
+        num_indices = self._row_indices.size
+
+        indptr = np.arange(0, num_indices * num_vars + 1, num_vars)
+        indices = np.vstack([col for col in self._col_indices]).ravel("F")
+        jac = sps.csr_matrix(
+            (self.jac.ravel("F"), indices, indptr),
+            shape=(num_indices, self._num_derivatives),
+        )
+        return AdArray(self.val, jac)

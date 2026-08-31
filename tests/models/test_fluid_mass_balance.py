@@ -195,6 +195,12 @@ def test_tested_vs_testable_methods_single_phase_flow(
     assert all_tested_methods == all_testable_methods
 
 
+def test_darcy_flux_domain_is_unclear(model: pp.PorePyModel) -> None:
+    """Darcy flux depends on both subdomain and interface quantities."""
+    op = model.darcy_flux(model.mdg.subdomains())
+    assert op.source == pp.ad.OperatorSpace.unclear()
+
+
 # NOTE: The tests for darcy_flux, fluid_flux, fluid_flux, fluid_source,
 # interface_darcy_flux_equation, interface_fluid_flux, interface_flux_equation,
 # mass_balance_equation, normal_permeability, skin_factor, and pressure_trace were based
@@ -863,7 +869,7 @@ def model_setup_gravity(
             """
             if np.isclose(gravity_angle, 0):
                 # Normalize by the GravityForce class' default value.
-                default = (
+                default = pp.ad.Scalar(
                     self.units.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
                     * self.fluid.reference_component.density
                 )
@@ -873,7 +879,9 @@ def model_setup_gravity(
             # Angle of zero means force vector of [0, -1]
             values[1] = self.units.convert_units(-np.cos(gravity_angle), "m*s^-2")
             values[0] = self.units.convert_units(np.sin(gravity_angle), "m*s^-2")
-            source = pp.wrap_as_dense_ad_array(values.ravel("F"), name="gravity force")
+            source = pp.wrap_as_dense_ad_array(
+                values.ravel("F"), name="gravity force", grids=grids
+            )
             return source
 
         def _bound_sides(

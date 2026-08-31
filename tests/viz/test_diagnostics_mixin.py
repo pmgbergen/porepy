@@ -87,7 +87,9 @@ def test_diagnostics_mixin_grouping(_, model: PoromechanicsWithDiagnostics) -> N
     """Testing custom grouping. We want to investigate only the interface."""
     # Collecting only the interface variable names.
     interface_variable_names = [
-        var.name for var in model.equation_system.variables if len(var.interfaces) > 0
+        var.name
+        for var in model.equation_system.variables
+        if var.target.domain_type == pp.ad.DomainType.interfaces
     ]
 
     def is_interface_block(mat, equation_name, variable_name) -> float:

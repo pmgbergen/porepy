@@ -1,12 +1,15 @@
 """Module contains the abstract superclass for all discretizations."""
 
 import abc
-from typing import Dict, Union
+from typing import TYPE_CHECKING, Dict, Union
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+
+if TYPE_CHECKING:
+    from porepy.numerics.ad.grid_entity import GridEntity
 
 
 class Discretization(abc.ABC):
@@ -120,6 +123,48 @@ class Discretization(abc.ABC):
         """
         pass
 
+    @abc.abstractmethod
+    def get_row_dof_info(
+        self, matrix_key: str = "", nd: int = 1
+    ) -> dict["GridEntity", int]:
+        """Return the DOF information for the rows of a discretization matrix.
+
+        Parameters:
+            matrix_key: Attribute-name fragment identifying the matrix (e.g. ``"flux"``
+                for the attribute ``flux_matrix_key``).
+            nd: Spatial dimension of the grids the discretization is applied to.
+
+        Raises:
+            ValueError: If the matrix_key is not recognized by this discretization.
+
+        Returns:
+            A mapping from :class:`~porepy.numerics.ad.GridEntity` to the number of
+            DOFs per grid entity that occupy the rows of the named matrix.
+
+        """
+
+    @abc.abstractmethod
+    def get_col_dof_info(
+        self, matrix_key: str = "", nd: int = 1
+    ) -> dict["GridEntity", int]:
+        """Return the DOF information for the columns of a discretization matrix.
+
+        Parameters:
+            matrix_key: Attribute-name fragment identifying the matrix (e.g. ``"flux"``
+                for the attribute ``flux_matrix_key``).
+            nd: Spatial dimension of the grids the discretization is applied to.
+                Needed for vector-valued discretizations (e.g. MPSA) where the number
+                of DOFs per entity equals ``nd``.
+
+        Raises:
+            ValueError: If the matrix_key is not recognized by this discretization.
+
+        Returns:
+            A mapping from :class:`~porepy.numerics.ad.GridEntity` to the number of
+            DOFs per grid entity that occupy the columns of the named matrix.
+
+        """
+
 
 class InterfaceDiscretization(abc.ABC):
     """Superclass for all interface discretizations"""
@@ -149,6 +194,49 @@ class InterfaceDiscretization(abc.ABC):
             data_primary: Data dictionary for the primary domain.
             data_secondary: Data dictionary for the secondary domain.
             data_intf: Data dictionary for the interface between the domains.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_row_dof_info(
+        self, matrix_key: str = "", nd: int = 1
+    ) -> dict["GridEntity", int]:
+        """Return the DOF information for the rows (range) of a discretization matrix.
+
+        Parameters:
+            matrix_key: Attribute-name fragment identifying the matrix (e.g. ``"flux"``
+                for the attribute ``flux_matrix_key``).
+            nd: Spatial dimension of the grids the discretization is applied to.
+
+        Raises:
+            ValueError: If the matrix_key is not recognized by this discretization.
+
+        Returns:
+            A mapping from :class:`~porepy.numerics.ad.GridEntity` to the number of
+            DOFs per grid entity that occupy the rows of the named matrix.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_col_dof_info(
+        self, matrix_key: str = "", nd: int = 1
+    ) -> dict["GridEntity", int]:
+        """Return the DOF information for the columns (domain) of a discretization
+        matrix.
+
+        Parameters:
+            matrix_key: Attribute-name fragment identifying the matrix (e.g. ``"flux"``
+                for the attribute ``flux_matrix_key``).
+            nd: Spatial dimension of the grids the discretization is applied to.
+
+        Raises:
+            ValueError: If the matrix_key is not recognized by this discretization.
+
+        Returns:
+            A mapping from :class:`~porepy.numerics.ad.GridEntity` to the number of
+            DOFs per grid entity that occupy the columns of the named matrix.
 
         """
         pass

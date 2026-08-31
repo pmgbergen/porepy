@@ -284,7 +284,7 @@ class LocalElimination(EquationMixin):
 
         """
         if equations_per_grid_entity is None:
-            equations_per_grid_entity = {"cells": 1}
+            equations_per_grid_entity = {pp.ad.GridEntity.cells: 1}
 
         # Separate these two because Boundary values for independent quantities are
         # stored differently.
@@ -310,11 +310,7 @@ class LocalElimination(EquationMixin):
         equ_name = f"elimination_of_{sec_var.name}_on_grids_{g_ids}"
         local_equ = sec_var - sec_expr(non_boundaries)
         local_equ.set_name(equ_name)
-        self.equation_system.set_equation(
-            local_equ,
-            cast(list[pp.Grid] | list[pp.MortarGrid], non_boundaries),
-            equations_per_grid_entity,
-        )
+        self.equation_system.set_equation(local_equ)
 
         self._add_local_elimination(
             equ_name, sec_var, sec_expr, func, cast(pp.GridLikeSequence, domains)

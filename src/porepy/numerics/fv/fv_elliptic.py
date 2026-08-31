@@ -64,6 +64,68 @@ class FVElliptic(Discretization):
         """
         return sd.num_cells
 
+    def get_row_dof_info(
+        self, matrix_key: str = "", nd: int = 1
+    ) -> dict[pp.ad.GridEntity, int]:
+        """Return row DOF info for the named FVElliptic matrix.
+
+        Parameters:
+            matrix_key: Attribute-name fragment (e.g. ``"flux"``).
+            nd: Spatial dimension.
+
+        Raises:
+            ValueError: If the matrix_key is not recognized by this discretization.
+
+        Returns:
+            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity.
+
+        """
+
+        recognised = {
+            "flux",
+            "bound_flux",
+            "bound_pressure_cell",
+            "bound_pressure_face",
+            "vector_source",
+            "bound_pressure_vector_source",
+        }
+        if matrix_key in recognised:
+            return {pp.ad.GridEntity.faces: 1}
+        raise ValueError(
+            f"Unrecognized matrix key '{matrix_key}' for FVElliptic discretization."
+        )
+
+    def get_col_dof_info(
+        self, matrix_key: str = "", nd: int = 1
+    ) -> dict[pp.ad.GridEntity, int]:
+        """Return column DOF info for the named FVElliptic matrix.
+
+        Parameters:
+            matrix_key: Attribute-name fragment (e.g. ``"flux"``).
+            nd: Spatial dimension.
+
+        Raises:
+            ValueError: If the matrix_key is not recognized by this discretization.
+
+        Returns:
+            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity.
+
+        """
+
+        mapping: dict[str, dict[pp.ad.GridEntity, int]] = {
+            "flux": {pp.ad.GridEntity.cells: 1},
+            "bound_flux": {pp.ad.GridEntity.faces: 1},
+            "bound_pressure_cell": {pp.ad.GridEntity.cells: 1},
+            "bound_pressure_face": {pp.ad.GridEntity.faces: 1},
+            "vector_source": {pp.ad.GridEntity.cells: nd},
+            "bound_pressure_vector_source": {pp.ad.GridEntity.cells: nd},
+        }
+        if matrix_key in mapping:
+            return mapping[matrix_key]
+        raise ValueError(
+            f"Unrecognized matrix key '{matrix_key}' for FVElliptic discretization."
+        )
+
     def assemble_matrix_rhs(
         self, sd: pp.Grid, data: dict
     ) -> tuple[sps.spmatrix, np.ndarray]:

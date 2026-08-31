@@ -10,6 +10,7 @@ import pytest
 
 import porepy as pp
 from porepy.applications.md_grids.fracture_sets import orthogonal_fractures_2d
+from porepy.numerics.ad.equation_system import GridEntity
 
 VAR1_NAME = "var1"
 VAR2_NAME = "var2"
@@ -43,9 +44,15 @@ def equation_system() -> pp.ad.EquationSystem:
 
     equation_system = pp.ad.EquationSystem(mdg)
 
-    equation_system.create_variables(VAR1_NAME, {"cells": 1}, subdomains=subdomains)
-    equation_system.create_variables(VAR2_NAME, {"cells": 1}, subdomains=subdomains)
-    equation_system.create_variables(INTFVAR_NAME, {"cells": 1}, interfaces=interfaces)
+    equation_system.create_variables(
+        VAR1_NAME, {GridEntity.cells: 1}, subdomains=subdomains
+    )
+    equation_system.create_variables(
+        VAR2_NAME, {GridEntity.cells: 1}, subdomains=subdomains
+    )
+    equation_system.create_variables(
+        INTFVAR_NAME, {GridEntity.cells: 1}, interfaces=interfaces
+    )
 
     # set zero values at current iterate to kickstart AD
     equation_system.set_variable_values(
@@ -155,6 +162,9 @@ def test_secondary_operators(
         with pytest.raises(KeyError):
             expr.fetch_data(sop, g, get_derivatives=False)
 
+    # Evaluate the SOPs using the Ad parsing framework. This will give a key error like
+    # when calling fetch_data directly (still no data set), but the parser will catch
+    # this and raise a generic ValueError, which we expect.
     with pytest.raises(ValueError):
         _ = sop.value_and_jacobian(equation_system)
     with pytest.raises(ValueError):
@@ -249,11 +259,20 @@ def test_secondary_operators(
     # with new data
     jacs = []
     for v, d in zip(var_vals, diff_vals):
-        jac_ = v.jac.copy()
+        if v._is_diagonal:
+            jac_ = v.to_full().jac
+        else:
+            jac_ = v.jac.copy()
+
         jac_.data = d
         jacs.append(jac_)
 
-    assert np.all(sop_val.jac.toarray() == sum(jacs).toarray())
+    if sop_val._is_diagonal:
+        sop_jac = sop_val.to_full().jac
+    else:
+        sop_jac = sop_val.jac
+
+    assert np.all(sop_jac.toarray() == sum(jacs).toarray())
 
     # progress values in time and check that only values are progressed, and that
     # they are correct, i.e. current iter is set as previous time

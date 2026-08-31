@@ -760,7 +760,16 @@ class ConstraintLineSearch:
         for i in range(10):
             # Only consider dofs where the constraint indicator has changed sign.
             violation = violation_tol * np.sign(f_1)
-            f = constraint_function - pp.wrap_as_dense_ad_array(violation)
+            # The violation array has one entry per dof of the constraint function's
+            # output, so it lives in the same space as that output (its target).
+            violation_space = (
+                constraint_function.target
+                if constraint_function.target is not None
+                else pp.ad.OperatorSpace.unclear()
+            )
+            f = constraint_function - pp.ad.DenseArray(
+                violation, source=violation_space, target=violation_space
+            )
             # Absolute tolerance should be safe, as constraints are assumed to be
             # scaled to approximately 1.
             roundoff = 1e-8
