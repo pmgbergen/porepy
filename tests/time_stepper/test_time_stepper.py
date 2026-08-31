@@ -16,6 +16,7 @@ from porepy.models.model_runner import ModelRunner, ModelRunnerStatusFailure
 from porepy.models.protocol import PorePyModel
 from porepy.numerics.ad.indexers import EquationOnDomain
 from porepy.numerics.ad.operators import Variable
+from porepy.time_stepper.scheduler import assemble_default_time_scheduler
 from porepy.time_stepper.time_step_control import TimeManager
 from porepy.time_stepper.time_stepper import TimeStepper
 from porepy.viz.solver_statistics import SolverStatisticsFactory
@@ -571,8 +572,10 @@ def test_solve_convergence_time_dependent_statistics(statistics_path: Path):
     # Minimal setup.
     model = MockModel(statistics_path=statistics_path)
     solver = default_newton_solver(iter_converge=2)
-    time_manager = TimeManager(schedule=[0, 1], dt_init=0.5, constant_dt=True)
-    time_stepper = TimeStepper(time_manager=time_manager)
+    scheduler = assemble_default_time_scheduler(
+        schedule=[0, 1], dt_init=0.5, constant_dt=True
+    )
+    time_stepper = TimeStepper(scheduler=scheduler)
 
     # Define the reference solver statistics, for two time steps.
     reference_data = {
