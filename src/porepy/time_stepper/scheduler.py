@@ -46,7 +46,6 @@ __all__ = [
 logger = getLogger(__name__)
 
 
-
 # TODO: I/O (Methods below are copied from TimeManager and should be removed).
 class TimeIO:
     def __init__(self):
@@ -309,6 +308,10 @@ class TimeSchedulerBase(ABC):
     """I/O bookkeeping for exported times, set by subclasses on construction."""
 
     @abstractmethod
+    def generate_trial_time_data(self) -> SimulationTimeData:
+        pass
+
+    @abstractmethod
     def get_schedule(self) -> np.ndarray:
         pass
 
@@ -358,6 +361,17 @@ class TimeSchedulerConstantDt(TimeSchedulerBase):
             schedule=self.schedule, dt=self.dt, atol=self.atol
         )
         self.io = TimeIO()
+
+    def generate_trial_time_data(self) -> SimulationTimeData:
+        return SimulationTimeData(
+            time=self.time + self.dt,
+            dt=self.dt,
+            # TODO YZ: Explain off by one.
+            time_index_successful=(self.time_index_successful + 1),
+            schedule=self.schedule,
+            constant_dt=True,
+            io=self.io,  # TODO: I/O
+        )
 
     def get_schedule(self) -> np.ndarray:
         return self.schedule
@@ -457,6 +471,17 @@ class TimeScheduler(TimeSchedulerBase):
         self._adjust_dt_min_max_schedule(self.dt, current_interval, next_interval)
 
         self.io = TimeIO()
+
+    def generate_trial_time_data(self) -> SimulationTimeData:
+        return SimulationTimeData(
+            time=self.time + self.dt,
+            dt=self.dt,
+            # TODO YZ: Explain off by one.
+            time_index_successful=(self.time_index_successful + 1),
+            schedule=self.get_schedule(),
+            constant_dt=False,
+            io=self.io,  # TODO: I/O
+        )
 
     def get_schedule(self) -> np.ndarray:
         return np.array(
