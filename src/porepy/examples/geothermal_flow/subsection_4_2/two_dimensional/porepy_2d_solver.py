@@ -468,6 +468,8 @@ params = {
     "cpr_maxit": 400,             # CPR GMRES iteration cap
     "cpr_accuracy_tol": 1.0e-3,   # post-solve gate -> direct fallback above this
     "step_control_method": "LS",   # weis backtracking line search (== subsection_4_2 1D/3D solvers)
+    "residual_scale_current_dt": True,  # weis: convergence bar tracks the CURRENT dt (not dt_init), so
+                                        # steps cut at a stiff front loosen the bar and still converge
     # Slave the eliminated secondaries (T, s_gas/halite, x_NaCl_liq/gas/halite) to their exact
     # OBL value f(p,h,z) each Newton iterate -- Weis-style explicit flash. Removes the lagged
     # elimination residual (e.g. the wide-open liquid NaCl fraction) that limit-cycles at phase

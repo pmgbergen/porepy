@@ -1916,13 +1916,22 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         makes ``N_e / S_e = r_bar * dt0 / storage`` -- the dimensionless imbalance-per-stored-quantity-
         per-step, i.e. exactly weis's row-scaled residual. Storage densities use the model's own
         porosity / rock constants (``c_s`` already in the model's scaled units) and the weis
-        reference ``rho_ref`` / ``T_ref``; ``dt0`` is the nominal step. Empty dict -> no scaling."""
+        reference ``rho_ref`` / ``T_ref``. Empty dict -> no scaling.
+
+        ``dt0``: with ``params['residual_scale_current_dt']`` (weis' convention) it is the CURRENT step,
+        so the bar TRACKS dt -- a step cut at a stiff front loosens the bar proportionally and still
+        converges, instead of being judged against the nominal step and stalling. Default (unset) keeps
+        the fixed nominal ``dt_init`` bar the 1D/3D benchmarks were validated with."""
         try:
             Vtot = float(sum(float(np.sum(sd.cell_volumes)) for sd in self.mdg.subdomains()))
             if not (Vtot > 0.0):
                 return {}
-            dt0 = float(getattr(self.time_manager, "dt_init", 0.0)
-                        or getattr(self.time_manager, "dt", 0.0) or 1.0)
+            if self.params.get("residual_scale_current_dt", False):     # weis: bar tracks the current dt
+                dt0 = float(getattr(self.time_manager, "dt", 0.0)
+                            or getattr(self.time_manager, "dt_init", 0.0) or 1.0)
+            else:                                                        # fixed nominal-dt bar (default)
+                dt0 = float(getattr(self.time_manager, "dt_init", 0.0)
+                            or getattr(self.time_manager, "dt", 0.0) or 1.0)
             phi = float(self.solid.porosity)
             rho_s = float(self.solid.density)
             c_s = float(self.solid.specific_heat_capacity)            # model-scaled [MJ/(kg K)]

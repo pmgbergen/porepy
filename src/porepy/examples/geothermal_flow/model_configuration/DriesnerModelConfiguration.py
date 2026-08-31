@@ -436,14 +436,37 @@ class _DriesnerBrineBase(  # type:ignore[misc]
         diff_residuals, alg_residuals, differential_residual_norm, algebraic_residual_norm, alg_exceeds = \
             self.compute_residuals_by_category(residual_vector)
 
+        # Report the ROW-SCALED residual -- the quantity the convergence criterion actually tests
+        # (RelativeStorageLebesgueMetric: converged <=> every equation < tol).  The raw np.linalg.norm
+        # differs from this by the storage row-scale (and by dt via residual_scale_current_dt), which is
+        # why the raw "Overall residual norm" looked converged while the solver kept iterating.
+        from .flow_model_base import RelativeStorageLebesgueMetric      # noqa: E402  (avoid import cycle)
+        scaled = RelativeStorageLebesgueMetric(self)(residual_vector)
+
+        def _scaled_of(cat: str):
+            """Row-scaled metric value for a differential category, matching the criterion's equations."""
+            c = cat.lower()
+            if "pressure" in c:
+                return scaled.get("mass_balance_equation")
+            if "enthalpy" in c or "energy" in c:
+                return scaled.get("energy_balance_equation")
+            if "composition" in c or "nacl" in c or "comp" in c:
+                for k, v in scaled.items():
+                    if k.startswith("component_mass_balance"):
+                        return v
+            return None
+
         print("\n Report Residuals ")
-        print(f"Overall residual norm: {np.linalg.norm(residual_vector):.4e}")
+        overall = max(scaled.values()) if scaled else float(np.linalg.norm(residual_vector))
+        print(f"Overall residual norm: {overall:.4e}")
         print("Residual norms for differential equations:")
         for name, norm in diff_residuals.items():
-            print(f"  - {name.capitalize()}: {norm:.4e}")
+            s = _scaled_of(name)
+            print(f"  - {name.capitalize()}: {(s if s is not None else norm):.4e}")
         print("Residual norms for algebraic equations:")
         for name, norm in alg_residuals.items():
             print(f"  - {name.capitalize()}: {norm:.4e}")
+        print(f"(raw L2 residual norm, diagnostic only: {np.linalg.norm(residual_vector):.4e})")
         print("\nAlgebraic residuals exceeding combined differential residual per cell:")
         for name, idxs in alg_exceeds.items():
             try:
