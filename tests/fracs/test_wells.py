@@ -32,6 +32,8 @@ import pytest
 import porepy as pp
 from porepy.fracs.wells_3d import (
     _cell_half_spaces,
+    _connection_projections,
+    _connection_side_grid,
     _distribute_shared_intervals,
     _segment_cell_interval,
     _validate_convex_cell,
@@ -490,6 +492,80 @@ class TestWellConnections:
         assert len(connections) == 2
         assert {c.matrix_cell for c in connections} == {0, 1}
         assert np.allclose([c.length for c in connections], 0.25)
+
+
+class TestConnectionMortarPieces:
+    """The mortar side grid and projections built from the connections.
+
+    These are the objects the interface unknowns live on, so a failure here shows up
+    downstream as a miscount of degrees of freedom or as a coupling that does not
+    conserve mass.
+    """
+
+    @staticmethod
+    def _setup(matrix: pp.Grid, points: np.ndarray):
+        well = _well_mdg(matrix, points).subdomains(dim=1)[0]
+        tree = pp.adtree.ADTree(2 * matrix.dim, matrix.dim)
+        tree.from_grid(matrix)
+        connections = _well_connections(matrix, well, tree, 1e-10, 1e-5)
+        return matrix, well, connections
+
+    @pytest.mark.parametrize(
+        "trajectory", list(WELL_TRAJECTORIES), ids=list(WELL_TRAJECTORIES)
+    )
+    def test_side_grid_matches_the_connections(self, trajectory) -> None:
+        """One cell per contact, of the right length, adding up to the well length."""
+        matrix = pp.StructuredTetrahedralGrid([3, 3, 3], [1, 1, 1])
+        matrix.compute_geometry()
+        matrix, well, connections = self._setup(matrix, WELL_TRAJECTORIES[trajectory])
+        side = _connection_side_grid(connections)
+
+        assert side.num_cells == len(connections)
+        np.testing.assert_allclose(
+            side.cell_volumes, [c.length for c in connections], atol=1e-12
+        )
+        # The trajectories lie inside the domain, so the contacts tile the whole well.
+        np.testing.assert_allclose(
+            side.cell_volumes.sum(), well.cell_volumes.sum(), atol=1e-10
+        )
+
+    @pytest.mark.parametrize(
+        "trajectory", list(WELL_TRAJECTORIES), ids=list(WELL_TRAJECTORIES)
+    )
+    def test_projection_normalisations(self, trajectory) -> None:
+        """The intensive maps average, the extensive maps distribute.
+
+        PorePy requires unit row sums of the intensive projections and unit column sums
+        of the extensive ones. Getting this wrong does not raise: it silently scales the
+        quantity being projected.
+        """
+        matrix = pp.CartGrid([3, 3, 3], [1, 1, 1])
+        matrix.compute_geometry()
+        matrix, well, connections = self._setup(matrix, WELL_TRAJECTORIES[trajectory])
+        proj = _connection_projections(matrix, well, connections)
+
+        for name in ("_primary_to_mortar_avg", "_secondary_to_mortar_avg"):
+            row_sums = np.asarray(proj[name].sum(axis=1)).ravel()
+            np.testing.assert_allclose(row_sums, 1.0, atol=1e-12, err_msg=name)
+
+        for name in ("_primary_to_mortar_int", "_secondary_to_mortar_int"):
+            col_sums = np.asarray(proj[name].sum(axis=0)).ravel()
+            touched = col_sums > 0
+            np.testing.assert_allclose(col_sums[touched], 1.0, atol=1e-12, err_msg=name)
+
+    def test_each_connection_sees_one_cell_on_each_side(self) -> None:
+        """A connection lies in exactly one cell of either neighbour.
+
+        This is what makes the two normalisations separately definable, and is the
+        property the per-well-cell arrangement lacked.
+        """
+        matrix = pp.StructuredTetrahedralGrid([3, 3, 3], [1, 1, 1])
+        matrix.compute_geometry()
+        matrix, well, connections = self._setup(matrix, WELL_TRAJECTORIES["kinked"])
+        proj = _connection_projections(matrix, well, connections)
+
+        for name in proj:
+            assert np.all(np.diff(proj[name].tocsr().indptr) == 1), name
 
 
 @pytest.mark.skipped

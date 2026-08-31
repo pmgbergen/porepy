@@ -581,6 +581,99 @@ def _well_connections(
     ]
 
 
+def _connection_side_grid(connections: list[_WellMatrixConnection]) -> pp.Grid:
+    """Build the grid whose cells are the well-matrix contacts.
+
+    This becomes the side grid of the mortar grid, and therefore carries one set of
+    interface unknowns per contact. Its cells are the contacts themselves, as disjoint
+    segments: two contacts that meet along the well are still separate cells, since they
+    belong to different rock matrix cells.
+
+    Parameters:
+        connections: The contacts between a well and the rock matrix.
+
+    Returns:
+        A one-dimensional grid with one cell per contact, whose cell volumes are the
+        contact lengths.
+
+    """
+    num = len(connections)
+    nodes = np.empty((3, 2 * num))
+    nodes[:, 0::2] = np.array([c.start for c in connections]).T
+    nodes[:, 1::2] = np.array([c.end for c in connections]).T
+
+    # Each face of a one-dimensional grid is a single node, and each cell has the two
+    # faces bounding it.
+    face_nodes = sps.csc_matrix(
+        (np.ones(2 * num, dtype=bool), (np.arange(2 * num), np.arange(2 * num))),
+        shape=(2 * num, 2 * num),
+    )
+    cell_faces = sps.csc_matrix(
+        (
+            np.tile([-1.0, 1.0], num),
+            (np.arange(2 * num), np.repeat(np.arange(num), 2)),
+        ),
+        shape=(2 * num, num),
+    )
+
+    grid = pp.Grid(1, nodes, face_nodes, cell_faces, "well-matrix connections")
+    grid.compute_geometry()
+    return grid
+
+
+def _connection_projections(
+    sd_max: pp.Grid, sd_w: pp.Grid, connections: list[_WellMatrixConnection]
+) -> dict[str, sps.csc_matrix]:
+    """Build the projections between the neighbouring grids and the connections.
+
+    Each connection touches exactly one cell on either side, so the two normalisations
+    PorePy distinguishes are both available. The intensive maps carry a value unchanged
+    from a neighbouring cell to the connections inside it, and so have unit row sums.
+    The extensive maps divide a quantity between those connections in proportion to
+    contact length, and so have unit column sums.
+
+    Parameters:
+        sd_max: The rock matrix grid.
+        sd_w: The well grid.
+        connections: The contacts between the well and the rock matrix.
+
+    Returns:
+        The four projection matrices, keyed by the attribute of
+        :class:`~porepy.grids.mortar_grid.MortarGrid` they are assigned to.
+
+    """
+    rows = np.arange(len(connections))
+    lengths = np.array([c.length for c in connections])
+    well_cells = np.array([c.well_cell for c in connections], dtype=int)
+    matrix_cells = np.array([c.matrix_cell for c in connections], dtype=int)
+
+    def matrix(data: np.ndarray, cols: np.ndarray, num_cols: int) -> sps.csc_matrix:
+        return sps.csc_matrix((data, (rows, cols)), shape=(len(connections), num_cols))
+
+    # Contact length relative to the total contact of the cell it is measured against.
+    # A rock matrix cell may host contacts from several well cells; a well cell is
+    # divided between the rock matrix cells it crosses.
+    per_matrix_cell = np.bincount(
+        matrix_cells, weights=lengths, minlength=sd_max.num_cells
+    )
+    per_well_cell = np.bincount(well_cells, weights=lengths, minlength=sd_w.num_cells)
+
+    return {
+        "_primary_to_mortar_avg": matrix(
+            np.ones(len(connections)), matrix_cells, sd_max.num_cells
+        ),
+        "_primary_to_mortar_int": matrix(
+            lengths / per_matrix_cell[matrix_cells], matrix_cells, sd_max.num_cells
+        ),
+        "_secondary_to_mortar_avg": matrix(
+            np.ones(len(connections)), well_cells, sd_w.num_cells
+        ),
+        "_secondary_to_mortar_int": matrix(
+            lengths / per_well_cell[well_cells], well_cells, sd_w.num_cells
+        ),
+    }
+
+
 def _well_matrix_projection(
     sd_max: pp.Grid,
     sd_w: pp.Grid,
