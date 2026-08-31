@@ -1038,7 +1038,6 @@ else:
         def set_initial_values_primary_variables(self) -> None:
             """Set the initial values for the primary variables."""
 
-
     class EquationProtocol(Protocol):
         """This protocol provides declarations of methods and properties related to
         equations.

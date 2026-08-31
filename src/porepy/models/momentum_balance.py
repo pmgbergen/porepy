@@ -896,7 +896,6 @@ class InitialConditionsThreeFieldMomentumBalance(pp.PorePyModel):
         # trivial body; the call resolves to a sibling mixin at runtime.
         super().set_initial_values_primary_variables()  # type: ignore[safe-super]
 
-
         for sd in self.mdg.subdomains():
             # Displacement is only defined on grids with ambient dimension.
             if sd.dim == self.nd:
