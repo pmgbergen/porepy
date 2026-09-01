@@ -1212,3 +1212,65 @@ def well_contact_path_spans(
             )
             spans[:, index] = np.sort(along)
     return spans
+
+
+def _merged_open_intervals(
+    open_intervals: list[tuple[float, float]],
+) -> list[tuple[float, float]]:
+    """Reduce completion intervals to a disjoint, increasing list.
+
+    Overlapping intervals would otherwise contribute twice to the open length of a
+    contact and could make it appear more than fully open.
+
+    Parameters:
+        open_intervals: Intervals of path length along the well that are open to flow,
+            in any order and possibly overlapping.
+
+    Returns:
+        The same set of points, as disjoint intervals in increasing order.
+
+    """
+    merged: list[tuple[float, float]] = []
+    for lower, upper in sorted((min(a, b), max(a, b)) for a, b in open_intervals):
+        if merged and lower <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], upper))
+        else:
+            merged.append((lower, upper))
+    return merged
+
+
+def open_fractions(
+    spans: np.ndarray, open_intervals: list[tuple[float, float]]
+) -> np.ndarray:
+    """Fraction of each contact that is open to flow.
+
+    A well is cased over part of its length, and only the open parts exchange fluid
+    with the surrounding rock. The boundary of an open interval generally falls inside
+    a contact rather than between two of them, so the result is a fraction rather than
+    a flag: were it rounded to one or zero, the well index would jump discontinuously
+    as the rock matrix mesh is refined.
+
+    Parameters:
+        spans: ``shape=(2, num_contacts)``
+
+            Path length of the two ends of each contact, as returned by
+            :func:`well_contact_path_spans`.
+        open_intervals: Intervals of path length along the well that are open to flow.
+            An empty list closes the well along its whole length.
+
+    Returns:
+        ``shape=(num_contacts,)``
+
+        Fraction of each contact that is open, between zero and one.
+
+    """
+    lower, upper = np.min(spans, axis=0), np.max(spans, axis=0)
+    length = upper - lower
+
+    open_length = np.zeros_like(length)
+    for start, end in _merged_open_intervals(open_intervals):
+        open_length += np.maximum(
+            0.0, np.minimum(upper, end) - np.maximum(lower, start)
+        )
+
+    return np.divide(open_length, length, out=np.zeros_like(length), where=length > 0)

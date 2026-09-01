@@ -44,6 +44,7 @@ from porepy.fracs.wells_3d import (
     _validate_convex_cell,
     _well_connections,
     check_well_radius_resolution,
+    open_fractions,
     well_cell_path_offsets,
     well_contact_path_spans,
     well_equivalent_radii,
@@ -1187,3 +1188,60 @@ class TestWellPathLength:
             np.linalg.norm(near_end - points[:, 0, None], axis=0),
             atol=1e-12,
         )
+
+
+class TestOpenFractions:
+    """The part of each contact left open by the well completion."""
+
+    @pytest.mark.parametrize(
+        "intervals, expected",
+        [
+            ([], [0.0, 0.0, 0.0]),
+            ([(0.0, 3.0)], [1.0, 1.0, 1.0]),
+            ([(1.0, 2.0)], [0.0, 1.0, 0.0]),
+            ([(1.25, 1.75)], [0.0, 0.5, 0.0]),
+            ([(0.5, 1.5)], [0.5, 0.5, 0.0]),
+            ([(0.0, 0.5), (2.5, 3.0)], [0.5, 0.0, 0.5]),
+        ],
+    )
+    def test_overlap_with_the_open_intervals(self, intervals, expected) -> None:
+        """The fraction is the part of the contact covered by an open interval.
+
+        The partial cases are the point of the fraction: an interval boundary
+        generally falls inside a contact, and rounding would make the well index jump
+        as the rock matrix mesh is refined.
+        """
+        spans = np.array([[0.0, 1.0, 2.0], [1.0, 2.0, 3.0]])
+        np.testing.assert_allclose(open_fractions(spans, intervals), expected)
+
+    def test_an_empty_completion_closes_the_well(self) -> None:
+        """With no completion given, a well exchanges nothing with the rock."""
+        spans = np.array([[0.0, 1.0], [1.0, 2.0]])
+        assert np.all(open_fractions(spans, []) == 0.0)
+
+    def test_overlapping_intervals_are_not_counted_twice(self) -> None:
+        """Overlapping intervals must not make a contact more than fully open.
+
+        A failure would give a fraction above one, and with it a well index larger
+        than the fully open contact can carry.
+        """
+        spans = np.array([[0.0], [1.0]])
+        for intervals in ([(0.0, 0.8), (0.4, 1.0)], [(0.0, 1.0), (0.2, 0.6)]):
+            assert open_fractions(spans, intervals)[0] == pytest.approx(1.0)
+
+    def test_intervals_may_be_given_in_any_order(self) -> None:
+        """The order and orientation of the given intervals must not matter."""
+        spans = np.array([[0.0, 1.0, 2.0], [1.0, 2.0, 3.0]])
+        reference = open_fractions(spans, [(0.0, 0.5), (2.5, 3.0)])
+        for intervals in (
+            [(2.5, 3.0), (0.0, 0.5)],
+            [(0.5, 0.0), (3.0, 2.5)],
+        ):
+            np.testing.assert_allclose(open_fractions(spans, intervals), reference)
+
+    def test_fractions_stay_within_the_unit_interval(self) -> None:
+        """Whatever is given, a contact is between fully closed and fully open."""
+        spans = np.array([[0.0, 1.0, 2.0], [1.0, 2.0, 3.0]])
+        for intervals in ([(-10.0, 10.0)], [(1.5, 1.5)], [(5.0, 6.0)]):
+            fractions = open_fractions(spans, intervals)
+            assert np.all(fractions >= 0.0) and np.all(fractions <= 1.0)
