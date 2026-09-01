@@ -870,9 +870,14 @@ def _polygon_principal_extents(polygon: np.ndarray) -> tuple[float, float]:
     )
 
     # Eigenvalues are the variances along the principal axes, ascending.
-    variances = np.linalg.eigvalsh(covariance)
-    aspect_ratio = np.sqrt(variances[1] / variances[0])
-    return float(np.sqrt(area * aspect_ratio)), float(np.sqrt(area / aspect_ratio))
+    across_variance, along_variance = np.linalg.eigvalsh(covariance)
+    aspect_ratio = np.sqrt(along_variance / across_variance)
+
+    # The equivalent rectangle has the area of the polygon and this aspect ratio, so
+    # the product of its sides is the area and their quotient the aspect ratio.
+    longer_side = np.sqrt(area * aspect_ratio)
+    shorter_side = np.sqrt(area / aspect_ratio)
+    return float(longer_side), float(shorter_side)
 
 
 def _equivalent_radius(vertices: np.ndarray, direction: np.ndarray) -> float:
