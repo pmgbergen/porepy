@@ -436,20 +436,58 @@ class FractureDamageSolidConstants(SolidConstants):
         {
             "residual_dilation_damage": "-",
             "residual_friction_damage": "-",
-            "dilation_damage_decay": "-",
-            "friction_damage_decay": "-",
-            "characteristic_fracture_roughness": "m",
-            "uniaxial_compressive_strength": "Pa",
+            "dilation_wear_energy_scale": "J * m^-2",
+            "friction_wear_energy_scale": "J * m^-2",
         }
     )
-    # Initial value 1 implies no frictional damage, 0.0 implies no damage at all.
-    # Consider renaming to `friction_damage_weight`.
     residual_friction_damage: float = 1.0
-    friction_damage_decay: float = 0.0
+    r"""Residual friction damage state :math:`d_0^f` [-].
+
+    The value the friction damage state decays to as the history variable grows, in
+    :math:`d^f = d_0^f + (1 - d_0^f)\exp(-\Lambda^f / \Lambda_c^f)`.
+
+    :math:`d_0^f = 1` holds :math:`d^f \equiv 1` and thereby switches friction damage
+    off, leaving the intact coefficient; this is how an undamaged reference run is
+    configured. :math:`d_0^f` is a floor on the friction coefficient, since the damage
+    state multiplies it in full.
+
+    """
+
     residual_dilation_damage: float = 1.0
-    dilation_damage_decay: float = 0.0
-    characteristic_fracture_roughness: float = 1.0
-    uniaxial_compressive_strength: float = 1.0
+    r"""Residual dilation damage state :math:`d_0^d` [-].
+
+    As :attr:`residual_friction_damage`, but multiplying the shear dilation gap.
+
+    :math:`d_0^d = 1` switches dilation damage off. Unlike the friction channel, the
+    natural choice here is :math:`d_0^d > 0`, leaving a finite residual dilation rate
+    and hence a bounded but non-vanishing aperture; :math:`d_0^d = 0` would drive the
+    aperture back to zero under sustained shear, since the gap is proportional to
+    :math:`d^d`. The asymmetry with the friction channel is deliberate.
+
+    """
+
+    dilation_wear_energy_scale: float = 1.0
+    r"""Wear energy scale for dilation damage :math:`\Lambda_c^d` [J * m^-2].
+
+    The frictional work per unit area that must be dissipated against the asperities for
+    the dilation damage state to decay by a factor :math:`e` towards its residual; see
+    :class:`~porepy.constitutive_laws.DilationDamage`. It absorbs Archard's
+    dimensionless wear coefficient and is therefore an effective calibrated quantity
+    rather than a purely geometric one.
+
+    Associated with the longer-wavelength waviness of the fracture surface, which is the
+    scale that produces resolvable aperture change.
+
+    """
+
+    friction_wear_energy_scale: float = 1.0
+    r"""Wear energy scale for friction damage :math:`\Lambda_c^f` [J * m^-2].
+
+    As :attr:`dilation_wear_energy_scale`, but for the friction channel, and associated
+    with the shorter-wavelength unevenness, which contributes frictional resistance
+    without geometrically resolvable dilation.
+
+    """
 
 
 @dataclass(kw_only=True, eq=False)

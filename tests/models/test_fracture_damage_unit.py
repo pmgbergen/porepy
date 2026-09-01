@@ -11,13 +11,11 @@ initialize the equation system and geometry. Values are then injected directly v
 Covered formulas
 ----------------
 - Damage factor:
-    ``d = d0 + (1 - d0) * exp(-clip(Lambda, 0, 10))``
-- Normalized traction:
-    ``(-t_n_nondim) / (0.2 * UCS / char_traction)``
-- Friction damage evolution coefficient:
-    ``3 * normalized_traction / roughness``
-- Dilation damage evolution coefficient:
-    ``log(UCS / (char_traction * pos_normal)) * normalized_traction / roughness``
+    ``d_alpha = d0_alpha + (1 - d0_alpha) * exp(-max(Lambda, 0) / Lambda_c_alpha)``
+- Friction coefficient:
+    ``mu = d_f * mu_intact``
+- Damage evolution coefficient (shared by both channels, Archard):
+    ``k = pos_normal * char_traction / sqrt(Lambda_c_d * Lambda_c_f)``
 - Damage length:
     - Isotropic, k=0: ``L = |u_t_iterate − u_t_ts0|``
     - Anisotropic, k=0: ``L = |max(0, m · u_t_ts0) − |u_t_iterate||``
@@ -85,7 +83,6 @@ def _prepared_model(
         if isotropic
         else damage_example.ExactSolutionAnisotropic
     )
-
     model = model_class(params)
     model.prepare_simulation()
     return model
@@ -96,12 +93,30 @@ def _prepared_model(
 # ---------------------------------------------------------------------------
 
 
-class TestDamageStateFormula:
-    """Algebraic formula ``d = d0 + (1 - d0) * exp(-Lambda)``.
+def _nondimensional_wear_energy_scale(model, damage: str) -> float:
+    """Return ``Lambda_c^alpha`` scaled the same way as the history variable.
 
-    The AD implementation clips Lambda to ``[0, 10]`` before exponentiating. The tests
-    use values strictly inside ``(0, 10)`` so that the clip does not change the input
-    and the formula reduces to the unclipped expression.
+    The history is nondimensionalized by the characteristic wear energy, so the scale it
+    is compared against must be too. Tests prescribe histories as multiples of this
+    quantity, which keeps them independent of the fixture's characteristic scales.
+    """
+    fractures = model.mdg.subdomains(dim=model.nd - 1)
+    scale = getattr(model, f"{damage}_wear_energy_scale")(fractures)
+    return float(
+        np.mean(
+            model.equation_system.evaluate(
+                scale / model.characteristic_wear_energy(fractures)
+            )
+        )
+    )
+
+
+class TestDamageStateFormula:
+    """Algebraic formula ``d = d0 + (1 - d0) * exp(-Lambda / Lambda_c)``.
+
+    The AD implementation clips Lambda below at zero before exponentiating; no upper
+    clip is applied. Histories are prescribed as multiples of the (nondimensionalized)
+    wear energy scale, so the tests read directly as values of the exponent.
     """
 
     @staticmethod
@@ -116,28 +131,36 @@ class TestDamageStateFormula:
         nc = sum(sd.num_cells for sd in fractures)
         return model, fractures, nc
 
+    @staticmethod
+    def _set_history(model, damage: str, exponent: float) -> None:
+        """Prescribe a history of ``exponent * Lambda_c^alpha`` on all cells."""
+        fractures = model.mdg.subdomains(dim=model.nd - 1)
+        nc = sum(sd.num_cells for sd in fractures)
+        scale = _nondimensional_wear_energy_scale(model, damage)
+        model.equation_system.set_variable_values(
+            exponent * scale * np.ones(nc),
+            variables=[model.damage_history(fractures)],
+            iterate_index=0,
+        )
+
     @pytest.mark.parametrize("damage", ["dilation", "friction"])
-    @pytest.mark.parametrize("lambda_val", [0.0, 0.5, 1.0, 3.0])
-    def test_damage_state_matches_formula(self, damage: str, lambda_val: float):
-        """Damage state evaluates to ``d0 + (1-d0)*exp(-Lambda)`` for both types.
+    @pytest.mark.parametrize("exponent", [0.0, 0.5, 1.0, 3.0])
+    def test_damage_state_matches_formula(self, damage: str, exponent: float):
+        """State evaluates to ``d0 + (1-d0)*exp(-Lambda/Lambda_c)`` for both types.
 
         Parameters:
             damage: Damage type, either ``"dilation"`` or ``"friction"``.
-            lambda_val: Damage history value prescribed to all fracture cells.
+            exponent: History prescribed as this multiple of the wear energy scale.
         """
         model, fractures, nc = self._prepared_model_with_fractures(damages=[damage])
         d0 = float(getattr(model.solid, f"residual_{damage}_damage"))
 
-        model.equation_system.set_variable_values(
-            lambda_val * np.ones(nc),
-            variables=[getattr(model, f"{damage}_damage_history")(fractures)],
-            iterate_index=0,
-        )
+        self._set_history(model, damage, exponent)
 
         d = getattr(model, f"{damage}_damage_state")(fractures).value(
             model.equation_system
         )
-        expected = d0 + (1.0 - d0) * np.exp(-lambda_val)
+        expected = d0 + (1.0 - d0) * np.exp(-exponent)
         np.testing.assert_allclose(d, expected * np.ones(nc), rtol=1e-12)
 
     @pytest.mark.parametrize("damage", ["dilation", "friction"])
@@ -147,7 +170,7 @@ class TestDamageStateFormula:
 
         model.equation_system.set_variable_values(
             np.zeros(nc),
-            variables=[getattr(model, f"{damage}_damage_history")(fractures)],
+            variables=[model.damage_history(fractures)],
             iterate_index=0,
         )
         d = getattr(model, f"{damage}_damage_state")(fractures).value(
@@ -156,30 +179,24 @@ class TestDamageStateFormula:
         np.testing.assert_allclose(d, np.ones(nc), rtol=1e-12)
 
     def test_dilation_damage_approaches_d0_at_large_history(self):
-        """Lambda = 10 (clip maximum) drives the damage state to d0."""
+        """A history of ten scales drives the damage state to d0."""
         model, fractures, nc = self._prepared_model_with_fractures(damages=["dilation"])
         d0 = float(model.solid.residual_dilation_damage)
 
-        # The clip is at 10, so exp(-10) ≈ 4.5e-5 is the residual offset.
-        model.equation_system.set_variable_values(
-            10.0 * np.ones(nc),
-            variables=[model.dilation_damage_history(fractures)],
-            iterate_index=0,
-        )
-        d = model.residual_dilation_damage(fractures).value(model.equation_system)
+        self._set_history(model, "dilation", 10.0)
+
+        d = model.dilation_damage_state(fractures).value(model.equation_system)
         expected = d0 + (1.0 - d0) * np.exp(-10.0)
-        np.testing.assert_allclose(d, expected * np.ones(nc), rtol=1e-4)
+        np.testing.assert_allclose(d, expected * np.ones(nc), rtol=1e-12)
+        # exp(-10) ~ 4.5e-5, so the state has effectively reached its residual.
+        assert np.all(d - d0 < 1e-4 * (1.0 - d0))
 
     def test_damage_state_is_monotone_in_history(self):
         """A larger history value produces a smaller (more damaged) state."""
         model, fractures, nc = self._prepared_model_with_fractures(damages=["dilation"])
 
-        def _eval(lam: float) -> float:
-            model.equation_system.set_variable_values(
-                lam * np.ones(nc),
-                variables=[model.dilation_damage_history(fractures)],
-                iterate_index=0,
-            )
+        def _eval(exponent: float) -> float:
+            self._set_history(model, "dilation", exponent)
             return float(
                 np.mean(
                     model.dilation_damage_state(fractures).value(model.equation_system)
@@ -195,21 +212,24 @@ class TestDamageStateFormula:
 
 
 class TestDamageEvolutionCoefficients:
-    """Tests for the damage evolution coefficient formulas and normalized traction.
+    r"""Tests for the damage evolution coefficient and normalized traction.
 
     All tests prescribe the contact traction variable to a known nondimensional normal
     value (zero tangential component) and compare the evaluated operator with the
     analytically computed reference.
 
-    The key material parameters (from the default example solid constants) are:
+    The coefficient implements Archard's wear law,
 
-    - ``UCS = 1e8 Pa``
-    - ``roughness = 1e-4 m``
-    - ``char_traction = numerical.characteristic_contact_traction = 1.0 Pa`` (the
-      default in ``NumericalConstants``)
+    .. math::
+        k = |t_n| / u_{char},
 
-    The formulas are written in terms of nondimensional tractions because the contact
-    traction variable is nondimensionalized by ``char_traction``.
+    which is *linear* in the normal traction. A single coefficient serves both channels:
+    what distinguishes them is the wear energy scale in the softening, which is the
+    subject of :meth:`test_channels_differ_only_by_wear_energy_scale`.
+
+    The formula is written in terms of nondimensional tractions because the contact
+    traction variable is nondimensionalized by ``char_traction``, which is multiplied
+    back in before dividing by the characteristic wear energy.
     """
 
     @staticmethod
@@ -239,174 +259,154 @@ class TestDamageEvolutionCoefficients:
         )
 
     def _material_constants(self, model):
-        """Return (char_traction, UCS, roughness) as floats.
+        """Return (char_traction, reference_wear_energy) as floats.
 
         ``char_traction`` is obtained by evaluating the operator, which uses the Young's
         modulus and characteristic displacement (not the scalar stored in
         ``numerical.characteristic_contact_traction``).
         """
         fractures = self._fractures(model)
+        evaluate = model.equation_system.evaluate
         char_t = float(
-            np.mean(
-                model.characteristic_contact_traction(fractures).value(
-                    model.equation_system
-                )
-            )
+            np.mean(evaluate(model.characteristic_contact_traction(fractures)))
         )
-        ucs = float(model.solid.uniaxial_compressive_strength)
-        roughness = float(model.solid.characteristic_fracture_roughness)
-        return char_t, ucs, roughness
+        reference_energy = float(
+            np.mean(evaluate(model.characteristic_wear_energy(fractures)))
+        )
+        return char_t, reference_energy
 
-    def test_normalized_traction_at_transitional_strength(self):
-        """At the transitional normal strength the normalized traction equals 1.
-
-        The transitional strength is ``0.2 * UCS``.  Setting ``t_n_nondim = -0.2 * UCS /
-        char_traction`` places the traction exactly at this level, so the normalized
-        traction should equal 1.
-        """
+    def test_evolution_coefficient_formula(self):
+        """Coefficient equals ``|t_n| * char_traction / sqrt(Lc_d * Lc_f)``."""
         model = _prepared_model(damages=["dilation"])
         fractures = self._fractures(model)
         nc = sum(sd.num_cells for sd in fractures)
-        char_t, ucs, _ = self._material_constants(model)
+        char_t, reference_energy = self._material_constants(model)
 
-        self._set_normal_traction(model, -0.2 * ucs / char_t)
+        self._set_normal_traction(model, -0.4)
+        expected = 0.4 * char_t / reference_energy
 
-        result = model.normalized_traction_for_damage(fractures).value(
-            model.equation_system
-        )
-        np.testing.assert_allclose(result, np.ones(nc), rtol=1e-10)
-
-    def test_normalized_traction_scales_linearly_with_traction(self):
-        """Doubling the compressive traction doubles the normalized traction."""
-        model = _prepared_model(damages=["dilation"])
-        fractures = self._fractures(model)
-        char_t, ucs, _ = self._material_constants(model)
-        base_t = -0.2 * ucs / char_t  # normalized = 1 at this level
-
-        def _eval(factor: float) -> np.ndarray:
-            self._set_normal_traction(model, factor * base_t)
-            return model.normalized_traction_for_damage(fractures).value(
-                model.equation_system
-            )
-
-        np.testing.assert_allclose(_eval(2.0), 2.0 * _eval(1.0), rtol=1e-10)
-
-    def test_friction_damage_evolution_coefficient_formula(self):
-        """Friction coefficient equals ``3 * normalized_traction / roughness``.
-
-        At a traction of ``0.4 * UCS / char_traction`` (twice the transitional strength)
-        the normalized traction is 2, so the coefficient should equal ``3 * 2 /
-        roughness = 6 / roughness``.
-        """
-        model = _prepared_model(damages=["friction"])
-        fractures = self._fractures(model)
-        nc = sum(sd.num_cells for sd in fractures)
-        char_t, ucs, roughness = self._material_constants(model)
-
-        # normalized_traction = 2
-        self._set_normal_traction(model, -0.4 * ucs / char_t)
-        normalized = 2.0
-        expected = 3.0 * normalized / roughness
-
-        result = model.friction_damage_evolution_coefficient(fractures).value(
+        result = model.damage_evolution_coefficient(fractures).value(
             model.equation_system
         )
         np.testing.assert_allclose(result, expected * np.ones(nc), rtol=1e-10)
 
-    def test_friction_coefficient_is_negligible_at_zero_traction(self):
-        """Zero normal traction (open fracture) → negligible friction coefficient.
+    def test_reference_energy_is_geometric_mean_of_the_scales(self):
+        """The nondimensionalisation reference is ``sqrt(Lc_d * Lc_f)``.
+
+        A mechanical reference such as ``char_traction * u_char`` would be an elastic
+        energy, unrelated to the wear energies it is meant to scale, and would leave the
+        nondimensional history far from unity. Pinning the reference to the two scales
+        keeps it at order one whatever they are.
+        """
+        model = _prepared_model(damages=["dilation", "friction"])
+        fractures = self._fractures(model)
+        _, reference_energy = self._material_constants(model)
+
+        expected = np.sqrt(
+            model.solid.dilation_wear_energy_scale
+            * model.solid.friction_wear_energy_scale
+        )
+        np.testing.assert_allclose(reference_energy, expected, rtol=1e-12)
+
+        # The nondimensional scales are reciprocal square roots of the ratio, hence of
+        # order one, and so is the history they are compared against.
+        scale_d = _nondimensional_wear_energy_scale(model, "dilation")
+        scale_f = _nondimensional_wear_energy_scale(model, "friction")
+        np.testing.assert_allclose(scale_d * scale_f, 1.0, rtol=1e-12)
+
+    def test_evolution_coefficient_is_linear_in_traction(self):
+        """The coefficient is linear in the normal traction, with no turning point.
+
+        Sampled across a decade of traction, so a wear rate that saturated, turned over
+        or reversed anywhere in that range would fail. A failure most likely means a
+        nonlinear factor has been introduced into the driver.
+        """
+        model = _prepared_model(damages=["dilation"])
+        fractures = self._fractures(model)
+        char_t, _ = self._material_constants(model)
+        strength_scale = 1e8  # representative rock strength [Pa], sets the range
+
+        def _eval(fraction_of_strength: float) -> np.ndarray:
+            self._set_normal_traction(
+                model, -fraction_of_strength * strength_scale / char_t
+            )
+            return model.damage_evolution_coefficient(fractures).value(
+                model.equation_system
+            )
+
+        base = _eval(0.1)
+        for factor in (2.0, 4.0, 5.0, 9.0):
+            np.testing.assert_allclose(_eval(0.1 * factor), factor * base, rtol=1e-10)
+
+    def test_channels_differ_only_by_wear_energy_scale(self):
+        """Only the softening scale distinguishes the two channels.
+
+        Setting the two histories to the same value must give damage states related by
+        the wear energy scales alone. A failure here means a per-channel factor has
+        crept back into the driver, which is what a single history rules out.
+        """
+        model = _prepared_model(damages=["dilation", "friction"])
+        fractures = self._fractures(model)
+        nc = sum(sd.num_cells for sd in fractures)
+
+        scale_d = _nondimensional_wear_energy_scale(model, "dilation")
+        scale_f = _nondimensional_wear_energy_scale(model, "friction")
+
+        for history in (0.2 * scale_d, scale_d, 2.0 * scale_d):
+            model.equation_system.set_variable_values(
+                history * np.ones(nc),
+                variables=[model.damage_history(fractures)],
+                iterate_index=0,
+            )
+            evaluate = model.equation_system.evaluate
+            d_dil = evaluate(model.dilation_damage_state(fractures))
+            d_fri = evaluate(model.friction_damage_state(fractures))
+
+            d0_d = model.solid.residual_dilation_damage
+            d0_f = model.solid.residual_friction_damage
+            # Strip the residuals; the remaining factors are
+            # exp(-Lambda/Lambda_c^alpha), so their logs are in the ratio
+            # Lambda_c^f / Lambda_c^d.
+            decay_d = (d_dil - d0_d) / (1.0 - d0_d)
+            decay_f = (d_fri - d0_f) / (1.0 - d0_f)
+            np.testing.assert_allclose(
+                np.log(decay_f) / np.log(decay_d), scale_d / scale_f, rtol=1e-10
+            )
+
+    def test_coefficient_is_negligible_at_zero_traction(self):
+        """Zero normal traction (open fracture) gives a negligible coefficient.
 
         The positive-normal-traction helper clips the contact traction to a maximum of
         ``-1e-15`` (nondim) before negating, so a traction of zero produces ``pos_normal
-        = 1e-15`` rather than exactly zero.  The resulting friction coefficient is then:
-
-        .. math::
-
-            k_{f} = \\frac{3 \\cdot 10^{-15}}{0.2 \\, UCS / t_{char} \\cdot
-                \\text{roughness}}
-
-        which is many orders of magnitude smaller than any physically relevant value.
+        = 1e-15`` rather than exactly zero. The resulting coefficient is many orders of
+        magnitude below any physically relevant value.
         """
-        model = _prepared_model(damages=["friction"])
+        model = _prepared_model(damages=["dilation"])
         fractures = self._fractures(model)
         nc = sum(sd.num_cells for sd in fractures)
-        char_t, ucs, roughness = self._material_constants(model)
+        char_t, reference_energy = self._material_constants(model)
 
         self._set_normal_traction(model, 0.0)
 
         clip_floor = 1e-15  # pos_normal_nondim produced by the clip
-        transitional_nondim = 0.2 * ucs / char_t
-        expected_clip_value = 3.0 * (clip_floor / transitional_nondim) / roughness
+        expected = clip_floor * char_t / reference_energy
 
-        result = model.friction_damage_evolution_coefficient(fractures).value(
+        result = model.damage_evolution_coefficient(fractures).value(
             model.equation_system
         )
-        np.testing.assert_allclose(result, expected_clip_value * np.ones(nc), rtol=1e-6)
+        np.testing.assert_allclose(result, expected * np.ones(nc), rtol=1e-6)
 
-    def test_dilation_damage_evolution_coefficient_formula(self):
-        """Dilation coefficient equals ``K_ad * normalized_traction / roughness``.
-
-        At a traction of ``0.4 * UCS / char_traction`` the parameters are::
-
-            pos_normal = 0.4 * UCS / char_traction
-            K_ad = log(UCS / (char_traction * pos_normal)) = log(1 / 0.4)
-            normalized_traction = 2.0
-            expected = K_ad * 2.0 / roughness
-        """
-        model = _prepared_model(damages=["dilation"])
-        fractures = self._fractures(model)
-        nc = sum(sd.num_cells for sd in fractures)
-        char_t, ucs, roughness = self._material_constants(model)
-
-        t_n_nondim = -0.4 * ucs / char_t
-        self._set_normal_traction(model, t_n_nondim)
-
-        pos_normal_nondim = -t_n_nondim  # = 0.4 * ucs / char_t
-        dimensionless_strength = ucs / char_t
-        K_ad = np.log(dimensionless_strength / pos_normal_nondim)
-        normalized = 2.0
-        expected = K_ad * normalized / roughness
-
-        result = model.dilation_damage_evolution_coefficient(fractures).value(
-            model.equation_system
-        )
-        np.testing.assert_allclose(result, expected * np.ones(nc), rtol=1e-10)
-
-    def test_dilation_damage_evolution_coefficient_at_ucs(self):
-        """Dilation coefficient diverges (K_ad → 0) as traction approaches UCS.
-
-        At ``t_n_nondim = -UCS / char_traction`` the positive normal traction equals
-        ``UCS / char_traction``, so ``K_ad = log(1) = 0`` and the coefficient is zero.
-        """
-        model = _prepared_model(damages=["dilation"])
-        fractures = self._fractures(model)
-        nc = sum(sd.num_cells for sd in fractures)
-        char_t, ucs, _ = self._material_constants(model)
-
-        self._set_normal_traction(model, -ucs / char_t)
-
-        result = model.dilation_damage_evolution_coefficient(fractures).value(
-            model.equation_system
-        )
-        np.testing.assert_allclose(result, np.zeros(nc), atol=1e-6)
-
-    def test_dilation_and_friction_coefficients_have_same_sign(self):
-        """Both coefficients are non-negative under compression."""
+    def test_coefficient_is_non_negative(self):
+        """The coefficient is non-negative under compression."""
         model = _prepared_model(damages=["dilation", "friction"])
         fractures = self._fractures(model)
-        char_t, ucs, _ = self._material_constants(model)
 
-        # Traction well inside the valid range (0.1 * UCS, below UCS)
-        self._set_normal_traction(model, -0.1 * ucs / char_t)
+        self._set_normal_traction(model, -0.1)
 
-        c_dil = model.dilation_damage_evolution_coefficient(fractures).value(
+        coefficient = model.damage_evolution_coefficient(fractures).value(
             model.equation_system
         )
-        c_fri = model.friction_damage_evolution_coefficient(fractures).value(
-            model.equation_system
-        )
-        assert np.all(c_dil >= 0), "Dilation coefficient must be non-negative"
-        assert np.all(c_fri >= 0), "Friction coefficient must be non-negative"
+        assert np.all(coefficient >= 0), "Damage coefficient must be non-negative"
 
 
 # ---------------------------------------------------------------------------

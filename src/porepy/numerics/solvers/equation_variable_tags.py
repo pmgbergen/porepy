@@ -155,8 +155,7 @@ class DefaultEquationTags:
     )
     interface_force_balance = EquationTag(name="interface_force_balance_equation")
     # Fracture damage (?)
-    dilation_damage = EquationTag(name="dilation_damage_equation")
-    friction_damage = EquationTag(name="friction_damage_equation")
+    damage = EquationTag(name="damage_equation")
 
 
 class DefaultVariableTags:
@@ -181,5 +180,4 @@ class DefaultVariableTags:
     interface_displacement = VariableTag(name="u_interface")
     contact_traction = VariableTag(name="contact_traction")
     # Fracture damage (?)
-    dilation_damage_history = VariableTag(name="dilation_damage_history")
-    friction_damage_history = VariableTag(name="friction_damage_history")
+    damage_history = VariableTag(name="damage_history")

@@ -123,7 +123,7 @@ def test_isotropic_damage(dim: int):
     # referred to as "first increment" below.
     for damage in damages:
         # Test both damage and damage history variable.
-        names = [damage + "_damage_state", damage + "_damage_history"]
+        names = [damage + "_damage_state", "damage_history"]
         # I) First two displacement jumps are identical, yielding identical damage
         # values after first two steps.
         _assert_damage_values_equal_between_steps(vals, names, 0, 1, 1, 2)
@@ -225,7 +225,7 @@ def test_anisotropic_damage(dim: int):
     # Thus, vals[0] corresponds to t=1 in the time manager, and vals[1]-vals[0] is
     # referred to as "first increment" below.
     for damage in damages:
-        names = [damage + "_damage_state", damage + "_damage_history"]
+        names = [damage + "_damage_state", "damage_history"]
         # I) First two displacement jumps are identical, yielding identical damage
         # values after first two steps.
         _assert_damage_values_equal_between_steps(vals, names, 0, 1, 1, 2)

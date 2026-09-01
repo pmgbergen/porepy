@@ -121,11 +121,9 @@ def build_and_run(
     return model.results, model
 
 
-def _histories(results: list, damage: str) -> list[np.ndarray]:
+def _histories(results: list) -> list[np.ndarray]:
     """Return the list of damage history arrays (one per step)."""
-    return [
-        cast(np.ndarray, getattr(r, f"approx_{damage}_damage_history")) for r in results
-    ]
+    return [cast(np.ndarray, r.approx_damage_history) for r in results]
 
 
 def _damages(results: list, damage: str) -> list[np.ndarray]:
@@ -154,7 +152,7 @@ def test_no_damage_for_zero_tangential_slip():
     results, _ = build_and_run(north, ["dilation", "friction"], isotropic=True)
 
     for damage in ["dilation", "friction"]:
-        for i, h in enumerate(_histories(results, damage)):
+        for i, h in enumerate(_histories(results)):
             np.testing.assert_allclose(
                 h,
                 0.0,
@@ -188,7 +186,7 @@ def test_no_damage_for_open_fracture():
     results, _ = build_and_run(north, ["dilation", "friction"], isotropic=True)
 
     for damage in ["dilation", "friction"]:
-        for i, h in enumerate(_histories(results, damage)):
+        for i, h in enumerate(_histories(results)):
             np.testing.assert_allclose(
                 h,
                 0.0,
@@ -253,7 +251,7 @@ def test_damage_history_non_decreasing_monotonic_slip(monotone_slip_results):
     term, so Lambda(t+1) >= Lambda(t).
     """
     results, _, damage, isotropic = monotone_slip_results
-    histories = _histories(results, damage)
+    histories = _histories(results)
     for i in range(1, len(histories)):
         assert np.all(histories[i] >= histories[i - 1] - 1e-10), (
             f"{damage} (isotropic={isotropic}) history decreased at step {i + 1}: "
@@ -339,8 +337,8 @@ def test_isotropic_more_history_after_reversal():
     results_aniso, _ = build_and_run(north, ["dilation", "friction"], isotropic=False)
 
     for damage in ["dilation", "friction"]:
-        h_iso = _histories(results_iso, damage)[-1]
-        h_aniso = _histories(results_aniso, damage)[-1]
+        h_iso = _histories(results_iso)[-1]
+        h_aniso = _histories(results_aniso)[-1]
 
         assert np.all(h_iso > h_aniso + 1e-12), (
             f"{damage}: isotropic history {h_iso} not strictly greater than "
@@ -372,7 +370,7 @@ def test_isotropic_anisotropic_agree_for_unidirectional_loading():
 
     for damage in ["dilation", "friction"]:
         for i, (h_iso, h_aniso) in enumerate(
-            zip(_histories(results_iso, damage), _histories(results_aniso, damage))
+            zip(_histories(results_iso), _histories(results_aniso))
         ):
             np.testing.assert_allclose(
                 h_iso,
