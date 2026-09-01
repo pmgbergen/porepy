@@ -63,13 +63,11 @@ class TimeDependentDamageBCs:
 
 
 DATA_SAVING_METHOD_NAMES = [
-    "normalized_traction_for_damage",
     "damage_length",
+    "damage_evolution_coefficient",
     "dilation_damage_state",
-    "dilation_damage_evolution_coefficient",
     "dilation_damage_history",
     "friction_damage_state",
-    "friction_damage_evolution_coefficient",
     "friction_damage_history",
 ]
 
@@ -166,8 +164,13 @@ class FractureDamageMomentumBalance(  # type: ignore[misc]
 
     This model combines fracture damage mechanics with momentum balance and force
     balance across interfaces. Variables are matrix and interface displacements, contact
-    traction, and damage. The model is isotropic, i.e., the damage is independent of the
-    loading direction.
+    traction, and damage.
+
+    The class carries no damage length of its own: mix in either
+    :class:`~porepy.models.fracture_damage.IsotropicFractureDamageLength` or
+    :class:`~porepy.models.fracture_damage.AnisotropicFractureDamageLength` to choose
+    whether the damage depends on the loading direction, as
+    :func:`create_displacement_controlled_setup` does via its ``isotropic`` argument.
 
     Also contains specifics defining a test case in terms of the boundary conditions.
 
@@ -308,7 +311,7 @@ class ExactSolution:
         """
         h = self.friction_damage_history(sd, n)
         d0 = self.model.solid.residual_friction_damage
-        return d0 + (1 - d0) * np.exp(-h)
+        return d0 + (1 - d0) * np.exp(-h / self._wear_energy_scale("friction"))
 
     def friction_damage_history(self, sd: pp.Grid, n: int) -> np.ndarray:
         """Return the friction damage history at time step n.
@@ -321,7 +324,7 @@ class ExactSolution:
             Array of friction damage history for the given time step.
 
         """
-        return self.convolution(sd, n, self.friction_damage_evolution_coefficient)
+        return self.convolution(sd, n, self.damage_evolution_coefficient)
 
     def dilation_damage_state(self, sd: pp.Grid, n: int) -> np.ndarray:
         """Return the exact solution at time step n.
@@ -336,7 +339,7 @@ class ExactSolution:
         """
         h = self.dilation_damage_history(sd, n)
         d0 = self.model.solid.residual_dilation_damage
-        return d0 + (1 - d0) * np.exp(-h)
+        return d0 + (1 - d0) * np.exp(-h / self._wear_energy_scale("dilation"))
 
     def dilation_damage_history(self, sd: pp.Grid, n: int) -> np.ndarray:
         """Return the dilation damage history at time step n.
@@ -349,7 +352,7 @@ class ExactSolution:
             Array of dilation damage history for the given time step.
 
         """
-        return self.convolution(sd, n, self.dilation_damage_evolution_coefficient)
+        return self.convolution(sd, n, self.damage_evolution_coefficient)
 
     def convolution(self, sd: pp.Grid, n: int, coefficient_function) -> np.ndarray:
         """Return the convolution of the displacement increment with the damage kernel.
@@ -372,52 +375,48 @@ class ExactSolution:
             var += var_i
         return var
 
-    def normalized_traction_for_damage(self, sd: pp.Grid, n: int) -> np.ndarray:
-        """Convenience funtion for common parts of the damage functions.
+    def _wear_energy_scale(self, damage: str) -> float:
+        """Wear energy scale of a channel, scaled as the history variable is.
+
+        The history is nondimensionalised by the characteristic wear energy, so the
+        scale it is divided by must be too.
 
         Parameters:
-            sd: Subdomain where the boundary displacement is defined.
-            n: Time step index.
+            damage: Damage type, either ``"dilation"`` or ``"friction"``.
 
         Returns:
-            Array of damage for the given time step."""
-        t = self.normal_traction(sd, n)
-        transitional_strength = 0.2 * self.model.solid.uniaxial_compressive_strength
-        return -t / (transitional_strength)
-
-    def dilation_damage_evolution_coefficient(self, sd: pp.Grid, n: int) -> np.ndarray:
-        """Return the dilation damage coefficient at time step n.
-
-        Parameters:
-            sd: Subdomain where the boundary displacement is defined.
-            n: Time step index.
-
-        Returns:
-            Array of dilation damage for the given time step.
+            The nondimensionalised wear energy scale.
 
         """
-        K_ad = np.log(
-            -self.model.solid.uniaxial_compressive_strength
-            / np.clip(self.normal_traction(sd, n), None, -1e-15)
+        scale = getattr(self.model.solid, f"{damage}_wear_energy_scale")
+        reference_energy = np.sqrt(
+            self.model.solid.dilation_wear_energy_scale
+            * self.model.solid.friction_wear_energy_scale
         )
-        roughness = self.model.solid.characteristic_fracture_roughness
+        return float(scale / reference_energy)
 
-        return self.normalized_traction_for_damage(sd, n) * K_ad / roughness
+    def damage_evolution_coefficient(self, sd: pp.Grid, n: int) -> np.ndarray:
+        """Archard damage evolution coefficient, ``k = -t_n / sqrt(Lc_d * Lc_f)``.
 
-    def friction_damage_evolution_coefficient(self, sd: pp.Grid, n: int) -> np.ndarray:
-        """Return the friction damage coefficient at time step n.
+        Mirrors the constitutive-law method of the same name in
+        :class:`~porepy.constitutive_laws.FractureDamageEvolutionCoefficients`; the two
+        must be changed together. ``normal_traction`` is dimensional, so the whole of
+        the nondimensionalisation is the division by the characteristic wear energy.
 
         Parameters:
             sd: Subdomain where the boundary displacement is defined.
             n: Time step index.
 
         Returns:
-            Array of friction damage for the given time step.
+            Array of damage evolution coefficients for the given time step.
 
         """
-        roughness = self.model.solid.characteristic_fracture_roughness
-
-        return self.normalized_traction_for_damage(sd, n) * 3 / roughness
+        t = self.normal_traction(sd, n)
+        reference_energy = np.sqrt(
+            self.model.solid.dilation_wear_energy_scale
+            * self.model.solid.friction_wear_energy_scale
+        )
+        return -t / reference_energy
 
 
 class ExactSolutionIsotropic(ExactSolution):
@@ -481,8 +480,12 @@ solid_params = pp.solid_values.extended_granite_values_for_testing.copy()
 solid_params.update(
     {
         "friction_coefficient": 0.01,  # Low friction => slip \approx bc displacement
-        "uniaxial_compressive_strength": 1e8,
-        "characteristic_fracture_roughness": 1e-4,  # Same order as bc displacements.
+        # Wear energy scales, order 1e2-1e3 Pa m so that the boundary displacements
+        # below accumulate softening exponents of order one, i.e. visible but not
+        # saturated damage. The ratio of the two sets which channel degrades faster.
+        # IS: Could be changed later to more physically motivated values.
+        "friction_wear_energy_scale": 666.6666666666667,
+        "dilation_wear_energy_scale": 408.8726586591035,
         "residual_friction_damage": 0.3,
         "residual_dilation_damage": 0.6,
         "dilation_angle": 0.01,  # [rad] # Low but nonzero dilation angle to get some

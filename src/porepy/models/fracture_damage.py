@@ -1,8 +1,8 @@
 r"""Fracture damage models.
 
-The formulation used here is described in Stefansson et al. in preparation. It includes
-friction for both dilation and friction damage, and the damage can be anisotropic or
-isotropic.
+The formulation used here is described in Stefansson et al. in preparation. It covers
+two damage channels, dilation and friction, either of which may be activated on its own
+or together with the other, and the damage may be isotropic or anisotropic.
 
 The main components are the following:
     1. History variables.
@@ -12,21 +12,34 @@ The main components are the following:
        respectively k and l in the paper.
         .. math::
 
-            \Lambda^{\alpha} = \int_0^t k^{\alpha} l dt,
+            \Lambda^{\alpha}(t) = \int_0^t k(s)\, \ell(t, s)\, \mathrm{d}s,
 
-        where :math:`\alpha` is either friction or dilation damage. The damage evolution
-        coefficient is specified in constitutive_laws.py.
-    3. Constitutive laws that compute the damage from the history variables and modify
-       the friction and dilation according to the damage. k depends on type of damage
-       (friction or dilation) and l depends on the damage being anisotropic or
-       isotropic. The modification of the friction and dilation is done by multiplying
-       the non-damaged quantity by the factor
+        where :math:`\alpha` is either friction or dilation damage, :math:`t` is the
+        current time and :math:`s` the integration variable. The length function
+        depends on both: in the anisotropic case it is projected onto the accumulated
+        slip direction evaluated at the *current* time, which is why the history
+        cannot be accumulated incrementally. The damage evolution coefficient is
+        specified in constitutive_laws.py and is shared by the two channels, so the
+        histories differ only in that they are separate unknowns.
+    3. Constitutive laws that compute the damage states from the history variables and
+       modify the friction and dilation accordingly. k is common to both channels and l
+       depends on the damage being anisotropic or isotropic. The damage states are
 
         .. math::
 
-            d^{\alpha} = d_0^{\alpha} + (1 - d_0^{\alpha}) \exp(-\Lambda^{\alpha}),
+            d^{\alpha} = d_0^{\alpha}
+                + (1 - d_0^{\alpha}) \exp(-\Lambda^{\alpha} / \Lambda_c^{\alpha}),
 
-        where :math:`d_0^{\alpha}` is the initial damage for type :math:`\alpha`.
+        where :math:`d_0^{\alpha}` is the *residual* damage state for type
+        :math:`\alpha`: :math:`d^{\alpha}` starts at one and decays towards
+        :math:`d_0^{\alpha}`, which is the reverse of White's (2014) convention, where
+        the multiplier decays from a value above one towards one. The wear energy scale
+        :math:`\Lambda_c^{\alpha}` is what distinguishes the two channels.
+
+       Each channel applies its damage state multiplicatively: dilation to the intact
+       shear dilation gap, friction to the intact friction coefficient. See
+       :class:`~porepy.constitutive_laws.DilationDamage` and
+       :class:`~porepy.constitutive_laws.FrictionDamage`.
 """
 
 from functools import partial
@@ -232,7 +245,21 @@ class FractureDamageEquations(pp.PorePyModel):
         subdomains: list[pp.Grid],
         tolerance: float = 1e-14,
     ) -> pp.ad.Operator:
-        """Helper method for convolution integral equations.
+        r"""Helper method for convolution integral equations.
+
+        Discrete counterpart of
+
+        .. math::
+
+            \Lambda^{\alpha}(t) = \int_0^t k^{\alpha}(s)\, \ell(t, s)\, \mathrm{d}s,
+
+        with :math:`t` the current time and :math:`s` the integration variable. The
+        contribution of the current time step is implicit; earlier steps are evaluated
+        at their own time index and are therefore constant within the nonlinear
+        iteration. Note that the sum runs over the whole history rather than updating a
+        stored value: the length function is re-evaluated against the current state at
+        every step, which for the anisotropic length means re-projection onto the
+        present slip direction.
 
         Parameters:
             length_function: Function that takes (subdomains, time_step_index) and
@@ -277,8 +304,8 @@ class DilationDamageEquation(FractureDamageEquations):
     dilation_damage_equation_name = "dilation_damage_equation"
     dilation_damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
     """Method returning the dilation damage variable."""
-    dilation_damage_evolution_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Method to compute the damage coefficient for dilation damage."""
+    damage_evolution_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method to compute the damage evolution coefficient."""
 
     def set_equations(self):
         """Set the dilation damage equation."""
@@ -316,7 +343,7 @@ class DilationDamageEquation(FractureDamageEquations):
             (pp.ad.Scalar(1.0) - characteristic)
             * self.damage_convolution_integral(
                 self.damage_length,
-                self.dilation_damage_evolution_coefficient,
+                self.damage_evolution_coefficient,
                 subdomains=subdomains,
             )
             - self.dilation_damage_history(subdomains)
@@ -333,8 +360,8 @@ class FrictionDamageEquation(FractureDamageEquations):
     friction_damage_equation_name = "friction_damage_equation"
     friction_damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
     """Method returning the friction damage variable."""
-    friction_damage_evolution_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Method to compute the damage coefficient for friction damage."""
+    damage_evolution_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method to compute the damage evolution coefficient."""
 
     def set_equations(self):
         """Set the friction damage equation."""
@@ -373,7 +400,7 @@ class FrictionDamageEquation(FractureDamageEquations):
             (pp.ad.Scalar(1.0) - characteristic)
             * self.damage_convolution_integral(
                 self.damage_length,
-                self.friction_damage_evolution_coefficient,
+                self.damage_evolution_coefficient,
                 subdomains=subdomains,
             )
             - self.friction_damage_history(subdomains)
@@ -451,15 +478,26 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
     ) -> tuple[pp.ad.Operator, pp.ad.Operator]:
         r"""Integrand for the anisotropic damage equation.
 
-        The damage length is defined as the difference between the positive part of the
-        values of the tangential displacement along the update direction m at time n and
-        the previous time step n-1:
+        The damage length is the *absolute* difference between the positive parts of the
+        tangential plastic jump projected on the slip direction :math:`m` at steps
+        :math:`n` and :math:`n-1`:
 
         .. math::
 
-            L_d = \max(0, m \cdot u_t_{n}) - \max(0, m \cdot u_t_{n-1})
+            \ell_n = \left| \max(0, m \cdot u_{t,n}^p)
+                          - \max(0, m \cdot u_{t,n-1}^p) \right|
 
+        The absolute value is essential and easy to lose: without it, slip that reduces
+        the projection onto :math:`m` would subtract from the accumulated history, i.e.
+        reverse shear would heal the fracture. It is the discrete counterpart of the
+        :math:`\left| m \cdot \dot{u}_t^p \right|` in the continuous length function.
 
+        The :math:`\max(0, \cdot)` pair implements the one-sided nature of asperity
+        contact, the Heaviside factor of the continuous form: slip oblique to :math:`m`
+        contributes with reduced magnitude, and slip beyond 90 degrees not at all.
+
+        Note that :math:`m` is evaluated at the *current* time in both terms, see
+        :meth:`normalized_tangential_plastic_jump`.
 
         Parameters:
             subdomains: List of subdomains where the damage is defined.
@@ -511,7 +549,19 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
     def normalized_tangential_plastic_jump(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
-        """Normalized tangential plastic jump [-].
+        r"""Normalized tangential plastic jump [-].
+
+        This is the direction of the *accumulated* plastic slip at the current time,
+        :math:`m(t) = u_t^p(t) / \|u_t^p(t)\|` -- not the direction of the current
+        increment. It is evaluated at the current time in both of its occurrences in
+        the anisotropic length function, cf.
+        :meth:`AnisotropicFractureDamageLength.damage_length`.
+
+        The consequence is that the damage history cannot be accumulated incrementally:
+        when :math:`m` rotates, past contributions change, so the slip history must be
+        retained and re-projected. This is why
+        :meth:`FractureDamageVariables.variables_stored_all_time_steps` keeps all time
+        steps rather than a fixed window.
 
         Parameters:
             subdomains: List of subdomains where the jump is defined. Should be of co-
