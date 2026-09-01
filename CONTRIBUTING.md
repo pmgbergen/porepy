@@ -26,6 +26,9 @@ Beyond what tools can check, we also value:
 * Expressive function, class, and variable names over comments that explain what the code does.
 * Small, focused functions and classes. If you need a comment to separate "sections" of a function, it is
   probably two functions.
+* As a rule of thumb, each function should only increase the level of detail by one,
+  with further implementation details left to subfunctions (use nested functions if
+  relevant). This must be balanced against proliferation of helper functions.  
 * No speculative generality: avoid abstractions, configuration options, or error handling for cases the code
   does not actually need to support yet.
 
@@ -55,6 +58,10 @@ All public functions, classes, and modules should be documented following the
 
 Note that a `docs/` directory must never be committed to `develop` or `main`; CI will reject it (the rendered
 documentation is built and hosted separately).
+
+Comments should focus on the actual code, not what was changed in a specific update. The
+latter is of little use to a reader 6 months from now, and should rather be documented
+in a git commit message.
 
 ## Testing
 
@@ -97,6 +104,9 @@ main intent of the commit:
 
 For example: `TST: Add regression test for MPFA on simplex grids`. If a commit genuinely mixes concerns, pick
 the prefix for its main purpose rather than inventing a new one.
+
+Commit messages say *why*, not what the diff already shows: the symptom, the cause, and
+the reason for this fix rather than another.
 
 ## Pull requests
 
