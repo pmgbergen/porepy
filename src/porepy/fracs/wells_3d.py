@@ -21,6 +21,7 @@ from typing import Callable, Iterator, NamedTuple, Optional
 import gmsh
 import numpy as np
 import scipy.sparse as sps
+from scipy.spatial import ConvexHull
 
 import porepy as pp
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
@@ -760,3 +761,102 @@ def compute_well_rock_matrix_intersections(
     for sd_w in well_subdomains:
         connections = _well_connections(sd_max, sd_w, tree, min_length, tol)
         _add_well_matrix_interface(mdg, sd_max, sd_w, connections)
+
+
+def _perpendicular_section(vertices: np.ndarray, direction: np.ndarray) -> np.ndarray:
+    """Project a cell onto the plane perpendicular to a direction.
+
+    The projection is the shadow the cell casts along ``direction``, which for a convex
+    cell is a convex polygon. Its shape is what the flow around a well sees, and is
+    therefore the geometry entering the equivalent well radius.
+
+    Parameters:
+        vertices: ``shape=(3, num_vertices)``
+
+            Vertices of the cell.
+        direction: ``shape=(3,)``
+
+            Direction of the well through the cell. Need not be a unit vector, and its
+            sign is immaterial.
+
+    Returns:
+        ``shape=(num_corners, 2)``
+
+        Corners of the projected polygon, in counter-clockwise order, in an arbitrary
+        but orthonormal coordinate system of the plane. Only quantities invariant under
+        rotation of that system should be read off it.
+
+    """
+    axis = direction / np.linalg.norm(direction)
+    # Any vector not parallel to the axis spans a plane with it; the coordinate
+    # direction in which the axis is smallest is guaranteed not to be parallel.
+    first = np.cross(axis, np.eye(3)[np.argmin(np.abs(axis))])
+    first /= np.linalg.norm(first)
+    second = np.cross(axis, first)
+
+    projected = np.column_stack([vertices.T @ first, vertices.T @ second])
+    hull = ConvexHull(projected)
+    return projected[hull.vertices]
+
+
+def _polygon_principal_extents(polygon: np.ndarray) -> tuple[float, float]:
+    """Measure a convex polygon by the sides of the rectangle equivalent to it.
+
+    The polygon is summarised by two lengths: the rectangle with the same area and the
+    same ratio between the principal second moments of area. This reproduces the sides
+    exactly when the polygon is itself a rectangle, which is what makes the equivalent
+    well radius reduce to Peaceman's on a Cartesian cell.
+
+    Second moments of area are used rather than the spread of the corners, because the
+    corners weigh a shape by how its boundary happens to be discretised: two nearly
+    coincident corners, as arise when a well runs nearly parallel to a face of a
+    tetrahedron, would count double.
+
+    Parameters:
+        polygon: ``shape=(num_corners, 2)``
+
+            Corners of a convex polygon, in counter-clockwise order.
+
+    Returns:
+        A tuple consisting of
+
+        :obj:`float`: The longer side of the equivalent rectangle.
+
+        :obj:`float`: The shorter side of the equivalent rectangle.
+
+    """
+    x, y = polygon[:, 0], polygon[:, 1]
+    next_x, next_y = np.roll(x, -1), np.roll(y, -1)
+    # Shoelace terms, from which area, centroid and second moments all follow.
+    cross = x * next_y - next_x * y
+
+    area = cross.sum() / 2
+    centroid_x = ((x + next_x) * cross).sum() / (6 * area)
+    centroid_y = ((y + next_y) * cross).sum() / (6 * area)
+
+    # Second moments of area about the centroid, by the parallel axis theorem.
+    second_xx = ((x**2 + x * next_x + next_x**2) * cross).sum() / 12
+    second_yy = ((y**2 + y * next_y + next_y**2) * cross).sum() / 12
+    second_xy = (
+        (x * next_y + 2 * x * y + 2 * next_x * next_y + next_x * y) * cross
+    ).sum() / 24
+    covariance = (
+        np.array(
+            [
+                [
+                    second_xx - area * centroid_x**2,
+                    second_xy - area * centroid_x * centroid_y,
+                ],
+                [
+                    second_xy - area * centroid_x * centroid_y,
+                    second_yy - area * centroid_y**2,
+                ],
+            ]
+        )
+        / area
+    )
+
+    # Eigenvalues are the variances along the principal axes, ascending.
+    variances = np.linalg.eigvalsh(covariance)
+    aspect_ratio = np.sqrt(variances[1] / variances[0])
+    return float(np.sqrt(area * aspect_ratio)), float(np.sqrt(area / aspect_ratio))

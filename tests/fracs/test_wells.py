@@ -35,6 +35,8 @@ from porepy.fracs.wells_3d import (
     _connection_projections,
     _connection_side_grid,
     _distribute_shared_intervals,
+    _perpendicular_section,
+    _polygon_principal_extents,
     _segment_cell_interval,
     _validate_convex_cell,
     _well_connections,
@@ -698,3 +700,119 @@ def test_search_examines_a_shrinking_fraction_of_the_grid() -> None:
     # cells it can touch has to become small. A loose bound is enough to catch a search
     # that has degenerated towards inspecting everything.
     assert fine_share < 0.05
+
+
+def _box_vertices(dx: float, dy: float, dz: float) -> np.ndarray:
+    """Vertices of an axis-aligned box with one corner at the origin."""
+    return np.array(
+        [[x, y, z] for x in (0, dx) for y in (0, dy) for z in (0, dz)], dtype=float
+    ).T
+
+
+def _random_rotation(seed: int) -> np.ndarray:
+    """A proper rotation matrix, for testing invariance under change of frame."""
+    matrix, _ = np.linalg.qr(np.random.default_rng(seed).normal(size=(3, 3)))
+    if np.linalg.det(matrix) < 0:
+        matrix[:, 0] *= -1
+    return matrix
+
+
+class TestPerpendicularSection:
+    """Projection of a cell onto the plane perpendicular to the well."""
+
+    @pytest.mark.parametrize(
+        "direction, expected",
+        [
+            ([0, 0, 1], (4.0, 2.0)),
+            ([0, 1, 0], (4.0, 3.0)),
+            ([1, 0, 0], (3.0, 2.0)),
+        ],
+    )
+    def test_box_projects_to_the_perpendicular_face(self, direction, expected) -> None:
+        """Along an axis, the shadow of a box is the face perpendicular to that axis.
+
+        A failure means the projection plane is not the one perpendicular to the given
+        direction, since the two side lengths would then be mixed.
+        """
+        section = _perpendicular_section(_box_vertices(4, 2, 3), np.array(direction))
+        extents = _polygon_principal_extents(section)
+        np.testing.assert_allclose(extents, expected, atol=1e-12)
+
+    def test_section_is_independent_of_the_frame(self) -> None:
+        """Rotating cell and well together must not change the measured shape.
+
+        The projection is expressed in an arbitrary orthonormal frame of the plane, so
+        a failure here means some quantity read off it is frame dependent after all.
+        """
+        vertices = _box_vertices(4, 2, 3)
+        direction = np.array([0.3, -0.7, 1.0])
+        reference = _polygon_principal_extents(
+            _perpendicular_section(vertices, direction)
+        )
+        for seed in range(5):
+            rotation = _random_rotation(seed)
+            rotated = _polygon_principal_extents(
+                _perpendicular_section(rotation @ vertices, rotation @ direction)
+            )
+            np.testing.assert_allclose(rotated, reference, atol=1e-12)
+
+    def test_direction_scale_and_sign_are_immaterial(self) -> None:
+        """Only the line along the well matters, not its parametrisation."""
+        vertices = _box_vertices(4, 2, 3)
+        direction = np.array([0.3, -0.7, 1.0])
+        reference = _polygon_principal_extents(
+            _perpendicular_section(vertices, direction)
+        )
+        for factor in (-1.0, 0.01, 250.0):
+            np.testing.assert_allclose(
+                _polygon_principal_extents(
+                    _perpendicular_section(vertices, factor * direction)
+                ),
+                reference,
+                atol=1e-12,
+            )
+
+
+class TestPolygonPrincipalExtents:
+    """The two lengths summarising a convex polygon."""
+
+    @pytest.mark.parametrize("sides", [(1.0, 1.0), (3.0, 1.0), (0.3, 1.7)])
+    def test_rectangle_is_reproduced_exactly(self, sides) -> None:
+        """On a rectangle the equivalent rectangle must be the rectangle itself.
+
+        This exactness is what makes the equivalent well radius reduce to Peaceman's
+        expression on a Cartesian cell, so a failure here breaks that reduction.
+        """
+        width, height = sides
+        polygon = np.array(
+            [[0, 0], [width, 0], [width, height], [0, height]], dtype=float
+        )
+        np.testing.assert_allclose(
+            _polygon_principal_extents(polygon), sorted(sides, reverse=True), atol=1e-12
+        )
+
+    def test_extents_scale_with_the_polygon(self) -> None:
+        """Both lengths are homogeneous of degree one in the polygon."""
+        polygon = np.array([[0, 0], [2, 0], [2.5, 1.5], [0.5, 1.0]], dtype=float)
+        reference = np.array(_polygon_principal_extents(polygon))
+        np.testing.assert_allclose(
+            _polygon_principal_extents(3.0 * polygon), 3.0 * reference, atol=1e-12
+        )
+
+    def test_extra_corners_on_an_edge_do_not_change_the_shape(self) -> None:
+        """Subdividing an edge must not alter the measured extents.
+
+        Second moments of area are used precisely so that the result depends on the
+        shape rather than on how its boundary is discretised. A failure indicates a
+        reversion to a corner-based measure, which would misjudge a cell whose
+        projection has nearly coincident corners.
+        """
+        square = np.array([[0, 0], [2, 0], [2, 2], [0, 2]], dtype=float)
+        subdivided = np.array(
+            [[0, 0], [1.5, 0], [1.99, 0], [2, 0], [2, 2], [0, 2]], dtype=float
+        )
+        np.testing.assert_allclose(
+            _polygon_principal_extents(subdivided),
+            _polygon_principal_extents(square),
+            atol=1e-12,
+        )
