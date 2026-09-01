@@ -1278,6 +1278,37 @@ class TestMixedDimGravity:
         assert np.allclose(flux, 0, atol=1e-10)
         assert np.allclose(eq, 0, atol=1e-10)
 
+    def test_well_fracture_contact_is_the_well_cell_centre(self):
+        """The contact of a well with a fracture coincides with the well cell centre.
+
+        The gravity correction carries each pressure to the elevation of the contact.
+        For a well-fracture coupling the well subdomain is a point, so its cell centre
+        is the contact and the well-side transport vanishes identically. This is what
+        makes the correction reduce to the difference between the two cell centres
+        there, and a failure would mean the reduction no longer holds and the
+        well-fracture results are no longer governed by the simpler expression.
+        """
+        m = WellWithGravity(
+            {
+                "times_to_export": [],
+                "fracture_indices": [0],
+                "grid_type": "cartesian",
+                "meshing_arguments": {"cell_size": 0.5},
+                "material_constants": {"solid": pp.SolidConstants(well_radius=0.01)},
+            }
+        )
+        m.prepare_simulation()
+
+        for intf in m.mdg.interfaces(codim=2):
+            _, secondary = m.mdg.interface_to_subdomain_pair(intf)
+            assert secondary.dim == 0
+            well_elevation = (
+                intf._secondary_to_mortar_avg @ secondary.cell_centers[m.nd - 1, :]
+            )
+            np.testing.assert_allclose(
+                intf.cell_centers[m.nd - 1, :], well_elevation, atol=1e-12
+            )
+
 
 def _well_model(params: dict) -> pp.PorePyModel:
     """A vertical well through a horizontal fracture, prepared for simulation."""

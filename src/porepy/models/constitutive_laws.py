@@ -2264,9 +2264,28 @@ class PeacemanWellFlux(pp.PorePyModel):
     ) -> pp.ad.Operator:
         """Compute gravity correction term for well flux equation.
 
-        The gravity correction accounts for the hydrostatic pressure difference due to
-        elevation changes between the well and the formation. The correction is rho * g
-        * delta_e, where delta_e is the elevation difference e_primary - e_secondary.
+        The Peaceman relation compares the pressure in the formation with the pressure
+        in the well *at their contact*, but both unknowns are located at cell centres.
+        Each is therefore carried to the elevation of the contact through the fluid
+        column on its own side of the interface, giving
+
+        .. math::
+            \rho_p g (z_p - z_c) - \rho_s g (z_s - z_c),
+
+        where the subscripts denote the primary side, the secondary side and the
+        contact.
+
+        The contact elevation cancels when the two densities are equal, leaving the
+        difference between the two cell centres. That is exact for the well-fracture
+        coupling, where the well subdomain is a point and its cell centre *is* the
+        contact, but not in general.
+
+        Note:
+            The hydrostatic column along the well itself, from the surface down to a
+            given well cell, is accounted for by the well subdomain's own Darcy law
+            through the vector source. This term covers only the two short transports
+            from each cell centre to the contact, and must not be extended to span more
+            without double counting.
 
         Parameters:
             subdomains: List of subdomains.
@@ -2293,10 +2312,25 @@ class PeacemanWellFlux(pp.PorePyModel):
         # Combine elevation for all subdomains.
         elevations = pp.wrap_as_dense_ad_array(np.concatenate(elevation_list))
 
-        # Compute elevation difference: z_primary - z_secondary.
-        delta_z = (
-            projection.primary_to_mortar_avg() @ elevations
-            - projection.secondary_to_mortar_avg() @ elevations
+        # Elevation of the contact, where the two pressures are to be compared. Each
+        # mortar cell is one contact, so its cell centre is the point at which the well
+        # meets the cell on the primary side.
+        contact_elevation = pp.wrap_as_dense_ad_array(
+            np.concatenate(
+                [
+                    np.atleast_1d(intf.cell_centers[self.nd - 1, :])
+                    for intf in interfaces
+                ]
+            )
+        )
+
+        # Height each cell centre sits above the contact. Both pressures are carried
+        # from their cell centre down to the contact before being compared.
+        primary_offset = (
+            projection.primary_to_mortar_avg() @ elevations - contact_elevation
+        )
+        secondary_offset = (
+            projection.secondary_to_mortar_avg() @ elevations - contact_elevation
         )
 
         # Get gravity force (rho * g * e_n) where e_n is the unit vector in the
@@ -2305,12 +2339,19 @@ class PeacemanWellFlux(pp.PorePyModel):
 
         # Extract the component in the gravity direction (last coordinate).
         e_n = self.e_i(subdomains, i=self.nd - 1, dim=self.nd)
-        rho_g = projection.primary_to_mortar_avg() @ (e_n.T @ gravity_vector)
+        rho_g = e_n.T @ gravity_vector
 
-        # Gravity correction: rho * g * delta_z
-        # Positive delta_z means primary is higher than secondary, so fluid column
-        # from secondary to primary has positive pressure contribution.
-        gravity_correction = rho_g * delta_z
+        # Each pressure is carried to the contact through the fluid on its own side of
+        # the interface. The two densities are equal for now; see below.
+        primary_rho_g = projection.primary_to_mortar_avg() @ rho_g
+        secondary_rho_g = projection.primary_to_mortar_avg() @ rho_g
+
+        # The correction is subtracted from the pressure difference, and rho_g is
+        # negative since pressure grows downwards, so a cell centre above the contact
+        # lowers the pressure carried to it.
+        gravity_correction = (
+            primary_rho_g * primary_offset - secondary_rho_g * secondary_offset
+        )
 
         gravity_correction.set_name("gravity_pressure_correction")
         return gravity_correction
