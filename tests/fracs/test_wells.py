@@ -22,6 +22,7 @@ downstream as lost or duplicated mass transfer rather than as a crash.
 
 """
 
+import logging
 import numbers
 import time
 from typing import List
@@ -42,6 +43,7 @@ from porepy.fracs.wells_3d import (
     _segment_cell_interval,
     _validate_convex_cell,
     _well_connections,
+    check_well_radius_resolution,
     well_equivalent_radii,
 )
 
@@ -976,3 +978,54 @@ class TestWellEquivalentRadii:
         radii = well_equivalent_radii(mdg, intf)
         assert radii.size == 2
         assert not np.isclose(radii[0], radii[1])
+
+
+class TestWellRadiusResolution:
+    """The guard against meshes too fine for the Peaceman well index."""
+
+    def test_a_comfortable_mesh_passes_quietly(self, caplog) -> None:
+        """Well away from the singularity nothing should be reported."""
+        with caplog.at_level(logging.WARNING):
+            check_well_radius_resolution(np.array([0.5, 0.8, 1.2]), 0.01)
+        assert caplog.records == []
+
+    def test_a_cell_smaller_than_the_well_is_refused(self) -> None:
+        """Below the well radius the well index turns negative, so it must raise.
+
+        Clamping instead would return a plausible but wrong index, which is the failure
+        mode this guard exists to prevent.
+        """
+        with pytest.raises(ValueError, match="too fine around the well"):
+            check_well_radius_resolution(np.array([0.5, 0.008]), 0.01)
+
+    def test_equality_with_the_well_radius_is_refused(self) -> None:
+        """At equality the logarithm vanishes and the well index is infinite."""
+        with pytest.raises(ValueError, match="too fine around the well"):
+            check_well_radius_resolution(np.array([0.01]), 0.01)
+
+    def test_a_marginal_mesh_warns(self, caplog) -> None:
+        """Approaching the singularity the index degrades before it fails."""
+        with caplog.at_level(logging.WARNING):
+            check_well_radius_resolution(np.array([0.5, 0.05]), 0.01)
+        assert len(caplog.records) == 1
+        assert "barely coarse enough" in caplog.records[0].message
+
+    def test_the_guard_reads_the_cross_section_not_the_volume(self) -> None:
+        """A cell of large volume but narrow across the well must be caught.
+
+        A cell elongated along the well has a small cross-section and therefore a small
+        equivalent radius, however large its volume. A failure here would mean the
+        radius had reverted to a volume-based measure, under which this cell looks
+        comfortably resolved.
+        """
+        matrix = pp.CartGrid([1, 1, 1], [0.05, 0.05, 10.0])
+        matrix.compute_geometry()
+        points = np.array([[0.025, 0.025], [0.025, 0.025], [0.1, 9.9]])
+        mdg = _well_mdg(matrix, points)
+        pp.fracs.wells_3d.compute_well_rock_matrix_intersections(mdg)
+        radii = well_equivalent_radii(mdg, list(mdg.interfaces())[0])
+
+        assert matrix.cell_volumes[0] > 0.02
+        assert 0.2 * matrix.cell_volumes[0] ** (1 / 3) > 0.05
+        with pytest.raises(ValueError, match="too fine around the well"):
+            check_well_radius_resolution(radii, 0.05)

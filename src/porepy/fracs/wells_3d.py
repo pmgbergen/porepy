@@ -29,6 +29,10 @@ from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_dat
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
+_WELL_RADIUS_RESOLUTION_WARNING = 10
+"""Ratio of equivalent to physical well radius below which the Peaceman well index is
+considered too inaccurate to be used without warning."""
+
 
 class Well:
     """Class representing a single well as a polyline embedded in 3D space.
@@ -967,3 +971,57 @@ def well_equivalent_radii(
             for cell, direction in zip(matrix_cells, directions.T)
         ]
     )
+
+
+def check_well_radius_resolution(radii: np.ndarray, well_radius: float) -> None:
+    """Verify that the mesh resolves the region around a well.
+
+    The Peaceman well index is inversely proportional to ``log(r_e / r_w)``, which is
+    singular when the equivalent radius equals the well radius and negative below it. A
+    mesh fine enough for that to happen has resolved the near-well region to the point
+    where the well index is no longer the right way to represent the well, and the model
+    it belongs to is outside its range of validity.
+
+    Refusing rather than clamping to a finite value is deliberate: a clamped index
+    returns a plausible number that is merely wrong, which is far harder to notice than
+    a failure.
+
+    The condition is on the cross-section of the cell perpendicular to the well, not on
+    its volume. For cells of moderate aspect ratio the two agree and only genuinely
+    small cells are affected, but a cell elongated along the well can have a large
+    volume and still be too narrow across.
+
+    Parameters:
+        radii: ``shape=(num_contacts,)``
+
+            Equivalent well radius of each contact, as returned by
+            :func:`well_equivalent_radii`.
+        well_radius: Physical radius of the well.
+
+    Raises:
+        ValueError: If some cell is so small that its equivalent radius does not exceed
+            the well radius.
+
+    """
+    if np.any(radii <= well_radius):
+        smallest = float(radii.min())
+        raise ValueError(
+            f"The rock matrix is too fine around the well: the smallest equivalent "
+            f"well radius is {smallest:.3e}, which does not exceed the well radius "
+            f"{well_radius:.3e}. The Peaceman well index is not defined in this "
+            "regime. Coarsen the grid near the well, or represent the well by a "
+            "resolved geometry rather than a well index."
+        )
+
+    marginal = radii < _WELL_RADIUS_RESOLUTION_WARNING * well_radius
+    if np.any(marginal):
+        logger.warning(
+            "The rock matrix is barely coarse enough around the well: %d of %d "
+            "contacts have an equivalent well radius below %d times the well radius, "
+            "the smallest being %.3e. The Peaceman well index is increasingly "
+            "inaccurate as this ratio approaches unity.",
+            int(marginal.sum()),
+            radii.size,
+            _WELL_RADIUS_RESOLUTION_WARNING,
+            float(radii.min()),
+        )
