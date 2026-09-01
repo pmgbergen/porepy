@@ -1990,7 +1990,7 @@ class PeacemanWellFlux(pp.PorePyModel):
             @ (isotropic_permeability / (f_log(r_e / r_w) + skin_factor)),
             interfaces,
             1,
-        )
+        ) * self.well_open_fraction(interfaces)
 
         # Compute gravity correction term, -rho * g * delta_z, where delta_z is the
         # elevation difference between the primary and secondary side of the interface.
@@ -2044,6 +2044,87 @@ class PeacemanWellFlux(pp.PorePyModel):
         r_e = Scalar(0.2) * pp.wrap_as_dense_ad_array(np.concatenate(h_list))
         r_e.set_name("equivalent_well_radius")
         return r_e
+
+    def well_open_fraction(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """Fraction of each well contact that is open to flow.
+
+        A well is cased over part of its length and exchanges fluid with its
+        surroundings only where it is open. The completion is read from the model
+        parameter ``well_completion``, of the form
+
+        .. code:: python
+
+            {
+                "open_intervals": {well_num: [(start, end), ...]},
+                "closed_fractures": [frac_num, ...],
+            }
+
+        where the intervals are path lengths along the well, measured from the first
+        vertex of its trajectory.
+
+        The two couplings have opposite defaults, deliberately. A well connects to the
+        **rock** only where it is stated to be open, since a well passes through many
+        cells that a casing would shut off, and the safe reading of a missing
+        completion is that none of them are perforated. A well connects to a
+        **fracture** unless that fracture is named as closed, since the intersection is
+        a feature the model has deliberately been given.
+
+        Note:
+            Fractures are closed for all wells at once. The zero-dimensional grid at a
+            well-fracture intersection does not record which well it belongs to, so a
+            fracture cannot presently be closed for one well and left open for another.
+
+        Parameters:
+            interfaces: List of interfaces where the well fluxes are defined.
+
+        Returns:
+            Open fraction of each mortar cell [-], between zero and one.
+
+        """
+        if len(interfaces) == 0:
+            return Scalar(1.0, name="well_open_fraction")
+
+        completion = self.params.get("well_completion", {})
+        return pp.wrap_as_dense_ad_array(
+            np.concatenate(
+                [self._contact_open_fractions(intf, completion) for intf in interfaces]
+            ),
+            name="well_open_fraction",
+        )
+
+    def _contact_open_fractions(
+        self, interface: pp.MortarGrid, completion: dict
+    ) -> np.ndarray:
+        """Open fraction of each contact on a single interface.
+
+        Parameters:
+            interface: The interface to compute open fractions for.
+            completion: The ``well_completion`` model parameter.
+
+        Returns:
+            ``shape=(interface.num_cells,)``
+
+            Open fraction of each mortar cell [-].
+
+        """
+        if interface.codim != 2:
+            # Not a well interface, so nothing on it is cased.
+            return np.ones(interface.num_cells)
+
+        sd_primary, sd_secondary = self.mdg.interface_to_subdomain_pair(interface)
+
+        if sd_secondary.dim == 0:
+            closed = completion.get("closed_fractures", [])
+            return np.full(
+                interface.num_cells, float(sd_primary.frac_num not in closed)
+            )
+
+        well_head = self.wells[sd_secondary.well_num].pts[:, 0]
+        spans = pp.fracs.wells_3d.well_contact_path_spans(
+            self.mdg, interface, well_head
+        )
+        intervals = completion.get("open_intervals", {}).get(sd_secondary.well_num, [])
+        return pp.fracs.wells_3d.open_fractions(spans, intervals)
 
     def skin_factor(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
         """Compute skin factor for Peaceman well model.

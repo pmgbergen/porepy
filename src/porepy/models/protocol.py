@@ -142,6 +142,10 @@ else:
         def set_wells(self) -> None:
             """Add wells to the mixed-dimensional grid."""
 
+        @property
+        def wells(self) -> list[pp.Well]:
+            """The wells of the model, as set by :meth:`set_wells`."""
+
         def is_well_grid(self, grid: pp.Grid | pp.MortarGrid) -> bool:
             """Check if a subdomain is a well.
 

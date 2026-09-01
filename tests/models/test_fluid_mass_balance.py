@@ -286,6 +286,10 @@ def test_tested_vs_testable_methods_single_phase_flow(
             None,
         ),
         ("fluid_compressibility", water_values["compressibility"], None),
+        # The model has no wells; the fracture-well contacts that would carry a
+        # completion do not exist, so the fraction is the default for the interfaces
+        # that do. See test_well_open_fraction_defaults for a model that has wells.
+        ("well_open_fraction", np.ones(12), None),
         # Values of the mass fluxes (i.e., scaling with rho/mu is incorporated).
         (
             "fluid_flux",
@@ -1269,3 +1273,57 @@ class TestMixedDimGravity:
         eq = m.well_flux_equation(m.mdg.interfaces(codim=2)).value(m.equation_system)
         assert np.allclose(flux, 0, atol=1e-10)
         assert np.allclose(eq, 0, atol=1e-10)
+
+
+def _well_model(params: dict) -> pp.PorePyModel:
+    """A vertical well through a horizontal fracture, prepared for simulation."""
+    full_params = {
+        "material_constants": {
+            "solid": pp.SolidConstants(permeability=1e-6 / 4, well_radius=0.01)
+        },
+        "fracture_indices": [2],
+        "times_to_export": [],
+    }
+    full_params.update(params)
+    model = WellModel(full_params)
+    model.prepare_simulation()
+    return model
+
+
+def test_well_open_fraction_defaults() -> None:
+    """A well-fracture contact is open unless the fracture is named as closed.
+
+    The defaults of the two couplings differ deliberately, so a failure here would
+    silently change which parts of a well exchange fluid.
+    """
+    model = _well_model({})
+    interfaces = list(model.mdg.interfaces(codim=2))
+    assert len(interfaces) > 0
+    fractions = model.equation_system.evaluate(model.well_open_fraction(interfaces))
+    np.testing.assert_allclose(fractions, 1.0)
+
+
+def test_closing_a_fracture_shuts_off_its_well_contact() -> None:
+    """Naming a fracture as closed must remove its contribution to the well flux.
+
+    The open fraction multiplies the well index, so a closed contact carries no flux
+    whatever the pressure difference across it.
+    """
+    model = _well_model({"well_completion": {"closed_fractures": [0]}})
+    interfaces = list(model.mdg.interfaces(codim=2))
+
+    fractions = model.equation_system.evaluate(model.well_open_fraction(interfaces))
+    np.testing.assert_allclose(fractions, 0.0)
+
+    # With no open contact the well exchanges nothing, whatever the pressures.
+    equation = model.equation_system.evaluate(model.well_flux_equation(interfaces))
+    well_flux = model.equation_system.evaluate(model.well_flux(interfaces))
+    np.testing.assert_allclose(equation, well_flux, atol=1e-14)
+
+
+def test_closing_an_unrelated_fracture_leaves_the_contact_open() -> None:
+    """Only the named fracture is closed, not every fracture."""
+    model = _well_model({"well_completion": {"closed_fractures": [7]}})
+    interfaces = list(model.mdg.interfaces(codim=2))
+    fractions = model.equation_system.evaluate(model.well_open_fraction(interfaces))
+    np.testing.assert_allclose(fractions, 1.0)
