@@ -2055,12 +2055,14 @@ class PeacemanWellFlux(pp.PorePyModel):
         .. code:: python
 
             {
-                "open_intervals": {well_num: [(start, end), ...]},
-                "closed_fractures": [frac_num, ...],
+                well_num: {
+                    "open_intervals": [(start, end), ...],
+                    "closed_fractures": [frac_num, ...],
+                },
             }
 
         where the intervals are path lengths along the well, measured from the first
-        vertex of its trajectory.
+        vertex of its trajectory, and the fractures are named by ``frac_num``.
 
         The two couplings have opposite defaults, deliberately. A well connects to the
         **rock** only where it is stated to be open, since a well passes through many
@@ -2068,11 +2070,6 @@ class PeacemanWellFlux(pp.PorePyModel):
         completion is that none of them are perforated. A well connects to a
         **fracture** unless that fracture is named as closed, since the intersection is
         a feature the model has deliberately been given.
-
-        Note:
-            Fractures are closed for all wells at once. The zero-dimensional grid at a
-            well-fracture intersection does not record which well it belongs to, so a
-            fracture cannot presently be closed for one well and left open for another.
 
         Parameters:
             interfaces: List of interfaces where the well fluxes are defined.
@@ -2112,19 +2109,23 @@ class PeacemanWellFlux(pp.PorePyModel):
             return np.ones(interface.num_cells)
 
         sd_primary, sd_secondary = self.mdg.interface_to_subdomain_pair(interface)
+        well_num = pp.fracs.wells_3d.well_number_of_interface(self.mdg, interface)
+        settings = completion.get(well_num, {})
 
         if sd_secondary.dim == 0:
-            closed = completion.get("closed_fractures", [])
+            # A well meeting a fracture in a point, which is open unless that fracture
+            # is cased off for this well.
+            closed = settings.get("closed_fractures", [])
             return np.full(
                 interface.num_cells, float(sd_primary.frac_num not in closed)
             )
 
-        well_head = self.wells[sd_secondary.well_num].pts[:, 0]
         spans = pp.fracs.wells_3d.well_contact_path_spans(
-            self.mdg, interface, well_head
+            self.mdg, interface, self.wells[well_num].pts[:, 0]
         )
-        intervals = completion.get("open_intervals", {}).get(sd_secondary.well_num, [])
-        return pp.fracs.wells_3d.open_fractions(spans, intervals)
+        return pp.fracs.wells_3d.open_fractions(
+            spans, settings.get("open_intervals", [])
+        )
 
     def skin_factor(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
         """Compute skin factor for Peaceman well model.

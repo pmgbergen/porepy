@@ -1289,3 +1289,41 @@ def open_fractions(
         )
 
     return np.divide(open_length, length, out=np.zeros_like(length), where=length > 0)
+
+
+def well_number_of_interface(
+    mdg: pp.MixedDimensionalGrid, interface: pp.MortarGrid
+) -> int:
+    """Identify the well coupled by a well interface.
+
+    A well-matrix interface names its well directly, as the well grid is one of its
+    two neighbours. A well-fracture interface does not: it couples the fracture to the
+    point where the well meets it, and that point does not record which well it belongs
+    to. The well is one step further, through the interface between the point and the
+    well grid.
+
+    Parameters:
+        mdg: The mixed-dimensional grid the interface belongs to.
+        interface: An interface of codimension two coupling a well to its surroundings.
+
+    Returns:
+        Index of the well, as carried by ``well_num`` of the well grid.
+
+    Raises:
+        ValueError: If no well can be reached from the interface.
+
+    """
+    _, sd_secondary = mdg.interface_to_subdomain_pair(interface)
+    if getattr(sd_secondary, "well_num", -1) >= 0:
+        return int(sd_secondary.well_num)
+
+    for neighbour in mdg.subdomain_to_interfaces(sd_secondary):
+        sd_primary, _ = mdg.interface_to_subdomain_pair(neighbour)
+        if getattr(sd_primary, "well_num", -1) >= 0:
+            return int(sd_primary.well_num)
+
+    raise ValueError(
+        "No well grid is reachable from this interface. A well-fracture interface is "
+        "expected to couple a fracture to a point that is itself coupled to the well "
+        "grid, and that second interface is missing."
+    )

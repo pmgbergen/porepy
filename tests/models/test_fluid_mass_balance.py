@@ -1309,7 +1309,7 @@ def test_closing_a_fracture_shuts_off_its_well_contact() -> None:
     The open fraction multiplies the well index, so a closed contact carries no flux
     whatever the pressure difference across it.
     """
-    model = _well_model({"well_completion": {"closed_fractures": [0]}})
+    model = _well_model({"well_completion": {0: {"closed_fractures": [0]}}})
     interfaces = list(model.mdg.interfaces(codim=2))
 
     fractions = model.equation_system.evaluate(model.well_open_fraction(interfaces))
@@ -1323,7 +1323,67 @@ def test_closing_a_fracture_shuts_off_its_well_contact() -> None:
 
 def test_closing_an_unrelated_fracture_leaves_the_contact_open() -> None:
     """Only the named fracture is closed, not every fracture."""
-    model = _well_model({"well_completion": {"closed_fractures": [7]}})
+    model = _well_model({"well_completion": {0: {"closed_fractures": [7]}}})
     interfaces = list(model.mdg.interfaces(codim=2))
     fractions = model.equation_system.evaluate(model.well_open_fraction(interfaces))
     np.testing.assert_allclose(fractions, 1.0)
+
+
+class TwoWellModel(WellModel):
+    """Two vertical wells through the same horizontal fracture."""
+
+    def set_wells(self) -> None:
+        self._wells = [
+            pp.Well(np.array([[0.3, 0.3], [0.3, 0.3], [0.2, 1.0]]), index=0),
+            pp.Well(np.array([[0.7, 0.7], [0.7, 0.7], [0.2, 1.0]]), index=1),
+        ]
+
+
+def _two_well_model(params: dict) -> pp.PorePyModel:
+    """Two wells through one fracture, prepared for simulation."""
+    full_params = {
+        "material_constants": {"solid": pp.SolidConstants(well_radius=0.01)},
+        "fracture_indices": [2],
+        "times_to_export": [],
+    }
+    full_params.update(params)
+    model = TwoWellModel(full_params)
+    model.prepare_simulation()
+    return model
+
+
+def test_a_well_fracture_interface_names_its_well() -> None:
+    """The well behind a well-fracture contact must be identifiable.
+
+    The interface couples the fracture to the point where the well meets it, and that
+    point does not record its well, so the well is reached through the interface
+    between the point and the well grid. A failure means the two wells cannot be told
+    apart and a completion could only ever be applied to both at once.
+    """
+    model = _two_well_model({})
+    interfaces = list(model.mdg.interfaces(codim=2))
+    wells = {
+        pp.fracs.wells_3d.well_number_of_interface(model.mdg, intf)
+        for intf in interfaces
+    }
+    assert wells == {0, 1}
+
+
+def test_a_fracture_can_be_closed_for_one_well_only() -> None:
+    """Closing a fracture for one well must leave the other well's contact open.
+
+    This is the per-well resolution the completion is keyed on; a failure means the
+    setting is being applied to every well that meets the named fracture.
+    """
+    model = _two_well_model({"well_completion": {0: {"closed_fractures": [0]}}})
+    interfaces = list(model.mdg.interfaces(codim=2))
+    fractions = model.equation_system.evaluate(model.well_open_fraction(interfaces))
+
+    offset = 0
+    for intf in interfaces:
+        well = pp.fracs.wells_3d.well_number_of_interface(model.mdg, intf)
+        expected = 0.0 if well == 0 else 1.0
+        np.testing.assert_allclose(
+            fractions[offset : offset + intf.num_cells], expected
+        )
+        offset += intf.num_cells
