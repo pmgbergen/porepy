@@ -1064,3 +1064,151 @@ def check_well_radius_resolution(
             _WELL_RADIUS_RESOLUTION_WARNING,
             float(radii[marginal].min()),
         )
+
+
+def _ordered_well_cells(sd_w: pp.Grid, well_head: np.ndarray) -> np.ndarray:
+    """Order the cells of a well grid along the well.
+
+    The cells of a well grid are not stored in the order they appear along the well, so
+    the order has to be recovered from the connectivity before path length can be
+    accumulated. A well is a simple path, with exactly two nodes belonging to a single
+    cell.
+
+    Parameters:
+        sd_w: The well grid.
+        well_head: ``shape=(3,)``
+
+            A point identifying the end of the well from which path length is measured,
+            normally the first vertex of the well trajectory. The nearer of the two ends
+            of the grid is used, so the point need not lie on the well.
+
+    Returns:
+        ``shape=(sd_w.num_cells,)``
+
+        Indices of the well cells, ordered from the end nearest ``well_head``.
+
+    """
+    cell_nodes = sd_w.cell_nodes().tocsc()
+    nodes_of_cell = [
+        cell_nodes.indices[cell_nodes.indptr[cell] : cell_nodes.indptr[cell + 1]]
+        for cell in range(sd_w.num_cells)
+    ]
+
+    cells_of_node: dict[int, list[int]] = {}
+    for cell, nodes in enumerate(nodes_of_cell):
+        for node in nodes:
+            cells_of_node.setdefault(int(node), []).append(cell)
+
+    ends = [node for node, cells in cells_of_node.items() if len(cells) == 1]
+    if len(ends) != 2:
+        raise ValueError(
+            f"The well grid of well {getattr(sd_w, 'well_num', '?')} is not a simple "
+            f"path: it has {len(ends)} free ends rather than two. Path length along "
+            "the well, and therefore the well completion, is not defined for it."
+        )
+
+    distance_to_head = [
+        np.linalg.norm(sd_w.nodes[:, node] - well_head) for node in ends
+    ]
+    node = ends[int(np.argmin(distance_to_head))]
+
+    order = []
+    visited: set[int] = set()
+    for _ in range(sd_w.num_cells):
+        cell = next(c for c in cells_of_node[node] if c not in visited)
+        order.append(cell)
+        visited.add(cell)
+        node = int(nodes_of_cell[cell][nodes_of_cell[cell] != node][0])
+    return np.array(order, dtype=int)
+
+
+def well_cell_path_offsets(
+    sd_w: pp.Grid, well_head: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Locate each well cell along the well.
+
+    Path length, measured from the head of the well, is the natural coordinate for a
+    well completion: it increases monotonically along the well whatever its
+    orientation, which the elevation does not for a horizontal or undulating
+    trajectory.
+
+    Parameters:
+        sd_w: The well grid.
+        well_head: ``shape=(3,)``
+
+            A point identifying the end of the well from which path length is measured.
+
+    Returns:
+        A tuple consisting of
+
+        :obj:`~numpy.ndarray`: ``shape=(sd_w.num_cells,)``
+
+            Path length from the head of the well to the near end of each cell.
+
+        :obj:`~numpy.ndarray`: ``shape=(3, sd_w.num_cells)``
+
+            The end of each cell nearer the head of the well.
+
+    """
+    order = _ordered_well_cells(sd_w, well_head)
+    start, end = _well_segments(sd_w)
+
+    offsets = np.empty(sd_w.num_cells)
+    near_end = np.empty((3, sd_w.num_cells))
+    travelled = 0.0
+    previous_node = None
+    for cell in order:
+        # The stored orientation of a cell is arbitrary, so the near end is whichever
+        # of its two ends continues the path.
+        if previous_node is None:
+            entering_at_start = np.linalg.norm(
+                start[:, cell] - well_head
+            ) <= np.linalg.norm(end[:, cell] - well_head)
+        else:
+            entering_at_start = np.allclose(start[:, cell], previous_node)
+
+        near_end[:, cell] = start[:, cell] if entering_at_start else end[:, cell]
+        offsets[cell] = travelled
+        travelled += sd_w.cell_volumes[cell]
+        previous_node = end[:, cell] if entering_at_start else start[:, cell]
+
+    return offsets, near_end
+
+
+def well_contact_path_spans(
+    mdg: pp.MixedDimensionalGrid, interface: pp.MortarGrid, well_head: np.ndarray
+) -> np.ndarray:
+    """Locate each well-matrix contact along the well.
+
+    Parameters:
+        mdg: The mixed-dimensional grid the interface belongs to.
+        interface: A mortar grid built by
+            :func:`compute_well_rock_matrix_intersections`.
+        well_head: ``shape=(3,)``
+
+            A point identifying the end of the well from which path length is measured.
+
+    Returns:
+        ``shape=(2, interface.num_cells)``
+
+        Path length of the two ends of each contact, the nearer end first.
+
+    """
+    _, sd_w = mdg.interface_to_subdomain_pair(interface)
+    offsets, near_end = well_cell_path_offsets(sd_w, well_head)
+
+    # Each mortar cell lies in a single well cell, so the intensive projection has
+    # exactly one entry per row.
+    well_cells = interface._secondary_to_mortar_avg.tocsr().indices
+
+    spans = np.empty((2, interface.num_cells))
+    for side_grid in interface.side_grids.values():
+        cell_nodes = side_grid.cell_nodes().tocsc()
+        endpoints = side_grid.nodes[:, cell_nodes.indices].reshape(3, -1, 2)
+        for index, well_cell in enumerate(well_cells):
+            reference = near_end[:, well_cell, None]
+            along = offsets[well_cell] + np.linalg.norm(
+                endpoints[:, index, :] - reference, axis=0
+            )
+            spans[:, index] = np.sort(along)
+    return spans

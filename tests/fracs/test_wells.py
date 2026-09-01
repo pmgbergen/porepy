@@ -44,6 +44,8 @@ from porepy.fracs.wells_3d import (
     _validate_convex_cell,
     _well_connections,
     check_well_radius_resolution,
+    well_cell_path_offsets,
+    well_contact_path_spans,
     well_equivalent_radii,
 )
 
@@ -1056,3 +1058,132 @@ class TestWellRadiusResolution:
         assert 0.2 * matrix.cell_volumes[0] ** (1 / 3) > 0.05
         with pytest.raises(ValueError, match="too fine for the Peaceman well index"):
             check_well_radius_resolution(radii, self._spans(radii.size), 0.05, 0)
+
+    @pytest.mark.parametrize(
+        "polygon, is_isotropic",
+        [
+            ([[0, 0], [2, 0], [2, 2], [0, 2]], True),
+            ([[0, 0], [1, 0], [0.5, np.sqrt(3) / 2]], True),
+            ([[0, 0], [3, 0], [3, 1], [0, 1]], False),
+            ([[0, 0], [3, 0], [0, 1]], False),
+        ],
+        ids=["square", "equilateral", "rectangle", "right_triangle"],
+    )
+    def test_symmetric_shapes_give_equal_extents(self, polygon, is_isotropic) -> None:
+        """Equal extents are the correct answer for a shape without a preferred axis.
+
+        A polygon with three-fold or higher symmetry has isotropic second moments and
+        must be summarised by a square of the same area. Squares and equilateral
+        triangles are common sections, so this behaviour is asserted rather than left
+        to look like a degeneracy. A failure on the asymmetric cases would mean the
+        anisotropy has been lost, and with it the dependence on well direction.
+        """
+        longer, shorter = _polygon_principal_extents(np.array(polygon, dtype=float))
+        assert (longer == pytest.approx(shorter, rel=1e-12)) is is_isotropic
+        assert longer >= shorter
+
+
+class TestWellPathLength:
+    """Path length along a well, the coordinate a completion is specified in."""
+
+    @pytest.mark.parametrize(
+        "trajectory", list(WELL_TRAJECTORIES), ids=list(WELL_TRAJECTORIES)
+    )
+    def test_offsets_accumulate_the_cell_lengths(self, trajectory) -> None:
+        """The offsets must be the cumulative length of the cells before each cell.
+
+        A failure means the cells are being ordered wrongly along the well, which would
+        put a completion interval at the wrong place on a well whose cells are not
+        stored in path order.
+        """
+        points = WELL_TRAJECTORIES[trajectory]
+        well = _well_mdg(pp.CartGrid([2, 2, 2], [1, 1, 1]), points).subdomains(dim=1)[0]
+
+        offsets, near_end = well_cell_path_offsets(well, points[:, 0])
+        order = np.argsort(offsets)
+        np.testing.assert_allclose(
+            offsets[order],
+            np.concatenate([[0.0], np.cumsum(well.cell_volumes[order])[:-1]]),
+            atol=1e-12,
+        )
+        # The near end of the first cell is the head of the well itself.
+        np.testing.assert_allclose(near_end[:, order[0]], points[:, 0], atol=1e-12)
+        assert offsets.max() + well.cell_volumes[order[-1]] == pytest.approx(
+            well.cell_volumes.sum(), abs=1e-12
+        )
+
+    def test_measuring_from_the_other_end_reverses_the_well(self) -> None:
+        """Path length is measured from whichever end is nearer the given point.
+
+        A failure means the head of the well is not being identified, so a completion
+        given from the well head would be applied from the toe instead.
+        """
+        points = WELL_TRAJECTORIES["slanted"]
+        well = _well_mdg(pp.CartGrid([2, 2, 2], [1, 1, 1]), points).subdomains(dim=1)[0]
+
+        from_head, _ = well_cell_path_offsets(well, points[:, 0])
+        from_toe, _ = well_cell_path_offsets(well, points[:, -1])
+        total = well.cell_volumes.sum()
+        np.testing.assert_allclose(
+            from_head, total - from_toe - well.cell_volumes, atol=1e-12
+        )
+
+    def test_contact_spans_tile_the_well(self) -> None:
+        """The contacts of a well must tile its path length without gap or overlap.
+
+        Every point of a well inside the domain lies in exactly one rock matrix cell,
+        so the spans, sorted, must run from zero to the length of the well. A failure
+        indicates that the spans are computed against the wrong well cell, or measured
+        from the wrong end of it.
+        """
+        points = WELL_TRAJECTORIES["slanted"]
+        matrix = pp.CartGrid([3, 3, 3], [1, 1, 1])
+        matrix.compute_geometry()
+        mdg = _well_mdg(matrix, points)
+        pp.fracs.wells_3d.compute_well_rock_matrix_intersections(mdg)
+        intf = list(mdg.interfaces())[0]
+
+        spans = well_contact_path_spans(mdg, intf, points[:, 0])
+        assert np.all(spans[1] > spans[0])
+        # The spans are the contact lengths, and they cover the well exactly once.
+        np.testing.assert_allclose(spans[1] - spans[0], intf.cell_volumes, atol=1e-10)
+        ordered = spans[:, np.argsort(spans[0])]
+        np.testing.assert_allclose(ordered[0, 1:], ordered[1, :-1], atol=1e-10)
+        assert ordered[0, 0] == pytest.approx(0.0, abs=1e-10)
+        assert ordered[1, -1] == pytest.approx(
+            mdg.subdomains(dim=1)[0].cell_volumes.sum(), abs=1e-10
+        )
+
+    def test_shuffled_cells_are_reordered(self) -> None:
+        """Cells stored out of path order must still be located correctly.
+
+        Well grids from gmsh do not store their cells in the order they appear along
+        the well, so the order is recovered from the connectivity. For a straight well
+        the path length to a cell is its Euclidean distance from the head, which pins
+        the result without relying on the storage order at all.
+        """
+        # A straight well with several cells, so that the relabelling below is not a
+        # no-op and the ordering is genuinely exercised.
+        depths = np.linspace(0.05, 0.95, 6)
+        points = np.vstack([np.full(6, 0.3), np.full(6, 0.3), depths])
+        well = _well_mdg(pp.CartGrid([2, 2, 2], [1, 1, 1]), points).subdomains(dim=1)[0]
+        assert well.num_cells == 5
+
+        # Relabel the cells, which leaves the geometry untouched.
+        permutation = np.array([3, 0, 4, 2, 1])
+        assert not np.array_equal(permutation, np.arange(well.num_cells))
+        shuffled = pp.Grid(
+            1,
+            well.nodes.copy(),
+            well.face_nodes.copy(),
+            well.cell_faces[:, permutation].copy(),
+            "shuffled well",
+        )
+        shuffled.compute_geometry()
+
+        offsets, near_end = well_cell_path_offsets(shuffled, points[:, 0])
+        np.testing.assert_allclose(
+            offsets,
+            np.linalg.norm(near_end - points[:, 0, None], axis=0),
+            atol=1e-12,
+        )
