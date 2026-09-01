@@ -1071,16 +1071,20 @@ def _ordered_well_cells(sd_w: pp.Grid, well_head: np.ndarray) -> np.ndarray:
 
     The cells of a well grid are not stored in the order they appear along the well, so
     the order has to be recovered from the connectivity before path length can be
-    accumulated. A well is a simple path, with exactly two nodes belonging to a single
-    cell.
+    accumulated.
+
+    A well grid is generally not a single path. Meshing splits a well at every point
+    where it meets a fracture, leaving one segment per stretch between intersections,
+    all in the same grid. The segments are therefore walked in turn, each entered at
+    whichever of its free ends lies closest to where the previous one ended.
 
     Parameters:
         sd_w: The well grid.
         well_head: ``shape=(3,)``
 
             A point identifying the end of the well from which path length is measured,
-            normally the first vertex of the well trajectory. The nearer of the two ends
-            of the grid is used, so the point need not lie on the well.
+            normally the first vertex of the well trajectory. The free end nearest it
+            is used, so the point need not lie on the well.
 
     Returns:
         ``shape=(sd_w.num_cells,)``
@@ -1099,26 +1103,36 @@ def _ordered_well_cells(sd_w: pp.Grid, well_head: np.ndarray) -> np.ndarray:
         for node in nodes:
             cells_of_node.setdefault(int(node), []).append(cell)
 
-    ends = [node for node, cells in cells_of_node.items() if len(cells) == 1]
-    if len(ends) != 2:
+    free_ends = [node for node, cells in cells_of_node.items() if len(cells) == 1]
+    if len(free_ends) % 2 != 0:
         raise ValueError(
-            f"The well grid of well {getattr(sd_w, 'well_num', '?')} is not a simple "
-            f"path: it has {len(ends)} free ends rather than two. Path length along "
-            "the well, and therefore the well completion, is not defined for it."
+            f"The well grid of well {getattr(sd_w, 'well_num', '?')} has "
+            f"{len(free_ends)} free ends. A well is a union of open segments and must "
+            "have an even number, so path length along it is not defined."
         )
 
-    distance_to_head = [
-        np.linalg.norm(sd_w.nodes[:, node] - well_head) for node in ends
-    ]
-    node = ends[int(np.argmin(distance_to_head))]
-
-    order = []
+    order: list[int] = []
     visited: set[int] = set()
-    for _ in range(sd_w.num_cells):
-        cell = next(c for c in cells_of_node[node] if c not in visited)
-        order.append(cell)
-        visited.add(cell)
-        node = int(nodes_of_cell[cell][nodes_of_cell[cell] != node][0])
+    unentered = set(free_ends)
+    position = np.asarray(well_head, dtype=float)
+
+    while unentered:
+        # Enter the next segment at the free end nearest where the previous one ended.
+        node = min(
+            unentered, key=lambda end: np.linalg.norm(sd_w.nodes[:, end] - position)
+        )
+        unentered.discard(node)
+        while True:
+            candidates = [c for c in cells_of_node[node] if c not in visited]
+            if not candidates:
+                break
+            cell = candidates[0]
+            order.append(cell)
+            visited.add(cell)
+            node = int(nodes_of_cell[cell][nodes_of_cell[cell] != node][0])
+        unentered.discard(node)
+        position = sd_w.nodes[:, node]
+
     return np.array(order, dtype=int)
 
 
@@ -1156,21 +1170,22 @@ def well_cell_path_offsets(
     offsets = np.empty(sd_w.num_cells)
     near_end = np.empty((3, sd_w.num_cells))
     travelled = 0.0
-    previous_node = None
+    position = np.asarray(well_head, dtype=float)
     for cell in order:
         # The stored orientation of a cell is arbitrary, so the near end is whichever
-        # of its two ends continues the path.
-        if previous_node is None:
-            entering_at_start = np.linalg.norm(
-                start[:, cell] - well_head
-            ) <= np.linalg.norm(end[:, cell] - well_head)
-        else:
-            entering_at_start = np.allclose(start[:, cell], previous_node)
+        # of its two ends lies closer to where the previous cell left off.
+        to_start = np.linalg.norm(start[:, cell] - position)
+        to_end = np.linalg.norm(end[:, cell] - position)
+        entering_at_start = to_start <= to_end
 
         near_end[:, cell] = start[:, cell] if entering_at_start else end[:, cell]
+        # Consecutive cells meet, so this is zero within a segment and between two
+        # segments split apart at a fracture. It is the length of the unmeshed stretch
+        # where a well leaves the domain and returns to it.
+        travelled += float(min(to_start, to_end))
         offsets[cell] = travelled
         travelled += sd_w.cell_volumes[cell]
-        previous_node = end[:, cell] if entering_at_start else start[:, cell]
+        position = end[:, cell] if entering_at_start else start[:, cell]
 
     return offsets, near_end
 

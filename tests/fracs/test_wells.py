@@ -29,6 +29,7 @@ from typing import List
 
 import numpy as np
 import pytest
+import scipy.sparse as sps
 
 import porepy as pp
 from porepy.fracs.wells_3d import (
@@ -1084,6 +1085,45 @@ class TestWellRadiusResolution:
         assert longer >= shorter
 
 
+def _segmented_well(segments: list[np.ndarray]) -> pp.Grid:
+    """A one-dimensional well grid made of disjoint segments.
+
+    Meshing splits a well at every fracture it meets, so a well grid generally holds
+    several segments rather than one path. Each entry of ``segments`` gives the
+    elevations of the nodes of one segment, ordered along it.
+    """
+    elevations = np.concatenate(segments)
+    nodes = np.vstack(
+        [np.full(elevations.size, 0.5), np.full(elevations.size, 0.5), elevations]
+    )
+
+    cells: list[tuple[int, int]] = []
+    first = 0
+    for segment in segments:
+        cells += [(first + i, first + i + 1) for i in range(segment.size - 1)]
+        first += segment.size
+
+    num_faces = elevations.size
+    face_nodes = sps.csc_matrix(
+        (np.ones(num_faces, dtype=bool), (np.arange(num_faces), np.arange(num_faces))),
+        shape=(num_faces, num_faces),
+    )
+    cell_faces = sps.csc_matrix(
+        (
+            np.tile([-1.0, 1.0], len(cells)),
+            (
+                np.array([face for cell in cells for face in cell]),
+                np.repeat(np.arange(len(cells)), 2),
+            ),
+        ),
+        shape=(num_faces, len(cells)),
+    )
+    grid = pp.Grid(1, nodes, face_nodes, cell_faces, "segmented well")
+    grid.compute_geometry()
+    grid.well_num = 0
+    return grid
+
+
 class TestWellPathLength:
     """Path length along a well, the coordinate a completion is specified in."""
 
@@ -1187,6 +1227,51 @@ class TestWellPathLength:
             offsets,
             np.linalg.norm(near_end - points[:, 0, None], axis=0),
             atol=1e-12,
+        )
+
+    def test_a_well_split_by_a_fracture_stays_continuous(self) -> None:
+        """Meshing splits a well at a fracture, and path length must run across it.
+
+        The two segments meet at the intersection point, so the second must continue
+        the path length of the first. A failure would restart the measurement at each
+        fracture, placing every completion interval below the first intersection at the
+        wrong depth.
+        """
+        well = _segmented_well([np.array([0.2, 0.35, 0.5]), np.array([0.5, 0.75, 1.0])])
+        offsets, near_end = well_cell_path_offsets(well, np.array([0.5, 0.5, 0.2]))
+
+        order = np.argsort(offsets)
+        np.testing.assert_allclose(
+            offsets[order],
+            np.concatenate([[0.0], np.cumsum(well.cell_volumes[order])[:-1]]),
+            atol=1e-12,
+        )
+        # The well spans 0.2 to 1.0 and the split costs no length.
+        assert offsets.max() + well.cell_volumes[order[-1]] == pytest.approx(
+            0.8, abs=1e-12
+        )
+        np.testing.assert_allclose(offsets, near_end[2] - 0.2, atol=1e-12)
+
+    def test_an_unmeshed_stretch_counts_towards_path_length(self) -> None:
+        """A well leaving the domain and returning keeps its measured depth.
+
+        Unlike a fracture split, the gap here is a real length of well. Completion
+        intervals are given in measured depth along the physical well, so skipping the
+        gap would shift everything below it.
+        """
+        well = _segmented_well([np.array([0.2, 0.4]), np.array([0.7, 0.9])])
+        offsets, _ = well_cell_path_offsets(well, np.array([0.5, 0.5, 0.2]))
+        # 0.2 of well, then a gap of 0.3, then the second segment.
+        np.testing.assert_allclose(sorted(offsets), [0.0, 0.5], atol=1e-12)
+
+    def test_segments_are_ordered_from_the_head(self) -> None:
+        """Measuring from the far end must traverse the segments in reverse."""
+        well = _segmented_well([np.array([0.2, 0.35, 0.5]), np.array([0.5, 0.75, 1.0])])
+        from_head, _ = well_cell_path_offsets(well, np.array([0.5, 0.5, 0.2]))
+        from_toe, _ = well_cell_path_offsets(well, np.array([0.5, 0.5, 1.0]))
+        total = well.cell_volumes.sum()
+        np.testing.assert_allclose(
+            from_head, total - from_toe - well.cell_volumes, atol=1e-12
         )
 
 
