@@ -816,6 +816,15 @@ def _polygon_principal_extents(polygon: np.ndarray) -> tuple[float, float]:
     coincident corners, as arise when a well runs nearly parallel to a face of a
     tetrahedron, would count double.
 
+    Note:
+        The two lengths are equal whenever the second moments are isotropic, that is
+        for any polygon with three-fold or higher symmetry: a square, an equilateral
+        triangle, and hence the section of a regular tetrahedron cut along a symmetry
+        axis. Such a shape distinguishes no direction, so no direction-dependent pair of
+        lengths should be assigned to it, and both come out as the square root of the
+        area. These are common enough sections that the equal case is easily mistaken
+        for a degenerate one.
+
     Parameters:
         polygon: ``shape=(num_corners, 2)``
 

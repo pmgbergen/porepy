@@ -1029,3 +1029,26 @@ class TestWellRadiusResolution:
         assert 0.2 * matrix.cell_volumes[0] ** (1 / 3) > 0.05
         with pytest.raises(ValueError, match="too fine around the well"):
             check_well_radius_resolution(radii, 0.05)
+
+    @pytest.mark.parametrize(
+        "polygon, is_isotropic",
+        [
+            ([[0, 0], [2, 0], [2, 2], [0, 2]], True),
+            ([[0, 0], [1, 0], [0.5, np.sqrt(3) / 2]], True),
+            ([[0, 0], [3, 0], [3, 1], [0, 1]], False),
+            ([[0, 0], [3, 0], [0, 1]], False),
+        ],
+        ids=["square", "equilateral", "rectangle", "right_triangle"],
+    )
+    def test_symmetric_shapes_give_equal_extents(self, polygon, is_isotropic) -> None:
+        """Equal extents are the correct answer for a shape without a preferred axis.
+
+        A polygon with three-fold or higher symmetry has isotropic second moments and
+        must be summarised by a square of the same area. Squares and equilateral
+        triangles are common sections, so this behaviour is asserted rather than left
+        to look like a degeneracy. A failure on the asymmetric cases would mean the
+        anisotropy has been lost, and with it the dependence on well direction.
+        """
+        longer, shorter = _polygon_principal_extents(np.array(polygon, dtype=float))
+        assert (longer == pytest.approx(shorter, rel=1e-12)) is is_isotropic
+        assert longer >= shorter
