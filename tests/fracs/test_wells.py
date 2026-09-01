@@ -35,6 +35,7 @@ from porepy.fracs.wells_3d import (
     _connection_projections,
     _connection_side_grid,
     _distribute_shared_intervals,
+    _equivalent_radius,
     _perpendicular_section,
     _polygon_principal_extents,
     _segment_cell_interval,
@@ -816,3 +817,71 @@ class TestPolygonPrincipalExtents:
             _polygon_principal_extents(square),
             atol=1e-12,
         )
+
+
+class TestEquivalentRadius:
+    """The equivalent well radius of a cell traversed by a well."""
+
+    @pytest.mark.parametrize(
+        "sides", [(1, 1, 1), (2, 1, 1), (4, 1, 3), (0.3, 1.7, 1.0)]
+    )
+    @pytest.mark.parametrize("axis", [0, 1, 2])
+    def test_cartesian_cell_reproduces_peaceman(self, sides, axis) -> None:
+        """A well along an axis of a Cartesian cell must give Peaceman's radius.
+
+        This is the reference case the whole expression generalises, so it is asserted
+        to machine precision rather than to a tolerance. A failure means the
+        generalisation no longer contains the case it generalises.
+        """
+        perpendicular = [side for index, side in enumerate(sides) if index != axis]
+        expected = 0.14 * np.sqrt(perpendicular[0] ** 2 + perpendicular[1] ** 2)
+        radius = _equivalent_radius(_box_vertices(*sides), np.eye(3)[axis])
+        assert radius == pytest.approx(expected, abs=1e-12)
+
+    def test_radius_is_independent_of_the_frame(self) -> None:
+        """Rotating cell and well together must leave the radius unchanged."""
+        vertices = _box_vertices(4, 2, 3)
+        direction = np.array([0.3, -0.7, 1.0])
+        reference = _equivalent_radius(vertices, direction)
+        for seed in range(5):
+            rotation = _random_rotation(seed)
+            rotated = _equivalent_radius(rotation @ vertices, rotation @ direction)
+            assert rotated == pytest.approx(reference, abs=1e-12)
+
+    def test_radius_scales_with_the_cell(self) -> None:
+        """The radius is a length, so it scales linearly with the cell."""
+        vertices = _box_vertices(4, 2, 3)
+        direction = np.array([0.3, -0.7, 1.0])
+        reference = _equivalent_radius(vertices, direction)
+        assert _equivalent_radius(3.0 * vertices, direction) == pytest.approx(
+            3.0 * reference, abs=1e-12
+        )
+
+    def test_radius_depends_on_the_well_direction(self) -> None:
+        """A cell crossed broadside and one crossed lengthwise must differ.
+
+        This is the property the volume-based radius lacks, and the reason for
+        replacing it: a cell long in one direction has a much smaller cross-section
+        when the well runs along that direction than when it runs across it.
+        """
+        vertices = _box_vertices(0.05, 0.05, 10.0)
+        along = _equivalent_radius(vertices, np.array([0.0, 0.0, 1.0]))
+        across = _equivalent_radius(vertices, np.array([1.0, 0.0, 0.0]))
+        assert along < 0.1 * across
+
+    def test_prism_reduces_to_its_triangular_cross_section(self) -> None:
+        """For a vertical well through a prism, the section is the base triangle.
+
+        Prismatic extrusions of two-dimensional simplex grids are one of the target
+        grid types, and are the only unstructured case with an unambiguous expected
+        cross-section, so they pin down the projection where tetrahedra cannot.
+        """
+        triangle = np.array([[0.0, 1.3, 0.4], [0.0, 0.0, 0.9]])
+        vertices = np.vstack(
+            [np.tile(triangle, 2), np.repeat([0.0, 2.5], 3)],
+        )
+        extruded = _polygon_principal_extents(
+            _perpendicular_section(vertices, np.array([0.0, 0.0, 1.0]))
+        )
+        flat = _polygon_principal_extents(triangle.T[[0, 1, 2]])
+        np.testing.assert_allclose(extruded, flat, atol=1e-12)

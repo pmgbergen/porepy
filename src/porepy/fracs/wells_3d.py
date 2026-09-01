@@ -860,3 +860,43 @@ def _polygon_principal_extents(polygon: np.ndarray) -> tuple[float, float]:
     variances = np.linalg.eigvalsh(covariance)
     aspect_ratio = np.sqrt(variances[1] / variances[0])
     return float(np.sqrt(area * aspect_ratio)), float(np.sqrt(area / aspect_ratio))
+
+
+def _equivalent_radius(vertices: np.ndarray, direction: np.ndarray) -> float:
+    """Equivalent well radius of a cell traversed by a well.
+
+    The equivalent radius is the distance from the well at which the analytical radial
+    pressure equals the numerical cell average, and is what makes the Peaceman well
+    index consistent with the discretisation. Peaceman derived it for a well running
+    perpendicular to a rectangular block, where it is ``0.14`` times the diagonal of the
+    block. The cell is measured here in the plane perpendicular to the well, which
+    reproduces that expression on a Cartesian cell traversed along an axis and
+    generalises it to arbitrary cell shapes and well orientations.
+
+    The permeability is assumed isotropic. Anisotropy enters by weighting the two
+    extents against each other, and the principal directions are fixed here by geometry
+    alone, so introducing it does not require the permeability tensor to be
+    decomposed.
+
+    Note:
+        Peaceman's derivation places the well at the centre of the block. A well is not
+        conforming to the rock matrix mesh, so it generically passes through a cell off
+        centre, and the radius is correspondingly approximate.
+
+    Parameters:
+        vertices: ``shape=(3, num_vertices)``
+
+            Vertices of the cell.
+        direction: ``shape=(3,)``
+
+            Direction of the well through the cell. Need not be a unit vector, and its
+            sign is immaterial.
+
+    Returns:
+        The equivalent well radius of the cell.
+
+    """
+    longer, shorter = _polygon_principal_extents(
+        _perpendicular_section(vertices, direction)
+    )
+    return 0.14 * float(np.sqrt(longer**2 + shorter**2))
