@@ -60,8 +60,6 @@ Note that a `docs/` directory must never be committed to `develop` or `main`; CI
 documentation is built and hosted separately).
 
 Comments should focus on the actual code, not what was changed in a specific update. The exception is warnings against plausible future misunderstandings.
-latter is of little use to a reader 6 months from now, and should rather be documented
-in a git commit message.
 
 ## Testing
 
