@@ -280,9 +280,13 @@ def test_tested_vs_testable_methods_single_phase_flow(
             ),
             None,
         ),
+        # The model has no wells, so none of its interfaces is of codimension two and
+        # the radius is the placeholder that keeps the logarithm in the well index
+        # positive. The value on a real well interface is covered by
+        # test_equivalent_well_radius_of_a_well_fracture_contact.
         (
             "equivalent_well_radius",
-            np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 2.0]),
+            np.full(12, 10.0),
             None,
         ),
         ("fluid_compressibility", water_values["compressibility"], None),
@@ -1387,3 +1391,50 @@ def test_a_fracture_can_be_closed_for_one_well_only() -> None:
             fractions[offset : offset + intf.num_cells], expected
         )
         offset += intf.num_cells
+
+
+def test_equivalent_well_radius_of_a_well_fracture_contact() -> None:
+    """The radius of a well-fracture contact is set by the fracture cell it lies in.
+
+    The method now returns one value per mortar cell rather than one per subdomain
+    cell. A failure means the mortar cells and the fracture cells they lie in are being
+    paired up wrongly, which would attach each well contact to the wrong cell size.
+    """
+    model = _well_model({})
+    interfaces = list(model.mdg.interfaces(codim=2))
+    assert len(interfaces) > 0
+
+    radii = model.equation_system.evaluate(model.equivalent_well_radius(interfaces))
+    assert radii.size == sum(intf.num_cells for intf in interfaces)
+
+    for intf in interfaces:
+        sd_primary, _ = model.mdg.interface_to_subdomain_pair(intf)
+        expected = 0.2 * (
+            intf.primary_to_mortar_avg()
+            @ np.power(sd_primary.cell_volumes, 1 / sd_primary.dim)
+        )
+        np.testing.assert_allclose(radii[: intf.num_cells], expected, rtol=1e-12)
+
+
+def test_equivalent_well_radius_rejects_the_former_signature() -> None:
+    """An override written for subdomains must fail rather than be used on interfaces.
+
+    A mortar grid also has cell volumes, so such an override would run and return a
+    plausible but wrong radius. A failure here means that silent path has reopened.
+    """
+
+    class OldSignatureModel(WellModel):
+        def equivalent_well_radius(self, subdomains):
+            return pp.ad.Scalar(1.0)
+
+    model = OldSignatureModel(
+        {
+            "material_constants": {
+                "solid": pp.SolidConstants(permeability=1e-6 / 4, well_radius=0.01)
+            },
+            "fracture_indices": [2],
+            "times_to_export": [],
+        }
+    )
+    with pytest.raises(ValueError, match="takes a list of interfaces"):
+        model.prepare_simulation()

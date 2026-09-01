@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from functools import partial
 from typing import (
     TYPE_CHECKING,
@@ -1952,11 +1953,13 @@ class PeacemanWellFlux(pp.PorePyModel):
 
         """
 
+        self._check_equivalent_well_radius_signature()
+
         subdomains = self.interfaces_to_subdomains(interfaces)
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
         r_w = self.well_radius(subdomains)
         skin_factor = self.skin_factor(interfaces)
-        r_e = self.equivalent_well_radius(subdomains)
+        r_e = self.equivalent_well_radius(interfaces)
 
         f_log = Function(pp.ad.functions.log, "log_function_Piecmann")
 
@@ -1984,10 +1987,14 @@ class PeacemanWellFlux(pp.PorePyModel):
 
         isotropic_permeability = e_i @ self.permeability(subdomains)
 
+        # The well index is assembled on the mortar grid rather than on the rock matrix
+        # and projected afterwards. Each mortar cell is one contact between a well cell
+        # and a rock matrix cell, so the equivalent radius belongs to the contact rather
+        # than to the cell, and cannot be divided by before the projection.
         well_index = self.volume_integral(
             pp.ad.Scalar(2 * np.pi)
-            * projection.primary_to_mortar_avg()
-            @ (isotropic_permeability / (f_log(r_e / r_w) + skin_factor)),
+            * (projection.primary_to_mortar_avg() @ isotropic_permeability)
+            / (f_log(r_e / r_w) + skin_factor),
             interfaces,
             1,
         ) * self.well_open_fraction(interfaces)
@@ -2011,14 +2018,49 @@ class PeacemanWellFlux(pp.PorePyModel):
         eq.set_name("well_flux_equation")
         return eq
 
-    def equivalent_well_radius(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def _check_equivalent_well_radius_signature(self) -> None:
+        """Refuse an override of :meth:`equivalent_well_radius` written for subdomains.
+
+        The method used to take a list of subdomains and return one value per cell.
+        An override written against that signature still runs when handed interfaces,
+        because a mortar grid also has cell volumes, and would silently return a
+        plausible but wrong radius. Failing loudly is the only way such an override is
+        noticed.
+
+        Raises:
+            ValueError: If :meth:`equivalent_well_radius` is overridden with the former
+                signature.
+
+        """
+        parameters = list(inspect.signature(self.equivalent_well_radius).parameters)
+        if parameters[:1] == ["subdomains"]:
+            raise ValueError(
+                "equivalent_well_radius takes a list of interfaces and returns one "
+                "value per mortar cell, but is overridden with the former signature "
+                "taking a list of subdomains and returning one value per cell. The "
+                "equivalent radius depends on the direction of the well through a "
+                "cell, so a rock matrix cell crossed by two differently oriented well "
+                "cells has two of them, and it can no longer be a property of the "
+                "cell. Change the override to\n"
+                "    def equivalent_well_radius(\n"
+                "        self, interfaces: list[pp.MortarGrid]\n"
+                "    ) -> pp.ad.Operator\n"
+                "returning an array with one entry per mortar cell, ordered as the "
+                "cells of the interfaces passed in."
+            )
+
+    def equivalent_well_radius(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
         """Compute equivalent radius for Peaceman well model.
 
+        The equivalent radius is a property of the contact between a well cell and a
+        rock matrix cell, not of the rock matrix cell, since it depends on the direction
+        of the well through that cell. Each mortar cell is one such contact.
+
         Parameters:
-            subdomains: List of subdomains.
+            interfaces: List of interfaces where the well fluxes are defined.
 
         Returns:
-            Cell-wise equivalent radius operator [m].
+            Equivalent radius operator [m], one value per mortar cell.
 
         """
         # Implementational note: The computation of equivalent radius is highly
@@ -2030,19 +2072,18 @@ class PeacemanWellFlux(pp.PorePyModel):
         # Set high value (greater than expected actual well radii) to ensure that the
         # argument of the logarithmic term in the well index is greater than 1.
         unused_val = self.units.convert_units(10, "m")
-        if len(subdomains) == 0:
+        if len(interfaces) == 0:
             return Scalar(unused_val, name="equivalent_well_radius")
 
-        h_list = []
-        for sd in subdomains:
-            if sd.dim == 0:
-                # Avoid division by zero for points. The value is not used in calling
-                # method well_flux_equation, as all wells are 1d.
-                h_list.append(np.array([unused_val]))
-            else:
-                h_list.append(np.power(sd.cell_volumes, 1 / sd.dim))
-        r_e = Scalar(0.2) * pp.wrap_as_dense_ad_array(np.concatenate(h_list))
-        r_e.set_name("equivalent_well_radius")
+        r_e = pp.wrap_as_dense_ad_array(
+            np.concatenate(
+                [
+                    self._contact_equivalent_radii(intf, unused_val)
+                    for intf in interfaces
+                ]
+            ),
+            name="equivalent_well_radius",
+        )
         return r_e
 
     def well_open_fraction(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
@@ -2126,6 +2167,30 @@ class PeacemanWellFlux(pp.PorePyModel):
         return pp.fracs.wells_3d.open_fractions(
             spans, settings.get("open_intervals", [])
         )
+
+    def _contact_equivalent_radii(
+        self, interface: pp.MortarGrid, unused_val: float
+    ) -> np.ndarray:
+        """Equivalent well radius of each contact on a single interface.
+
+        Parameters:
+            interface: The interface to compute radii for.
+            unused_val: Value to return where the radius does not enter the well flux,
+                chosen large enough that the logarithm in the well index stays positive.
+
+        Returns:
+            ``shape=(interface.num_cells,)``
+
+            Equivalent radius of each mortar cell [m].
+
+        """
+        if interface.codim != 2:
+            # Not a well interface, so the value is never used in the well flux.
+            return np.full(interface.num_cells, unused_val)
+
+        sd_primary, _ = self.mdg.interface_to_subdomain_pair(interface)
+        cell_size = np.power(sd_primary.cell_volumes, 1 / sd_primary.dim)
+        return 0.2 * (interface.primary_to_mortar_avg() @ cell_size)
 
     def skin_factor(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
         """Compute skin factor for Peaceman well model.
