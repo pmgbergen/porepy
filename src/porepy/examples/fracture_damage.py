@@ -65,10 +65,9 @@ class TimeDependentDamageBCs:
 DATA_SAVING_METHOD_NAMES = [
     "damage_length",
     "damage_evolution_coefficient",
+    "damage_history",
     "dilation_damage_state",
-    "dilation_damage_history",
     "friction_damage_state",
-    "friction_damage_history",
 ]
 
 
@@ -93,14 +92,12 @@ class DamageDataSaving(pp.PorePyModel):
 
     damage_length: Callable[[list[pp.Grid], int], tuple[pp.ad.Operator, pp.ad.Operator]]
     """Damage length operator."""
+    damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
+    """Damage history."""
     dilation_damage_state: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Dilation damage operator."""
-    dilation_damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
-    """Dilation damage history."""
     friction_damage_state: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Friction damage operator."""
-    friction_damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
-    """Friction damage history."""
     solid: FractureDamageSolidConstants
 
     def initialize_data_saving(self) -> None:
@@ -177,41 +174,26 @@ class FractureDamageMomentumBalance(  # type: ignore[misc]
     """
 
 
-class DilationDamageMixin(
-    pp.constitutive_laws.DilationDamage,
-    damage.DilationDamageEquation,
-    damage.DilationDamageVariable,
+class FractureDamageHistoryMixin(
+    damage.FractureDamageEquation,
+    damage.FractureDamageVariable,
 ):
-    """Fracture damage model with dilation damage.
+    """The damage history variable and its convolution equation.
 
-    To be used as a mixin for the momentum balance model and isotropic or anisotropic
-    damage models when dilation damage is activated. Can be used on its own or together
-    with friction damage.
-    """
-
-    pass
-
-
-class FrictionDamageMixin(
-    pp.constitutive_laws.FrictionDamage,
-    damage.FrictionDamageEquation,
-    damage.FrictionDamageVariable,
-):
-    """Fracture damage model with friction damage.
-
-    To be used as a mixin for the momentum balance model and isotropic or anisotropic
-    damage models when friction damage is activated. Can be used on its own or together
-    with dilation damage.
+    Mixed in whenever any damage channel is active, since the history is common to
+    them. The channels themselves are added by the constitutive mixins in
+    :data:`damage_types`.
     """
 
     pass
 
 
 # Collect the damage types in a dictionary for easy access when building models with
-# different regimes.
+# different regimes. These supply the constitutive laws only; the history they read is
+# provided once by :class:`FractureDamageHistoryMixin`.
 damage_types = {
-    "dilation": DilationDamageMixin,
-    "friction": FrictionDamageMixin,
+    "dilation": pp.constitutive_laws.DilationDamage,
+    "friction": pp.constitutive_laws.FrictionDamage,
 }
 
 
@@ -309,19 +291,19 @@ class ExactSolution:
             Array of friction damage for the given time step.
 
         """
-        h = self.friction_damage_history(sd, n)
+        h = self.damage_history(sd, n)
         d0 = self.model.solid.residual_friction_damage
         return d0 + (1 - d0) * np.exp(-h / self._wear_energy_scale("friction"))
 
-    def friction_damage_history(self, sd: pp.Grid, n: int) -> np.ndarray:
-        """Return the friction damage history at time step n.
+    def damage_history(self, sd: pp.Grid, n: int) -> np.ndarray:
+        """Return the damage history at time step n.
 
         Parameters:
             sd: Subdomain where the boundary displacement is defined.
             n: Time step index.
 
         Returns:
-            Array of friction damage history for the given time step.
+            Array of damage history for the given time step.
 
         """
         return self.convolution(sd, n, self.damage_evolution_coefficient)
@@ -337,22 +319,9 @@ class ExactSolution:
             Array of dilation damage for the given time step.
 
         """
-        h = self.dilation_damage_history(sd, n)
+        h = self.damage_history(sd, n)
         d0 = self.model.solid.residual_dilation_damage
         return d0 + (1 - d0) * np.exp(-h / self._wear_energy_scale("dilation"))
-
-    def dilation_damage_history(self, sd: pp.Grid, n: int) -> np.ndarray:
-        """Return the dilation damage history at time step n.
-
-        Parameters:
-            sd: Subdomain where the boundary displacement is defined.
-            n: Time step index.
-
-        Returns:
-            Array of dilation damage history for the given time step.
-
-        """
-        return self.convolution(sd, n, self.damage_evolution_coefficient)
 
     def convolution(self, sd: pp.Grid, n: int, coefficient_function) -> np.ndarray:
         """Return the convolution of the displacement increment with the damage kernel.
@@ -575,6 +544,7 @@ def create_displacement_controlled_setup(
 
     for name in damages:
         model_class = add_mixin(damage_types[name], model_class)
+    model_class = add_mixin(FractureDamageHistoryMixin, model_class)
 
     geom = (
         SquareDomainOrthogonalFractures if dim == 2 else CubeDomainOrthogonalFractures

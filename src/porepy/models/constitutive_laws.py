@@ -4482,8 +4482,9 @@ class FrictionDamage(pp.PorePyModel):
     """Method returning the friction wear energy scale. Normally defined in a mixin
     instance of :class:`FractureDamageEvolutionCoefficients`."""
 
-    friction_damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
-    """Damage history variable provided by the DamageHistoryVariables mixin."""
+    damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
+    """Damage history variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.fracture_damage.FractureDamageVariable`."""
 
     def friction_damage_state(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Frictional damage [-].
@@ -4507,7 +4508,7 @@ class FrictionDamage(pp.PorePyModel):
             partial(pp.ad.functions.clip, min_val=0.0, max_val=np.inf),
             "clip_function",
         )
-        history = f_clip(self.friction_damage_history(subdomains))
+        history = f_clip(self.damage_history(subdomains))
 
         # Get the material parameters. Nondimensionalize the wear energy scale, since
         # the history variable is nondimensional.
@@ -4608,8 +4609,9 @@ class DilationDamage(pp.PorePyModel):
     """Method returning the dilation wear energy scale. Normally defined in a mixin
     instance of :class:`FractureDamageEvolutionCoefficients`."""
 
-    dilation_damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
-    """Damage history variable provided by the DamageHistoryVariables mixin."""
+    damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
+    """Damage history variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.fracture_damage.FractureDamageVariable`."""
 
     def dilation_damage_state(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Dilation damage state [-].
@@ -4633,7 +4635,7 @@ class DilationDamage(pp.PorePyModel):
             partial(pp.ad.functions.clip, min_val=0.0, max_val=np.inf),
             "clip_function",
         )
-        history = f_clip(self.dilation_damage_history(subdomains))
+        history = f_clip(self.damage_history(subdomains))
 
         # Get the material parameters. Nondimensionalize the wear energy scale, since
         # the history variable is nondimensional.

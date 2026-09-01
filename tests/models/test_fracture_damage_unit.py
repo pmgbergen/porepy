@@ -139,7 +139,7 @@ class TestDamageStateFormula:
         scale = _nondimensional_wear_energy_scale(model, damage)
         model.equation_system.set_variable_values(
             exponent * scale * np.ones(nc),
-            variables=[getattr(model, f"{damage}_damage_history")(fractures)],
+            variables=[model.damage_history(fractures)],
             iterate_index=0,
         )
 
@@ -170,7 +170,7 @@ class TestDamageStateFormula:
 
         model.equation_system.set_variable_values(
             np.zeros(nc),
-            variables=[getattr(model, f"{damage}_damage_history")(fractures)],
+            variables=[model.damage_history(fractures)],
             iterate_index=0,
         )
         d = getattr(model, f"{damage}_damage_state")(fractures).value(
@@ -353,12 +353,11 @@ class TestDamageEvolutionCoefficients:
         scale_f = _nondimensional_wear_energy_scale(model, "friction")
 
         for history in (0.2 * scale_d, scale_d, 2.0 * scale_d):
-            for damage in ("dilation", "friction"):
-                model.equation_system.set_variable_values(
-                    history * np.ones(nc),
-                    variables=[getattr(model, f"{damage}_damage_history")(fractures)],
-                    iterate_index=0,
-                )
+            model.equation_system.set_variable_values(
+                history * np.ones(nc),
+                variables=[model.damage_history(fractures)],
+                iterate_index=0,
+            )
             evaluate = model.equation_system.evaluate
             d_dil = evaluate(model.dilation_damage_state(fractures))
             d_fri = evaluate(model.friction_damage_state(fractures))
