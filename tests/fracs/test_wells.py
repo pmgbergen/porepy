@@ -36,11 +36,13 @@ from porepy.fracs.wells_3d import (
     _connection_side_grid,
     _distribute_shared_intervals,
     _equivalent_radius,
+    _mortar_cell_directions,
     _perpendicular_section,
     _polygon_principal_extents,
     _segment_cell_interval,
     _validate_convex_cell,
     _well_connections,
+    well_equivalent_radii,
 )
 
 
@@ -885,3 +887,92 @@ class TestEquivalentRadius:
         )
         flat = _polygon_principal_extents(triangle.T[[0, 1, 2]])
         np.testing.assert_allclose(extruded, flat, atol=1e-12)
+
+
+def _prism_grid(num_cells: int, height: float) -> pp.Grid:
+    """A grid of triangular prisms, from extruding a two-dimensional simplex grid."""
+    base = pp.StructuredTriangleGrid([num_cells, num_cells], [1, 1])
+    base.compute_geometry()
+    grid, _, _ = pp.grid_extrusion.extrude_grid(
+        base, np.linspace(0, height, num_cells + 1)
+    )
+    grid.compute_geometry()
+    return grid
+
+
+class TestWellEquivalentRadii:
+    """Equivalent radii read off a well-matrix interface."""
+
+    @pytest.mark.parametrize("grid_type", ["cartesian", "simplex", "prism"])
+    def test_radii_match_the_standalone_expression(self, grid_type) -> None:
+        """Every mortar cell must carry the radius of the cell it lies in.
+
+        A failure means the mortar cells and the rock matrix cells, or the mortar cells
+        and the contact directions, are being paired up in different orders.
+        """
+        if grid_type == "cartesian":
+            matrix = pp.CartGrid([3, 3, 3], [1, 1, 1])
+            matrix.compute_geometry()
+        elif grid_type == "simplex":
+            matrix = pp.StructuredTetrahedralGrid([3, 3, 3], [1, 1, 1])
+            matrix.compute_geometry()
+        else:
+            matrix = _prism_grid(3, 1.0)
+
+        mdg = _well_mdg(matrix, WELL_TRAJECTORIES["slanted"])
+        pp.fracs.wells_3d.compute_well_rock_matrix_intersections(mdg)
+        intf = list(mdg.interfaces())[0]
+
+        radii = well_equivalent_radii(mdg, intf)
+        assert radii.shape == (intf.num_cells,)
+        assert np.all(radii > 0)
+
+        cell_nodes = matrix.cell_nodes().tocsc()
+        matrix_cells = intf._primary_to_mortar_avg.tocsr().indices
+        directions = _mortar_cell_directions(intf)
+        for mortar_cell, cell in enumerate(matrix_cells):
+            loc = slice(cell_nodes.indptr[cell], cell_nodes.indptr[cell + 1])
+            expected = _equivalent_radius(
+                matrix.nodes[:, cell_nodes.indices[loc]], directions[:, mortar_cell]
+            )
+            assert radii[mortar_cell] == pytest.approx(expected, abs=1e-12)
+
+    def test_vertical_well_in_a_cartesian_grid_gives_peaceman(self) -> None:
+        """The one case with a closed form: every contact must reproduce it.
+
+        A vertical well through an axis-aligned Cartesian grid only ever crosses cells
+        along their third axis, so every mortar cell must carry the classical Peaceman
+        radius of the cell cross-section.
+        """
+        matrix = pp.CartGrid([4, 4, 4], [2.0, 1.0, 3.0])
+        matrix.compute_geometry()
+        points = np.array([[0.31, 0.31], [0.27, 0.27], [0.1, 2.9]])
+        mdg = _well_mdg(matrix, points)
+        pp.fracs.wells_3d.compute_well_rock_matrix_intersections(mdg)
+        intf = list(mdg.interfaces())[0]
+
+        expected = 0.14 * np.sqrt((2.0 / 4) ** 2 + (1.0 / 4) ** 2)
+        np.testing.assert_allclose(
+            well_equivalent_radii(mdg, intf), expected, atol=1e-12
+        )
+
+    def test_a_cell_crossed_twice_gets_two_radii(self) -> None:
+        """Two well cells crossing one rock matrix cell differently must differ.
+
+        This is the reason the radius belongs to the mortar grid rather than to the
+        rock matrix grid; a failure means it has collapsed back to one value per rock
+        matrix cell.
+        """
+        matrix = pp.CartGrid([1, 1, 1], [1.0, 4.0, 8.0])
+        matrix.compute_geometry()
+        # A kinked well, both legs of which stay inside the single cell.
+        points = np.array([[0.5, 0.5, 0.5], [0.5, 3.5, 3.5], [1.0, 1.0, 7.0]])
+        mdg = _well_mdg(matrix, points)
+        pp.fracs.wells_3d.compute_well_rock_matrix_intersections(mdg)
+        intf = list(mdg.interfaces())[0]
+
+        matrix_cells = intf._primary_to_mortar_avg.tocsr().indices
+        assert np.all(matrix_cells == 0)
+        radii = well_equivalent_radii(mdg, intf)
+        assert radii.size == 2
+        assert not np.isclose(radii[0], radii[1])

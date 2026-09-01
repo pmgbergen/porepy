@@ -900,3 +900,70 @@ def _equivalent_radius(vertices: np.ndarray, direction: np.ndarray) -> float:
         _perpendicular_section(vertices, direction)
     )
     return 0.14 * float(np.sqrt(longer**2 + shorter**2))
+
+
+def _mortar_cell_directions(interface: pp.MortarGrid) -> np.ndarray:
+    """Direction of the well along each cell of a well-matrix mortar grid.
+
+    Each mortar cell is one contact, and is a straight segment, so its direction is the
+    vector between the two nodes bounding it. The direction is recovered from the
+    geometry of the mortar grid rather than stored, so that it cannot fall out of step
+    with the grid it describes.
+
+    Parameters:
+        interface: A mortar grid built by
+            :func:`compute_well_rock_matrix_intersections`.
+
+    Returns:
+        ``shape=(3, interface.num_cells)``
+
+        Direction of each contact. Not normalised, and of arbitrary sign.
+
+    """
+    directions = []
+    for side_grid in interface.side_grids.values():
+        cell_nodes = side_grid.cell_nodes().tocsc()
+        # A cell of a one-dimensional grid is bounded by exactly two nodes.
+        endpoints = side_grid.nodes[:, cell_nodes.indices].reshape(3, -1, 2)
+        directions.append(endpoints[:, :, 1] - endpoints[:, :, 0])
+    return np.hstack(directions)
+
+
+def well_equivalent_radii(
+    mdg: pp.MixedDimensionalGrid, interface: pp.MortarGrid
+) -> np.ndarray:
+    """Equivalent well radius of each contact between a well and the rock matrix.
+
+    The radius depends on the direction of the well through the cell, so a rock matrix
+    cell crossed by two differently oriented well cells has two different radii. It is
+    therefore a quantity of the mortar grid, not of the rock matrix grid.
+
+    Parameters:
+        mdg: The mixed-dimensional grid the interface belongs to.
+        interface: A mortar grid built by
+            :func:`compute_well_rock_matrix_intersections`.
+
+    Returns:
+        ``shape=(interface.num_cells,)``
+
+        Equivalent well radius of each contact, ordered as the mortar cells.
+
+    """
+    sd_max, _ = mdg.interface_to_subdomain_pair(interface)
+    cell_nodes = sd_max.cell_nodes().tocsc()
+
+    def cell_vertices(cell: int) -> np.ndarray:
+        """Vertices of a cell of the rock matrix grid."""
+        loc = slice(cell_nodes.indptr[cell], cell_nodes.indptr[cell + 1])
+        return sd_max.nodes[:, cell_nodes.indices[loc]]
+
+    # Each mortar cell lies in a single rock matrix cell, so the intensive projection
+    # has exactly one entry per row.
+    matrix_cells = interface._primary_to_mortar_avg.tocsr().indices
+    directions = _mortar_cell_directions(interface)
+    return np.array(
+        [
+            _equivalent_radius(cell_vertices(cell), direction)
+            for cell, direction in zip(matrix_cells, directions.T)
+        ]
+    )
