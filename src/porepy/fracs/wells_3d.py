@@ -941,8 +941,12 @@ def _mortar_cell_directions(interface: pp.MortarGrid) -> np.ndarray:
     directions = []
     for side_grid in interface.side_grids.values():
         cell_nodes = side_grid.cell_nodes().tocsc()
-        # A cell of a one-dimensional grid is bounded by exactly two nodes.
+        # A cell of a one-dimensional grid is bounded by exactly two nodes, and in
+        # column order these come in pairs, one pair per cell. The coordinates
+        # therefore split into an array whose three axes are the coordinate, the cell,
+        # and which of the cell's two ends.
         endpoints = side_grid.nodes[:, cell_nodes.indices].reshape(3, -1, 2)
+        # Subtracting the two ends gives the direction of every contact at once.
         directions.append(endpoints[:, :, 1] - endpoints[:, :, 0])
     return np.hstack(directions)
 
