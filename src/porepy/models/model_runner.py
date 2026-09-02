@@ -188,26 +188,28 @@ class ModelRunner:
         """Responsible for the time stepping logic. Used only in time-dependent
         simulations."""
 
-        if self._is_time_dependent:
-            # Seed the model's time data from the resolved time stepper's scheduler
-            # before preparing the simulation. Without this, prepare_simulation (which
-            # e.g. sets up time-dependent boundary conditions) would run against the
-            # placeholder time data set in SolutionStrategy.__init__ (schedule [0, 1]),
-            # rather than the actual simulation schedule.
-            scheduler = self.time_stepper.scheduler
-            self.model.time_data = pp.time_stepper.SimulationTimeData(
-                time=scheduler.get_time(),
-                dt=scheduler.get_dt(),
-                time_index_successful=scheduler.get_time_index_successful(),
-                schedule=scheduler.get_schedule(),
-                constant_dt=isinstance(
-                    scheduler, pp.time_stepper.scheduler.TimeSchedulerConstantDt
-                ),
-                io=scheduler.io,
-            )
+        prepare_simulation = self.params.get("prepare_simulation", True)
 
-        if self.params.get("prepare_simulation", True):
+        if self._is_time_dependent and prepare_simulation:
+            # Use the scheduler's time data during simulation setup instead of the
+            # model's placeholder data. Access to the actual schedule is needed, e.g.,
+            # for setting up time-dependent boundary conditions.
+            scheduler = self.time_stepper.scheduler
+            self.model.time_data = scheduler.generate_time_data(trial=False)
+
+        if prepare_simulation:
             self.model.prepare_simulation()
+
+        if self._is_time_dependent:
+            # This is a temporary solution for restarting. Model.prepare_simulation
+            # calls reset_state_from_file, which updates model.time_data and sets
+            # is_restarting flag to True. Here, the restarted data is fetched by the
+            # scheduler. The long-term solution would be to move restarting logic out of
+            # the model.
+            scheduler = self.time_stepper.scheduler
+            if self.model.time_data.is_restarting:
+                scheduler.restore(self.model.time_data)
+            self.model.time_data = scheduler.generate_time_data()
 
         # Some models (e.g. contact mechanics) determine nonlinearity from the mixed-
         # dimensional grid, which is only available after prepare_simulation.
@@ -268,7 +270,7 @@ class ModelRunner:
 
             # NOTE: If tqdm is not installed, this returns a DummyProgressBar instance.
             self.time_progressbar = progressbar_class(
-                total=scheduler.get_time_end(),
+                total=scheduler.generate_time_data().schedule[-1],
                 desc="Time loop",
                 position=0,
                 dynamic_ncols=True,
@@ -341,7 +343,7 @@ class ModelRunner:
     def _progressbar_postfix(self) -> str:
         """Formats a progressbar postfix string with dt."""
         assert self.time_stepper is not None
-        return f"Δt={self.time_stepper.scheduler.get_dt():.1e}"
+        return f"Δt={self.time_stepper.scheduler.generate_time_data().dt:.1e}"
 
 
 def _extract_nonlinear_solver_from_params(

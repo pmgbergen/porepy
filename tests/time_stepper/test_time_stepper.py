@@ -16,7 +16,10 @@ from porepy.models.model_runner import ModelRunner, ModelRunnerStatusFailure
 from porepy.models.protocol import PorePyModel
 from porepy.numerics.ad.indexers import EquationOnDomain
 from porepy.numerics.ad.operators import Variable
-from porepy.time_stepper.scheduler import assemble_default_time_scheduler
+from porepy.time_stepper.scheduler import (
+    SimulationTimeData,
+    assemble_default_time_scheduler,
+)
 from porepy.time_stepper.time_step_control import TimeManager
 from porepy.time_stepper.time_stepper import TimeStepper
 from porepy.viz.solver_statistics import SolverStatisticsFactory
@@ -77,7 +80,9 @@ class MockModel(PorePyModel):
             self.nonlinear_solver_statistics.path = Path(statistics_path)
         """Used by the TimeStepper and the NewtonSolver."""
 
-        self.time_data = None
+        self.time_data = SimulationTimeData(
+            time=0, dt=1, time_index_successful=0, schedule=np.array([0, 1])
+        )
         """Used by the TimeStepper."""
 
     def before_time_step(self):

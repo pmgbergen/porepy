@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from bisect import bisect_right
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
 from pathlib import Path
 from typing import Optional, cast
@@ -126,42 +126,52 @@ class SimulationTimeData:
     dt: float
     time_index_successful: int
     schedule: np.ndarray
-    constant_dt: bool
+    constant_dt: bool = False
     """Needed for backward compatability. Should be removed if not needed anymore. Why
     should a physics provider care if dt is constant?
 
     """
-    io: TimeIO = TimeIO()
+    t_snap: float = 1e-10
+    """Absolute tolerance used when comparing against scheduled times."""
+    is_restarting: bool = False
+    """Whether the data was reconstructed from a saved checkpoint.
+
+    The flag is a temporary solution to support restarting, since the model is
+    responsible for restarting. If restarting is requested, the model calls methods
+    related to restarting (load_time_information, set_time_and_dt_from_exported_steps),
+    which set this flag to True. Then the ModelRunner checks for this flag and
+    acknowledges the time information loaded from disk. The long-term solution is to
+    move restarting out of the model to the exporter/importer, owned by ModelRunner.
+
+    """
+    io: TimeIO = field(default_factory=TimeIO)
     """TODO: I/O"""
 
     def is_at_initial_time(self) -> bool:
-        # TODO YZ: Should respect scheduler's t_snap.
-        return self.time == self.schedule[0]
+        return bool(abs(self.time - self.schedule[0]) <= self.t_snap)
 
     def final_time_reached(self) -> bool:
-        # TODO YZ: Should respect scheduler's t_snap.
-        return self.time == self.schedule[-1]
+        return bool(abs(self.time - self.schedule[-1]) <= self.t_snap)
 
     def write_time_information(self, path):
-        assert self.io is not None
         self.io.write_time_information(time=self.time, dt=self.dt, path=path)
 
     def load_time_information(self, path):
-        assert self.io is not None
         self.io.load_time_information(path)
 
     def set_time_and_dt_from_exported_steps(self, time_index):
-        assert self.io is not None
         self.time, self.dt = self.io.set_time_and_dt_from_exported_steps(time_index)
+        # Exported data does not preserve information about what time step index it was,
+        # so this is the best effort to restore it to something meaningful.
+        self.time_index_successful = len(self.io.exported_times)
+        self.is_restarting = True
 
     @property
     def exported_times(self):
-        assert self.io is not None
         return self.io.exported_times
 
     @property
     def exported_dt(self):
-        assert self.io is not None
         return self.io.exported_dt
 
 
@@ -308,28 +318,12 @@ class TimeSchedulerBase(ABC):
     """I/O bookkeeping for exported times, set by subclasses on construction."""
 
     @abstractmethod
-    def generate_trial_time_data(self) -> SimulationTimeData:
+    def generate_time_data(self, trial=False) -> SimulationTimeData:
         pass
 
     @abstractmethod
-    def get_schedule(self) -> np.ndarray:
-        pass
-
-    @abstractmethod
-    def get_time(self) -> float:
-        """At the beginning of this time step."""
-
-    @abstractmethod
-    def get_time_end(self) -> float:
-        pass
-
-    @abstractmethod
-    def get_dt(self) -> float:
-        pass
-
-    @abstractmethod
-    def get_time_index_successful(self) -> int:
-        pass
+    def restore(self, time_data: SimulationTimeData) -> None:
+        """Restore scheduler state deserialized from disk."""
 
     @abstractmethod
     def compute_next_time_step(self, success: bool, context: dict) -> float:
@@ -362,31 +356,41 @@ class TimeSchedulerConstantDt(TimeSchedulerBase):
         )
         self.io = TimeIO()
 
-    def generate_trial_time_data(self) -> SimulationTimeData:
+    def generate_time_data(self, trial=False) -> SimulationTimeData:
         return SimulationTimeData(
-            time=self.time + self.dt,
+            time=self.time + self.dt if trial else self.time,
             dt=self.dt,
-            # TODO YZ: Explain off by one.
-            time_index_successful=(self.time_index_successful + 1),
+            time_index_successful=self.time_index_successful + int(trial),
             schedule=self.schedule,
             constant_dt=True,
+            t_snap=self.atol,
             io=self.io,  # TODO: I/O
         )
 
-    def get_schedule(self) -> np.ndarray:
-        return self.schedule
+    def restore(self, time_data: SimulationTimeData) -> None:
+        _validate_restart_time_data(
+            time_data=time_data,
+            schedule=self.schedule,
+            atol=self.atol,
+        )
+        if not np.isclose(time_data.dt, self.dt):
+            raise ValueError(
+                "Cannot restore a constant time scheduler with a different time step "
+                f"({time_data.dt:.1e} != {self.dt:.1e})."
+            )
 
-    def get_time(self) -> float:
-        return self.time
+        time_from_start = time_data.time - self.schedule[0]
+        nearest_num_steps = np.rint(time_from_start / self.dt)
+        nearest_time = self.schedule[0] + nearest_num_steps * self.dt
+        if abs(time_data.time - nearest_time) > self.atol:
+            raise ValueError(
+                f"Restart time ({time_data.time:.1e}) is incompatible with the "
+                f"constant time step ({self.dt:.1e})."
+            )
 
-    def get_dt(self) -> float:
-        return self.dt
-
-    def get_time_end(self) -> float:
-        return self.schedule[-1]
-
-    def get_time_index_successful(self) -> int:
-        return self.time_index_successful
+        self.time = time_data.time
+        self.time_index_successful = time_data.time_index_successful
+        self.io = time_data.io
 
     def compute_next_time_step(self, success: bool, context: dict) -> float:
         if not success:
@@ -449,56 +453,63 @@ def _validate_schedule_common(schedule: np.ndarray, atol: float) -> None:
 
 class TimeScheduler(TimeSchedulerBase):
     def __init__(
-        self, intervals: list[TimeInterval], t_end: float, dt_snap: float = 1e-6
+        self, intervals: list[TimeInterval], t_end: float, t_snap: float = 1e-6
     ) -> None:
         if len(intervals) < 1:
             raise ValueError(
                 "At least one interval must be passed, starting at t_start."
             )
-        assert dt_snap > 0
-        self.dt_snap: float = dt_snap
+        assert t_snap > 0
+        self.t_snap: float = t_snap
         self.intervals = intervals
         _validate_schedule_non_constant_dt(
-            intervals=self.intervals, t_end=t_end, atol=self.dt_snap
+            intervals=self.intervals, t_end=t_end, atol=self.t_snap
         )
         self.time: float = intervals[0].t_start
         self.t_end: float = t_end
         self.dt: float = intervals[0].dt_start
         self.time_index_successful: int = 0
-        self.interval_dict = IntervalDict(intervals, atol=self.dt_snap)
+        self.interval_dict = IntervalDict(intervals, atol=self.t_snap)
 
         current_interval, next_interval = self.get_current_next_intervals()
         self._adjust_dt_min_max_schedule(self.dt, current_interval, next_interval)
 
         self.io = TimeIO()
 
-    def generate_trial_time_data(self) -> SimulationTimeData:
+    def generate_time_data(self, trial=False) -> SimulationTimeData:
         return SimulationTimeData(
-            time=self.time + self.dt,
+            time=self.time + self.dt if trial else self.time,
             dt=self.dt,
-            # TODO YZ: Explain off by one.
-            time_index_successful=(self.time_index_successful + 1),
-            schedule=self.get_schedule(),
+            time_index_successful=self.time_index_successful + int(trial),
+            schedule=np.array(
+                [interval.t_start for interval in self.intervals] + [self.t_end]
+            ),
             constant_dt=False,
+            t_snap=self.t_snap,
             io=self.io,  # TODO: I/O
         )
 
-    def get_schedule(self) -> np.ndarray:
-        return np.array(
-            [interval.t_start for interval in self.intervals] + [self.t_end]
+    def restore(self, time_data: SimulationTimeData) -> None:
+        _validate_restart_time_data(
+            time_data=time_data,
+            schedule=self.generate_time_data().schedule,
+            atol=self.t_snap,
         )
+        self.time = time_data.time
+        self.dt = time_data.dt
+        self.time_index_successful = time_data.time_index_successful
+        self.io = time_data.io
 
-    def get_time_index_successful(self) -> int:
-        return self.time_index_successful
-
-    def get_time(self) -> float:
-        return self.time
-
-    def get_dt(self) -> float:
-        return self.dt
-
-    def get_time_end(self) -> float:
-        return self.t_end
+        if not self.is_finished():
+            current_interval, next_interval = self.get_current_next_intervals()
+            # A shortened step may have been needed to reach this interval. As after a
+            # regular successful transition, restart with the new interval's policy.
+            dt = (
+                current_interval.dt_start
+                if self._is_hitting_interval_start(current_interval)
+                else self.dt
+            )
+            self._adjust_dt_min_max_schedule(dt, current_interval, next_interval)
 
     def compute_next_time_step(self, success: bool, context: dict) -> float:
         if success:
@@ -553,28 +564,47 @@ class TimeScheduler(TimeSchedulerBase):
 
         # Prevent overshooting the interval's end.
         if self.time + dt > next_checkpoint:
-            dt = max(next_checkpoint - self.time, self.dt_snap)
+            dt = max(next_checkpoint - self.time, self.t_snap)
 
         self.dt = dt
         return dt
 
     def is_finished(self) -> bool:
-        return self.time >= (self.t_end - self.dt_snap)
+        return self.time >= (self.t_end - self.t_snap)
 
     def get_current_next_intervals(self) -> tuple[TimeInterval, TimeInterval | None]:
         return self.interval_dict.get(time=self.time)
 
     def is_hitting_schedule(self) -> bool:
-        if (self.t_end - self.dt_snap) <= self.time <= (self.t_end + self.dt_snap):
+        if (self.t_end - self.t_snap) <= self.time <= (self.t_end + self.t_snap):
             return True
         current_interval, _ = self.interval_dict.get(time=self.time)
         return self._is_hitting_interval_start(current_interval)
 
     def _is_hitting_interval_start(self, interval: TimeInterval) -> bool:
         return (
-            (interval.t_start - self.dt_snap)
+            (interval.t_start - self.t_snap)
             <= self.time
-            <= (interval.t_start + self.dt_snap)
+            <= (interval.t_start + self.t_snap)
+        )
+
+
+def _validate_restart_time_data(
+    time_data: SimulationTimeData,
+    schedule: np.ndarray,
+    atol: float,
+) -> None:
+    """Validate the common invariants for restoring scheduler state."""
+    if not time_data.is_restarting:
+        raise ValueError("Expected restart time data.")
+    if time_data.dt <= 0:
+        raise ValueError("Restart time step must be positive.")
+    if time_data.time_index_successful < 0:
+        raise ValueError("Restart time index must be non-negative.")
+    if not (schedule[0] - atol <= time_data.time <= schedule[-1] + atol):
+        raise ValueError(
+            f"Restart time ({time_data.time:.1e}) is outside the scheduler interval "
+            f"[{schedule[0]:.1e}, {schedule[-1]:.1e}]."
         )
 
 
@@ -627,7 +657,7 @@ def assemble_default_time_scheduler(
                 for t_start in schedule[:-1]
             ],
             t_end=schedule[-1],
-            dt_snap=atol,
+            t_snap=atol,
         )
     else:
         dt_min = dt_max = dt_init

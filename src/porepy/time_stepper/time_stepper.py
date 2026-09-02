@@ -82,24 +82,24 @@ class TimeStepper:
                 or dt_min is reached, or something went unexpectedly wrong.
 
         """
-        previous_time = self.scheduler.get_time()
-        dt = self.scheduler.get_dt()
+        previous_time = model.time_data.time
         attempts_data: list[TimeStepperAttemptData] = []
 
         for attempt in range(self.max_attempts):
-            # Logging time step start.
-            log_message = (
-                f"Time step #{self.scheduler.get_time_index_successful()}: dt={dt:.2e},"
-                f" time={previous_time:.2e} of {self.scheduler.get_time_end():.2e}"
-            )
-            if attempt > 0:
-                log_message += f", retry={attempt + 1} / {self.max_attempts}"
-            logger.info(log_message)
-
             # Update time manager for new trial.
             previous_time_data = model.time_data
-            trial_time_data = self.scheduler.generate_trial_time_data()
+            trial_time_data = self.scheduler.generate_time_data(trial=True)
             model.time_data = trial_time_data
+
+            # Logging time step start.
+            log_message = (
+                f"Time step #{trial_time_data.time_index_successful}: dt="
+                f"{trial_time_data.dt:.2e}, time={previous_time:.2e} of "
+                f"{trial_time_data.schedule[-1]:.2e}"
+            )
+            if attempt > 0:
+                log_message += f",  attempt={attempt + 1} / {self.max_attempts}"
+            logger.info(log_message)
 
             # Attempt a standard time step.
             nonlinear_solver_status = self._perform_trial_time_step(model, solver)
@@ -112,14 +112,15 @@ class TimeStepper:
 
             attempts_data.append(
                 TimeStepperAttemptData(
-                    dt=dt, nonlinear_solve_status=nonlinear_solver_status
+                    dt=trial_time_data.dt,
+                    nonlinear_solve_status=nonlinear_solver_status,
                 )
             )
 
             success = nonlinear_solver_status.is_converged()
             try:
                 # New time step size based on trial results.
-                dt = self.scheduler.compute_next_time_step(
+                self.scheduler.compute_next_time_step(
                     success=success,
                     context={
                         "model": model,
@@ -207,14 +208,3 @@ class TimeStepper:
         else:
             raise ValueError(time_step_data)
         return time_step_data
-
-
-def _log_time_step(time_manager: pp.time_stepper.TimeManager) -> None:
-    """Log the current state of the time step."""
-    # TODO YZ: Where was it called?
-    logger.info(
-        f"Time step #{time_manager.time_index}: "
-        f"dt={time_manager.dt:.2e}, "
-        f"time={time_manager.time:.2e} of "
-        f"{time_manager.time_final:.2e}"
-    )
