@@ -3967,18 +3967,38 @@ class ShearDilation(pp.PorePyModel):
             Cell-wise shear dilation.
 
         """
-        angle: pp.ad.Operator = self.dilation_angle(subdomains)
         f_norm = Function(
             partial(pp.ad.functions.l2_norm, self.nd - 1), "norm_function"
         )
-        f_tan = Function(pp.ad.functions.tan, "tan_function")
-        shear_dilation: pp.ad.Operator = f_tan(angle) * f_norm(
+        shear_dilation: pp.ad.Operator = self.tangent_dilation_angle(
+            subdomains
+        ) * f_norm(
             self.tangential_component(subdomains)
             @ self.plastic_displacement_jump(subdomains)
         )
 
         shear_dilation.set_name("shear_dilation")
         return shear_dilation
+
+    def tangent_dilation_angle(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        r"""Tangent of the dilation angle [-].
+
+        The gap opened by shear is :math:`\tan\psi` times the tangential slip, so it is
+        the tangent, not the angle, that the constitutive law needs. Exposing it
+        separately lets a law that modifies the dilation override it directly, rather
+        than through an angle that is immediately taken the tangent of again.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Cell-wise tangent of the dilation angle [-].
+
+        """
+        f_tan = Function(pp.ad.functions.tan, "tan_function")
+        tangent = f_tan(self.dilation_angle(subdomains))
+        tangent.set_name("tangent_dilation_angle")
+        return tangent
 
     def dilation_angle(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Dilation angle [rad].
