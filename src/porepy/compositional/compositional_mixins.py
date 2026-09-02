@@ -3163,6 +3163,7 @@ class ReactionRatesKineticFromExperiment:
         return reactions
 
     def rate_constant(self, reaction: pp.Reaction):
+        #unit: 1/s
         return 2.8e-5
         # set a fake rate constant
 
