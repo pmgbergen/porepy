@@ -95,10 +95,12 @@ def test_time_data_seeded_from_time_stepper_before_prepare_simulation():
     TODO: Written based on discovery pattern. Consider less specific test.
     """
     observed_schedule_sizes = []
+    observed_times = []
 
     class RecordingModel(pp.SinglePhaseFlow):
         def update_all_boundary_conditions(self) -> None:
             observed_schedule_sizes.append(self.time_data.schedule.size)
+            observed_times.append(self.time_data.time)
             super().update_all_boundary_conditions()
 
     schedule = [0, 1, 2, 3]
@@ -116,4 +118,5 @@ def test_time_data_seeded_from_time_stepper_before_prepare_simulation():
         "update_all_boundary_conditions should be invoked during prepare_simulation."
     )
     assert observed_schedule_sizes[0] == len(schedule)
+    assert observed_times[0] == schedule[0]
     assert np.array_equal(model.time_data.schedule, schedule)
