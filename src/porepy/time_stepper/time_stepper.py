@@ -7,21 +7,20 @@ perform_time_step() orchestrates the workflow and is called from the model runne
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
+from typing import Self
 
 import porepy as pp
 from porepy.numerics import solvers
 from porepy.time_stepper.scheduler import (
     CannotRecomputeTimeStep,
-    SimulationTimeData,
     TimeSchedulerBase,
 )
 from porepy.time_stepper.time_step_status import (
     TimeStepperAttemptData,
     TimeStepperStatus,
     TimeStepperStatusFailure,
-    TimeStepperStatusInProgress,
+    TimeStepperStatusContinueIterating,
     TimeStepperStatusSuccess,
 )
 
@@ -54,6 +53,23 @@ class TimeStepper:
 
     """
 
+    @classmethod
+    def with_time_manager(
+        cls, time_manager: pp.TimeManager, max_attempts: int = 10
+    ) -> Self:
+        scheduler: TimeSchedulerBase
+        if time_manager.advanced_schedule is not None:
+            scheduler = pp.time_stepper.TimeScheduler(
+                time_manager=time_manager,
+                schedule=time_manager.advanced_schedule,
+                t_snap=time_manager.atol,
+            )
+        else:
+            scheduler = pp.time_stepper.assemble_default_time_scheduler(
+                time_manager=time_manager
+            )
+        return cls(scheduler=scheduler, max_attempts=max_attempts)
+
     def __init__(self, scheduler: TimeSchedulerBase, max_attempts: int = 10) -> None:
         """Initialize the time stepper."""
         self.scheduler = scheduler
@@ -82,45 +98,61 @@ class TimeStepper:
                 or dt_min is reached, or something went unexpectedly wrong.
 
         """
-        previous_time = model.time_data.time
+        time_manager = model.time_manager
+        previous_time = time_manager.time
         attempts_data: list[TimeStepperAttemptData] = []
 
         for attempt in range(self.max_attempts):
             # Update time manager for new trial.
-            previous_time_data = model.time_data
-            trial_time_data = self.scheduler.generate_time_data(trial=True)
-            model.time_data = trial_time_data
+            time_manager.time += time_manager.dt
+            time_manager.time_index += 1
 
             # Logging time step start.
             log_message = (
-                f"Time step #{trial_time_data.time_index_successful}: dt="
-                f"{trial_time_data.dt:.2e}, time={previous_time:.2e} of "
-                f"{trial_time_data.schedule[-1]:.2e}"
+                f"Time step #{time_manager.time_index}: dt={time_manager.dt:.2e}, time="
+                f"{previous_time:.2e} of {time_manager.schedule[-1]:.2e}"
             )
             if attempt > 0:
-                log_message += f",  attempt={attempt + 1} / {self.max_attempts}"
+                log_message += f", attempt={attempt + 1} / {self.max_attempts}"
             logger.info(log_message)
 
             # Attempt a standard time step.
             nonlinear_solver_status = self._perform_trial_time_step(model, solver)
-
-            if not nonlinear_solver_status.is_converged():
-                # Roll back if the time step attempt failed. This is needed in case if
-                # the simulation stops and the time_data is not reassigned above in the
-                # next loop iteration.
-                model.time_data = previous_time_data
+            success = nonlinear_solver_status.is_converged()
 
             attempts_data.append(
                 TimeStepperAttemptData(
-                    dt=trial_time_data.dt,
+                    dt=time_manager.dt,
                     nonlinear_solve_status=nonlinear_solver_status,
                 )
             )
 
-            success = nonlinear_solver_status.is_converged()
+            # It is important that we update statistics before calling
+            # after_time_step_failure, because the latter writes it. It is also
+            # important that we log it before rolling back dt for unsuccessful attempts,
+            # because the expected format is to report time step failure at the "end" of
+            # the unsuccessful time step interval.
+            # If for some reason model.nonlinear_solver_statistics is not a
+            # time-dependent statistics, do nothing (should never happen).
+            if isinstance(model.nonlinear_solver_statistics, pp.TimeStatistics):
+                model.nonlinear_solver_statistics.log_time_information(
+                    time_index=model.time_manager.time_index,
+                    time=model.time_manager.time,
+                    dt=model.time_manager.dt,
+                    final_time_reached=model.time_manager.final_time_reached(),
+                )
+
+            if not success:
+                # Roll back if the time step attempt failed. This is needed in case if
+                # the simulation stops and the time_data is not reassigned above in the
+                # next loop iteration.
+                time_manager.time = previous_time
+                time_manager.time_index -= 1
+
             try:
                 # New time step size based on trial results.
-                self.scheduler.compute_next_time_step(
+                time_manager.dt = self.scheduler.compute_next_time_step(
+                    time_manager=time_manager,
                     success=success,
                     context={
                         "model": model,
@@ -136,22 +168,21 @@ class TimeStepper:
                         time=previous_time,
                         attempts=attempts_data,
                     ),
-                    time_data=trial_time_data,
                 )
 
             if success:
                 return self._log_and_return_time_step_data(
                     model=model,
                     time_step_data=TimeStepperStatusSuccess(
-                        time=model.time_data.time, attempts=attempts_data
+                        time=time_manager.time, attempts=attempts_data
                     ),
-                    time_data=trial_time_data,
                 )
             else:
                 _ = self._log_and_return_time_step_data(
                     model=model,
-                    time_data=trial_time_data,
-                    time_step_data=TimeStepperStatusInProgress(attempts=attempts_data),
+                    time_step_data=TimeStepperStatusContinueIterating(
+                        attempts=attempts_data
+                    ),
                 )
 
         # TODO YZ: Test what if we reach max attempts.
@@ -162,7 +193,6 @@ class TimeStepper:
                 time=previous_time,
                 attempts=attempts_data,
             ),
-            time_data=trial_time_data,
         )
 
     def _perform_trial_time_step(
@@ -186,21 +216,11 @@ class TimeStepper:
         self,
         model: pp.PorePyModel,
         time_step_data: TimeStepperStatus,
-        time_data: SimulationTimeData,
     ) -> TimeStepperStatus:
-        # It is important that we update statistics before calling
-        # after_time_step_failure, because the latter writes it.
-        assert isinstance(model.nonlinear_solver_statistics, pp.TimeStatistics)
-        model.nonlinear_solver_statistics.log_time_information(
-            time_index=time_data.time_index_successful,
-            time=time_data.time,
-            dt=time_data.dt,
-            final_time_reached=time_data.final_time_reached(),
-        )
-        # Log time step status for statistics.
+        # Log time-step status for statistics.
         model.nonlinear_solver_statistics.log_simulation_status(time_step_data)
         if time_step_data.is_failure() or isinstance(
-            time_step_data, TimeStepperStatusInProgress
+            time_step_data, TimeStepperStatusContinueIterating
         ):
             model.after_time_step_failure()
         elif time_step_data.is_success():

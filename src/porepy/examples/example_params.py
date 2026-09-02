@@ -28,8 +28,6 @@ units = pp.Units()
 
 model_params = {
     "units": units,
-    # Deprecated. Use ModelRunner(time_stepper=TimeStepper(schedule=
-    # assemble_default_time_schedule(...))) instead.
     "time_manager": pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True),
     "reference_variable_values": pp.ReferenceVariableValues(**reference_values),  # type: ignore[arg-type]
     "material_constants": {

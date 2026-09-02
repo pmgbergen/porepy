@@ -20,7 +20,7 @@ __all__ = [
     "TimeStepperStatus",
     "TimeStepperStatusSuccess",
     "TimeStepperStatusFailure",
-    "TimeStepperStatusInProgress",
+    "TimeStepperStatusContinueIterating",
 ]
 
 
@@ -28,7 +28,7 @@ __all__ = [
 class TimeStepperStatus(ABC):
     """A status object used to indicate the TimeStepper state. This is an enum of three
     allowed states: success / failure / continue_iterating. Each state can have data
-    associated with it. `TimeStepperStatusSuccess`
+    associated with it. `TimeStepperStatusContinueIterating`, `TimeStepperStatusSuccess`
     and `TimeStepperStatusFailure` can be subclassed to (i) introduce specific cases of
     these states and (ii) associate additional data with them. The base class
     `TimeStepperStatus` should NOT be subclassed.
@@ -57,6 +57,20 @@ class TimeStepperStatus(ABC):
 
 
 @dataclass
+class TimeStepperStatusContinueIterating(TimeStepperStatus):
+    """The TimeStepper attempted to make a time step, failed, but continue trying.
+
+    Note: Read the module docstring for a related discussion.
+
+    """
+
+    attempts: list[TimeStepperAttemptData]
+
+    def serialize(self) -> str:
+        return "in_progress"
+
+
+@dataclass
 class TimeStepperAttemptData:
     dt: float
     nonlinear_solve_status: solvers.NonlinearSolverStatus
@@ -80,15 +94,6 @@ class TimeStepperStatusSuccess(TimeStepperStatus):
         if len(self.attempts) == 0:
             raise ValueError
         return self.attempts[-1].dt
-
-
-@dataclass
-class TimeStepperStatusInProgress(TimeStepperStatus):
-    # TODO YZ
-    attempts: list[TimeStepperAttemptData]
-
-    def serialize(self) -> str:
-        return "in_progress"
 
 
 @dataclass

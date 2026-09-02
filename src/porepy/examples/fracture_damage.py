@@ -55,9 +55,7 @@ class TimeDependentDamageBCs:
 
         # Wrap as array for convert_units. Thus, the passed values can be scalar or
         # list. Then tile for correct broadcasting below.
-        u_north = self.params["north_displacements"][
-            :, self.time_data.time_index_successful
-        ]
+        u_north = self.params["north_displacements"][:, self.time_manager.time_index]
         u_n = np.tile(u_north, (bg.num_cells, 1)).T
         north_sides = bg.cell_centers[1] > 0.5
         values[:, north_sides] = self.units.convert_units(u_n, "m")[:, north_sides]
@@ -127,7 +125,7 @@ class DamageDataSaving(pp.PorePyModel):
         # Retrieve information from setup.
         sds = self.mdg.subdomains(dim=self.nd - 1)
         sd = sds[0]
-        n: int = self.time_data.time_index_successful
+        n: int = self.time_manager.time_index
         names = DATA_SAVING_METHOD_NAMES
         vals = {}
         for name in names:

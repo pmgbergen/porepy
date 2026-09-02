@@ -16,10 +16,6 @@ from porepy.models.model_runner import ModelRunner, ModelRunnerStatusFailure
 from porepy.models.protocol import PorePyModel
 from porepy.numerics.ad.indexers import EquationOnDomain
 from porepy.numerics.ad.operators import Variable
-from porepy.time_stepper.scheduler import (
-    SimulationTimeData,
-    assemble_default_time_scheduler,
-)
 from porepy.time_stepper.time_step_control import TimeManager
 from porepy.time_stepper.time_stepper import TimeStepper
 from porepy.viz.solver_statistics import SolverStatisticsFactory
@@ -80,9 +76,7 @@ class MockModel(PorePyModel):
             self.nonlinear_solver_statistics.path = Path(statistics_path)
         """Used by the TimeStepper and the NewtonSolver."""
 
-        self.time_data = SimulationTimeData(
-            time=0, dt=1, time_index_successful=0, schedule=np.array([0, 1])
-        )
+        self.time_manager = pp.TimeManager(schedule=[0, 1], dt_init=1)
         """Used by the TimeStepper."""
 
     def before_time_step(self):
@@ -204,11 +198,7 @@ def test_model_delegate_methods_called(
         raise ValueError
 
     # Initialize the real TimeStepper and the MockModel.
-    time_stepper = TimeStepper(
-        scheduler=pp.time_stepper.assemble_default_time_scheduler(
-            schedule=[0, 1], dt_init=1, constant_dt=False, dt_min=0.1, dt_max=2
-        )
-    )
+    time_stepper = TimeStepper.with_time_manager(model.time_manager)
 
     # Do the time step.
     time_stepper.perform_time_step(model=model, solver=solver)
@@ -278,11 +268,11 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
         # statistics.
         self.nonlinear_solver_statistics.increase_index()
         self.num_nonlinear_iters = 0
-        self.time_step_history.append(self.time_data.dt)
+        self.time_step_history.append(self.time_manager.dt)
 
-        assert self.equation_system.evaluate(self.ad_time_step) == self.time_data.dt, (
-            "The AD time step value conflicts with the value from the time_manager."
-        )
+        assert (
+            self.equation_system.evaluate(self.ad_time_step) == self.time_manager.dt
+        ), "The AD time step value conflicts with the value from the time_manager."
 
         # The initial guess for the unknown time step values should be equal to the
         # known time step values. See https://github.com/pmgbergen/porepy/issues/1205.
@@ -475,23 +465,25 @@ def test_model_time_step_control(params: dict):
     schedule_end = params.get("schedule_end", 1.35)
 
     should_fail = len(failure_reason) != 0
-
-    time_stepper = pp.time_stepper.TimeStepper(
-        max_attempts=4,
-        scheduler=pp.time_stepper.scheduler.assemble_default_time_scheduler(
-            schedule=[0, schedule_end],
-            dt_init=1,
-            constant_dt=constant_dt,
-            dt_min=0.1,
-            dt_max=5,
-            nonlinear_iter_relax_factors=(0.4, 2),
-            nonlinear_iter_optimal_range=(4, 7),
-            nonlinear_iter_retry_factor=0.3,
-        ),
+    time_manager = TimeManager(
+        schedule=(0, schedule_end),
+        dt_init=1,
+        constant_dt=constant_dt,
+        dt_min_max=(0.1, 5),
+        iter_relax_factors=(0.4, 2),
+        iter_optimal_range=(4, 7),
+        recomp_factor=0.3,
     )
 
     model = DynamicTimeStepTestCaseModel(
-        params={"times_to_export": []},  # Suspends export
+        params={
+            "time_manager": time_manager,
+            "times_to_export": [],  # Suspends export
+        },
+    )
+
+    time_stepper = pp.time_stepper.TimeStepper.with_time_manager(
+        model.time_manager, max_attempts=4
     )
 
     nonlinear_solver = DynamicNewtonSolver(
@@ -512,7 +504,7 @@ def test_model_time_step_control(params: dict):
         else:
             assert False
     assert np.allclose(model.time_step_history, exported_dt_expected)
-    assert time_stepper.scheduler.is_finished() != should_fail
+    assert model.time_manager.final_time_reached() != should_fail
     if should_fail:
         assert isinstance(status, ModelRunnerStatusFailure)
         assert failure_reason in status.reason
@@ -577,10 +569,8 @@ def test_solve_convergence_time_dependent_statistics(statistics_path: Path):
     # Minimal setup.
     model = MockModel(statistics_path=statistics_path)
     solver = default_newton_solver(iter_converge=2)
-    scheduler = assemble_default_time_scheduler(
-        schedule=[0, 1], dt_init=0.5, constant_dt=True
-    )
-    time_stepper = TimeStepper(scheduler=scheduler)
+    model.time_manager = TimeManager(schedule=[0, 1], dt_init=0.5, constant_dt=True)
+    time_stepper = TimeStepper.with_time_manager(model.time_manager)
 
     # Define the reference solver statistics, for two time steps.
     reference_data = {
@@ -676,10 +666,10 @@ def test_solve_failure_time_dependent_statistics(statistics_path: Path):
     """
     model = MockModel(statistics_path=statistics_path)
     solver = default_newton_solver(iter_converge=5)
-    scheduler = assemble_default_time_scheduler(
-        schedule=[0, 1], dt_init=1, constant_dt=False, dt_min=0.5, dt_max=1
+    model.time_manager = TimeManager(
+        schedule=[0, 1], dt_init=1, constant_dt=False, dt_min_max=(0.5, 1)
     )
-    time_stepper = TimeStepper(scheduler=scheduler)
+    time_stepper = TimeStepper.with_time_manager(model.time_manager)
 
     # It will attempt to make a time step twice here, with dt=1 and dt=0.5. Both will
     # fail after two unsuccessful nonlinear iterations.
@@ -692,7 +682,7 @@ def test_solve_failure_time_dependent_statistics(statistics_path: Path):
     status = time_stepper.perform_time_step(model=model, solver=solver)
     assert status.is_success()
 
-    # The 4th time step will converge after 1 iteration with dt=4.
+    # The 4th time-step attempt will converge after 1 iteration with dt=0.5.
     status = time_stepper.perform_time_step(model=model, solver=solver)
     assert status.is_success()
 
@@ -705,7 +695,7 @@ def test_solve_failure_time_dependent_statistics(statistics_path: Path):
         "global": {
             "num_cells": {},
             "num_domains": {},
-            # Four time stemp attempts, 0th failed (the time stepper retried), 1st
+            # Four time-step attempts, 0th failed (the time stepper retried), 1st
             # failed (the time stepper gave up), 2nd and 3rd succeeded.
             "simulation_status_history": [
                 "in_progress",

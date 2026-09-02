@@ -155,7 +155,7 @@ class MandelDataSaving(pp.PorePyModel):
         # Retrieve information from setup
         mdg: pp.MixedDimensionalGrid = self.mdg
         sd: pp.Grid = mdg.subdomains()[0]
-        t: number = self.time_data.time
+        t: number = self.time_manager.time
 
         # Collect data
         exact_pressure = self.exact_sol.pressure(sd, t)
@@ -827,7 +827,7 @@ class MandelUtils(VerificationUtils):
         # Retrieve face displacement
         u_faces = self.face_displacement(sd)
 
-        if self.time_data.is_at_initial_time():  # soil is initially unconsolidated
+        if self.time_manager.is_at_initial_time():  # soil is initially unconsolidated
             consol_deg_x, consol_deg_y = 0, 0
         else:
             # Consolidation degree in the horizontal direction
@@ -847,7 +847,7 @@ class MandelUtils(VerificationUtils):
     # -----> Plotting methods
     def plot_results(self):
         """Plot results."""
-        num_lines = len(self.time_data.schedule) - 1
+        num_lines = len(self.time_manager.schedule) - 1
         cmap = mcolors.ListedColormap(plt.cm.tab20.colors[:num_lines])
 
         self._plot_pressure(color_map=cmap)
@@ -1167,7 +1167,7 @@ class MandelUtils(VerificationUtils):
         )
 
         # Numerical consolidation degrees
-        times = self.time_data.schedule[1:]
+        times = self.time_manager.schedule[1:]
         approx_consol_degree_x = np.array(
             [result.approx_consolidation_degree[0] for result in self.results]
         )
@@ -1312,7 +1312,7 @@ class MandelBoundaryConditionsMechanicsTimeDependent(pp.PorePyModel):
         face_centers = bg.cell_centers
         yf_north = face_centers[1, domain_sides.north]
 
-        t = self.time_data.time  # scaled [s]
+        t = self.time_manager.time  # scaled [s]
         uy_north_bc = self.exact_sol.vertical_displacement_profile(yf_north, t)
         bc_vals[1::2][domain_sides.north] = uy_north_bc
 

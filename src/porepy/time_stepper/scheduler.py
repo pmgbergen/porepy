@@ -1,346 +1,55 @@
 from abc import ABC, abstractmethod
 from bisect import bisect_right
-from dataclasses import dataclass, field
-import json
-from pathlib import Path
-from typing import Optional, cast
+from logging import getLogger
+from typing import Optional
 
 import numpy as np
 
 import porepy as pp
+from porepy.time_stepper.time_step_constraint import (
+    TargetNonlinearIterations,
+    TimeStepConstraint,
+)
+from porepy.time_stepper.time_step_control import Schedule, TimeInterval
 
 __all__ = [
-    "TimeStepConstraint",
-    "TimeInterval",
-    "TimeScheduler",
-]
-
-"""
-- decrease: too many newton iteration
-- increase: too few newton iterations
-- decrease: newton failed
-- decrease: physics (CFL)
-
-- not increase (max)
-- abort simulation: can't decrease (min)
-
-- decrease: about to hit schedule
-- set new: after hit schedule
-
-"""
-
-from logging import getLogger
-
-__all__ = [
-    "TimeStepConstraint",
-    "TargetNonlinearIterations",
-    "TimeInterval",
     "CannotRecomputeTimeStep",
-    "CourantTimeStepConstraint",
     "TimeSchedulerBase",
     "TimeScheduler",
-    "SimulationTimeData",
+    "Schedule",
     "assemble_default_time_scheduler",
 ]
 
 logger = getLogger(__name__)
 
 
-# TODO: I/O (Methods below are copied from TimeManager and should be removed).
-class TimeIO:
-    def __init__(self):
-        self.exported_dt: list[float] = list()
-        self.exported_times: list[float] = list()
-
-    def write_time_information(self, time, dt, path: Path) -> None:
-        """Keep track of history of time and time step size and store as json file
-        storing lists the evolution of both as lists.
-
-        NOTE: The history only contains time and dt for all occasions when this routine
-        is called. This routine does neither guarantee completeness, nor duplicated.
-
-        Parameters:
-            path: Specified path for storing time and dt.
-
-        """
-
-        # Bookkeeping
-        self.exported_times.append(
-            int(time) if isinstance(time, np.integer) else float(time)
-        )
-        self.exported_dt.append(int(dt) if isinstance(dt, np.integer) else float(dt))
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "w") as out_file:
-            json.dump({"time": self.exported_times, "dt": self.exported_dt}, out_file)
-
-    def load_time_information(self, path: Path) -> None:
-        """Keep track of history of time and time step size and store.
-
-        Mirrors :meth:`write_time_information`.
-
-        Parameters:
-            path: Specified path for retrieving time and dt.
-
-        """
-        with path.open("r") as in_file:
-            data = json.load(in_file)
-            self.exported_times = data["time"]
-            self.exported_dt = data["dt"]
-
-    def set_time_and_dt_from_exported_steps(
-        self, time_index: int = -1
-    ) -> tuple[float, float]:
-        """Load time and dt (time step) and cut off all later times and time steps.
-
-        NOTE: This method by itself does NOT update the simulation state arrays.
-
-        NOTE: It is implicitly assumed that the first entry of the history corresponds
-        to the initial solution.
-
-        Parameters:
-            time_index: reference index addressing the currently stored history. By
-                default, the latest accessible time and dt is retrieved.
-
-        Raises:
-            ValueError
-
-        """
-        if not hasattr(self, "exported_times") or not hasattr(self, "exported_dt"):
-            raise ValueError(
-                """The time manager does not hold information on previously used time
-                and dt."""
-            )
-
-        time = self.exported_times[time_index]
-        dt = self.exported_dt[time_index]
-
-        self.exported_times = self.exported_times[:time_index]
-        self.exported_dt = self.exported_dt[:time_index]
-        return time, dt
-
-
-@dataclass
-class SimulationTimeData:
-    time: float
-    """At the end of the time step."""
-    dt: float
-    time_index_successful: int
-    schedule: np.ndarray
-    constant_dt: bool = False
-    """Needed for backward compatability. Should be removed if not needed anymore. Why
-    should a physics provider care if dt is constant?
-
-    """
-    t_snap: float = 1e-10
-    """Absolute tolerance used when comparing against scheduled times."""
-    is_restarting: bool = False
-    """Whether the data was reconstructed from a saved checkpoint.
-
-    The flag is a temporary solution to support restarting, since the model is
-    responsible for restarting. If restarting is requested, the model calls methods
-    related to restarting (load_time_information, set_time_and_dt_from_exported_steps),
-    which set this flag to True. Then the ModelRunner checks for this flag and
-    acknowledges the time information loaded from disk. The long-term solution is to
-    move restarting out of the model to the exporter/importer, owned by ModelRunner.
-
-    """
-    io: TimeIO = field(default_factory=TimeIO)
-    """TODO: I/O"""
-
-    def is_at_initial_time(self) -> bool:
-        return bool(abs(self.time - self.schedule[0]) <= self.t_snap)
-
-    def final_time_reached(self) -> bool:
-        return bool(abs(self.time - self.schedule[-1]) <= self.t_snap)
-
-    def write_time_information(self, path):
-        self.io.write_time_information(time=self.time, dt=self.dt, path=path)
-
-    def load_time_information(self, path):
-        self.io.load_time_information(path)
-
-    def set_time_and_dt_from_exported_steps(self, time_index):
-        self.time, self.dt = self.io.set_time_and_dt_from_exported_steps(time_index)
-        # Exported data does not preserve information about what time step index it was,
-        # so this is the best effort to restore it to something meaningful.
-        self.time_index_successful = len(self.io.exported_times)
-        self.is_restarting = True
-
-    @property
-    def exported_times(self):
-        return self.io.exported_times
-
-    @property
-    def exported_dt(self):
-        return self.io.exported_dt
-
-
-class TimeStepConstraint(ABC):
-    @abstractmethod
-    def suggest_dt(self, dt: float, context: dict) -> float:
-        pass
-
-
-class TargetNonlinearIterations(TimeStepConstraint):
-    def __init__(
-        self,
-        dt_min: float,
-        iter_min: int = 4,
-        iter_max: int = 7,
-        increase_factor: float = 1.3,
-        decrease_factor: float = 0.7,
-        retry_factor: float = 0.5,
-        t_snap: float = 1e-6,
-    ) -> None:
-        if iter_min > iter_max:
-            raise ValueError(
-                f"Incorrect optimal iteration range: [{iter_min, {iter_max}}]."
-            )
-        self.dt_min: float = dt_min
-        self.iter_min = iter_min
-        self.iter_max = iter_max
-        if (
-            not (increase_factor >= 1)
-            or not (0 < decrease_factor <= 1)
-            or not (0 < retry_factor < 1)
-        ):
-            raise ValueError(
-                f"Incorrect adjustment factors: {increase_factor = }, "
-                f"{decrease_factor = }, {retry_factor = }."
-            )
-        self.increase_factor = increase_factor
-        self.decrease_factor = decrease_factor
-        self.retry_factor = retry_factor
-        self.t_snap: float = t_snap
-
-    def suggest_dt(self, dt: float, context: dict) -> float:
-        status: pp.solvers.NonlinearSolverStatus | None = context.get(
-            "nonlinear_solver_status", None
-        )
-        if status is None:
-            # TODO YZ: Should warn
-            assert False
-
-        if status.is_converged():
-            num_iter = status.number_of_iterations()
-            if num_iter < self.iter_min:
-                return dt * self.increase_factor
-            elif num_iter > self.iter_max:
-                # Decrease dt, but not below dt_min.
-                return max(dt * self.decrease_factor, self.dt_min)
-            else:
-                return dt
-        else:
-            if abs(dt - self.dt_min) < self.t_snap:
-                return dt * self.retry_factor
-            return max(dt * self.retry_factor, self.dt_min)
-
-
-class CourantTimeStepConstraint(TimeStepConstraint):
-    def __init__(self, target_cfl: float = 1.0, tol: float = 1e-10) -> None:
-        self.target_cfl = target_cfl
-        self.tol = tol
-
-    def suggest_dt(self, dt: float, context: dict) -> float:
-        model = cast(pp.PorePyModel | None, context.get("model", None))
-        if model is None:
-            # TODO YZ: Should warn
-            assert False
-        dt = float("inf")
-        for subdomain in model.mdg.subdomains():
-            v = np.max(model.equation_system.evaluate(model.darcy_flux([subdomain])))
-            if v < self.tol:
-                continue
-            x = subdomain.cell_diameters(cell_wise=False, func=np.max).min()
-            dt = min(dt, self.target_cfl * x / v)
-        return dt
-
-
-@dataclass
-class TimeInterval:
-    t_start: float
-    dt_start: float
-    constraints: list[TimeStepConstraint]
-    dt_min: float
-    dt_max: float
-    name: str
-
-    @classmethod
-    def create(
-        cls,
-        t_start: float,
-        dt_start: float,
-        constraints: Optional[list[TimeStepConstraint]] = None,
-        dt_min: Optional[float] = None,
-        dt_max: Optional[float] = None,
-        name: str = "",
-    ):
-        if constraints is None:
-            constraints = []
-        if dt_min is None:
-            dt_min = dt_start * 1e-3
-        if dt_max is None:
-            dt_max = dt_start * 1e3
-        return cls(
-            t_start=t_start,
-            dt_start=dt_start,
-            constraints=constraints,
-            dt_min=dt_min,
-            dt_max=dt_max,
-            name=name,
-        )
-
-
-class IntervalDict:
-    def __init__(self, intervals: list[TimeInterval], atol: float) -> None:
-        self.intervals = intervals
-        self._interval_starts = [interval.t_start - atol for interval in intervals]
-        assert self._interval_starts == sorted(self._interval_starts)
-
-    def get(self, time: float) -> tuple[TimeInterval, TimeInterval | None]:
-        # [start, end)
-        i = bisect_right(self._interval_starts, time) - 1
-        if i < 0:
-            raise ValueError
-        if i >= len(self.intervals):
-            raise ValueError
-        current_interval = self.intervals[i]
-        next_interval = self.intervals[i + 1] if i < (len(self.intervals) - 1) else None
-        return current_interval, next_interval
-
-
-class CannotRecomputeTimeStep(Exception):
-    pass
-
-
 class TimeSchedulerBase(ABC):
-    io: TimeIO
-    """I/O bookkeeping for exported times, set by subclasses on construction."""
+    """Interface for time schedulers."""
 
     @abstractmethod
-    def generate_time_data(self, trial=False) -> SimulationTimeData:
-        pass
+    def compute_next_time_step(
+        self, time_manager: pp.TimeManager, success: bool, context: dict
+    ) -> float:
+        """Given the current dt (in `time_manager`), decide what the next time step
+        should be.
 
-    @abstractmethod
-    def restore(self, time_data: SimulationTimeData) -> None:
-        """Restore scheduler state deserialized from disk."""
+        Parameters:
+            time_manager: Simulation's time data structure.
+            success: Whether the current time step was successful.
+            context: Data used by `TimeStepConstraint`s' to adjust the time step.
 
-    @abstractmethod
-    def compute_next_time_step(self, success: bool, context: dict) -> float:
-        pass
-
-    @abstractmethod
-    def is_hitting_schedule(self) -> bool:
-        pass
-
-    @abstractmethod
-    def is_finished(self) -> bool:
-        pass
+        """
 
 
 class TimeSchedulerConstantDt(TimeSchedulerBase):
+    """Constant time step scheduler."""
+
     def __init__(
-        self, schedule: np.ndarray | list[float | int], dt: float, atol: float = 1e-8
+        self,
+        time_manager: pp.TimeManager,
+        schedule: np.ndarray | list[float | int],
+        dt: float,
+        t_snap: float = 1e-8,
     ) -> None:
         self.schedule = np.array(schedule, dtype=float)
         if len(self.schedule) < 2:
@@ -348,65 +57,259 @@ class TimeSchedulerConstantDt(TimeSchedulerBase):
         self.dt = float(dt)
         if self.dt <= 0:
             raise ValueError("Time step must be positive.")
-        self.atol: float = atol
-        self.time = float(self.schedule[0])
-        self.time_index_successful: int = 0
+        if self.dt != time_manager.dt:
+            raise ValueError(
+                "Mismatch between requested time step and what the time_manager has."
+            )
+        self.t_snap: float = t_snap
+        """Snapping time. Time differences below it are treated as zero."""
         _validate_schedule_constant_dt(
-            schedule=self.schedule, dt=self.dt, atol=self.atol
-        )
-        self.io = TimeIO()
-
-    def generate_time_data(self, trial=False) -> SimulationTimeData:
-        return SimulationTimeData(
-            time=self.time + self.dt if trial else self.time,
-            dt=self.dt,
-            time_index_successful=self.time_index_successful + int(trial),
-            schedule=self.schedule,
-            constant_dt=True,
-            t_snap=self.atol,
-            io=self.io,  # TODO: I/O
+            schedule=self.schedule, dt=self.dt, atol=self.t_snap
         )
 
-    def restore(self, time_data: SimulationTimeData) -> None:
-        _validate_restart_time_data(
-            time_data=time_data,
-            schedule=self.schedule,
-            atol=self.atol,
-        )
-        if not np.isclose(time_data.dt, self.dt):
-            raise ValueError(
-                "Cannot restore a constant time scheduler with a different time step "
-                f"({time_data.dt:.1e} != {self.dt:.1e})."
-            )
-
-        time_from_start = time_data.time - self.schedule[0]
-        nearest_num_steps = np.rint(time_from_start / self.dt)
-        nearest_time = self.schedule[0] + nearest_num_steps * self.dt
-        if abs(time_data.time - nearest_time) > self.atol:
-            raise ValueError(
-                f"Restart time ({time_data.time:.1e}) is incompatible with the "
-                f"constant time step ({self.dt:.1e})."
-            )
-
-        self.time = time_data.time
-        self.time_index_successful = time_data.time_index_successful
-        self.io = time_data.io
-
-    def compute_next_time_step(self, success: bool, context: dict) -> float:
+    def compute_next_time_step(
+        self, time_manager: pp.TimeManager, success: bool, context: dict
+    ) -> float:
         if not success:
             raise CannotRecomputeTimeStep(
                 "Constant time scheduler cannot decrease time step size "
                 f"({self.dt:.1e})."
             )
-        self.time += self.dt
-        self.time_index_successful += 1
         return self.dt
 
-    def is_hitting_schedule(self) -> bool:
-        return bool(np.any(abs(self.schedule - self.time) < self.atol))
 
-    def is_finished(self) -> bool:
-        return self.time >= (self.schedule[-1] - self.atol)
+class TimeScheduler(TimeSchedulerBase):
+    """Non-constant time step scheduler."""
+
+    def __init__(
+        self,
+        time_manager: pp.TimeManager,
+        schedule: Schedule,
+        t_snap: float = 1e-6,
+    ) -> None:
+        if len(schedule.intervals) < 1:
+            raise ValueError(
+                "At least one interval must be passed, starting at t_start."
+            )
+        assert t_snap > 0
+        self.t_snap: float = t_snap
+        """Snapping time. Time differences below it are treated as zero."""
+        self.schedule = schedule
+        """Simulation schedule."""
+        _validate_schedule_non_constant_dt(
+            intervals=schedule.intervals, t_end=schedule.t_end, atol=self.t_snap
+        )
+        self.interval_map = _IntervalMap(schedule.intervals, atol=self.t_snap)
+        """A data structure that returns the current and next intervals for any
+        simulation time.
+    
+        """
+        current_interval, next_interval = self.interval_map.get(time=time_manager.time)
+        time_manager.dt = self._adjust_dt_min_max_schedule(
+            time=time_manager.time,
+            dt=time_manager.dt,
+            current_interval=current_interval,
+            next_interval=next_interval,
+        )
+
+    def compute_next_time_step(
+        self, time_manager: pp.TimeManager, success: bool, context: dict
+    ) -> float:
+        # Early exit if the simulation is complete.
+        if time_manager.final_time_reached():
+            return time_manager.dt
+
+        current_interval, next_interval = self.interval_map.get(time=time_manager.time)
+        dt = time_manager.dt
+        t_end = self.schedule.t_end
+        next_checkpoint = t_end if next_interval is None else next_interval.t_start
+
+        # If this is a start of a new interval, set dt to interval.dt_start and log.
+        if success and self._is_hitting_interval_start(
+            interval=current_interval, time=time_manager.time
+        ):
+            # We are at the start of a new interval.
+            dt = current_interval.dt_start
+            _log_schedule_interval_start(
+                t_start=current_interval.t_start,
+                t_end=next_checkpoint,
+                name=current_interval.name,
+            )
+
+        # Apply constraints. If this is a start of a new interval, dt_start can be
+        # adjusted by constraints as well.
+        if len(current_interval.constraints) > 0:
+            suggested_dt = [
+                constraint.suggest_dt(dt=dt, context=context)
+                for constraint in current_interval.constraints
+            ]
+            dt = min(suggested_dt)
+
+        return self._adjust_dt_min_max_schedule(
+            time=time_manager.time,
+            dt=dt,
+            current_interval=current_interval,
+            next_interval=next_interval,
+        )
+
+    def _adjust_dt_min_max_schedule(
+        self,
+        time: float,
+        dt: float,
+        current_interval: TimeInterval,
+        next_interval: TimeInterval | None,
+    ) -> float:
+        """Adjust dt based on schedule requirements."""
+
+        next_checkpoint = (
+            self.schedule.t_end if next_interval is None else next_interval.t_start
+        )
+
+        # Constraints should not make dt larger than the interval's dt_max.
+        dt = min(dt, current_interval.dt_max)
+        # If constraints made dt smaller than the interval's dt_min, abort simulation.
+        if dt < current_interval.dt_min:
+            raise CannotRecomputeTimeStep(
+                f"Adjusted time step size ({dt:.1e}) is lower than the minimum "
+                f"admissible value ({current_interval.dt_min:.1e})."
+            )
+
+        # Prevent overshooting the interval's end.
+        if time + dt > next_checkpoint:
+            dt = max(next_checkpoint - time, self.t_snap)
+
+        return dt
+
+    def _is_hitting_interval_start(self, interval: TimeInterval, time: float) -> bool:
+        return (
+            (interval.t_start - self.t_snap) <= time <= (interval.t_start + self.t_snap)
+        )
+
+
+def assemble_default_time_scheduler(
+    time_manager: pp.TimeManager, constraints: Optional[list[TimeStepConstraint]] = None
+) -> TimeSchedulerBase:
+    schedule = time_manager.schedule
+    dt_init = time_manager.dt_init
+    constant_dt = time_manager.is_constant
+    if time_manager.dt_min_max is None:
+        dt_min = dt_max = None
+    else:
+        dt_min, dt_max = time_manager.dt_min_max
+    nonlinear_iter_optimal_range = time_manager.iter_optimal_range
+    nonlinear_iter_relax_factors = time_manager.iter_relax_factors
+    nonlinear_iter_retry_factor = time_manager.recomp_factor
+    atol = time_manager.atol
+
+    if len(schedule) < 2:
+        raise ValueError("Schedule must have at least two points (t_start and t_end).")
+
+    schedule = np.array(schedule, dtype=float)
+    if dt_min is None:
+        dt_min = float(dt_init) * 1e-3
+    if dt_max is None:
+        dt_max = float(dt_init) * 1e3
+    iter_min, iter_max = nonlinear_iter_optimal_range
+    decrease_factor, increase_factor = nonlinear_iter_relax_factors
+    if constraints is None:
+        constraints = []
+    if not constant_dt:
+        # Avoid repeating constraint of target nonlinear iterations.
+        assert not any(isinstance(c, TargetNonlinearIterations) for c in constraints)
+        constraints.append(
+            TargetNonlinearIterations(
+                dt_min=dt_min,
+                iter_min=iter_min,
+                iter_max=iter_max,
+                increase_factor=increase_factor,
+                decrease_factor=decrease_factor,
+                retry_factor=nonlinear_iter_retry_factor,
+            )
+        )
+        return TimeScheduler(
+            time_manager=time_manager,
+            schedule=Schedule(
+                intervals=[
+                    TimeInterval.create(
+                        t_start=t_start,
+                        dt_start=dt_init,
+                        constraints=constraints,
+                        dt_min=dt_min,
+                        dt_max=dt_max,
+                    )
+                    for t_start in schedule[:-1]
+                ],
+                t_end=schedule[-1],
+            ),
+            t_snap=atol,
+        )
+    else:
+        dt_min = dt_max = dt_init
+        return TimeSchedulerConstantDt(
+            time_manager=time_manager,
+            schedule=schedule,
+            dt=dt_init,
+            t_snap=atol,
+        )
+
+
+class CannotRecomputeTimeStep(Exception):
+    """Exception thrown by TimeSchedulerBase.compute_next_time_step if it is impossible
+    to adjust the time step and the simulation should be stopped.
+
+    """
+
+
+class _IntervalMap:
+    """An auxilary data structure used by TimeScheduler. For any simulation time,
+    returns the time interval it belongs to, and the next interval.
+
+    Implementation note: does binary search over a sorted array of interval starts with
+    O(log n) time complexity for n intervals.
+
+    Parameters:
+        intervals: List of intervals. The last interval is `[t_last, ∞)`.
+        atol: Snapping time. Time differences below it are treated as zero.
+
+    """
+
+    def __init__(self, intervals: list[TimeInterval], atol: float) -> None:
+        self.intervals = intervals
+        self._interval_starts = [interval.t_start - atol for interval in intervals]
+        assert self._interval_starts == sorted(self._interval_starts)
+
+    def get(self, time: float) -> tuple[TimeInterval, TimeInterval | None]:
+        """Get the interval that corresponds to the requested time.
+
+        Raises:
+            ValueError: If the requested time is below the first interval's start time.
+
+        Returns:
+            Tuple of two intervals: Current (the one `time` belongs to) and next. If the
+                current interval is the last one, next is `None`.
+
+        """
+        # Do the binary search. Off by one to match the interval index (bisect_right
+        # returns 0 if we are below minimum).
+        i = bisect_right(self._interval_starts, time) - 1
+        if i < 0:
+            raise ValueError(
+                "The requested time is below the first interval's start time."
+            )
+        elif i >= len(self.intervals):
+            raise ValueError("This should never happen.")
+        current_interval = self.intervals[i]
+        next_interval = self.intervals[i + 1] if i < (len(self.intervals) - 1) else None
+        return current_interval, next_interval
+
+
+def _log_schedule_interval_start(t_start: float, t_end: float, name: str = "") -> None:
+    log_message = "Reached new schedule interval"
+    if name != "":
+        log_message += f' "{name}"'
+    delta = t_end - t_start
+    log_message += f" [{t_start:.1e}, {t_start:.1e} + {delta:.1e})."
+    logger.info(log_message)
 
 
 def _validate_schedule_constant_dt(
@@ -449,229 +352,3 @@ def _validate_schedule_common(schedule: np.ndarray, atol: float) -> None:
     increments = np.ediff1d(schedule)
     if not np.all(increments > atol):
         raise ValueError
-
-
-class TimeScheduler(TimeSchedulerBase):
-    def __init__(
-        self, intervals: list[TimeInterval], t_end: float, t_snap: float = 1e-6
-    ) -> None:
-        if len(intervals) < 1:
-            raise ValueError(
-                "At least one interval must be passed, starting at t_start."
-            )
-        assert t_snap > 0
-        self.t_snap: float = t_snap
-        self.intervals = intervals
-        _validate_schedule_non_constant_dt(
-            intervals=self.intervals, t_end=t_end, atol=self.t_snap
-        )
-        self.time: float = intervals[0].t_start
-        self.t_end: float = t_end
-        self.dt: float = intervals[0].dt_start
-        self.time_index_successful: int = 0
-        self.interval_dict = IntervalDict(intervals, atol=self.t_snap)
-
-        current_interval, next_interval = self.get_current_next_intervals()
-        self._adjust_dt_min_max_schedule(self.dt, current_interval, next_interval)
-
-        self.io = TimeIO()
-
-    def generate_time_data(self, trial=False) -> SimulationTimeData:
-        return SimulationTimeData(
-            time=self.time + self.dt if trial else self.time,
-            dt=self.dt,
-            time_index_successful=self.time_index_successful + int(trial),
-            schedule=np.array(
-                [interval.t_start for interval in self.intervals] + [self.t_end]
-            ),
-            constant_dt=False,
-            t_snap=self.t_snap,
-            io=self.io,  # TODO: I/O
-        )
-
-    def restore(self, time_data: SimulationTimeData) -> None:
-        _validate_restart_time_data(
-            time_data=time_data,
-            schedule=self.generate_time_data().schedule,
-            atol=self.t_snap,
-        )
-        self.time = time_data.time
-        self.dt = time_data.dt
-        self.time_index_successful = time_data.time_index_successful
-        self.io = time_data.io
-
-        if not self.is_finished():
-            current_interval, next_interval = self.get_current_next_intervals()
-            # A shortened step may have been needed to reach this interval. As after a
-            # regular successful transition, restart with the new interval's policy.
-            dt = (
-                current_interval.dt_start
-                if self._is_hitting_interval_start(current_interval)
-                else self.dt
-            )
-            self._adjust_dt_min_max_schedule(dt, current_interval, next_interval)
-
-    def compute_next_time_step(self, success: bool, context: dict) -> float:
-        if success:
-            self.time += self.dt
-            self.time_index_successful += 1
-
-        if self.is_finished():
-            return self.dt
-
-        current_interval, next_interval = self.interval_dict.get(time=self.time)
-        dt = self.dt
-        t_end = self.t_end
-        next_checkpoint = t_end if next_interval is None else next_interval.t_start
-
-        # If this is a start of a new interval, set dt to interval.dt_start and log.
-        if success and self._is_hitting_interval_start(interval=current_interval):
-            # We are at the start of a new interval.
-            dt = current_interval.dt_start
-            _log_schedule_interval_start(
-                t_start=current_interval.t_start,
-                t_end=next_checkpoint,
-                name=current_interval.name,
-            )
-
-        # Apply constraints. If this is a start of a new interval, dt_start can be
-        # adjusted by constraints as well.
-        if len(current_interval.constraints) > 0:
-            suggested_dt = [
-                constraint.suggest_dt(dt=dt, context=context)
-                for constraint in current_interval.constraints
-            ]
-            dt = min(suggested_dt)
-
-        return self._adjust_dt_min_max_schedule(dt, current_interval, next_interval)
-
-    def _adjust_dt_min_max_schedule(
-        self,
-        dt: float,
-        current_interval: TimeInterval,
-        next_interval: TimeInterval | None,
-    ) -> float:
-        next_checkpoint = self.t_end if next_interval is None else next_interval.t_start
-
-        # Constraints should not make dt larger than the interval's dt_max.
-        dt = min(dt, current_interval.dt_max)
-        # If constraints made dt smaller than the interval's dt_min, abort simulation.
-        if dt < current_interval.dt_min:
-            raise CannotRecomputeTimeStep(
-                f"Adjusted time step size ({dt:.1e}) is lower than the minimum "
-                f"admissible value ({current_interval.dt_min:.1e})."
-            )
-
-        # Prevent overshooting the interval's end.
-        if self.time + dt > next_checkpoint:
-            dt = max(next_checkpoint - self.time, self.t_snap)
-
-        self.dt = dt
-        return dt
-
-    def is_finished(self) -> bool:
-        return self.time >= (self.t_end - self.t_snap)
-
-    def get_current_next_intervals(self) -> tuple[TimeInterval, TimeInterval | None]:
-        return self.interval_dict.get(time=self.time)
-
-    def is_hitting_schedule(self) -> bool:
-        if (self.t_end - self.t_snap) <= self.time <= (self.t_end + self.t_snap):
-            return True
-        current_interval, _ = self.interval_dict.get(time=self.time)
-        return self._is_hitting_interval_start(current_interval)
-
-    def _is_hitting_interval_start(self, interval: TimeInterval) -> bool:
-        return (
-            (interval.t_start - self.t_snap)
-            <= self.time
-            <= (interval.t_start + self.t_snap)
-        )
-
-
-def _validate_restart_time_data(
-    time_data: SimulationTimeData,
-    schedule: np.ndarray,
-    atol: float,
-) -> None:
-    """Validate the common invariants for restoring scheduler state."""
-    if not time_data.is_restarting:
-        raise ValueError("Expected restart time data.")
-    if time_data.dt <= 0:
-        raise ValueError("Restart time step must be positive.")
-    if time_data.time_index_successful < 0:
-        raise ValueError("Restart time index must be non-negative.")
-    if not (schedule[0] - atol <= time_data.time <= schedule[-1] + atol):
-        raise ValueError(
-            f"Restart time ({time_data.time:.1e}) is outside the scheduler interval "
-            f"[{schedule[0]:.1e}, {schedule[-1]:.1e}]."
-        )
-
-
-def assemble_default_time_scheduler(
-    schedule: np.ndarray | list,
-    dt_init: float,
-    constant_dt: bool = False,
-    dt_min: Optional[float] = None,
-    dt_max: Optional[float] = None,
-    nonlinear_iter_optimal_range: tuple[int, int] = (4, 7),
-    nonlinear_iter_relax_factors: tuple[float, float] = (0.7, 1.3),
-    nonlinear_iter_retry_factor: float = 0.5,
-    constraints: Optional[list[TimeStepConstraint]] = None,
-    atol: float = 1e-8,
-) -> TimeSchedulerBase:
-    if len(schedule) < 2:
-        raise ValueError("Schedule must have at least two points (t_start and t_end).")
-
-    schedule = np.array(schedule, dtype=float)
-    if dt_min is None:
-        dt_min = float(dt_init) * 1e-3
-    if dt_max is None:
-        dt_max = float(dt_init) * 1e3
-    iter_min, iter_max = nonlinear_iter_optimal_range
-    decrease_factor, increase_factor = nonlinear_iter_relax_factors
-    if constraints is None:
-        constraints = []
-    if not constant_dt:
-        # Avoid repeating constraint of target nonlinear iterations.
-        assert not any(isinstance(c, TargetNonlinearIterations) for c in constraints)
-        constraints.append(
-            TargetNonlinearIterations(
-                dt_min=dt_min,
-                iter_min=iter_min,
-                iter_max=iter_max,
-                increase_factor=increase_factor,
-                decrease_factor=decrease_factor,
-                retry_factor=nonlinear_iter_retry_factor,
-            )
-        )
-        return TimeScheduler(
-            intervals=[
-                TimeInterval.create(
-                    t_start=t_start,
-                    dt_start=dt_init,
-                    constraints=constraints,
-                    dt_min=dt_min,
-                    dt_max=dt_max,
-                )
-                for t_start in schedule[:-1]
-            ],
-            t_end=schedule[-1],
-            t_snap=atol,
-        )
-    else:
-        dt_min = dt_max = dt_init
-        return TimeSchedulerConstantDt(
-            schedule=schedule,
-            dt=dt_init,
-            atol=atol,
-        )
-
-
-def _log_schedule_interval_start(t_start: float, t_end: float, name: str = "") -> None:
-    log_message = "Reached new schedule interval"
-    if name != "":
-        log_message += f' "{name}"'
-    delta = t_end - t_start
-    log_message += f" [{t_start:.1e}, {t_start:.1e} + {delta:.1e})."
-    logger.info(log_message)

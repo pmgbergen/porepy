@@ -43,7 +43,7 @@ class CustomBoundaryCondition(pp.PorePyModel):
         Note: the values are time dependent.
 
         """
-        t = self.time_data.time
+        t = self.time_manager.time
         return np.arange(bg.num_cells) * bg.parent.dim * t
 
     def bc_type_dummy(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -85,14 +85,9 @@ def test_boundary_condition_mixin(t_end: int):
             "times_to_export": [],  # Suppress output for tests
         }
     )
-    time_stepper = pp.time_stepper.TimeStepper(
-        scheduler=pp.time_stepper.assemble_default_time_scheduler(
-            schedule=[0, t_end],
-            dt_init=1,
-            constant_dt=True,
-        )
-    )
-    pp.ModelRunner(model, time_stepper=time_stepper).run()
+    model.time_manager.dt = 1
+    model.time_manager.time_final = t_end
+    pp.ModelRunner(model).run()
 
     subdomains = model.mdg.subdomains()
 
