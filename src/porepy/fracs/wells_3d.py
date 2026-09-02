@@ -1076,7 +1076,9 @@ def _ordered_well_cells(sd_w: pp.Grid, well_head: np.ndarray) -> np.ndarray:
     A well grid is generally not a single path. Meshing splits a well at every point
     where it meets a fracture, leaving one segment per stretch between intersections,
     all in the same grid. The segments are therefore walked in turn, each entered at
-    whichever of its free ends lies closest to where the previous one ended.
+    whichever of its free ends lies closest to where the previous one ended. A well lies
+    entirely within the domain, so consecutive segments meet at the intersection point
+    and the path runs continuously across the split.
 
     Parameters:
         sd_w: The well grid.
@@ -1121,15 +1123,19 @@ def _ordered_well_cells(sd_w: pp.Grid, well_head: np.ndarray) -> np.ndarray:
         node = min(
             unentered, key=lambda end: np.linalg.norm(sd_w.nodes[:, end] - position)
         )
+        # This segment is now accounted for, so neither of its two ends can start
+        # another one. The end entered at is dropped here, the end walked to below.
         unentered.discard(node)
         while True:
             candidates = [c for c in cells_of_node[node] if c not in visited]
             if not candidates:
                 break
+            # The grid is 1d, there is at most one unvisited cell at a node.
             cell = candidates[0]
             order.append(cell)
             visited.add(cell)
             node = int(nodes_of_cell[cell][nodes_of_cell[cell] != node][0])
+        # The walk stopped at the far end of the segment, the second of its two ends.
         unentered.discard(node)
         position = sd_w.nodes[:, node]
 
@@ -1179,10 +1185,6 @@ def well_cell_path_offsets(
         entering_at_start = to_start <= to_end
 
         near_end[:, cell] = start[:, cell] if entering_at_start else end[:, cell]
-        # Consecutive cells meet, so this is zero within a segment and between two
-        # segments split apart at a fracture. It is the length of the unmeshed stretch
-        # where a well leaves the domain and returns to it.
-        travelled += float(min(to_start, to_end))
         offsets[cell] = travelled
         travelled += sd_w.cell_volumes[cell]
         position = end[:, cell] if entering_at_start else start[:, cell]
@@ -1206,7 +1208,8 @@ def well_contact_path_spans(
     Returns:
         ``shape=(2, interface.num_cells)``
 
-        Path length of the two ends of each contact, the nearer end first.
+        Path length of the two ends of each contact, in increasing order, so that the
+        end nearer the head of the well comes first.
 
     """
     _, sd_w = mdg.interface_to_subdomain_pair(interface)
@@ -1219,13 +1222,17 @@ def well_contact_path_spans(
     spans = np.empty((2, interface.num_cells))
     for side_grid in interface.side_grids.values():
         cell_nodes = side_grid.cell_nodes().tocsc()
-        endpoints = side_grid.nodes[:, cell_nodes.indices].reshape(3, -1, 2)
-        for index, well_cell in enumerate(well_cells):
-            reference = near_end[:, well_cell, None]
-            along = offsets[well_cell] + np.linalg.norm(
-                endpoints[:, index, :] - reference, axis=0
+        for contact, well_cell in enumerate(well_cells):
+            # The two nodes bounding this contact, as a 3-by-2 array.
+            loc = slice(cell_nodes.indptr[contact], cell_nodes.indptr[contact + 1])
+            endpoints = side_grid.nodes[:, cell_nodes.indices[loc]]
+
+            # Both ends lie in the same well cell, so their path length is that of the
+            # near end of the cell plus the distance from it.
+            distance_within_cell = np.linalg.norm(
+                endpoints - near_end[:, well_cell, None], axis=0
             )
-            spans[:, index] = np.sort(along)
+            spans[:, contact] = np.sort(offsets[well_cell] + distance_within_cell)
     return spans
 
 

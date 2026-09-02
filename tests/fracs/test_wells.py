@@ -1252,18 +1252,6 @@ class TestWellPathLength:
         )
         np.testing.assert_allclose(offsets, near_end[2] - 0.2, atol=1e-12)
 
-    def test_an_unmeshed_stretch_counts_towards_path_length(self) -> None:
-        """A well leaving the domain and returning keeps its measured depth.
-
-        Unlike a fracture split, the gap here is a real length of well. Completion
-        intervals are given in measured depth along the physical well, so skipping the
-        gap would shift everything below it.
-        """
-        well = _segmented_well([np.array([0.2, 0.4]), np.array([0.7, 0.9])])
-        offsets, _ = well_cell_path_offsets(well, np.array([0.5, 0.5, 0.2]))
-        # 0.2 of well, then a gap of 0.3, then the second segment.
-        np.testing.assert_allclose(sorted(offsets), [0.0, 0.5], atol=1e-12)
-
     def test_segments_are_ordered_from_the_head(self) -> None:
         """Measuring from the far end must traverse the segments in reverse."""
         well = _segmented_well([np.array([0.2, 0.35, 0.5]), np.array([0.5, 0.75, 1.0])])
