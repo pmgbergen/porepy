@@ -82,23 +82,16 @@ class SolutionStrategy(pp.PorePyModel):
         Reference values can be provided through ``params['reference_values']``.
 
         """
-        self.time_data = pp.time_stepper.SimulationTimeData(
-            time=0.0,
-            dt=1.0,
-            time_index_successful=0,
-            schedule=np.array([0.0, 1.0]),
-            constant_dt=True,
-        )
-        if "time_manager" in params:
-            warn(message="", category=FutureWarning, stacklevel=2)
-            time_manager = params["time_manager"]
-            self.time_data = pp.time_stepper.SimulationTimeData(
-                time=time_manager.schedule[0],
-                dt=time_manager.dt_init,
-                time_index_successful=0,
-                schedule=time_manager.schedule,
-                constant_dt=time_manager.is_constant,
+        # The explicit check (not get with a default) is to avoid instantiating a
+        # TimeManager if it is not needed. This is done to avoid unnecessary checks
+        # run in the manager.
+        if "time_manager" not in params:
+            self.time_manager = pp.TimeManager(
+                schedule=[0, 1], dt_init=1, constant_dt=True
             )
+            """Time manager for the simulation."""
+        else:
+            self.time_manager = params["time_manager"]
 
         self.restart_options = params.get(
             "restart_options",
@@ -132,7 +125,7 @@ class SolutionStrategy(pp.PorePyModel):
             },
         )
         """Restart options. The template is provided in `SolutionStrategy.__init__`."""
-        self.ad_time_step = pp.ad.Scalar(self.time_data.dt)
+        self.ad_time_step = pp.ad.Scalar(self.time_manager.dt)
         """Time step as an automatic differentiation scalar."""
         self.results: list[Any] = []
         """A list of results collected by the data saving mixin in
@@ -148,32 +141,6 @@ class SolutionStrategy(pp.PorePyModel):
         the cache sparingly, and only for operators that have been shown to be expensive
         to construct.
         """
-
-    @property
-    def time_manager(self) -> pp.TimeManager:
-        warn(
-            message=(
-                "model.time_manager is deprecated. Access it through model.time_data or"
-                " model_runner.time_stepper.scheduler."
-            ),
-            category=FutureWarning,
-            stacklevel=2,
-        )
-        time_manager = pp.TimeManager(
-            schedule=self.time_data.schedule,
-            dt_init=self.time_data.dt,
-            time_index=self.time_data.time_index_successful,
-            constant_dt=self.time_data.constant_dt,
-        )
-        time_manager._time = self.time_data.time
-        return time_manager
-
-    @time_manager.setter
-    def time_manager(self, time_manager: pp.TimeManager) -> None:
-        raise ValueError(
-            "model.time_manager is deprecated. Please set ModelRunner(time_stepper="
-            "TimeStepper(scheduler=assemble_default_time_scheduler(...)) instead."
-        )
 
     def prepare_simulation(self) -> None:
         """Run at the start of simulation. Used for initialization etc."""
@@ -360,7 +327,7 @@ class SolutionStrategy(pp.PorePyModel):
            time-dependent values.
 
         """
-        self.ad_time_step.set_value(self.time_data.dt)
+        self.ad_time_step.set_value(self.time_manager.dt)
         self.initialize_nonlinear_solution()
         self.update_time_dependent_ad_arrays()
         self.update_derived_quantities()

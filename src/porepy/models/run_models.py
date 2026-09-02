@@ -138,9 +138,8 @@ def _run_iterative_model(model, params: dict) -> None:
     # for everything ``tqdm`` related.
     def time_step() -> None:
         model.propagation_index = 0
-        # TODO YZ: Not updated (should not go to develop before fix).
-        model.time_manager.increase_time()
-        model.time_manager.increase_time_index()
+        model.time_manager.time += model.time_manager.dt
+        model.time_manager.time_index += 1
         logger.info(
             f"\nTime step {model.time_manager.time_index} at time"
             + f" {model.time_manager.time:.1e} of"
@@ -155,7 +154,7 @@ def _run_iterative_model(model, params: dict) -> None:
 
     # Redirect all loggers to not interfere with the progressbar.
     with logging_redirect_tqdm([logging.root]):
-        initial_time_step: float = model.time_data.dt
+        initial_time_step: float = model.time_manager.dt
 
         # Check if the user wants a progress bar. Initialize an instance of the
         # progressbar_class, which is either :class:`~tqdm.trange` or
@@ -168,7 +167,7 @@ def _run_iterative_model(model, params: dict) -> None:
             # modified time step size to the initial time step size.
             expected_time_steps: int = int(
                 np.round(
-                    (model.time_data.schedule[-1] - model.time_data.schedule[0])
+                    (model.time_manager.schedule[-1] - model.time_manager.schedule[0])
                     / initial_time_step
                 )
             )
@@ -183,8 +182,10 @@ def _run_iterative_model(model, params: dict) -> None:
             time_progressbar = DummyProgressBar()
 
         # Time loop.
-        while not model.time_data.final_time_reached():
-            time_progressbar.set_postfix_str(f"Time step size {model.time_data.dt:.2e}")
+        while not model.time_manager.final_time_reached():
+            time_progressbar.set_postfix_str(
+                f"Time step size {model.time_manager.dt:.2e}"
+            )
             time_step()
             # Update progressbar length. Currently, there is no convergence check
             # returned by :meth:`time_step`. Failed time steps will cause the progress

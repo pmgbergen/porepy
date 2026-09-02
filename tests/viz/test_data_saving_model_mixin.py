@@ -35,7 +35,6 @@ def data_folder(request):
     with tempfile.TemporaryDirectory() as tmpdir:
         path = Path(tmpdir) / str(request.node.nodeid)
         yield path
-        path.unlink()
 
 
 class DataSavingModelMixinModel(SquareDomainOrthogonalFractures, MomentumBalance):
@@ -53,8 +52,7 @@ class DataSavingModelMixinModel(SquareDomainOrthogonalFractures, MomentumBalance
         logged in the model attribute exported_times.
 
         """
-
-        self.exported_times.append(self.time_data.time)
+        self.exported_times.append(self.time_manager.time)
 
 
 @pytest.mark.parametrize(
@@ -74,18 +72,19 @@ def test_export_chosen_times(times_to_export):
     tf = 1.0
     dt = tf / time_steps
 
-    time_stepper = pp.time_stepper.TimeStepper(
-        scheduler=pp.time_stepper.assemble_default_time_scheduler(
-            schedule=[0.0, tf],
-            dt_init=dt,
-            constant_dt=True,
-        )
+    time_manager = pp.TimeManager(
+        schedule=[0.0, tf],
+        dt_init=dt,
+        constant_dt=True,
     )
 
-    model_params = {"times_to_export": times_to_export}
+    model_params = {
+        "time_manager": time_manager,
+        "times_to_export": times_to_export,
+    }
 
     model = DataSavingModelMixinModel(model_params)
-    pp.ModelRunner(model, time_stepper=time_stepper).run()
+    pp.ModelRunner(model).run()
 
     # The actual test of exported times based on the log stored in model.exported_times:
     if times_to_export is None:
@@ -119,21 +118,20 @@ def test_exported_times_consistency_with_files(
     tf = 0.25
     dt = tf / time_steps
 
-    time_stepper = pp.time_stepper.TimeStepper(
-        scheduler=pp.time_stepper.assemble_default_time_scheduler(
-            schedule=[0.0, tf],
-            dt_init=dt,
-            constant_dt=True,
-        )
+    time_manager = pp.TimeManager(
+        schedule=[0.0, tf],
+        dt_init=dt,
+        constant_dt=True,
     )
 
     params = {
+        "time_manager": time_manager,
         "times_to_export": times_to_export,
         "folder_name": data_folder,
     }
 
     model = pp.SinglePhaseFlow(params)
-    pp.ModelRunner(model, time_stepper=time_stepper).run()
+    pp.ModelRunner(model).run()
 
     # Read times.json to get time data.
     times_file = data_folder / "times.json"
@@ -141,10 +139,10 @@ def test_exported_times_consistency_with_files(
         times_data = json.load(f)
 
     # Compare exported times with the times in times.json.
-    assert np.allclose(model.time_data.exported_times, times_data["time"])
+    assert np.allclose(model.time_manager.exported_times, times_data["time"])
 
     # Compare exported times with the expected times.
-    assert np.allclose(model.time_data.exported_times, expected_times)
+    assert np.allclose(model.time_manager.exported_times, expected_times)
 
     # Check that the correct number of files are exported.
     # Parse the PVD file.

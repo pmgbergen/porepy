@@ -85,7 +85,6 @@ def time_dependent_mock_model():
 
         def prepare_simulation(self):
             """Prepare simulation by setting minimum required arguments."""
-            # TODO
             self.time_manager = self.set_time_manager()
 
         def _is_time_dependent(self) -> bool:
@@ -540,7 +539,7 @@ def time_dependent_model():
             error_var_0 = 1 / self.mdg.subdomains()[0].num_cells
 
             # Temporal error is set as the inverse of the time step.
-            error_var_1 = 1 / self.time_data.dt
+            error_var_1 = 1 / self.time_manager.dt
 
             # Instantiate data class
             collected_data = TimeDependentModelSaveData(error_var_0, error_var_1)

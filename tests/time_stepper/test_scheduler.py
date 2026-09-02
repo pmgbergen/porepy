@@ -7,17 +7,49 @@ import pytest
 import porepy as pp
 from porepy.time_stepper.scheduler import (
     CannotRecomputeTimeStep,
-    SimulationTimeData,
     TargetNonlinearIterations,
-    TimeInterval,
     TimeScheduler,
     TimeSchedulerConstantDt,
     assemble_default_time_scheduler,
 )
+from porepy.time_stepper.time_step_control import Schedule, TimeInterval
+
+
+def make_default_scheduler(
+    schedule: list[float],
+    dt_init: float,
+    constant_dt: bool = False,
+    dt_min: Optional[float] = None,
+    dt_max: Optional[float] = None,
+    nonlinear_iter_optimal_range: tuple[int, int] = (4, 7),
+    nonlinear_iter_relax_factors: tuple[float, float] = (0.7, 1.3),
+    nonlinear_iter_retry_factor: float = 0.5,
+    atol: float = 1e-16,
+):
+    """Construct the default scheduler through its TimeManager interface."""
+    if dt_min is None and dt_max is None:
+        dt_min_max = None
+    else:
+        dt_min_max = (
+            dt_init * 1e-3 if dt_min is None else dt_min,
+            dt_init * 1e3 if dt_max is None else dt_max,
+        )
+    time_manager = pp.TimeManager(
+        schedule=schedule,
+        dt_init=dt_init,
+        constant_dt=constant_dt,
+        dt_min_max=dt_min_max,
+        iter_optimal_range=nonlinear_iter_optimal_range,
+        iter_relax_factors=nonlinear_iter_relax_factors,
+        recomp_factor=nonlinear_iter_retry_factor,
+        atol=atol,
+    )
+    return assemble_default_time_scheduler(time_manager), time_manager
 
 
 def run_scheduler_collect_data(
     scheduler: pp.time_stepper.TimeSchedulerBase,
+    time_manager: pp.TimeManager,
     num_nonlinear_iterations: Optional[Iterable[int]] = None,
     time_step_converged: Optional[Iterable[bool]] = None,
 ) -> tuple[list[float], list[float]]:
@@ -30,25 +62,30 @@ def run_scheduler_collect_data(
     checkpoints_hit = []
 
     # Append initial time step before the loop.
-    times.append(scheduler.generate_time_data().time)
-    if scheduler.is_hitting_schedule():
-        checkpoints_hit.append(scheduler.generate_time_data().time)
+    times.append(time_manager.time)
+    if time_manager.is_at_schedule_point():
+        checkpoints_hit.append(time_manager.time)
 
     # Simulate the simulation main loop.
     for ts_converged, num_iters in zip(time_step_converged, num_nonlinear_iterations):
-        if scheduler.is_finished():
+        if time_manager.final_time_reached():
             break
         context = (
             get_context_success(num_iters)
             if ts_converged
             else get_context_failure(num_iters)
         )
-        scheduler.compute_next_time_step(success=ts_converged, context=context)
-        times.append(scheduler.generate_time_data().time)
-        if scheduler.is_hitting_schedule():
-            checkpoints_hit.append(scheduler.generate_time_data().time)
+        if ts_converged:
+            time_manager.time += time_manager.dt
+            time_manager.time_index += 1
+        time_manager.dt = scheduler.compute_next_time_step(
+            time_manager=time_manager, success=ts_converged, context=context
+        )
+        times.append(time_manager.time)
+        if time_manager.is_at_schedule_point():
+            checkpoints_hit.append(time_manager.time)
 
-    assert scheduler.is_finished()
+    assert time_manager.final_time_reached()
     return times, checkpoints_hit
 
 
@@ -108,7 +145,7 @@ def test_scheduler_floating_point_inaccuracy(
 
     """
 
-    scheduler = assemble_default_time_scheduler(
+    scheduler, time_manager = make_default_scheduler(
         schedule=[0, 3 * dt, 6 * dt, 9 * dt, 10 * dt],
         dt_init=dt,
         constant_dt=constant_dt,
@@ -117,7 +154,7 @@ def test_scheduler_floating_point_inaccuracy(
         dt_max=dt,
     )
 
-    times, checkpoints_hit = run_scheduler_collect_data(scheduler)
+    times, checkpoints_hit = run_scheduler_collect_data(scheduler, time_manager)
 
     # Check the results. Treat special cases corresponding to incorrect schedule points
     # registration with dt_snap = 1e-50. Importantly, with a reasonable dt_snap = 1e-8,
@@ -135,16 +172,13 @@ def test_scheduler_floating_point_inaccuracy(
         # General case: 11 time steps as expected.
         assert len(times) == 11
 
-    expected_schedule = scheduler.generate_time_data().schedule
+    expected_schedule = time_manager.schedule
 
     if constant_dt and dt_snap == 1e-50 and dt in [(2.5 - 1e-8), (2.5 + 1e-8)]:
         # Special case: Constant dt scheduler does not acknowledge that we hit schedule
         # points. We still complete the simulation successfully.
         assert not len(checkpoints_hit) == len(expected_schedule)
-        assert (
-            scheduler.generate_time_data().time
-            >= scheduler.generate_time_data().schedule[-1]
-        )
+        assert time_manager.time >= time_manager.schedule[-1]
     else:
         # General case: All schedule points are handled correctly.
         np.testing.assert_allclose(
@@ -165,12 +199,12 @@ def test_inconsistent_schedule(constant_dt: bool):
     schedule = [0, 1.5, 3]
     if constant_dt:
         with pytest.raises(ValueError):
-            scheduler = assemble_default_time_scheduler(
+            scheduler, time_manager = make_default_scheduler(
                 schedule=schedule, dt_init=dt, constant_dt=constant_dt
             )
         return
     else:
-        scheduler = assemble_default_time_scheduler(
+        scheduler, time_manager = make_default_scheduler(
             schedule=schedule,
             dt_init=dt,
             constant_dt=constant_dt,
@@ -178,10 +212,10 @@ def test_inconsistent_schedule(constant_dt: bool):
             dt_max=dt,
         )
 
-    times, checkpoints_hit = run_scheduler_collect_data(scheduler)
+    times, checkpoints_hit = run_scheduler_collect_data(scheduler, time_manager)
 
     np.testing.assert_allclose(times, [0, 1, 1.5, 2.5, 3])
-    np.testing.assert_allclose(checkpoints_hit, scheduler.generate_time_data().schedule)
+    np.testing.assert_allclose(checkpoints_hit, time_manager.schedule)
 
 
 def test_schedule_length_greater_than_2():
@@ -195,17 +229,23 @@ def test_schedule_length_greater_than_2():
         for constant_dt in [True, False]:
             # Construct with the default factory.
             with pytest.raises(ValueError):
-                _ = assemble_default_time_scheduler(
+                _ = make_default_scheduler(
                     schedule=schedule, dt_init=0.5, constant_dt=constant_dt
                 )
 
         # Construct TimeSchedulerConstantDt manually.
+        time_manager = pp.TimeManager(schedule=[0, 1], dt_init=0.5, constant_dt=True)
         with pytest.raises(ValueError):
-            _ = TimeSchedulerConstantDt(schedule=schedule, dt=0.5)
+            _ = TimeSchedulerConstantDt(
+                time_manager=time_manager, schedule=schedule, dt=0.5
+            )
 
     # Construct TimeScheduler manually.
+    time_manager = pp.TimeManager(schedule=[0, 1], dt_init=0.5)
     with pytest.raises(ValueError):
-        _ = TimeScheduler(intervals=[], t_end=1.0)
+        _ = TimeScheduler(
+            time_manager=time_manager, schedule=Schedule(intervals=[], t_end=1.0)
+        )
 
 
 @pytest.mark.parametrize(
@@ -215,7 +255,7 @@ def test_schedule_length_greater_than_2():
 def test_increasing_time_in_schedule(schedule: list[int], constant_dt: bool):
     """An error should be raised if a the schedule is not strictly increasing."""
     with pytest.raises(ValueError):
-        _ = assemble_default_time_scheduler(
+        _ = make_default_scheduler(
             schedule=schedule, dt_init=0.5, constant_dt=constant_dt
         )
 
@@ -226,35 +266,37 @@ def test_positive_initial_time_step(bad_dt: float):
 
     for constant_dt in [True, False]:
         with pytest.raises(ValueError):
-            _ = assemble_default_time_scheduler(
+            _ = make_default_scheduler(
                 schedule=[0, 1], dt_init=bad_dt, constant_dt=constant_dt
             )
 
     # Construct TimeScheduler manually with bad_dt in the second interval.
+    time_manager = pp.TimeManager(schedule=[0, 1], dt_init=0.5)
     with pytest.raises(ValueError):
         _ = TimeScheduler(
-            intervals=[
-                TimeInterval.create(t_start=0, dt_start=0.5),
-                TimeInterval.create(t_start=0.5, dt_start=bad_dt),
-            ],
-            t_end=1.0,
+            time_manager=time_manager,
+            schedule=Schedule(
+                intervals=[
+                    TimeInterval.create(t_start=0, dt_start=0.5),
+                    TimeInterval.create(t_start=0.5, dt_start=bad_dt),
+                ],
+                t_end=1.0,
+            ),
         )
 
 
 @pytest.mark.parametrize("schedule", [[0, 1, 2], [0, 2, 3], [0, 1]])
 def test_initial_time_step_overshoots_schedule_point(schedule: list[int]):
     with pytest.raises(ValueError):
-        _ = assemble_default_time_scheduler(
-            schedule=schedule, dt_init=2.0, constant_dt=True
-        )
+        _ = make_default_scheduler(schedule=schedule, dt_init=2.0, constant_dt=True)
 
-    scheduler = assemble_default_time_scheduler(
+    scheduler, time_manager = make_default_scheduler(
         schedule=schedule, dt_init=2.0, constant_dt=False
     )
 
-    times, checkpoints_hit = run_scheduler_collect_data(scheduler)
+    times, checkpoints_hit = run_scheduler_collect_data(scheduler, time_manager)
 
-    np.testing.assert_allclose(checkpoints_hit, scheduler.generate_time_data().schedule)
+    np.testing.assert_allclose(checkpoints_hit, time_manager.schedule)
     np.testing.assert_allclose(times, checkpoints_hit)
 
 
@@ -274,8 +316,12 @@ def test_dt_not_within_min_max_range(dt_init: float, bad_interval_index: int):
                 )
             )
 
+    time_manager = pp.TimeManager(schedule=[0, 300], dt_init=dt_init)
     with pytest.raises(ValueError):
-        _ = TimeScheduler(intervals=intervals, t_end=300)
+        _ = TimeScheduler(
+            time_manager=time_manager,
+            schedule=Schedule(intervals=intervals, t_end=300),
+        )
 
 
 def test_target_nonlinear_iterations_init():
@@ -294,17 +340,17 @@ def test_target_nonlinear_iterations_init():
 
 @pytest.mark.parametrize("constant_dt", [True, False])
 def test_compute_time_step_after_final_time(constant_dt: bool):
-    scheduler = assemble_default_time_scheduler(
+    scheduler, time_manager = make_default_scheduler(
         schedule=[0, 1], dt_init=0.5, constant_dt=constant_dt
     )
     # Reach simulation end.
-    _ = run_scheduler_collect_data(scheduler)
+    _ = run_scheduler_collect_data(scheduler, time_manager)
 
-    assert scheduler.is_finished()
+    assert time_manager.final_time_reached()
 
-    dt_final = scheduler.generate_time_data().dt
+    dt_final = time_manager.dt
     dt_new = scheduler.compute_next_time_step(
-        success=True, context=get_context_success()
+        time_manager=time_manager, success=True, context=get_context_success()
     )
     assert dt_final == dt_new
 
@@ -317,14 +363,21 @@ def test_compute_time_step_after_final_time(constant_dt: bool):
 def test_constant_time_step(schedule, dt, time, is_success, context):
     """Test if a constant dt is returned, independent of any configuration or
     input."""
-    scheduler = TimeSchedulerConstantDt(schedule=schedule, dt=dt)
-    scheduler.time = time
+    time_manager = pp.TimeManager(schedule=schedule, dt_init=dt, constant_dt=True)
+    scheduler = TimeSchedulerConstantDt(
+        time_manager=time_manager, schedule=schedule, dt=dt
+    )
+    time_manager.time = time
     if is_success:
-        _ = scheduler.compute_next_time_step(success=is_success, context=context)
-        assert scheduler.dt == dt
+        new_dt = scheduler.compute_next_time_step(
+            time_manager=time_manager, success=is_success, context=context
+        )
+        assert new_dt == dt
     else:
         with pytest.raises(CannotRecomputeTimeStep):
-            _ = scheduler.compute_next_time_step(success=is_success, context=context)
+            _ = scheduler.compute_next_time_step(
+                time_manager=time_manager, success=is_success, context=context
+            )
 
 
 @pytest.mark.parametrize(
@@ -390,7 +443,7 @@ def test_target_nonlinear_iterations(case: dict):
     dt_min = case.get("dt_min", None)
     should_raise = case.get("should_raise", False)
 
-    scheduler = assemble_default_time_scheduler(
+    scheduler, time_manager = make_default_scheduler(
         schedule=[0, 2],
         dt_init=0.5,
         constant_dt=False,
@@ -401,11 +454,15 @@ def test_target_nonlinear_iterations(case: dict):
         dt_min=dt_min,
     )
     if not should_raise:
-        dt = scheduler.compute_next_time_step(success=success, context=context)
+        dt = scheduler.compute_next_time_step(
+            time_manager=time_manager, success=success, context=context
+        )
         assert dt == expected_dt
     else:
         with pytest.raises(CannotRecomputeTimeStep):
-            _ = scheduler.compute_next_time_step(success=success, context=context)
+            _ = scheduler.compute_next_time_step(
+                time_manager=time_manager, success=success, context=context
+            )
 
 
 @pytest.mark.parametrize(
@@ -423,15 +480,15 @@ def test_target_nonlinear_iterations(case: dict):
 def test_hitting_schedule_times(schedule, dt_init):
     """Test if algorithm respects the passed target times from the schedule,"""
     t_snap = 1e-6
-    scheduler = assemble_default_time_scheduler(
+    scheduler, time_manager = make_default_scheduler(
         schedule=schedule,
         dt_init=dt_init,
         atol=t_snap,
     )
 
-    _, checkpoint_hits = run_scheduler_collect_data(scheduler)
+    _, checkpoint_hits = run_scheduler_collect_data(scheduler, time_manager)
     np.testing.assert_allclose(checkpoint_hits, schedule, atol=t_snap, rtol=0)
-    assert scheduler.is_finished()
+    assert time_manager.final_time_reached()
 
 
 @pytest.mark.parametrize("constant_dt", [True, False])
@@ -442,102 +499,10 @@ def test_time_step_match_schedule_exactly(constant_dt: bool):
     See: https://github.com/pmgbergen/porepy/issues/1152
 
     """
-    scheduler = assemble_default_time_scheduler(
+    scheduler, time_manager = make_default_scheduler(
         schedule=[0, 1, 2], dt_init=1, dt_min=0.1, dt_max=1, constant_dt=constant_dt
     )
 
-    times, checkpoint_hits = run_scheduler_collect_data(scheduler)
-    np.testing.assert_array_equal(
-        checkpoint_hits, scheduler.generate_time_data().schedule
-    )
+    times, checkpoint_hits = run_scheduler_collect_data(scheduler, time_manager)
+    np.testing.assert_array_equal(checkpoint_hits, time_manager.schedule)
     np.testing.assert_array_equal(times, checkpoint_hits)
-
-
-def test_time_manager_deprecation():
-    time_manager = pp.TimeManager(schedule=[0, 1], dt_init=0.5)
-
-    with pytest.raises(ValueError):
-        time_manager.time = 1
-
-    with pytest.raises(ValueError):
-        time_manager.dt = 1
-
-
-@pytest.mark.parametrize(
-    ("time", "at_initial", "at_final"),
-    [(5e-4, True, False), (1 + 5e-4, False, True), (1 + 2e-3, False, False)],
-)
-def test_simulation_time_data_respects_t_snap(
-    time: float, at_initial: bool, at_final: bool
-):
-    time_data = SimulationTimeData(
-        time=time,
-        dt=0.1,
-        time_index_successful=0,
-        schedule=np.array([0, 1]),
-        constant_dt=True,
-        t_snap=1e-3,
-    )
-
-    assert time_data.is_at_initial_time() is at_initial
-    assert time_data.final_time_reached() is at_final
-
-
-@pytest.mark.parametrize("constant_dt", [True, False])
-def test_generate_time_data_restart(constant_dt: bool):
-    """Tests generate_time_data and how it behaves after restarting."""
-    scheduler = assemble_default_time_scheduler(
-        schedule=[0, 2], dt_init=0.5, constant_dt=constant_dt
-    )
-
-    current = scheduler.generate_time_data()
-    trial = scheduler.generate_time_data(trial=True)
-    assert current.time == 0
-    assert current.time_index_successful == 0
-    assert trial.time == 0.5
-    assert trial.time_index_successful == 1
-
-    restart_data = SimulationTimeData(
-        time=1,
-        dt=0.5,
-        time_index_successful=2,
-        schedule=np.array([0, 2]),
-        constant_dt=constant_dt,
-        is_restarting=True,
-    )
-    scheduler.restore(restart_data)
-
-    restored = scheduler.generate_time_data()
-    assert restored.time == 1
-    assert restored.dt == 0.5
-    assert restored.time_index_successful == 2
-    assert not restored.is_restarting
-    assert scheduler.generate_time_data(trial=True).time == 1.5
-
-
-def test_restart_at_interval_start_uses_new_interval_dt():
-    """Test that if restarted time is the start of a new interval, the interval's
-    t_start overrides loaded dt.
-
-    """
-    scheduler = TimeScheduler(
-        intervals=[
-            TimeInterval.create(t_start=0, dt_start=0.4, dt_min=0.1, dt_max=0.5),
-            TimeInterval.create(t_start=1, dt_start=0.2, dt_min=0.1, dt_max=0.3),
-        ],
-        t_end=2,
-    )
-    restart_data = SimulationTimeData(
-        time=1,
-        dt=0.05,
-        time_index_successful=3,
-        schedule=np.array([0, 1, 2]),
-        constant_dt=False,
-        is_restarting=True,
-    )
-
-    scheduler.restore(restart_data)
-
-    assert scheduler.generate_time_data().time == 1
-    assert scheduler.generate_time_data().dt == 0.2
-    assert scheduler.generate_time_data(trial=True).time == 1.2
