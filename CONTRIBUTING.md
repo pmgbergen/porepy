@@ -103,8 +103,6 @@ main intent of the commit:
 For example: `TST: Add regression test for MPFA on simplex grids`. If a commit genuinely mixes concerns, pick
 the prefix for its main purpose rather than inventing a new one.
 
-Commit messages say *why*, not what the diff already shows: the symptom, the cause, and
-the reason for this fix rather than another.
 
 ## Pull requests
 
