@@ -438,6 +438,8 @@ class FractureDamageSolidConstants(SolidConstants):
             "residual_friction_damage": "-",
             "dilation_wear_energy_scale": "J * m^-2",
             "friction_wear_energy_scale": "J * m^-2",
+            "transitional_normal_traction": "Pa",
+            "stress_partition_exponent": "-",
         }
     )
     residual_friction_damage: float = 1.0
@@ -486,6 +488,34 @@ class FractureDamageSolidConstants(SolidConstants):
     As :attr:`dilation_wear_energy_scale`, but for the friction channel, and associated
     with the shorter-wavelength unevenness, which contributes frictional resistance
     without geometrically resolvable dilation.
+
+    """
+
+    transitional_normal_traction: float = float("inf")
+    r"""Transitional normal traction :math:`\sigma_T` [Pa].
+
+    The normal traction at which the asperities are fully sheared through rather than
+    slid over, so that the stress partition
+    :meth:`~porepy.constitutive_laws.FractureDamageEvolutionCoefficients.stress_partition`
+    reaches one. Ladanyi and Archambault (1970) identify it with the strength of the
+    asperity material, hence a value of the order of the uniaxial compressive strength.
+
+    The default is infinite, which holds :math:`a_s \equiv 0` and thereby leaves the
+    partition inert: all contact is then sliding contact, which is the low-traction
+    limit of the law.
+
+    """
+
+    stress_partition_exponent: float = 1.5
+    r"""Exponent :math:`K` of the stress partition [-].
+
+    Sets how abruptly contact transfers from sliding to shearing as the normal traction
+    approaches :math:`\sigma_T`. The default of 1.5 is the value of Ladanyi and
+    Archambault (1970).
+
+    Values in :math:`(1, 2)` are non-integer, so the partition's base must be clipped to
+    the non-negative branch before it is raised; see
+    :meth:`~porepy.constitutive_laws.FractureDamageEvolutionCoefficients.stress_partition`.
 
     """
 

@@ -36,6 +36,7 @@ import numpy as np
 import pytest
 
 import porepy as pp
+from porepy.compositional.materials import FractureDamageSolidConstants
 from porepy.examples import fracture_damage as damage_example
 
 # ---------------------------------------------------------------------------
@@ -47,6 +48,7 @@ def _prepared_model(
     isotropic: bool = True,
     damages: list[str] | None = None,
     dim: int = 2,
+    solid_overrides: dict[str, Any] | None = None,
 ) -> Any:
     """Build and prepare (but not run) a fracture damage model.
 
@@ -63,6 +65,8 @@ def _prepared_model(
         damages: Damage types to activate, a non-empty subset of
             ``{"dilation", "friction"}``.  Defaults to both.
         dim: Spatial dimension of the bulk domain (2 or 3).
+        solid_overrides: Solid constants to override on top of the example's, e.g. to
+            place the transitional traction where a test wants it.
 
     Returns:
         A prepared model instance with a fully initialized equation system.
@@ -83,6 +87,12 @@ def _prepared_model(
         if isotropic
         else damage_example.ExactSolutionAnisotropic
     )
+    if solid_overrides is not None:
+        solid = damage_example.solid_params.copy()
+        solid.update(solid_overrides)
+        params["material_constants"] = {
+            "solid": FractureDamageSolidConstants(**solid)  # type: ignore[arg-type]
+        }
     model = model_class(params)
     model.prepare_simulation()
     return model
@@ -410,7 +420,180 @@ class TestDamageEvolutionCoefficients:
 
 
 # ---------------------------------------------------------------------------
-# 3.  Damage length kernel
+# 3.  Stress partition
+# ---------------------------------------------------------------------------
+
+
+SIGMA_T = 4.0e7
+"""Transitional normal traction [Pa] used throughout the partition tests."""
+
+
+class TestStressPartition:
+    r"""Ladanyi-Archambault partition ``a_s = 1 - (1 - sigma_n / sigma_T) ** K``.
+
+    Tests prescribe the normal contact traction as a fraction of ``sigma_T`` and compare
+    against the closed form. The fraction is the natural coordinate here: it is what the
+    partition is a function of, and it keeps the tests independent of the fixture's
+    characteristic traction.
+    """
+
+    @staticmethod
+    def _fractures(model):
+        return model.mdg.subdomains(dim=model.nd - 1)
+
+    @staticmethod
+    def _model(exponent: float = 1.5):
+        return _prepared_model(
+            damages=["dilation", "friction"],
+            solid_overrides={
+                "transitional_normal_traction": SIGMA_T,
+                "stress_partition_exponent": exponent,
+            },
+        )
+
+    def _set_traction_fraction(self, model, fraction: float) -> None:
+        """Prescribe a normal traction of ``fraction * sigma_T``.
+
+        Positive ``fraction`` is compression; negative is tension.
+        """
+        fractures = self._fractures(model)
+        nc = sum(sd.num_cells for sd in fractures)
+        char_t = float(
+            np.mean(
+                model.equation_system.evaluate(
+                    model.characteristic_contact_traction(fractures)
+                )
+            )
+        )
+        values = np.zeros(nc * model.nd)
+        # In local fracture coordinates the normal component is last, and compression is
+        # negative.
+        values[model.nd - 1 :: model.nd] = -fraction * SIGMA_T / char_t
+        model.equation_system.set_variable_values(
+            values, variables=[model.contact_traction(fractures)], iterate_index=0
+        )
+
+    def _partition(self, model, fraction: float) -> np.ndarray:
+        self._set_traction_fraction(model, fraction)
+        return np.asarray(
+            model.stress_partition(self._fractures(model)).value(model.equation_system)
+        )
+
+    @pytest.mark.parametrize("fraction", [0.1, 0.25, 0.5, 0.75, 0.99])
+    def test_partition_matches_formula(self, fraction: float):
+        """Below the transition the partition is the closed form."""
+        model = self._model()
+        expected = 1.0 - (1.0 - fraction) ** 1.5
+        np.testing.assert_allclose(
+            self._partition(model, fraction), expected, rtol=1e-10
+        )
+
+    def test_partition_is_one_above_the_transition(self):
+        """Above ``sigma_T`` the asperities are fully sheared, ``a_s = 1``.
+
+        This is the test that the base is clipped *before* it is raised. With the clip
+        applied afterwards the base is negative here and a non-integer power of it has
+        no real value, so the failure is not a wrong number but a complex or NaN one.
+        """
+        model = self._model()
+        for fraction in (1.0, 1.5, 4.0):
+            np.testing.assert_allclose(
+                self._partition(model, fraction), 1.0, rtol=1e-12
+            )
+
+    def test_partition_vanishes_in_tension(self):
+        """A fracture in tension carries no sheared contact, ``a_s = 0``.
+
+        The upper clip is what enforces this: without it the base exceeds one and the
+        partition would go negative, i.e. the sliding fraction would exceed the whole
+        contact.
+        """
+        model = self._model()
+        for fraction in (-0.5, -2.0):
+            np.testing.assert_allclose(self._partition(model, fraction), 0.0, atol=1e-9)
+
+    def test_partition_is_bounded_and_monotone(self):
+        """``a_s`` is confined to [0, 1] and increases with the normal traction."""
+        model = self._model()
+        fractions = np.linspace(-1.0, 3.0, 41)
+        values = np.array(
+            [float(np.mean(self._partition(model, f))) for f in fractions]
+        )
+
+        assert np.all(values >= -1e-9) and np.all(values <= 1.0 + 1e-12)
+        assert np.all(np.diff(values) >= -1e-12)
+
+    def test_partition_is_smooth_at_the_transition(self):
+        """No kink at ``sigma_n = sigma_T``: the slope vanishes from both sides.
+
+        This asserts an observed *rate* rather than a threshold, which is worth
+        spelling out because it is not the style used elsewhere in this file.
+
+        The quantity of interest is the one-sided derivative on each side of the
+        transition. Both are zero: above ``sigma_T`` the partition is clipped flat, and
+        below it ``da_s/dsigma_n ~ (1 - sigma_n/sigma_T) ** (K - 1)``, which for
+        ``K > 1`` decays to zero as the transition is approached. So ``a_s`` is C1
+        there, not merely continuous.
+
+        A derivative that is zero cannot be checked against a tolerance directly: a
+        centred difference straddling the transition is not zero but ``sqrt(h)/2`` for
+        ``K = 1.5``, so any fixed bound on it is really a statement about ``h`` and says
+        nothing about the law. Comparing two step sizes removes ``h`` from the claim.
+        The quotient's leading term is ``h ** (K - 1)``, so quartering the step must
+        halve it, exactly and independently of the constants -- hence the tight ``rtol``
+        on a ratio of two crude finite differences.
+
+        The test discriminates sharply. A hard switch at ``sigma_T`` has a quotient that
+        *grows* as ``1/h``; a linear ramp (``K = 1``) has one that is constant in ``h``;
+        only ``K = 1.5`` gives the factor of two. Clipping after the power rather than
+        before would not reach this test at all, since the evaluation below the
+        transition would already have failed.
+        """
+
+        def slope(model, centre: float, step: float) -> float:
+            below = float(np.mean(self._partition(model, centre - step)))
+            above = float(np.mean(self._partition(model, centre + step)))
+            return (above - below) / (2 * step)
+
+        def refinement_ratio(model) -> float:
+            """Quotient at the transition, coarse step over a four times finer one."""
+            return slope(model, 1.0, 1e-3) / slope(model, 1.0, 2.5e-4)
+
+        model = self._model()
+        np.testing.assert_allclose(refinement_ratio(model), 2.0, rtol=1e-6)
+
+        # Well below the transition the slope is order one, so the vanishing above is a
+        # property of the transition and not of the partition being flat everywhere.
+        assert slope(model, 0.5, 1e-3) > 1.0
+
+        # The rate is what carries the claim, so check that it can come out otherwise:
+        # at K = 1 the partition is a ramp with a genuine corner at the transition, and
+        # the same quotient is then independent of the step instead of halving with it.
+        np.testing.assert_allclose(
+            refinement_ratio(self._model(exponent=1.0)), 1.0, rtol=1e-6
+        )
+
+    def test_partition_is_inert_by_default(self):
+        """With no transitional traction set, all contact is sliding contact.
+
+        The default is infinite, so the model reduces to the pure sliding law rather
+        than silently assuming full ploughing.
+        """
+        model = _prepared_model(damages=["dilation", "friction"])
+        fractures = self._fractures(model)
+        nc = sum(sd.num_cells for sd in fractures)
+        values = np.zeros(nc * model.nd)
+        values[model.nd - 1 :: model.nd] = -0.4
+        model.equation_system.set_variable_values(
+            values, variables=[model.contact_traction(fractures)], iterate_index=0
+        )
+        np.testing.assert_allclose(
+            model.stress_partition(fractures).value(model.equation_system), 0.0
+        )
+
+
+# ---------------------------------------------------------------------------
+# 4.  Damage length kernel
 # ---------------------------------------------------------------------------
 
 

@@ -4404,6 +4404,85 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
             self.solid.friction_wear_energy_scale, "friction_wear_energy_scale"
         )
 
+    def transitional_normal_traction(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        r"""Transitional normal traction :math:`\sigma_T` [Pa].
+
+        Parameters:
+            subdomains: List of subdomains where the traction is defined.
+
+        Returns:
+            Operator for the transitional normal traction.
+
+        """
+        return Scalar(
+            self.solid.transitional_normal_traction, "transitional_normal_traction"
+        )
+
+    def stress_partition_exponent(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        r"""Exponent :math:`K` of the stress partition [-].
+
+        Parameters:
+            subdomains: List of subdomains where the exponent is defined.
+
+        Returns:
+            Operator for the stress partition exponent.
+
+        """
+        return Scalar(self.solid.stress_partition_exponent, "stress_partition_exponent")
+
+    def stress_partition(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        r"""Fraction of the contact carried by sheared asperities [-].
+
+        Following Ladanyi and Archambault (1970),
+
+        .. math::
+            a_s = 1 - \left(1 - \frac{\sigma_n}{\sigma_T}\right)^K,
+
+        the proportion of the contact area over which asperities are sheared through
+        rather than slid over. It rises from zero at vanishing normal traction to one at
+        the transitional traction :math:`\sigma_T`, and the complement
+        :math:`1 - a_s` is the sliding fraction.
+
+        The base is clipped to :math:`[0, 1]` *before* it is raised to the power. Both
+        bounds are needed and neither is cosmetic: above :math:`\sigma_T` the base is
+        negative, and a non-integer :math:`K` has no real value there; in tension the
+        base exceeds one, which would drive :math:`a_s` negative. Clipping afterwards
+        would come too late for the former.
+
+        The result is continuously differentiable at :math:`\sigma_T` for
+        :math:`K > 1`, since :math:`\partial a_s / \partial \sigma_n \propto
+        (1 - \sigma_n/\sigma_T)^{K-1}` approaches zero from the unclipped side, and the
+        clip zeroes the derivative on the other.
+
+        References:
+            Ladanyi, B. and Archambault, G. (1970): Simulation of shear behavior of a
+            jointed rock mass. https://doi.org/10.1016/0148-9062(70)90007-8
+
+        Parameters:
+            subdomains: List of subdomains where the partition is defined. Should be of
+                co-dimension one, i.e. fractures.
+
+        Returns:
+            Operator for the stress partition.
+
+        """
+        # The normal traction is nondimensional, so multiply the characteristic traction
+        # back in before comparing it with the transitional traction.
+        ratio = self._positive_normal_traction(subdomains) * (
+            self.characteristic_contact_traction(subdomains)
+            / self.transitional_normal_traction(subdomains)
+        )
+        f_clip = Function(
+            partial(pp.ad.functions.clip, min_val=0.0, max_val=1.0),
+            "clip_function",
+        )
+        sliding_fraction = f_clip(
+            Scalar(1.0) - ratio
+        ) ** self.stress_partition_exponent(subdomains)
+        op = Scalar(1.0) - sliding_fraction
+        op.set_name("stress_partition")
+        return op
+
     def damage_evolution_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         r"""Damage evolution coefficient [1/m].
 
@@ -4434,7 +4513,10 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
         return coefficient
 
     def _positive_normal_traction(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Positive normal traction for fractures [Pa].
+        """Positive normal traction for fractures [-].
+
+        Nondimensional, as the contact traction variable it is taken from. Callers that
+        need it in Pa multiply by :meth:`characteristic_contact_traction`.
 
         Parameters:
             subdomains: List of subdomains where the traction is defined.
