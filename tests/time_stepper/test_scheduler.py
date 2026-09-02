@@ -1,4 +1,3 @@
-import logging
 from itertools import repeat
 from typing import Iterable, Optional
 
@@ -8,6 +7,7 @@ import pytest
 import porepy as pp
 from porepy.time_stepper.scheduler import (
     CannotRecomputeTimeStep,
+    SimulationTimeData,
     TargetNonlinearIterations,
     TimeInterval,
     TimeScheduler,
@@ -30,9 +30,9 @@ def run_scheduler_collect_data(
     checkpoints_hit = []
 
     # Append initial time step before the loop.
-    times.append(scheduler.get_time())
+    times.append(scheduler.generate_time_data().time)
     if scheduler.is_hitting_schedule():
-        checkpoints_hit.append(scheduler.get_time())
+        checkpoints_hit.append(scheduler.generate_time_data().time)
 
     # Simulate the simulation main loop.
     for ts_converged, num_iters in zip(time_step_converged, num_nonlinear_iterations):
@@ -44,9 +44,9 @@ def run_scheduler_collect_data(
             else get_context_failure(num_iters)
         )
         scheduler.compute_next_time_step(success=ts_converged, context=context)
-        times.append(scheduler.get_time())
+        times.append(scheduler.generate_time_data().time)
         if scheduler.is_hitting_schedule():
-            checkpoints_hit.append(scheduler.get_time())
+            checkpoints_hit.append(scheduler.generate_time_data().time)
 
     assert scheduler.is_finished()
     return times, checkpoints_hit
@@ -135,13 +135,16 @@ def test_scheduler_floating_point_inaccuracy(
         # General case: 11 time steps as expected.
         assert len(times) == 11
 
-    expected_schedule = scheduler.get_schedule()
+    expected_schedule = scheduler.generate_time_data().schedule
 
     if constant_dt and dt_snap == 1e-50 and dt in [(2.5 - 1e-8), (2.5 + 1e-8)]:
         # Special case: Constant dt scheduler does not acknowledge that we hit schedule
         # points. We still complete the simulation successfully.
         assert not len(checkpoints_hit) == len(expected_schedule)
-        assert scheduler.get_time() >= scheduler.get_time_end()
+        assert (
+            scheduler.generate_time_data().time
+            >= scheduler.generate_time_data().schedule[-1]
+        )
     else:
         # General case: All schedule points are handled correctly.
         np.testing.assert_allclose(
@@ -178,7 +181,7 @@ def test_inconsistent_schedule(constant_dt: bool):
     times, checkpoints_hit = run_scheduler_collect_data(scheduler)
 
     np.testing.assert_allclose(times, [0, 1, 1.5, 2.5, 3])
-    np.testing.assert_allclose(checkpoints_hit, scheduler.get_schedule())
+    np.testing.assert_allclose(checkpoints_hit, scheduler.generate_time_data().schedule)
 
 
 def test_schedule_length_greater_than_2():
@@ -251,7 +254,7 @@ def test_initial_time_step_overshoots_schedule_point(schedule: list[int]):
 
     times, checkpoints_hit = run_scheduler_collect_data(scheduler)
 
-    np.testing.assert_allclose(checkpoints_hit, scheduler.get_schedule())
+    np.testing.assert_allclose(checkpoints_hit, scheduler.generate_time_data().schedule)
     np.testing.assert_allclose(times, checkpoints_hit)
 
 
@@ -299,7 +302,7 @@ def test_compute_time_step_after_final_time(constant_dt: bool):
 
     assert scheduler.is_finished()
 
-    dt_final = scheduler.get_dt()
+    dt_final = scheduler.generate_time_data().dt
     dt_new = scheduler.compute_next_time_step(
         success=True, context=get_context_success()
     )
@@ -444,7 +447,9 @@ def test_time_step_match_schedule_exactly(constant_dt: bool):
     )
 
     times, checkpoint_hits = run_scheduler_collect_data(scheduler)
-    np.testing.assert_array_equal(checkpoint_hits, scheduler.get_schedule())
+    np.testing.assert_array_equal(
+        checkpoint_hits, scheduler.generate_time_data().schedule
+    )
     np.testing.assert_array_equal(times, checkpoint_hits)
 
 
@@ -456,3 +461,83 @@ def test_time_manager_deprecation():
 
     with pytest.raises(ValueError):
         time_manager.dt = 1
+
+
+@pytest.mark.parametrize(
+    ("time", "at_initial", "at_final"),
+    [(5e-4, True, False), (1 + 5e-4, False, True), (1 + 2e-3, False, False)],
+)
+def test_simulation_time_data_respects_t_snap(
+    time: float, at_initial: bool, at_final: bool
+):
+    time_data = SimulationTimeData(
+        time=time,
+        dt=0.1,
+        time_index_successful=0,
+        schedule=np.array([0, 1]),
+        constant_dt=True,
+        t_snap=1e-3,
+    )
+
+    assert time_data.is_at_initial_time() is at_initial
+    assert time_data.final_time_reached() is at_final
+
+
+@pytest.mark.parametrize("constant_dt", [True, False])
+def test_generate_time_data_restart(constant_dt: bool):
+    """Tests generate_time_data and how it behaves after restarting."""
+    scheduler = assemble_default_time_scheduler(
+        schedule=[0, 2], dt_init=0.5, constant_dt=constant_dt
+    )
+
+    current = scheduler.generate_time_data()
+    trial = scheduler.generate_time_data(trial=True)
+    assert current.time == 0
+    assert current.time_index_successful == 0
+    assert trial.time == 0.5
+    assert trial.time_index_successful == 1
+
+    restart_data = SimulationTimeData(
+        time=1,
+        dt=0.5,
+        time_index_successful=2,
+        schedule=np.array([0, 2]),
+        constant_dt=constant_dt,
+        is_restarting=True,
+    )
+    scheduler.restore(restart_data)
+
+    restored = scheduler.generate_time_data()
+    assert restored.time == 1
+    assert restored.dt == 0.5
+    assert restored.time_index_successful == 2
+    assert not restored.is_restarting
+    assert scheduler.generate_time_data(trial=True).time == 1.5
+
+
+def test_restart_at_interval_start_uses_new_interval_dt():
+    """Test that if restarted time is the start of a new interval, the interval's
+    t_start overrides loaded dt.
+
+    """
+    scheduler = TimeScheduler(
+        intervals=[
+            TimeInterval.create(t_start=0, dt_start=0.4, dt_min=0.1, dt_max=0.5),
+            TimeInterval.create(t_start=1, dt_start=0.2, dt_min=0.1, dt_max=0.3),
+        ],
+        t_end=2,
+    )
+    restart_data = SimulationTimeData(
+        time=1,
+        dt=0.05,
+        time_index_successful=3,
+        schedule=np.array([0, 1, 2]),
+        constant_dt=False,
+        is_restarting=True,
+    )
+
+    scheduler.restore(restart_data)
+
+    assert scheduler.generate_time_data().time == 1
+    assert scheduler.generate_time_data().dt == 0.2
+    assert scheduler.generate_time_data(trial=True).time == 1.2
