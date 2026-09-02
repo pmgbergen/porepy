@@ -4370,7 +4370,7 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
         op.set_name("characteristic_wear_energy")
         return op
 
-    def dilation_wear_energy_scale(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
+    def dilation_wear_energy_scale(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         r"""Wear energy scale for dilation damage :math:`\Lambda_c^d` [Pa m].
 
         Defined here rather than on :class:`DilationDamage` because
@@ -4381,14 +4381,14 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
             subdomains: List of subdomains where the scale is defined.
 
         Returns:
-            Scalar for the dilation wear energy scale.
+            Operator for the dilation wear energy scale.
 
         """
         return Scalar(
             self.solid.dilation_wear_energy_scale, "dilation_wear_energy_scale"
         )
 
-    def friction_wear_energy_scale(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
+    def friction_wear_energy_scale(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         r"""Wear energy scale for friction damage :math:`\Lambda_c^f` [Pa m].
 
         As :meth:`dilation_wear_energy_scale`, but for the friction channel.
@@ -4397,7 +4397,7 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
             subdomains: List of subdomains where the scale is defined.
 
         Returns:
-            Scalar for the friction wear energy scale.
+            Operator for the friction wear energy scale.
 
         """
         return Scalar(
@@ -4580,7 +4580,7 @@ class FrictionDamage(pp.PorePyModel):
     """Method returning the characteristic wear energy. Normally defined in a mixin
     instance of :class:`FractureDamageEvolutionCoefficients`."""
 
-    friction_wear_energy_scale: Callable[[list[pp.Grid]], pp.ad.Scalar]
+    friction_wear_energy_scale: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method returning the friction wear energy scale. Normally defined in a mixin
     instance of :class:`FractureDamageEvolutionCoefficients`."""
 
@@ -4624,7 +4624,7 @@ class FrictionDamage(pp.PorePyModel):
         one = pp.ad.Scalar(1.0)
         return d0 + (one - d0) * f_exp(-(history / scale))
 
-    def residual_friction_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
+    def residual_friction_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Residual friction damage [-].
 
         Parameters:
@@ -4632,7 +4632,7 @@ class FrictionDamage(pp.PorePyModel):
                 be of co-dimension one, i.e. fractures.
 
         Returns:
-            Scalar for nondimensionalized residual damage.
+            Operator for nondimensionalized residual damage.
 
         """
         return pp.ad.Scalar(
@@ -4707,7 +4707,7 @@ class DilationDamage(pp.PorePyModel):
     """Method returning the characteristic wear energy. Normally defined in a mixin
     instance of :class:`FractureDamageEvolutionCoefficients`."""
 
-    dilation_wear_energy_scale: Callable[[list[pp.Grid]], pp.ad.Scalar]
+    dilation_wear_energy_scale: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method returning the dilation wear energy scale. Normally defined in a mixin
     instance of :class:`FractureDamageEvolutionCoefficients`."""
 
@@ -4751,7 +4751,7 @@ class DilationDamage(pp.PorePyModel):
         one = pp.ad.Scalar(1.0)
         return d0 + (one - d0) * f_exp(-(history / scale))
 
-    def residual_dilation_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
+    def residual_dilation_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Residual dilation damage [-].
 
         Parameters:
@@ -4759,7 +4759,7 @@ class DilationDamage(pp.PorePyModel):
                 be of co-dimension one, i.e. fractures.
 
         Returns:
-            Scalar for nondimensionalized residual damage.
+            Operator for nondimensionalized residual damage.
 
         """
         return pp.ad.Scalar(
