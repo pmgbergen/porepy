@@ -1966,23 +1966,15 @@ class PeacemanWellFlux(pp.PorePyModel):
         # We assume isotropic permeability and extract xx component.
         e_i = self.e_i(subdomains, i=0, dim=9).T
 
-        # To get a transmissivity, we multiply the permeability with the length of the
-        # well within one cell. For a 0d-2d coupling, this will be the aperture of the
-        # 2d fracture cell; in practice the number is obtained by multiplying with the
-        # specific volume of the mortar cell (which will incorporate the specific volume
-        # of the higher-dimensional neighbor, that is, the fracture). For a 1d-3d
-        # coupling, we will need the length of the well within the 3d cell (see the MRST
-        # book, p.128, for comments regarding deviated wells). Again, this could be
-        # obtained by a volume integral over the mortar cell; however, as 1d-3d
-        # couplings have not yet been implemented, we will raise an error in this case.
-        if any([sd.dim == 3 for sd in subdomains]):
-            raise NotImplementedError(
-                "The 1d-3d coupling has not yet been implemented. "
-            )
-        elif any([sd.dim == 1 for sd in subdomains]):
-            # This is a 1d-2d (or 1d-1d) coupling, for which the Peaceman model is
-            # not applicable.
-            # TODO: Revisit when we implement 1d-3d coupling.
+        # To get a transmissivity, the permeability is multiplied by the length of the
+        # well within one cell, which the volume integral below supplies in both
+        # couplings. For a 0d-2d coupling it is the aperture of the 2d fracture cell,
+        # picked up through the specific volume of the mortar cell, which carries that
+        # of the higher-dimensional neighbour. For a 1d-3d coupling each mortar cell is
+        # one contact between a well cell and a rock matrix cell, so its volume is that
+        # length directly, and the specific volume of a three-dimensional neighbour is
+        # one. See the MRST book, p.128, for comments regarding deviated wells.
+        if any(intf.codim != 2 for intf in interfaces):
             raise ValueError("The Peaceman model assumes a coupling of codimension 2")
 
         isotropic_permeability = e_i @ self.permeability(subdomains)
@@ -2188,7 +2180,15 @@ class PeacemanWellFlux(pp.PorePyModel):
             # Not a well interface, so the value is never used in the well flux.
             return np.full(interface.num_cells, unused_val)
 
-        sd_primary, _ = self.mdg.interface_to_subdomain_pair(interface)
+        sd_primary, sd_secondary = self.mdg.interface_to_subdomain_pair(interface)
+        if sd_secondary.dim == 1:
+            # A well running through the rock matrix. The radius is set by the extent
+            # of the cell perpendicular to the well, so it depends on the direction of
+            # the well through that cell and has to be read off the contact geometry.
+            return pp.fracs.wells_3d.well_equivalent_radii(self.mdg, interface)
+
+        # A well meeting a fracture in a point, where the well has no direction within
+        # the fracture cell and the radius follows from the size of the cell alone.
         cell_size = np.power(sd_primary.cell_volumes, 1 / sd_primary.dim)
         return 0.2 * (interface.primary_to_mortar_avg() @ cell_size)
 
