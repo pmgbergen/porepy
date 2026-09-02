@@ -1294,17 +1294,39 @@ def _well_model(params: dict) -> pp.PorePyModel:
     return model
 
 
-def test_well_open_fraction_defaults() -> None:
-    """A well-fracture contact is open unless the fracture is named as closed.
+def _open_fractions_by_interface(model: pp.PorePyModel) -> dict:
+    """Open fraction of each contact, split by the interface it belongs to."""
+    interfaces = list(model.mdg.interfaces(codim=2))
+    fractions = model.equation_system.evaluate(model.well_open_fraction(interfaces))
+    split = {}
+    offset = 0
+    for intf in interfaces:
+        split[intf] = fractions[offset : offset + intf.num_cells]
+        offset += intf.num_cells
+    return split
 
-    The defaults of the two couplings differ deliberately, so a failure here would
+
+def _is_well_fracture_interface(model: pp.PorePyModel, intf: pp.MortarGrid) -> bool:
+    """Whether an interface couples a well to a fracture rather than to the rock."""
+    _, secondary = model.mdg.interface_to_subdomain_pair(intf)
+    return secondary.dim == 0
+
+
+def test_well_open_fraction_defaults() -> None:
+    """The two couplings default differently: fractures open, rock closed.
+
+    A well is connected to a fracture it has deliberately been made to intersect, but
+    to the rock only where a completion says it is perforated. A failure here would
     silently change which parts of a well exchange fluid.
     """
     model = _well_model({})
-    interfaces = list(model.mdg.interfaces(codim=2))
-    assert len(interfaces) > 0
-    fractions = model.equation_system.evaluate(model.well_open_fraction(interfaces))
-    np.testing.assert_allclose(fractions, 1.0)
+    split = _open_fractions_by_interface(model)
+    kinds = {_is_well_fracture_interface(model, intf) for intf in split}
+    assert kinds == {True, False}, "expected both a fracture and a rock coupling"
+
+    for intf, fractions in split.items():
+        expected = 1.0 if _is_well_fracture_interface(model, intf) else 0.0
+        np.testing.assert_allclose(fractions, expected)
 
 
 def test_closing_a_fracture_shuts_off_its_well_contact() -> None:
@@ -1316,6 +1338,7 @@ def test_closing_a_fracture_shuts_off_its_well_contact() -> None:
     model = _well_model({"well_completion": {0: {"closed_fractures": [0]}}})
     interfaces = list(model.mdg.interfaces(codim=2))
 
+    # Every contact is now closed: the fracture by name, the rock by default.
     fractions = model.equation_system.evaluate(model.well_open_fraction(interfaces))
     np.testing.assert_allclose(fractions, 0.0)
 
@@ -1328,9 +1351,9 @@ def test_closing_a_fracture_shuts_off_its_well_contact() -> None:
 def test_closing_an_unrelated_fracture_leaves_the_contact_open() -> None:
     """Only the named fracture is closed, not every fracture."""
     model = _well_model({"well_completion": {0: {"closed_fractures": [7]}}})
-    interfaces = list(model.mdg.interfaces(codim=2))
-    fractions = model.equation_system.evaluate(model.well_open_fraction(interfaces))
-    np.testing.assert_allclose(fractions, 1.0)
+    for intf, fractions in _open_fractions_by_interface(model).items():
+        if _is_well_fracture_interface(model, intf):
+            np.testing.assert_allclose(fractions, 1.0)
 
 
 class TwoWellModel(WellModel):
@@ -1380,17 +1403,12 @@ def test_a_fracture_can_be_closed_for_one_well_only() -> None:
     setting is being applied to every well that meets the named fracture.
     """
     model = _two_well_model({"well_completion": {0: {"closed_fractures": [0]}}})
-    interfaces = list(model.mdg.interfaces(codim=2))
-    fractions = model.equation_system.evaluate(model.well_open_fraction(interfaces))
 
-    offset = 0
-    for intf in interfaces:
+    for intf, fractions in _open_fractions_by_interface(model).items():
+        if not _is_well_fracture_interface(model, intf):
+            continue
         well = pp.fracs.wells_3d.well_number_of_interface(model.mdg, intf)
-        expected = 0.0 if well == 0 else 1.0
-        np.testing.assert_allclose(
-            fractions[offset : offset + intf.num_cells], expected
-        )
-        offset += intf.num_cells
+        np.testing.assert_allclose(fractions, 0.0 if well == 0 else 1.0)
 
 
 def test_equivalent_well_radius_of_a_well_fracture_contact() -> None:
@@ -1407,13 +1425,20 @@ def test_equivalent_well_radius_of_a_well_fracture_contact() -> None:
     radii = model.equation_system.evaluate(model.equivalent_well_radius(interfaces))
     assert radii.size == sum(intf.num_cells for intf in interfaces)
 
+    offset = 0
     for intf in interfaces:
         sd_primary, _ = model.mdg.interface_to_subdomain_pair(intf)
-        expected = 0.2 * (
-            intf.primary_to_mortar_avg()
-            @ np.power(sd_primary.cell_volumes, 1 / sd_primary.dim)
+        if _is_well_fracture_interface(model, intf):
+            expected = 0.2 * (
+                intf.primary_to_mortar_avg()
+                @ np.power(sd_primary.cell_volumes, 1 / sd_primary.dim)
+            )
+        else:
+            expected = pp.fracs.wells_3d.well_equivalent_radii(model.mdg, intf)
+        np.testing.assert_allclose(
+            radii[offset : offset + intf.num_cells], expected, rtol=1e-12
         )
-        np.testing.assert_allclose(radii[: intf.num_cells], expected, rtol=1e-12)
+        offset += intf.num_cells
 
 
 def test_equivalent_well_radius_rejects_the_former_signature() -> None:
@@ -1438,3 +1463,59 @@ def test_equivalent_well_radius_rejects_the_former_signature() -> None:
     )
     with pytest.raises(ValueError, match="takes a list of interfaces"):
         model.prepare_simulation()
+
+
+def test_an_open_completion_lets_a_well_feed_the_rock() -> None:
+    """A well opened over part of its length exchanges fluid with the rock there.
+
+    This is the coupling the project exists to provide, exercised end to end: the
+    contacts inside the open interval carry flux, those outside it carry none, and the
+    partition follows the completion rather than the mesh. A failure means the
+    completion is not reaching the well index, or the well-matrix interface is not
+    being built.
+    """
+    model = _well_model({"well_completion": {0: {"open_intervals": [(0.0, 0.4)]}}})
+    rock = [
+        intf
+        for intf in model.mdg.interfaces(codim=2)
+        if not _is_well_fracture_interface(model, intf)
+    ]
+    assert len(rock) == 1
+    interface = rock[0]
+
+    fractions = _open_fractions_by_interface(model)[interface]
+    assert np.any(fractions > 0), "the completion opened no contact at all"
+    assert np.any(fractions == 0), "the completion opened the whole well"
+
+    # The open contacts are those the completion covers, measured along the well.
+    spans = pp.fracs.wells_3d.well_contact_path_spans(
+        model.mdg, interface, model.wells[0].pts[:, 0]
+    )
+    np.testing.assert_allclose(
+        fractions > 0, spans[0] < 0.4, err_msg="open contacts do not match the interval"
+    )
+
+    # A closed contact carries no flux whatever the pressure difference across it.
+    well_index = model.equation_system.evaluate(
+        model.well_open_fraction([interface])
+        * model.volume_integral(pp.ad.Scalar(1.0), [interface], 1)
+    )
+    assert np.all(well_index[fractions == 0] == 0.0)
+    assert np.all(well_index[fractions > 0] > 0.0)
+
+
+def test_a_well_without_completion_is_isolated_from_the_rock() -> None:
+    """With no completion the rock contacts exist but conduct nothing.
+
+    The interfaces are built regardless, since whether a contact conducts is a question
+    for the model rather than for the geometry. A failure means a well silently leaks
+    into the rock in models that never asked for it.
+    """
+    model = _well_model({})
+    interfaces = list(model.mdg.interfaces(codim=2))
+    rock = [intf for intf in interfaces if not _is_well_fracture_interface(model, intf)]
+    assert len(rock) == 1 and rock[0].num_cells > 0
+
+    equation = model.equation_system.evaluate(model.well_flux_equation(rock))
+    well_flux = model.equation_system.evaluate(model.well_flux(rock))
+    np.testing.assert_allclose(equation, well_flux, atol=1e-14)

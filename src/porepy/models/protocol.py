@@ -139,6 +139,9 @@ else:
         def create_well_mesh(self) -> None:
             """Create well mesh and add to mixed-dimensional grid."""
 
+        def create_well_matrix_interfaces(self) -> None:
+            """Couple the wells to the rock matrix they pass through."""
+
         def set_wells(self) -> None:
             """Add wells to the mixed-dimensional grid."""
 

@@ -340,7 +340,15 @@ def test_energy_conservation():
     assert np.isclose(u_val, u_expected, rtol=1e-3)
     # u and h should be close with our setup
     assert np.isclose(u_val, h_val, rtol=1e-3)
-    well_intf = model.mdg.interfaces(codim=2)
+    # A well is coupled both to the fracture it meets and to the rock matrix it passes
+    # through. Only the former is examined here: the enthalpy compared against is that
+    # of the zero-dimensional intersection, which describes the fracture contact alone.
+    # The rock contacts carry no flux, as no completion opens them.
+    well_intf = [
+        intf
+        for intf in model.mdg.interfaces(codim=2)
+        if model.mdg.interface_to_subdomain_pair(intf)[1].dim == 0
+    ]
     well_enthalpy_flux = model.equation_system.evaluate(
         model.well_enthalpy_flux(well_intf)
     )
@@ -353,3 +361,8 @@ def test_energy_conservation():
     # Well fluid flux should equal the injected fluid. Minus for convention of interface
     # fluxes from higher to lower domain.
     assert np.isclose(well_fluid_flux, -1, rtol=1e-10)
+    # Nothing leaks into the rock, so the whole injected rate crosses that one contact.
+    all_well_flux = model.equation_system.evaluate(
+        model.well_flux(model.mdg.interfaces(codim=2))
+    )
+    assert np.isclose(np.sum(all_well_flux), -1, rtol=1e-10)

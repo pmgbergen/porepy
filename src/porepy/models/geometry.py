@@ -55,6 +55,7 @@ class ModelGeometry(pp.PorePyModel):
         self.set_wells()
         self.set_well_network()
         self.create_well_mesh()
+        self.create_well_matrix_interfaces()
 
         # Move cell centers if requested.
         self.move_cell_centers()
@@ -139,6 +140,23 @@ class ModelGeometry(pp.PorePyModel):
         self.well_network.mesh(
             self.fracture_network, self.mdg, self.well_meshing_arguments()
         )
+
+    def create_well_matrix_interfaces(self) -> None:
+        """Couple the wells to the rock matrix they pass through.
+
+        A well does not conform to the rock matrix mesh, so the contacts have to be
+        found geometrically. Each contact between a well cell and a rock matrix cell
+        becomes one cell of a new interface of codimension two.
+
+        Every contact is built, including those the well completion leaves closed.
+        Whether a contact conducts is a question for the model, which scales the well
+        index by the open fraction, not for the geometry; see
+        :meth:`~porepy.models.constitutive_laws.PeacemanWellFlux.well_open_fraction`.
+
+        """
+        if len(self._wells) == 0:
+            return
+        pp.fracs.wells_3d.compute_well_rock_matrix_intersections(self.mdg)
 
     def is_well_grid(self, grid: pp.Grid | pp.MortarGrid) -> bool:
         """Check if a subdomain is a well.
