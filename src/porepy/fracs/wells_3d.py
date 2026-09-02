@@ -991,7 +991,12 @@ def well_equivalent_radii(
     )
 
 
-def check_well_radius_resolution(radii: np.ndarray, well_radius: float) -> None:
+def check_well_radius_resolution(
+    radii: np.ndarray,
+    path_lengths: np.ndarray,
+    well_radius: float,
+    well_num: int,
+) -> None:
     """Verify that the mesh resolves the region around a well.
 
     The Peaceman well index is inversely proportional to ``log(r_e / r_w)``, which is
@@ -1014,32 +1019,48 @@ def check_well_radius_resolution(radii: np.ndarray, well_radius: float) -> None:
 
             Equivalent well radius of each contact, as returned by
             :func:`well_equivalent_radii`.
+        path_lengths: ``shape=(2, num_contacts)``
+
+            Path length of the two ends of each contact, used to report where along the
+            well the mesh is too fine.
         well_radius: Physical radius of the well.
+        well_num: Index of the well, used to report which well is affected.
 
     Raises:
         ValueError: If some cell is so small that its equivalent radius does not exceed
             the well radius.
 
     """
-    if np.any(radii <= well_radius):
-        smallest = float(radii.min())
+
+    def stretch(offending: np.ndarray) -> str:
+        """Where along the well the offending contacts lie."""
+        lower = float(path_lengths[:, offending].min())
+        upper = float(path_lengths[:, offending].max())
+        return f"between {lower:.4g} and {upper:.4g} along it"
+
+    too_small = radii <= well_radius
+    if np.any(too_small):
         raise ValueError(
-            f"The rock matrix is too fine around the well: the smallest equivalent "
-            f"well radius is {smallest:.3e}, which does not exceed the well radius "
-            f"{well_radius:.3e}. The Peaceman well index is not defined in this "
-            "regime. Coarsen the grid near the well, or represent the well by a "
-            "resolved geometry rather than a well index."
+            f"Well {well_num} passes through rock matrix cells too fine for the "
+            f"Peaceman well index. Over {radii[too_small].size} of its "
+            f"{radii.size} contacts, {stretch(too_small)}, the equivalent well radius "
+            f"falls to {float(radii[too_small].min()):.3e}, which does not exceed the "
+            f"well radius {well_radius:.3e}. The well index is not defined in this "
+            "regime. Coarsen the grid there, close the well over that stretch, or "
+            "represent the well by a resolved geometry rather than a well index."
         )
 
     marginal = radii < _WELL_RADIUS_RESOLUTION_WARNING * well_radius
     if np.any(marginal):
         logger.warning(
-            "The rock matrix is barely coarse enough around the well: %d of %d "
-            "contacts have an equivalent well radius below %d times the well radius, "
-            "the smallest being %.3e. The Peaceman well index is increasingly "
+            "The rock matrix is barely coarse enough around well %d: %d of %d "
+            "contacts, %s, have an equivalent well radius below %d times the well "
+            "radius, the smallest being %.3e. The Peaceman well index is increasingly "
             "inaccurate as this ratio approaches unity.",
+            well_num,
             int(marginal.sum()),
             radii.size,
+            stretch(marginal),
             _WELL_RADIUS_RESOLUTION_WARNING,
-            float(radii.min()),
+            float(radii[marginal].min()),
         )

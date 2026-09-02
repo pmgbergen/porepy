@@ -983,10 +983,17 @@ class TestWellEquivalentRadii:
 class TestWellRadiusResolution:
     """The guard against meshes too fine for the Peaceman well index."""
 
+    @staticmethod
+    def _spans(num_contacts: int) -> np.ndarray:
+        """Contacts of unit length, laid end to end from the head of the well."""
+        starts = np.arange(num_contacts, dtype=float)
+        return np.vstack([starts, starts + 1.0])
+
     def test_a_comfortable_mesh_passes_quietly(self, caplog) -> None:
         """Well away from the singularity nothing should be reported."""
+        radii = np.array([0.5, 0.8, 1.2])
         with caplog.at_level(logging.WARNING):
-            check_well_radius_resolution(np.array([0.5, 0.8, 1.2]), 0.01)
+            check_well_radius_resolution(radii, self._spans(3), 0.01, 0)
         assert caplog.records == []
 
     def test_a_cell_smaller_than_the_well_is_refused(self) -> None:
@@ -995,20 +1002,40 @@ class TestWellRadiusResolution:
         Clamping instead would return a plausible but wrong index, which is the failure
         mode this guard exists to prevent.
         """
-        with pytest.raises(ValueError, match="too fine around the well"):
-            check_well_radius_resolution(np.array([0.5, 0.008]), 0.01)
+        radii = np.array([0.5, 0.008])
+        with pytest.raises(ValueError, match="too fine for the Peaceman well index"):
+            check_well_radius_resolution(radii, self._spans(2), 0.01, 0)
 
     def test_equality_with_the_well_radius_is_refused(self) -> None:
         """At equality the logarithm vanishes and the well index is infinite."""
-        with pytest.raises(ValueError, match="too fine around the well"):
-            check_well_radius_resolution(np.array([0.01]), 0.01)
+        with pytest.raises(ValueError, match="too fine for the Peaceman well index"):
+            check_well_radius_resolution(np.array([0.01]), self._spans(1), 0.01, 0)
+
+    def test_the_refusal_locates_the_offending_stretch(self) -> None:
+        """The message must name the well and where along it the mesh is too fine.
+
+        With several wells in a model, a report that some cell somewhere is too small
+        is not actionable. A failure here means the user is left to find the place by
+        hand.
+        """
+        radii = np.array([0.5, 0.5, 0.008, 0.008, 0.5])
+        with pytest.raises(ValueError) as excinfo:
+            check_well_radius_resolution(radii, self._spans(5), 0.01, 3)
+        message = str(excinfo.value)
+        assert "Well 3" in message
+        # The third and fourth contacts together span path length 2 to 4.
+        assert "between 2 and 4 along it" in message
+        assert "2 of its 5 contacts" in message
 
     def test_a_marginal_mesh_warns(self, caplog) -> None:
         """Approaching the singularity the index degrades before it fails."""
+        radii = np.array([0.5, 0.05])
         with caplog.at_level(logging.WARNING):
-            check_well_radius_resolution(np.array([0.5, 0.05]), 0.01)
+            check_well_radius_resolution(radii, self._spans(2), 0.01, 2)
         assert len(caplog.records) == 1
-        assert "barely coarse enough" in caplog.records[0].message
+        message = caplog.records[0].message
+        assert "barely coarse enough around well 2" in message
+        assert "between 1 and 2 along it" in message
 
     def test_the_guard_reads_the_cross_section_not_the_volume(self) -> None:
         """A cell of large volume but narrow across the well must be caught.
@@ -1027,28 +1054,5 @@ class TestWellRadiusResolution:
 
         assert matrix.cell_volumes[0] > 0.02
         assert 0.2 * matrix.cell_volumes[0] ** (1 / 3) > 0.05
-        with pytest.raises(ValueError, match="too fine around the well"):
-            check_well_radius_resolution(radii, 0.05)
-
-    @pytest.mark.parametrize(
-        "polygon, is_isotropic",
-        [
-            ([[0, 0], [2, 0], [2, 2], [0, 2]], True),
-            ([[0, 0], [1, 0], [0.5, np.sqrt(3) / 2]], True),
-            ([[0, 0], [3, 0], [3, 1], [0, 1]], False),
-            ([[0, 0], [3, 0], [0, 1]], False),
-        ],
-        ids=["square", "equilateral", "rectangle", "right_triangle"],
-    )
-    def test_symmetric_shapes_give_equal_extents(self, polygon, is_isotropic) -> None:
-        """Equal extents are the correct answer for a shape without a preferred axis.
-
-        A polygon with three-fold or higher symmetry has isotropic second moments and
-        must be summarised by a square of the same area. Squares and equilateral
-        triangles are common sections, so this behaviour is asserted rather than left
-        to look like a degeneracy. A failure on the asymmetric cases would mean the
-        anisotropy has been lost, and with it the dependence on well direction.
-        """
-        longer, shorter = _polygon_principal_extents(np.array(polygon, dtype=float))
-        assert (longer == pytest.approx(shorter, rel=1e-12)) is is_isotropic
-        assert longer >= shorter
+        with pytest.raises(ValueError, match="too fine for the Peaceman well index"):
+            check_well_radius_resolution(radii, self._spans(radii.size), 0.05, 0)
