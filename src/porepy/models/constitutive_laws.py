@@ -1954,6 +1954,7 @@ class PeacemanWellFlux(pp.PorePyModel):
         """
 
         self._check_equivalent_well_radius_signature()
+        self._check_open_contacts_are_resolved(interfaces)
 
         subdomains = self.interfaces_to_subdomains(interfaces)
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
@@ -2077,6 +2078,42 @@ class PeacemanWellFlux(pp.PorePyModel):
             name="equivalent_well_radius",
         )
         return r_e
+
+    def _check_open_contacts_are_resolved(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> None:
+        """Verify that the mesh resolves the region around the open parts of a well.
+
+        The Peaceman well index is inversely proportional to the logarithm of the ratio
+        between the equivalent and the physical well radius, and is singular when the
+        two coincide. Only contacts that conduct are checked: a cased stretch of well
+        carries no flux whatever the cells around it look like, so refusing a mesh on
+        account of one would be refusing a model that is perfectly well posed.
+
+        Parameters:
+            interfaces: List of interfaces where the well fluxes are defined.
+
+        Raises:
+            ValueError: If an open contact lies in a cell too small for the well index.
+
+        """
+        completion = self.params.get("well_completion", {})
+        for interface in interfaces:
+            _, sd_secondary = self.mdg.interface_to_subdomain_pair(interface)
+            if interface.codim != 2 or sd_secondary.dim != 1:
+                continue
+
+            well_num = pp.fracs.wells_3d.well_number_of_interface(self.mdg, interface)
+            spans = pp.fracs.wells_3d.well_contact_path_spans(
+                self.mdg, interface, self.wells[well_num].pts[:, 0]
+            )
+            is_open = self._contact_open_fractions(interface, completion) > 0
+            pp.fracs.wells_3d.check_well_radius_resolution(
+                pp.fracs.wells_3d.well_equivalent_radii(self.mdg, interface)[is_open],
+                spans[:, is_open],
+                self.solid.well_radius,
+                well_num,
+            )
 
     def well_open_fraction(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
         """Fraction of each well contact that is open to flow.
