@@ -2276,9 +2276,11 @@ class PeacemanWellFlux(pp.PorePyModel):
         contact.
 
         The contact elevation cancels when the two densities are equal, leaving the
-        difference between the two cell centres. That is exact for the well-fracture
-        coupling, where the well subdomain is a point and its cell centre *is* the
-        contact, but not in general.
+        difference between the two cell centres. It also cancels, whatever the
+        densities, for the well-fracture coupling, where the well subdomain is a point
+        and its cell centre *is* the contact. Neither holds for a well in the rock
+        matrix carrying a fluid of a different density from the formation, which is the
+        case the contact elevation is kept for.
 
         Note:
             The hydrostatic column along the well itself, from the surface down to a
@@ -2342,9 +2344,9 @@ class PeacemanWellFlux(pp.PorePyModel):
         rho_g = e_n.T @ gravity_vector
 
         # Each pressure is carried to the contact through the fluid on its own side of
-        # the interface. The two densities are equal for now; see below.
+        # the interface, so each transport is weighted by the density on that side.
         primary_rho_g = projection.primary_to_mortar_avg() @ rho_g
-        secondary_rho_g = projection.primary_to_mortar_avg() @ rho_g
+        secondary_rho_g = projection.secondary_to_mortar_avg() @ rho_g
 
         # The correction is subtracted from the pressure difference, and rho_g is
         # negative since pressure grows downwards, so a cell centre above the contact

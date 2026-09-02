@@ -1629,3 +1629,129 @@ def test_the_injected_rate_is_shared_between_the_couplings(
     # right for the wrong reason.
     assert (rock_flux < -1e-3) is rock_conducts
     assert fracture_flux < -1e-3
+
+
+class GravityWellModel(pp.constitutive_laws.GravityForce, WellModel):
+    """A vertical well through a horizontal fracture, under gravity."""
+
+
+def _gravity_well_model() -> pp.PorePyModel:
+    """A well under gravity, with a compressible fluid so density follows pressure."""
+    model = GravityWellModel(
+        {
+            "material_constants": {
+                "solid": pp.SolidConstants(well_radius=0.01),
+                "fluid": pp.FluidComponent(**water_values),
+            },
+            "fracture_indices": [2],
+            "times_to_export": [],
+        }
+    )
+    model.prepare_simulation()
+    return model
+
+
+def _set_well_and_formation_pressure(
+    model: pp.PorePyModel, well_pressure: float, formation_pressure: float
+) -> None:
+    """Pressurise the well and everything else separately."""
+    for sd in model.mdg.subdomains():
+        pressure = well_pressure if sd.dim == 1 else formation_pressure
+        variable = model.equation_system.md_variable(model.pressure_variable, [sd])
+        model.equation_system.set_variable_values(
+            np.full(sd.num_cells, pressure), [variable], iterate_index=0
+        )
+
+
+def _gravity_correction_by_interface(model: pp.PorePyModel) -> dict:
+    """The gravity correction of each contact, split by the interface it belongs to."""
+    interfaces = list(model.mdg.interfaces(codim=2))
+    subdomains = model.interfaces_to_subdomains(interfaces)
+    values = model.equation_system.evaluate(
+        model.gravity_pressure_correction(subdomains, interfaces)
+    )
+    split = {}
+    offset = 0
+    for intf in interfaces:
+        split[intf] = values[offset : offset + intf.num_cells]
+        offset += intf.num_cells
+    return split
+
+
+def test_the_well_fluid_density_carries_the_well_pressure_to_the_contact() -> None:
+    """Each pressure is carried to the contact through the fluid on its own side.
+
+    Raising the pressure in the well alone raises the density of the well fluid and
+    nothing else, so only the well-side transport changes. A failure means the
+    formation fluid's density is being used to carry the well pressure, which is the
+    defect the two-sided form exists to fix; the correction would then not move at all.
+    """
+    model = _gravity_well_model()
+
+    _set_well_and_formation_pressure(model, 200 * pp.BAR, 200 * pp.BAR)
+    before = _gravity_correction_by_interface(model)
+    _set_well_and_formation_pressure(model, 400 * pp.BAR, 200 * pp.BAR)
+    after = _gravity_correction_by_interface(model)
+
+    gravity = model.units.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
+    seen_rock_contact = False
+    for intf, values_after in after.items():
+        _, sd_secondary = model.mdg.interface_to_subdomain_pair(intf)
+        if sd_secondary.dim == 0:
+            continue
+        seen_rock_contact = True
+
+        _set_well_and_formation_pressure(model, 200 * pp.BAR, 200 * pp.BAR)
+        density_before = model.equation_system.evaluate(
+            model.fluid.density([sd_secondary])
+        )
+        _set_well_and_formation_pressure(model, 400 * pp.BAR, 200 * pp.BAR)
+        density_after = model.equation_system.evaluate(
+            model.fluid.density([sd_secondary])
+        )
+
+        # The density enters as -rho * g, multiplying the height of the well cell
+        # centre above the contact.
+        well_elevation = (
+            intf.secondary_to_mortar_avg() @ sd_secondary.cell_centers[model.nd - 1]
+        )
+        expected = (
+            gravity
+            * (intf.secondary_to_mortar_avg() @ (density_after - density_before))
+            * (well_elevation - intf.cell_centers[model.nd - 1])
+        )
+        assert np.max(np.abs(expected)) > 1.0, "the well density barely moved"
+        np.testing.assert_allclose(values_after - before[intf], expected, atol=1e-9)
+
+    assert seen_rock_contact
+
+
+def test_a_well_fracture_contact_is_deaf_to_the_density_of_its_point() -> None:
+    """At a well-fracture contact the well-side transport vanishes identically.
+
+    The zero-dimensional well subdomain has no extent, so its cell centre is the
+    contact and the height carried through is zero whatever the density there. This is
+    what makes the two-sided correction reduce to the previous expression on the
+    well-fracture coupling, and a failure would mean those results have moved.
+    """
+    model = _gravity_well_model()
+
+    _set_well_and_formation_pressure(model, 200 * pp.BAR, 200 * pp.BAR)
+    before = _gravity_correction_by_interface(model)
+
+    # Pressurise the zero-dimensional intersection alone, changing its fluid density.
+    for sd in model.mdg.subdomains(dim=0):
+        variable = model.equation_system.md_variable(model.pressure_variable, [sd])
+        model.equation_system.set_variable_values(
+            np.full(sd.num_cells, 400 * pp.BAR), [variable], iterate_index=0
+        )
+    after = _gravity_correction_by_interface(model)
+
+    checked = 0
+    for intf, values_after in after.items():
+        _, sd_secondary = model.mdg.interface_to_subdomain_pair(intf)
+        if sd_secondary.dim != 0:
+            continue
+        np.testing.assert_allclose(values_after, before[intf], atol=1e-12)
+        checked += 1
+    assert checked > 0
