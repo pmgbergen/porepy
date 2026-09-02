@@ -52,12 +52,13 @@ class MockModel:
 
     """
 
-    def __init__(self):
+    def __init__(self, num_time_steps: int):
         self.mdg = MockMDG()
         self.equation_system = MockEquationSystem()
         self.nonlinear_solver_statistics = pp.NonlinearSolverAndTimeStatistics()
-        self.params = {}
-        self.time_data = None
+        self.time_manager = pp.TimeManager(
+            [0, num_time_steps], dt_init=1, constant_dt=True
+        )
 
     def _is_time_dependent(self) -> bool:
         return True
@@ -156,20 +157,13 @@ def run_model_and_save_output(
     # Initialize logging capture of the correct levels.
     caplog.set_level(logging_level)
 
-    model = MockModel()
+    model = MockModel(num_time_steps)
     params = {"progressbars": progressbars}
     nonlinear_solver = pp.solvers.NewtonSolver(
         params=params, linear_solver=MockLinearSolver(num_nl_iterations)
     )
-    time_stepper = pp.time_stepper.TimeStepper(
-        scheduler=pp.time_stepper.assemble_default_time_scheduler(
-            [0, num_time_steps], dt_init=1, constant_dt=True
-        )
-    )
 
-    pp.ModelRunner(
-        model, params, nonlinear_solver=nonlinear_solver, time_stepper=time_stepper
-    ).run()
+    pp.ModelRunner(model, params, nonlinear_solver=nonlinear_solver).run()
 
     captured_stderr = capsys.readouterr().err
     captured_logging_records = caplog.records

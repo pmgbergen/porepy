@@ -651,9 +651,9 @@ class TimeDependentBCs(
 
         if bg.dim < self.nd - 1:
             return values.ravel("F")
-        if self.time_data.time > 1e-5:
+        if self.time_manager.time > 1e-5:
             # Create slip for second time step.
-            u_z = 15.0 if self.time_data.time > 1.1 else 1.0
+            u_z = 15.0 if self.time_manager.time > 1.1 else 1.0
             u_n = np.tile([1, -0.5, u_z], (bg.num_cells, 1)).T
             values[:, domain_sides.north] += self.units.convert_units(u_n, "m")[
                 :, domain_sides.north
@@ -682,21 +682,14 @@ def test_time_dependent_bc():
         "times_to_export": [],  # Suppress output for tests
         "material_constants": {"solid": solid, "numerical": numerical},
         "fracture_indices": [1],
+        "time_manager": pp.TimeManager([0.0, 1.0], 1.0, True),
         "nl_convergence_inc_atol": 1e-6,
         "nl_max_iterations": 30,
     }
 
     # Create model and run simulation. The north displacement is [1, -0.5, 1].
     model = ElastoplasticModelTimeDependentBCs(params)
-    pp.ModelRunner(
-        model,
-        params,
-        time_stepper=pp.time_stepper.TimeStepper(
-            scheduler=pp.time_stepper.assemble_default_time_scheduler(
-                schedule=[0, 1], dt_init=1, constant_dt=True
-            )
-        ),
-    ).run()
+    pp.ModelRunner(model, params).run()
     tols = [5e-2, 1e-10, 1e-3, 5e-2]
 
     verify_elastoplastic_deformation(
@@ -709,6 +702,7 @@ def test_time_dependent_bc():
     )
     # Continue for one more time step. This time, the north displacement is
     # [1, -0.5, 15].
+    model.time_manager = pp.TimeManager([1.0, 2.0], 1.0, True)
     params["prepare_simulation"] = False
 
     # Fixed values from a previous run. Both normal value (u_y=0) and ratio of
@@ -720,15 +714,7 @@ def test_time_dependent_bc():
     # Same goes here. We expect -0.375, since the top coordinate is 0.75 and we
     # displace the top by 0.5 and have a linear displacement profile.
     u_top = [0.96536718, -0.375, 14.48052228]
-    pp.ModelRunner(
-        model,
-        params,
-        time_stepper=pp.time_stepper.TimeStepper(
-            scheduler=pp.time_stepper.assemble_default_time_scheduler(
-                schedule=[1, 2], dt_init=1, constant_dt=True
-            )
-        ),
-    ).run()
+    pp.ModelRunner(model, params).run()
     verify_elastoplastic_deformation(
         model,
         u_e,

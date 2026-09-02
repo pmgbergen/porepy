@@ -99,24 +99,22 @@ def test_time_data_seeded_from_time_stepper_before_prepare_simulation():
 
     class RecordingModel(pp.SinglePhaseFlow):
         def update_all_boundary_conditions(self) -> None:
-            observed_schedule_sizes.append(self.time_data.schedule.size)
-            observed_times.append(self.time_data.time)
+            observed_schedule_sizes.append(self.time_manager.schedule.size)
+            observed_times.append(self.time_manager.time)
             super().update_all_boundary_conditions()
 
     schedule = [0, 1, 2, 3]
-    time_stepper = pp.time_stepper.TimeStepper(
-        scheduler=pp.time_stepper.assemble_default_time_scheduler(
-            schedule=schedule,
-            dt_init=1,
-            constant_dt=True,
-        )
+    model = RecordingModel(
+        {
+            "times_to_export": [],
+            "time_manager": pp.TimeManager(schedule=schedule, dt_init=1),
+        }
     )
-    model = RecordingModel({"times_to_export": []})
-    pp.ModelRunner(model, time_stepper=time_stepper)
+    pp.ModelRunner(model)
 
     assert observed_schedule_sizes, (
         "update_all_boundary_conditions should be invoked during prepare_simulation."
     )
     assert observed_schedule_sizes[0] == len(schedule)
     assert observed_times[0] == schedule[0]
-    assert np.array_equal(model.time_data.schedule, schedule)
+    assert np.array_equal(model.time_manager.schedule, schedule)

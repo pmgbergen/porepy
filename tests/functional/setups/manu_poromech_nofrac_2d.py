@@ -146,7 +146,7 @@ class ManuPoroMechDataSaving(pp.PorePyModel):
 
         mdg: pp.MixedDimensionalGrid = self.mdg
         sd: pp.Grid = mdg.subdomains()[0]
-        t: number = self.time_data.time
+        t: number = self.time_manager.time
 
         # Collect data
         exact_pressure = self.exact_sol.pressure(sd=sd, time=t)
@@ -647,7 +647,7 @@ class ManuPoroMechMassBalance:
             rho = self.fluid.density(subdomains)
             phi = self.volume_integral(self.porosity(subdomains), subdomains, dim=1)
             dt_op = pp.ad.time_derivatives.dt
-            dt = pp.ad.Scalar(self.time_data.dt, name="delta_t")
+            dt = pp.ad.Scalar(self.time_manager.dt, name="delta_t")
             prod = dt_op(rho, dt) * dt_op(phi, dt)
 
         """
@@ -715,7 +715,7 @@ class ManuPoroMechSolutionStrategy2d(pp.poromechanics.SolutionStrategyPoromechan
 
         sd = self.mdg.subdomains()[0]
         data = self.mdg.subdomain_data(sd)
-        t = self.time_data.time
+        t = self.time_manager.time
 
         # Mechanics source
         mech_source = self.exact_sol.mechanics_source(sd=sd, time=t)

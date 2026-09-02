@@ -11,6 +11,7 @@ import porepy as pp
 from porepy.numerics.solvers import ConvergenceInfoHistory
 from porepy.time_stepper.time_step_status import (
     TimeStepperAttemptData,
+    TimeStepperStatusContinueIterating,
     TimeStepperStatusFailure,
     TimeStepperStatusSuccess,
 )
@@ -277,14 +278,7 @@ def test_solver_statistics_initialization():
     assert stats.path is None
     assert stats.num_cells == {}
     assert stats.num_domains == {}
-    # assert stats.simulation_status == TimeStepperStatusContinueIterating(
-    #     attempt=-1,
-    #     nonlinear_solver_status=pp.solvers.NewtonSolverConverged(
-    #         linear_solver_statuses=[],
-    #         convergence_statuses=pp.solvers.ConvergenceStatusCollection(),
-    #         divergence_statuses=pp.solvers.ConvergenceStatusCollection(),
-    #     ),
-    # )
+    assert stats.simulation_status == TimeStepperStatusContinueIterating(attempts=[])
     assert stats.simulation_status_history == []
     assert stats.solver_status == pp.solvers.NewtonSolverConverged(
         linear_solver_statuses=[],

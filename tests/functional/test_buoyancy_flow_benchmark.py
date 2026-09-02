@@ -420,8 +420,8 @@ def slow_test_buoyancy_flow_benchmark(
                 "\nNumber of iterations: ",
                 self.nonlinear_solver_statistics.num_iterations,
             )
-            print("Time value: ", self.time_data.time)
-            print("Time index: ", self.time_data.time_index_successful)
+            print("Time value: ", self.time_manager.time)
+            print("Time index: ", self.time_manager.time_index)
             print("")
 
         def set_equations(self):

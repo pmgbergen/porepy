@@ -185,7 +185,7 @@ def test_lithostatic_boundary_stress_values(momentum_model: pp.PorePyModel):
     model.params.update({"lithostatic_stress_multipliers": stress_multipliers})
 
     # Lithostatic boundary condition requires non-zero time.
-    model.time_data.time = 1
+    model.time_manager.time = 1
 
     nd = model.nd
 
