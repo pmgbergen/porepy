@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to PorePy are documented in this file. It is updated by
+All changes to PorePy are documented in this file. It is updated by
 every pull request (PR) that changes user-facing behavior, and is used as the
 basis for release notes.
 
