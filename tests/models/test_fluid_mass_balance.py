@@ -1288,26 +1288,25 @@ class TestMixedDimGravity:
         there, and a failure would mean the reduction no longer holds and the
         well-fracture results are no longer governed by the simpler expression.
         """
-        m = WellWithGravity(
-            {
-                "times_to_export": [],
-                "fracture_indices": [0],
-                "grid_type": "cartesian",
-                "meshing_arguments": {"cell_size": 0.5},
-                "material_constants": {"solid": pp.SolidConstants(well_radius=0.01)},
-            }
-        )
-        m.prepare_simulation()
+        # A vertical well through a horizontal fracture, which unlike the slanted well
+        # of WellWithGravity does meet the fracture and so has a contact to check.
+        m = _well_model({})
 
+        checked = 0
         for intf in m.mdg.interfaces(codim=2):
             _, secondary = m.mdg.interface_to_subdomain_pair(intf)
-            assert secondary.dim == 0
+            if secondary.dim != 0:
+                # A contact with the rock matrix, which has extent along the well and
+                # is the case the contact elevation exists for.
+                continue
             well_elevation = (
                 intf._secondary_to_mortar_avg @ secondary.cell_centers[m.nd - 1, :]
             )
             np.testing.assert_allclose(
                 intf.cell_centers[m.nd - 1, :], well_elevation, atol=1e-12
             )
+            checked += 1
+        assert checked > 0
 
 
 def _well_model(params: dict) -> pp.PorePyModel:
