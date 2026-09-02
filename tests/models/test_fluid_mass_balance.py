@@ -1519,3 +1519,39 @@ def test_a_well_without_completion_is_isolated_from_the_rock() -> None:
     equation = model.equation_system.evaluate(model.well_flux_equation(rock))
     well_flux = model.equation_system.evaluate(model.well_flux(rock))
     np.testing.assert_allclose(equation, well_flux, atol=1e-14)
+
+
+def _rock_and_fracture_interfaces(model: pp.PorePyModel) -> tuple[list, list]:
+    """The well interfaces, split into those with the rock matrix and with fractures."""
+    interfaces = list(model.mdg.interfaces(codim=2))
+    fracture = [i for i in interfaces if _is_well_fracture_interface(model, i)]
+    rock = [i for i in interfaces if not _is_well_fracture_interface(model, i)]
+    return rock, fracture
+
+
+def test_well_length_is_partitioned_across_a_fracture_crossing() -> None:
+    """A fracture divides a well without consuming any of its length.
+
+    Meshing splits the well grid at the crossing, so the contacts on either side must
+    together still account for the whole trajectory. The aperture takes up no length
+    between them: geometrically a fracture is of codimension one. A failure means
+    length is lost or counted twice at the crossing, which no test of either coupling
+    alone would catch.
+    """
+    model = _well_model({"well_completion": {0: {"open_intervals": [(0.0, 10.0)]}}})
+
+    # The well must genuinely be cut in two, or the test says nothing.
+    well = model.mdg.subdomains(dim=1)[0]
+    assert len(model.mdg.subdomains(dim=0)) == 1
+    cell_nodes = well.cell_nodes().tocsc()
+    degrees = np.bincount(cell_nodes.indices, minlength=well.num_nodes)
+    assert np.sum(degrees == 1) == 4, "expected two segments, so four free ends"
+
+    trajectory = float(
+        np.linalg.norm(model.wells[0].pts[:, -1] - model.wells[0].pts[:, 0])
+    )
+    assert well.cell_volumes.sum() == pytest.approx(trajectory, abs=1e-10)
+
+    rock, _ = _rock_and_fracture_interfaces(model)
+    contact_length = sum(float(intf.cell_volumes.sum()) for intf in rock)
+    assert contact_length == pytest.approx(trajectory, abs=1e-10)

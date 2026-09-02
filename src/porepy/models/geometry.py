@@ -153,6 +153,12 @@ class ModelGeometry(pp.PorePyModel):
         index by the open fraction, not for the geometry; see
         :meth:`~porepy.models.constitutive_laws.PeacemanWellFlux.well_open_fraction`.
 
+        Where a well crosses a fracture, the contacts on either side meet at the
+        crossing and no length is consumed between them. Geometrically a fracture is an
+        object of codimension one with no extent in its normal direction, so a length
+        measured along the well does not grow as the well passes through; the aperture
+        belongs to the physics, not to the geometry.
+
         """
         if len(self._wells) == 0:
             return
