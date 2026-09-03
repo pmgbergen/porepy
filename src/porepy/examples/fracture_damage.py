@@ -453,6 +453,7 @@ solid_params.update(
         # dilation damage without incurring too much normal opening and stress.
         "maximum_elastic_fracture_opening": 0.0,  # [m] Simplify by assuming no elastic
         # opening.
+        "fracture_gap": 0.0,  # [m] Mated aperture.
     }
 )
 # Increase shear modulus to suppress shear displacements relative to normal ones.
@@ -545,9 +546,9 @@ def create_displacement_controlled_setup(
 
     displacements = north_displacements_3d.copy()
     displacements = displacements[:dim]
-    # Keep compression for the first steps and open the fracture in the last one.
-    displacements[1] = 0.98e-3
-    displacements[1, 4] = 3e-3
+    # Keep the fracture closed for the first steps and open it in the last one.
+    displacements[1] = -2e-5
+    displacements[1, 4] = 2e-3
 
     params.update(
         {
