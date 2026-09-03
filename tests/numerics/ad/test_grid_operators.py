@@ -137,8 +137,8 @@ class TestSubdomainProjections:
         )
         assert wide.grids == tuple(subdomains)
         assert narrow.grids == tuple(target_grids)
-        assert op.source.dof_info == {entity: proj_dim}
-        assert op.target.dof_info == {entity: proj_dim}
+        assert op.source.dof_info == pp.ad.GridEntities.from_mapping({entity: proj_dim})
+        assert op.target.dof_info == pp.ad.GridEntities.from_mapping({entity: proj_dim})
 
     @pytest.mark.parametrize(
         "method_name, entity, is_restriction", _SUBDOMAIN_PROJECTION_CASES
@@ -420,10 +420,10 @@ class TestMortarProjections:
         )
         assert sd_space.domain_type == pp.ad.DomainType.subdomains
         assert sd_space.grids == tuple(subdomains)
-        assert sd_space.dof_info == {entity: proj_dim}
+        assert sd_space.dof_info == pp.ad.GridEntities.from_mapping({entity: proj_dim})
         assert mortar_space.domain_type == pp.ad.DomainType.interfaces
         assert mortar_space.grids == tuple(interfaces)
-        assert mortar_space.dof_info == {pp.ad.GridEntity.cells: proj_dim}
+        assert mortar_space.dof_info == pp.ad.GridEntities(cells=proj_dim)
 
     @pytest.mark.parametrize("method_name, pair, is_to_mortar", _MORTAR_INT_ONLY_CASES)
     def test_empty_subdomains(self, mdg, method_name, pair, is_to_mortar):
@@ -486,7 +486,7 @@ class TestMortarProjections:
         assert op.source == op.target
         assert op.source.domain_type == pp.ad.DomainType.interfaces
         assert op.source.grids == tuple(interfaces)
-        assert op.source.dof_info == {pp.ad.GridEntity.cells: 1}
+        assert op.source.dof_info == pp.ad.GridEntities(cells=1)
 
     def test_sign_of_mortar_sides_empty_interfaces(self, mdg):
         """sign_of_mortar_sides also gets a typed-but-empty space on an empty
@@ -607,10 +607,10 @@ class TestBoundaryProjection:
 
         assert s2b.source.domain_type == pp.ad.DomainType.subdomains
         assert s2b.source.grids == tuple(subdomains)
-        assert s2b.source.dof_info == {pp.ad.GridEntity.faces: proj_dim}
+        assert s2b.source.dof_info == pp.ad.GridEntities(faces=proj_dim)
         assert s2b.target.domain_type == pp.ad.DomainType.boundary_grids
         assert s2b.target.grids == tuple(mdg.boundaries())
-        assert s2b.target.dof_info == {pp.ad.GridEntity.cells: proj_dim}
+        assert s2b.target.dof_info == pp.ad.GridEntities(cells=proj_dim)
         assert b2s.source == s2b.target
         assert b2s.target == s2b.source
 
@@ -718,8 +718,8 @@ def test_trace(mdg: pp.MixedDimensionalGrid):
     assert op.trace.source.domain_type == pp.ad.DomainType.subdomains
     assert op.trace.target.domain_type == pp.ad.DomainType.subdomains
     assert op.trace.source.grids == tuple(subdomains) == op.trace.target.grids
-    assert op.trace.source.dof_info == {pp.ad.GridEntity.cells: 1}
-    assert op.trace.target.dof_info == {pp.ad.GridEntity.faces: 1}
+    assert op.trace.source.dof_info == pp.ad.GridEntities(cells=1)
+    assert op.trace.target.dof_info == pp.ad.GridEntities(faces=1)
 
     # As of the writing of this test, Trace is not implemented for vector values. If it
     # is ever extended, the test should be extended accordingly (e.g. parametrized with
@@ -772,8 +772,8 @@ def test_divergence(mdg: pp.MixedDimensionalGrid, dim: int):
     assert op.source.domain_type == pp.ad.DomainType.subdomains
     assert op.target.domain_type == pp.ad.DomainType.subdomains
     assert op.source.grids == tuple(subdomains) == op.target.grids
-    assert op.source.dof_info == {pp.ad.GridEntity.faces: 1}
-    assert op.target.dof_info == {pp.ad.GridEntity.cells: 1}
+    assert op.source.dof_info == pp.ad.GridEntities(faces=1)
+    assert op.target.dof_info == pp.ad.GridEntities(cells=1)
 
     # Divergence also gets a typed-but-empty space (not None) on an empty subdomain
     # list.
