@@ -123,9 +123,7 @@ class Biot(pp.Mpsa):
         """
         return sd.num_cells * (1 + sd.dim)
 
-    def get_row_dof_info(
-        self, matrix_key: str = "", nd: int = 1
-    ) -> pp.ad.GridEntities:
+    def get_row_dof_info(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
         """Return row DOF info for the named Biot matrix.
 
         Handles the Biot-specific coupling matrices and falls back to the parent
@@ -154,9 +152,7 @@ class Biot(pp.Mpsa):
             return biot_row_mapping[matrix_key]
         return super().get_row_dof_info(matrix_key, nd=nd)
 
-    def get_col_dof_info(
-        self, matrix_key: str = "", nd: int = 1
-    ) -> pp.ad.GridEntities:
+    def get_col_dof_info(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
         """Return column DOF info for the named Biot matrix.
 
         Handles the Biot-specific coupling matrices and falls back to the parent
