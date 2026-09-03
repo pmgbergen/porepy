@@ -258,6 +258,69 @@ class BoundaryConditionsOneRateOnePressureWell(BoundaryConditionsWellSetup):
         return self._bc_values(bg, value)
 
 
+class TracerWellFluid:
+    """A two-component fluid whose second component marks the fluid in the well.
+
+    The components are inert and share unit properties, so the tracer only records
+    where fluid has travelled. That is what makes it useful for testing the component
+    balance across a well contact: the overall fraction differs sharply between the
+    well and the rock, so a component flux advected from the wrong side is far from
+    the right answer rather than close to it.
+
+    """
+
+    def get_components(self) -> Sequence[pp.FluidComponent]:
+        """Mixed in method defining the reference component and an inert tracer."""
+        return [
+            pp.FluidComponent(name="fluid", compressibility=0, density=1, viscosity=1),
+            pp.FluidComponent(name="tracer"),
+        ]
+
+
+class TracerInTheWell(pp.PorePyModel):
+    """The tracer of :class:`TracerWellFluid` starts, and is injected, in the wells.
+
+    The rock and the fractures start free of it, so any tracer found there arrived
+    through a well contact. Mix in ahead of
+    :class:`~porepy.models.compositional_flow.BoundaryConditionsMulticomponent` and
+    :class:`~porepy.models.compositional_flow.InitialConditionsFractions`, which supply
+    the machinery these values are read by.
+
+    """
+
+    def bc_values_overall_fraction(
+        self, component: pp.Component, bg: pp.BoundaryGrid
+    ) -> np.ndarray:
+        """Tracer enters through the well boundaries and nowhere else.
+
+        Parameters:
+            component: The component whose overall fraction is asked for.
+            bg: Boundary grid for which to define boundary conditions.
+
+        Returns:
+            Boundary values of the overall fraction.
+
+        """
+        assert component.name == "tracer", "Only the tracer is independent."
+        return np.full(bg.num_cells, 1.0 if bg.parent.dim == 1 else 0.0)
+
+    def ic_values_overall_fraction(
+        self, component: pp.Component, sd: pp.Grid
+    ) -> np.ndarray:
+        """The wells start full of tracer and everything else free of it.
+
+        Parameters:
+            component: The component whose overall fraction is asked for.
+            sd: Subdomain for which to define initial conditions.
+
+        Returns:
+            Initial values of the overall fraction.
+
+        """
+        assert component.name == "tracer", "Only the tracer is independent."
+        return np.full(sd.num_cells, 1.0 if sd.dim == 1 else 0.0)
+
+
 class WellPermeability(pp.constitutive_laws.CubicLawPermeability):
     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Permeability [m^2].
