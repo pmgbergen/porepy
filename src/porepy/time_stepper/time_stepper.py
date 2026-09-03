@@ -1,7 +1,5 @@
-"""Time-stepping strategies.
-
-Design mirrors pp.numerics.nonlinear.nonlinear_solvers.NewtonSolver. Main method
-perform_time_step() orchestrates the workflow and is called from the model runner.
+"""Module implements the TimeStepper class, responsible for making a single simulation
+time step.
 
 """
 
@@ -36,20 +34,22 @@ class TimeStepper:
 
     Responsibilities:
     - Orchestrate the single time-step workflow to be called from the model runner.
-    - Execute trials (delegating nonlinear solves)
-    - Adjust dt (currently delegated to TimeManager)
+    - Execute trials (delegating nonlinear solves).
+    - Adjust dt.
 
     Workflow:
     1. For each retry (up to max_retries):
         a. Execute trial with current dt;
         b. If success: update solution values, adapt dt for next step, return;
-        c. If rejected: reduce dt, loop, revert trial time.
+        c. If failure: reduce dt, loop, revert trial time.
     2. If all retries exhausted: return.
 
     The constant dt case is supported internally by setting max_retries = 1.
 
     Parameters:
-        time_manager: TimeManager instance.
+        scheduler: Class that adjust dt to match the schedule and constraints.
+        max_attempts: Limit of attempts to make a single time step. Set it to 1 for no
+            retries.
 
     """
 
@@ -57,6 +57,13 @@ class TimeStepper:
     def with_time_manager(
         cls, time_manager: pp.TimeManager, max_attempts: int = 10
     ) -> Self:
+        """Convenience initializer. Initializes scheduler based on the `time_manager`.
+
+        Parameters:
+            time_manager: Simulation's time data structure.
+            max_attempts: Limit of attempts to make a single time step.
+
+        """
         scheduler: TimeSchedulerBase
         if time_manager.advanced_schedule is not None:
             scheduler = pp.time_stepper.TimeScheduler(
@@ -71,15 +78,12 @@ class TimeStepper:
         return cls(scheduler=scheduler, max_attempts=max_attempts)
 
     def __init__(self, scheduler: TimeSchedulerBase, max_attempts: int = 10) -> None:
-        """Initialize the time stepper."""
         self.scheduler = scheduler
+        """Class that adjust dt to match the schedule and constraints."""
 
         assert max_attempts > 0, "max_attempts must be greater than 0."
         self.max_attempts = max_attempts
-        """Maximum number of retry attempts. Set it to 1 for no retries, which is
-        equivalent to the constant_dt policy.
-
-        """
+        """Maximum number of retry attempts."""
 
     def perform_time_step(
         self,
@@ -116,8 +120,9 @@ class TimeStepper:
                 log_message += f", attempt={attempt + 1} / {self.max_attempts}"
             logger.info(log_message)
 
-            # Attempt a standard time step.
-            nonlinear_solver_status = self._perform_trial_time_step(model, solver)
+            # Execute trial time step.
+            model.before_time_step()
+            nonlinear_solver_status = solver.solve(model)
             success = nonlinear_solver_status.is_converged()
 
             attempts_data.append(
@@ -185,7 +190,7 @@ class TimeStepper:
                     ),
                 )
 
-        # TODO YZ: Test what if we reach max attempts.
+        # We reached max_attepts.
         return self._log_and_return_time_step_data(
             model=model,
             time_step_data=TimeStepperStatusFailure(
@@ -195,29 +200,12 @@ class TimeStepper:
             ),
         )
 
-    def _perform_trial_time_step(
-        self,
-        model: pp.PorePyModel,
-        solver: pp.solvers.NonlinearSolverBase,
-    ) -> solvers.NonlinearSolverStatus:
-        """Perform a nonlinear solve to make the time step.
-
-        Returns:
-            The nonlinear solver status (converged/failed).
-
-        """
-        # Execute trial time step.
-        model.before_time_step()
-        nonlinear_solver_status = solver.solve(model)  # type: ignore
-
-        return nonlinear_solver_status
-
     def _log_and_return_time_step_data(
         self,
         model: pp.PorePyModel,
         time_step_data: TimeStepperStatus,
     ) -> TimeStepperStatus:
-        # Log time-step status for statistics.
+        """Update model's statistics with `time_step_data` and return it."""
         model.nonlinear_solver_statistics.log_simulation_status(time_step_data)
         if time_step_data.is_failure() or isinstance(
             time_step_data, TimeStepperStatusContinueIterating

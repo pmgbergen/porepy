@@ -1,3 +1,5 @@
+"""Module provides data structures related to simulation time stepping."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -12,7 +14,11 @@ from numpy.typing import ArrayLike
 import porepy as pp
 from porepy.time_stepper.time_step_constraint import TimeStepConstraint
 
-__all__ = ["TimeManager"]
+__all__ = [
+    "TimeManager",
+    "TimeInterval",
+    "Schedule",
+]
 
 
 class TimeManager:
@@ -304,12 +310,25 @@ class TimeManager:
 
 @dataclass
 class TimeInterval:
+    """A data structure defining a time interval in the schedule.
+
+    The interval is defined by its `t_start`, `t_end` is not explicitly specified, so
+    the interval ends when the next interval starts.
+
+    """
+
     t_start: float
+    """Start time of the interval, seconds."""
     dt_start: float
+    """Desider time step applied at the interval start, seconds."""
     constraints: list[pp.time_stepper.TimeStepConstraint]
+    """List of constraints that control dt based on simulation behavior."""
     dt_min: float
+    """Minimum time step allowed for this interval, seconds."""
     dt_max: float
+    """Maximum time step allowed for this interval, seconds."""
     name: str
+    """Interval name. Used for debugging. No logic is binded to it."""
 
     @classmethod
     def create(
@@ -321,6 +340,11 @@ class TimeInterval:
         dt_max: Optional[float] = None,
         name: str = "",
     ):
+        """Convenience constructor with defaults. If `dt_min` or `dt_max` are not
+        specified, sets them to 3 magnitudes smaller / larger than `dt_start`,
+        respectively.
+
+        """
         if constraints is None:
             constraints = []
         if dt_min is None:
@@ -339,5 +363,12 @@ class TimeInterval:
 
 @dataclass
 class Schedule:
+    """A data structure that combines the list of intervals, and the whole simulation's
+    end time.
+
+    """
+
     intervals: list[TimeInterval]
+    """Simulation's time intervals."""
     t_end: float
+    """Simulation end time, seconds."""

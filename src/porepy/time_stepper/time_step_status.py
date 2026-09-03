@@ -11,12 +11,14 @@ are immediate candidates for removal.
 
 """
 
+from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 from porepy.numerics import solvers
 
 __all__ = [
+    "TimeStepperAttemptData",
     "TimeStepperStatus",
     "TimeStepperStatusSuccess",
     "TimeStepperStatusFailure",
@@ -65,15 +67,10 @@ class TimeStepperStatusContinueIterating(TimeStepperStatus):
     """
 
     attempts: list[TimeStepperAttemptData]
+    """List of unsuccessful attempts to make this time step."""
 
     def serialize(self) -> str:
         return "in_progress"
-
-
-@dataclass
-class TimeStepperAttemptData:
-    dt: float
-    nonlinear_solve_status: solvers.NonlinearSolverStatus
 
 
 @dataclass
@@ -84,6 +81,9 @@ class TimeStepperStatusSuccess(TimeStepperStatus):
     """Simulation time at the start of the time step (t0)."""
 
     attempts: list[TimeStepperAttemptData]
+    """List of attempts to make this time step, where the final attempt is successful.
+
+    """
 
     def serialize(self) -> str:
         return "successful"
@@ -104,9 +104,10 @@ class TimeStepperStatusFailure(TimeStepperStatus):
     """Reason of failure."""
 
     time: float
-    """Simulation time at the start of the time step (t0)."""
+    """Simulation time at the start of the time step (t0), seconds."""
 
     attempts: list[TimeStepperAttemptData]
+    """List of unsuccessful attempts to make this time step."""
 
     def serialize(self) -> str:
         return "failed"
@@ -117,3 +118,12 @@ class TimeStepperStatusFailure(TimeStepperStatus):
         if len(self.attempts) == 0:
             raise ValueError
         return self.attempts[-1].dt
+
+
+@dataclass
+class TimeStepperAttemptData:
+    """Data corresponding to a single time step attempt."""
+
+    dt: float
+    """Time step this attempt was made with, seconds."""
+    nonlinear_solve_status: solvers.NonlinearSolverStatus
