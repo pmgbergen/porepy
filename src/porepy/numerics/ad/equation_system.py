@@ -1477,10 +1477,6 @@ class EquationSystem:
         if not evaluate_jacobian:
             return -rhs_cat
 
-        equation_indexer, variable_indexer = self._construct_assembled_matrix_indexers(
-            equations=equations, variables=variables
-        )
-
         # Multiply rhs by -1 to move to the rhs.
         return pp.solvers.LinearSystem(
             matrix=A,
