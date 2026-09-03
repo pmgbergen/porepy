@@ -16,7 +16,7 @@ from porepy.models.model_runner import ModelRunner, ModelRunnerStatusFailure
 from porepy.models.protocol import PorePyModel
 from porepy.numerics.ad.indexers import EquationOnDomain
 from porepy.numerics.ad.operators import Variable
-from porepy.time_stepper.time_step_control import TimeManager
+from porepy.time_stepper.time_step_control import Schedule, TimeInterval, TimeManager
 from porepy.time_stepper.time_stepper import TimeStepper
 from porepy.viz.solver_statistics import SolverStatisticsFactory
 
@@ -510,6 +510,70 @@ def test_model_time_step_control(params: dict):
         assert failure_reason in status.reason
     else:
         assert status.is_success()
+
+
+def test_advanced_scheduler():
+    time_manager = TimeManager.with_advanced_schedule(
+        schedule=Schedule(
+            intervals=[
+                TimeInterval.create(
+                    name="initialization",
+                    t_start=0,
+                    dt_start=1,
+                    dt_max=1,
+                    constraints=[pp.time_stepper.TargetNonlinearIterations()],
+                ),
+                TimeInterval.create(
+                    name="injection",
+                    t_start=3,
+                    dt_start=0.1,
+                    constraints=[
+                        pp.time_stepper.TargetNonlinearIterations(dt_min=0.01)
+                    ],
+                ),
+                TimeInterval.create(
+                    name="relaxation",
+                    t_start=3.02,
+                    dt_start=1e2,
+                    constraints=[
+                        pp.time_stepper.TargetNonlinearIterations(),
+                    ],
+                ),
+            ],
+            t_end=3e2,
+        ),
+    )
+    model = DynamicTimeStepTestCaseModel(
+        params={
+            "time_manager": time_manager,
+            "times_to_export": [],  # Suspends export
+        },
+    )
+    nonlinear_solver = DynamicNewtonSolver(
+        num_nonlinear_iterations=[2] * 10,
+        # The first injection step fails and is retried at dt_min. All other
+        # attempts converge.
+        time_step_converged=[True, True, True, False] + [True] * 6,
+        call_model_methods=True,
+    )
+    model_runner = ModelRunner(model, nonlinear_solver=nonlinear_solver)
+
+    status = model_runner.run()
+    assert status.is_success()
+    dt_expected = [
+        # Initialization.
+        1,
+        1,
+        1,
+        # Injection: align with the next interval, then retry at dt_min.
+        0.02,
+        0.01,
+        0.01,
+        # Relaxation.
+        130,
+        166.98,
+    ]
+    assert np.allclose(model.time_step_history, dt_expected)
 
 
 # MARK: Statistics

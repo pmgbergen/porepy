@@ -8,8 +8,6 @@ implementations:
 """
 
 from abc import ABC, abstractmethod
-from typing import cast
-
 import numpy as np
 
 import porepy as pp
@@ -133,7 +131,10 @@ class TargetNonlinearIterations(TimeStepConstraint):
                 return dt
         else:
             if abs(dt - self.dt_min) < self.t_snap:
-                raise CannotRecomputeTimeStep()
+                raise CannotRecomputeTimeStep(
+                    f"Adjusted time step size ({dt * self.retry_factor:.1e}) is lower "
+                    f"than the minimum admissible value ({self.dt_min:.1e})."
+                )
             return max(dt * self.retry_factor, self.dt_min)
 
 
@@ -156,7 +157,7 @@ class CourantTimeStepConstraint(TimeStepConstraint):
         """Velocity tolerance, below treated as zero."""
 
     def suggest_dt(self, dt: float, context: dict) -> float:
-        model = cast(pp.PorePyModel | None, context.get("model", None))
+        model = context.get("model", None)
         if not isinstance(model, pp.SolutionStrategy):
             raise ValueError("CourantTimeStepConstraint requires 'model' in context.")
 
