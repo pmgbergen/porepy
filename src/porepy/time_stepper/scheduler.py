@@ -194,6 +194,12 @@ class TimeScheduler(TimeSchedulerBase):
                 name=current_interval.name,
             )
 
+        # Update context with information from the current interval.
+        context |= {
+            "t_snap": float(self.t_snap),
+            "dt_min": float(current_interval.dt_min),
+        }
+
         # Apply constraints. Each constraint suggests the new dt value, which may be
         # smaller or larger than the current dt. The minimum of the suggestions
         # is applied.
@@ -229,11 +235,11 @@ class TimeScheduler(TimeSchedulerBase):
 
         # Dt should be not larger than the interval's dt_max.
         dt = min(dt, current_interval.dt_max)
-        # If dt is smaller than the interval's dt_min, warn about it.
+        # If constraints made dt smaller than the interval's dt_min, abort simulation.
         if dt < current_interval.dt_min:
-            logger.warning(
+            raise CannotRecomputeTimeStep(
                 f"Adjusted time step size ({dt:.1e}) is lower than the minimum "
-                f"requested value in this interval ({current_interval.dt_min:.1e})."
+                f"admissible value ({current_interval.dt_min:.1e})."
             )
 
         # Prevent overshooting the interval's end.
@@ -287,7 +293,6 @@ def assemble_default_time_scheduler(
         assert not any(isinstance(c, TargetNonlinearIterations) for c in constraints)
         constraints.append(
             TargetNonlinearIterations(
-                dt_min=dt_min,
                 iter_min=iter_min,
                 iter_max=iter_max,
                 increase_factor=increase_factor,
@@ -371,7 +376,7 @@ def _log_schedule_interval_start(t_start: float, t_end: float, name: str = "") -
     if name != "":
         log_message += f' "{name}"'
     delta = t_end - t_start
-    log_message += f" [{t_start:.1e}, {t_start:.1e} + {delta:.1e})."
+    log_message += f" [{t_start:.1e}, {t_start:.1e} + {delta:.1e} = {t_end:.1e})."
     logger.info(log_message)
 
 
