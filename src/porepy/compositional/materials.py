@@ -473,7 +473,7 @@ class FractureDamageSolidConstants(SolidConstants):
 
     The frictional work per unit area that must be dissipated against the asperities for
     the dilation damage state to decay by a factor :math:`e` towards its residual; see
-    :class:`~porepy.constitutive_laws.DilationDamage`. It absorbs Archard's
+    :class:`~porepy.constitutive_laws.FractureDamage`. It absorbs Archard's
     dimensionless wear coefficient and is therefore an effective calibrated quantity
     rather than a purely geometric one.
 

@@ -4311,7 +4311,7 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
 
     Both damage channels share this single history. They are distinguished by their wear
     energy scales :math:`\Lambda_c^{\alpha}`, which enter the softening functions rather
-    than the driver; see :class:`FrictionDamage` and :class:`DilationDamage`. Placing
+    than the driver; see :class:`FractureDamage`. Placing
     the per-channel scale in the softening rather than in :math:`k` is what makes one
     history sufficient: driving two histories that differ only by a constant factor
     would duplicate the convolution without adding information.
@@ -4373,7 +4373,7 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
     def dilation_wear_energy_scale(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         r"""Wear energy scale for dilation damage :math:`\Lambda_c^d` [Pa m].
 
-        Defined here rather than on :class:`DilationDamage` because
+        Defined here rather than on :class:`FractureDamage` because
         :meth:`characteristic_wear_energy` needs both scales even when only one channel
         is active, and both are material constants regardless.
 
@@ -4543,41 +4543,55 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
         return op
 
 
-class FrictionDamage(pp.PorePyModel):
-    r"""Frictional damage relations.
+class FractureDamage(pp.PorePyModel):
+    r"""Fracture damage relations for the dilation and friction channels.
 
     This class implements
-        1. the computation of the friction coefficient from the frictional damage,
-        2. the computation of the friction damage state from the history variable.
+        1. the damage states of both channels, from the shared history variable,
+        2. their effect: dilation damage on the shear dilation gap, friction damage on
+           the friction coefficient.
 
-    The friction damage state is the factor by which the friction coefficient is
-    modified compared to the non-damaged case:
-
-    .. math::
-        F = d^f F_0,
-
-    where :math:`F_0` is the non-damaged friction coefficient. :math:`d^f` is
-    dimensionless and takes values between :math:`d_0^f` and 1, where 0 would mean no
-    friction and 1 means intact friction. It is computed from the history variable
-    :math:`\Lambda`, according to J. White (2014) https://doi.org/10.1002/nag.2247 and
-    Stefansson in preparation, as
+    Each damage state is the factor by which its channel is modified relative to the
+    intact case,
 
     .. math::
-        d = d_0 + (1 - d_0) \exp(-\Lambda / \Lambda_c^f)
+        \widetilde{g} = d^d \tan\psi \left\| u_t^p \right\|, \qquad F = d^f F_0,
 
-    where :math:`d_0` is the residual friction damage and :math:`\Lambda_c^f` the wear
-    energy scale of the friction channel.
+    with :math:`\psi` the dilation angle and :math:`F_0` the intact friction
+    coefficient. Both are computed from the damage history :math:`\Lambda` by the
+    exponential softening of J. White (2014) https://doi.org/10.1002/nag.2247,
 
-    The wear energy scale is what distinguishes this channel from
-    :class:`DilationDamage`; the history they read is the same.
+    .. math::
+        d^{\alpha} = d_0^{\alpha}
+            + (1 - d_0^{\alpha}) \exp(-\Lambda / \Lambda_c^{\alpha}),
+
+    so the *only* thing distinguishing the channels is the wear energy scale
+    :math:`\Lambda_c^{\alpha}`; the history they read is the same. Applying the damage
+    to the dilation angle is an extension of White, who applies his multiplier to the
+    yield function alone and leaves the dilation curve unaltered.
+
+    :math:`d^{\alpha}` is dimensionless and decays from 1 towards :math:`d_0^{\alpha}`.
+    The natural residual differs between the channels: :math:`d_0^d > 0`, since
+    :math:`d_0^d = 0` would drive the aperture back to zero under sustained shear, the
+    gap being proportional to :math:`d^d`. The asymmetry is deliberate.
+
+    The two channels are described by one class rather than two mixins because they are
+    not separable: a law composing the friction coefficient from the dilation angle
+    couples them, and a caller cannot then activate one without the other. Setting
+    :math:`d_0^{\alpha} = 1` holds :math:`d^{\alpha} \equiv 1` and thereby disables a
+    channel, which is how an undamaged reference run is configured.
 
     """
 
     solid: FractureDamageSolidConstants
-    """SolidConstants with frictional damage parameters."""
+    """SolidConstants with fracture damage parameters."""
 
     characteristic_wear_energy: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method returning the characteristic wear energy. Normally defined in a mixin
+    instance of :class:`FractureDamageEvolutionCoefficients`."""
+
+    dilation_wear_energy_scale: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method returning the dilation wear energy scale. Normally defined in a mixin
     instance of :class:`FractureDamageEvolutionCoefficients`."""
 
     friction_wear_energy_scale: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -4588,15 +4602,23 @@ class FrictionDamage(pp.PorePyModel):
     """Damage history variable. Normally defined in a mixin instance of
     :class:`~porepy.models.fracture_damage.FractureDamageVariable`."""
 
-    def friction_damage_state(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Frictional damage [-].
+    def _damage_state(
+        self,
+        subdomains: list[pp.Grid],
+        residual: pp.ad.Operator,
+        scale: pp.ad.Operator,
+    ) -> pp.ad.Operator:
+        r"""Exponential softening of a damage channel [-].
 
         Parameters:
-            subdomains: List of subdomains where the damage is defined. Should be of co-
-                dimension one, i.e. fractures.
+            subdomains: List of subdomains where the damage state is defined. Should be
+                of co-dimension one, i.e. fractures.
+            residual: The residual damage state :math:`d_0^{\alpha}` of the channel.
+            scale: The wear energy scale :math:`\Lambda_c^{\alpha}` of the channel, in
+                the same units as the history variable's own scale.
 
         Returns:
-            Operator for nondimensionalized frictional damage.
+            Operator for the dimensionless damage state.
 
         """
         # Guard against negative history. The history is non-decreasing in exact
@@ -4612,108 +4634,13 @@ class FrictionDamage(pp.PorePyModel):
         )
         history = f_clip(self.damage_history(subdomains))
 
-        # Get the material parameters. Nondimensionalize the wear energy scale, since
-        # the history variable is nondimensional.
-        d0 = self.residual_friction_damage(subdomains)
-        scale = self.friction_wear_energy_scale(
-            subdomains
-        ) / self.characteristic_wear_energy(subdomains)
+        # Nondimensionalize the wear energy scale, since the history variable is
+        # nondimensional.
+        nondimensional_scale = scale / self.characteristic_wear_energy(subdomains)
 
-        # Compute the damage.
         f_exp = Function(pp.ad.functions.exp, "exp")
-        one = pp.ad.Scalar(1.0)
-        return d0 + (one - d0) * f_exp(-(history / scale))
-
-    def residual_friction_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Residual friction damage [-].
-
-        Parameters:
-            subdomains: List of subdomains where the residual damage is defined. Should
-                be of co-dimension one, i.e. fractures.
-
-        Returns:
-            Operator for nondimensionalized residual damage.
-
-        """
-        return pp.ad.Scalar(
-            self.solid.residual_friction_damage, "residual_friction_damage"
-        )
-
-    def friction_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Friction coefficient [-].
-
-        Parameters:
-            subdomains: List of fracture subdomains.
-
-        Returns:
-            Friction coefficient operator.
-
-        """
-        if not hasattr(super(), "friction_coefficient"):
-            raise ValueError(
-                "The super class of FrictionDamage must have a friction_coefficient "
-                "method."
-            )
-        # After the check, we can safely call the super class method to get the
-        # non-damaged friction, ignoring the type checker.
-        intact_bound = super().friction_coefficient(subdomains)  # type: ignore[misc]
-        intact_bound.set_name("intact_friction_coefficient")
-        op = self.friction_damage_state(subdomains) * intact_bound
-        op.set_name("damaged_friction_coefficient")
-        return op
-
-
-class DilationDamage(pp.PorePyModel):
-    r"""Dilation damage relations.
-
-    This class implements
-        1. the computation of the shear dilation gap from the dilation damage state.
-        2. the computation of the dilation damage state from the history variable.
-
-    The dilation damage state is the factor by which shear dilation is modified compared
-    to the intact case:
-
-    .. math::
-        \widetilde{g} = d^d \tan\psi \left\| u_t^p \right\|,
-
-    with :math:`\psi` the dilation angle. Note that no residual gap is included; a
-    fracture with a non-vanishing aperture in the mated configuration would add one, and
-    the residual *hydraulic* aperture enters through the permeability relation instead.
-
-    The damage state is computed from the damage history variable :math:`\Lambda`
-    following the exponential softening of J. White (2014)
-    https://doi.org/10.1002/nag.2247, as
-
-    .. math::
-        d = d_0 + (1 - d_0)  \exp⁡(-\Lambda / \Lambda_c^d)
-
-    where :math:`d_0` is the *residual* dilation damage, towards which the value
-    :math:`d` decays, and :math:`\Lambda_c^d` is the wear energy scale of the dilation
-    channel. The wear energy scale is what distinguishes this channel from
-    :class:`FrictionDamage`; the history they read is the same. Applying the damage to
-    the dilation angle is an extension of White, who applies his multiplier to the yield
-    function alone and leaves the dilation curve unaltered.
-
-    Unlike the friction channel, the natural choice here is :math:`d_0 > 0`: taking
-    :math:`d_0 = 0` would drive the aperture back to zero under sustained shear, since
-    the gap is proportional to :math:`d^d`.
-
-    """
-
-    solid: FractureDamageSolidConstants
-    """SolidConstants with dilation damage parameters."""
-
-    characteristic_wear_energy: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Method returning the characteristic wear energy. Normally defined in a mixin
-    instance of :class:`FractureDamageEvolutionCoefficients`."""
-
-    dilation_wear_energy_scale: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Method returning the dilation wear energy scale. Normally defined in a mixin
-    instance of :class:`FractureDamageEvolutionCoefficients`."""
-
-    damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
-    """Damage history variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.fracture_damage.FractureDamageVariable`."""
+        one = Scalar(1.0)
+        return residual + (one - residual) * f_exp(-(history / nondimensional_scale))
 
     def dilation_damage_state(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Dilation damage state [-].
@@ -4726,30 +4653,32 @@ class DilationDamage(pp.PorePyModel):
             Operator for dimensionless dilation damage.
 
         """
-        # Guard against negative history. The history is non-decreasing in exact
-        # arithmetic, since both the evolution coefficient and the length function are
-        # non-negative, but it is a solved variable and a Newton iterate may undershoot.
-        # A negative value would make exp(-history) blow up rather than decay, so the
-        # lower bound is retained. No upper bound is imposed: exp(-history) decays
-        # smoothly and underflows gracefully, whereas clipping introduces a kink in the
-        # Jacobian at the clip value.
-        f_clip = Function(
-            partial(pp.ad.functions.clip, min_val=0.0, max_val=np.inf),
-            "clip_function",
+        op = self._damage_state(
+            subdomains,
+            self.residual_dilation_damage(subdomains),
+            self.dilation_wear_energy_scale(subdomains),
         )
-        history = f_clip(self.damage_history(subdomains))
+        op.set_name("dilation_damage_state")
+        return op
 
-        # Get the material parameters. Nondimensionalize the wear energy scale, since
-        # the history variable is nondimensional.
-        d0 = self.residual_dilation_damage(subdomains)
-        scale = self.dilation_wear_energy_scale(
-            subdomains
-        ) / self.characteristic_wear_energy(subdomains)
+    def friction_damage_state(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Frictional damage state [-].
 
-        # Compute the damage.
-        f_exp = Function(pp.ad.functions.exp, "exp")
-        one = pp.ad.Scalar(1.0)
-        return d0 + (one - d0) * f_exp(-(history / scale))
+        Parameters:
+            subdomains: List of subdomains where the damage is defined. Should be of co-
+                dimension one, i.e. fractures.
+
+        Returns:
+            Operator for nondimensionalized frictional damage.
+
+        """
+        op = self._damage_state(
+            subdomains,
+            self.residual_friction_damage(subdomains),
+            self.friction_wear_energy_scale(subdomains),
+        )
+        op.set_name("friction_damage_state")
+        return op
 
     def residual_dilation_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Residual dilation damage [-].
@@ -4762,9 +4691,20 @@ class DilationDamage(pp.PorePyModel):
             Operator for nondimensionalized residual damage.
 
         """
-        return pp.ad.Scalar(
-            self.solid.residual_dilation_damage, "residual_dilation_damage"
-        )
+        return Scalar(self.solid.residual_dilation_damage, "residual_dilation_damage")
+
+    def residual_friction_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Residual friction damage [-].
+
+        Parameters:
+            subdomains: List of subdomains where the residual damage is defined. Should
+                be of co-dimension one, i.e. fractures.
+
+        Returns:
+            Operator for nondimensionalized residual damage.
+
+        """
+        return Scalar(self.solid.residual_friction_damage, "residual_friction_damage")
 
     def shear_dilation_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Shear dilation gap [m].
@@ -4781,7 +4721,7 @@ class DilationDamage(pp.PorePyModel):
         # something has gone wrong in the inheritance.
         if not hasattr(super(), "shear_dilation_gap"):
             raise ValueError(
-                "The super class of DilationDamage must have a shear_dilation_gap "
+                "The super class of FractureDamage must have a shear_dilation_gap "
                 "method."
             )
         # Combine the dilation damage with the non-damaged dilation gap.
@@ -4789,6 +4729,29 @@ class DilationDamage(pp.PorePyModel):
         intact_gap.set_name("intact_shear_dilation")
         op = self.dilation_damage_state(subdomains) * intact_gap
         op.set_name("damaged_shear_dilation")
+        return op
+
+    def friction_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Friction coefficient [-].
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Friction coefficient operator.
+
+        """
+        if not hasattr(super(), "friction_coefficient"):
+            raise ValueError(
+                "The super class of FractureDamage must have a friction_coefficient "
+                "method."
+            )
+        # After the check, we can safely call the super class method to get the
+        # non-damaged friction, ignoring the type checker.
+        intact_bound = super().friction_coefficient(subdomains)  # type: ignore[misc]
+        intact_bound.set_name("intact_friction_coefficient")
+        op = self.friction_damage_state(subdomains) * intact_bound
+        op.set_name("damaged_friction_coefficient")
         return op
 
 

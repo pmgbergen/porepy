@@ -37,8 +37,7 @@ The main components are the following:
 
        Each channel applies its damage state multiplicatively: dilation to the intact
        shear dilation gap, friction to the intact friction coefficient. See
-       :class:`~porepy.constitutive_laws.DilationDamage` and
-       :class:`~porepy.constitutive_laws.FrictionDamage`.
+       :class:`~porepy.constitutive_laws.FractureDamage`.
 """
 
 from functools import partial
@@ -58,8 +57,7 @@ class FractureDamageVariable(pp.PorePyModel):
     A single history serves both damage channels: the driver is common to them, so two
     histories would carry the same number. The channels are distinguished by their wear
     energy scales in the softening functions, see
-    :class:`~porepy.constitutive_laws.FrictionDamage` and
-    :class:`~porepy.constitutive_laws.DilationDamage`.
+    :class:`~porepy.constitutive_laws.FractureDamage`.
 
     """
 
