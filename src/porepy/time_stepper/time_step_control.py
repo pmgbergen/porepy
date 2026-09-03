@@ -34,7 +34,7 @@ class TimeManager:
     for historical reasons, it in fact does not manage anything.
 
     One more responsibility on this class is to read and write time information on disk.
-    Corresponsing methods (in I/O section) are the known exception from the convention
+    Corresponding methods (in I/O section) are the known exception from the convention
     above due to historical reasons.
 
     Most of the __init__ parameters correspond to the time step control, which is
@@ -66,7 +66,7 @@ class TimeManager:
             as equal.
         advanced_schedule: A more advanced way to define the simulation schedule. See
             :class:`pp.time_stepper.TimeScheduler` for details. If None (default), the
-            old way of defining the schedule with array is used. Otherwise, is
+            old way of defining the schedule with array is used. Otherwise, it is
             prioritized over the old schedule.
 
     """
@@ -320,7 +320,7 @@ class TimeInterval:
     t_start: float
     """Start time of the interval, seconds."""
     dt_start: float
-    """Desider time step applied at the interval start, seconds."""
+    """Desired time step applied at the interval start, seconds."""
     constraints: list[pp.time_stepper.TimeStepConstraint]
     """List of constraints that control dt based on simulation behavior."""
     dt_min: float
@@ -328,7 +328,7 @@ class TimeInterval:
     dt_max: float
     """Maximum time step allowed for this interval, seconds."""
     name: str
-    """Interval name. Used for debugging. No logic is binded to it."""
+    """Interval name. Used for debugging. No logic is bound to it."""
 
     @classmethod
     def create(
