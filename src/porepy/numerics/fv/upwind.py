@@ -65,9 +65,7 @@ class Upwind(Discretization):
         """
         return sd.num_cells
 
-    def get_row_dof_info(
-        self, matrix_key: str = "", nd: int = 1
-    ) -> pp.ad.GridEntities:
+    def get_row_dof_info(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
         """Return row DOF info for the named Upwind matrix.
 
         Parameters:
@@ -88,9 +86,7 @@ class Upwind(Discretization):
             f"Unrecognized matrix key '{matrix_key}' for Upwind discretization."
         )
 
-    def get_col_dof_info(
-        self, matrix_key: str = "", nd: int = 1
-    ) -> pp.ad.GridEntities:
+    def get_col_dof_info(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
         """Return column DOF info for the named Upwind matrix.
 
         Parameters:
@@ -475,9 +471,7 @@ class UpwindCoupling(InterfaceDiscretization):
     def ndof(self, intf: pp.MortarGrid) -> int:
         return intf.num_cells
 
-    def get_row_dof_info(
-        self, matrix_key: str = "", nd: int = 1
-    ) -> pp.ad.GridEntities:
+    def get_row_dof_info(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
         """UpwindCoupling matrices have one Dof per cell in their rows.
 
         Parameters:
@@ -507,9 +501,7 @@ class UpwindCoupling(InterfaceDiscretization):
         s = f"Unrecognized matrix key '{matrix_key}' for UpwindCoupling discretization."
         raise ValueError(s)
 
-    def get_col_dof_info(
-        self, matrix_key: str = "", nd: int = 1
-    ) -> pp.ad.GridEntities:
+    def get_col_dof_info(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
         """UpwindCoupling matrices have one Dof per cell in their columns.
 
         Parameters:
