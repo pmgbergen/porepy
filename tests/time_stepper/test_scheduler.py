@@ -6,12 +6,12 @@ import pytest
 
 import porepy as pp
 from porepy.time_stepper.scheduler import (
-    CannotRecomputeTimeStep,
     TargetNonlinearIterations,
     TimeScheduler,
     TimeSchedulerConstantDt,
     assemble_default_time_scheduler,
 )
+from porepy.time_stepper.time_step_constraint import CannotRecomputeTimeStep
 from porepy.time_stepper.time_step_control import Schedule, TimeInterval
 
 

@@ -379,7 +379,7 @@ class NonlinearSolverStatistics(SolverStatistics):
         # Extract final convergence status.
         final_convergence_status = _leafs_only(self.convergence_status.to_str())
 
-        # Determine number of waisted iterations.
+        # Determine number of wasted iterations.
         # TODO: Rethink during upgrade of time integration.
         total_num_waisted_iterations = 0
         for simulation_status, num_iterations in zip(  # TODO YZ: Remove num iterations.

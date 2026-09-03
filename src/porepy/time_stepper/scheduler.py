@@ -1,5 +1,5 @@
 """Module defines a `TimeSchedulerBase` protocol responsible for adjusting the
-simulation time step to comform the schedule and provided constraints. Two
+simulation time step to conform to the schedule and provided constraints. Two
 implementations are available:
 - TimeSchedulerConstantDt: a naive implementation with a fixed time step.
 - TimeScheduler: an implementation that supports multiple intervals with different
@@ -20,6 +20,7 @@ import numpy as np
 
 import porepy as pp
 from porepy.time_stepper.time_step_constraint import (
+    CannotRecomputeTimeStep,
     TargetNonlinearIterations,
     TimeStepConstraint,
 )
@@ -27,7 +28,6 @@ from porepy.time_stepper.time_step_control import Schedule, TimeInterval
 
 __all__ = [
     "assemble_default_time_scheduler",
-    "CannotRecomputeTimeStep",
     "TimeSchedulerBase",
     "TimeSchedulerConstantDt",
     "TimeScheduler",
@@ -53,7 +53,7 @@ class TimeSchedulerBase(ABC):
 
         Raises:
             CannotRecomputeTimeStep: If the time step cannot be adjusted and the
-                simulatin should be stopped.
+                simulation should be stopped.
 
         Returns:
             The next time step magnitude.
@@ -65,7 +65,7 @@ class TimeSchedulerConstantDt(TimeSchedulerBase):
     """Constant time step scheduler.
 
     Parameters:
-        time_manager: The simulation time data structure. Used in constractor for
+        time_manager: The simulation time data structure. Used in constructor for
             validation.
         schedule: Array of time points, which the simulation time must match exactly
             within tolerance defined by `t_snap`. Must contain at least two points:
@@ -113,10 +113,11 @@ class TimeSchedulerConstantDt(TimeSchedulerBase):
 class TimeScheduler(TimeSchedulerBase):
     """Non-constant time step scheduler.
 
-    Each schedule interval may containt its own set of time step constraints, that
-    adjust dt based on simulation context. Each constraint suggest the new dt value,
+    Each schedule interval may contain its own set of time step constraints, that
+    adjust dt based on simulation context. Each constraint suggests the new dt value,
     which may be smaller or larger than the current dt. The minimum of the suggestions
-    is applied. If minimum is below the interval's `dt_min`, the simulation is stopped.
+    is applied. If the minimum is below the interval's `dt_min`, the simulation is
+    stopped.
 
     The algorithm is inspired by:
     [1] Simunek, J., Van Genuchten, M. T., & Sejna, M. (2005). The HYDRUS-1D software
@@ -129,7 +130,7 @@ class TimeScheduler(TimeSchedulerBase):
         with the MATLAB Reservoir Simulation Toolbox.
 
     Parameters:
-        time_manager: The simulation time data structure. Used in constractor for
+        time_manager: The simulation time data structure. Used in constructor for
             validation.
         schedule: Data structure defining schedule points, which the simulation time
             must match exactly within tolerance defined by `t_snap`. Must contain at
@@ -193,7 +194,7 @@ class TimeScheduler(TimeSchedulerBase):
                 name=current_interval.name,
             )
 
-        # Apply constraints. Each constraint suggest the new dt value, which may be
+        # Apply constraints. Each constraint suggests the new dt value, which may be
         # smaller or larger than the current dt. The minimum of the suggestions
         # is applied.
         # Note: If this is a start of a new interval, dt_start can be adjusted as well.
@@ -228,11 +229,11 @@ class TimeScheduler(TimeSchedulerBase):
 
         # Dt should be not larger than the interval's dt_max.
         dt = min(dt, current_interval.dt_max)
-        # If dt became smaller than the interval's dt_min, abort simulation.
+        # If dt is smaller than the interval's dt_min, warn about it.
         if dt < current_interval.dt_min:
-            raise CannotRecomputeTimeStep(
+            logger.warning(
                 f"Adjusted time step size ({dt:.1e}) is lower than the minimum "
-                f"admissible value ({current_interval.dt_min:.1e})."
+                f"requested value in this interval ({current_interval.dt_min:.1e})."
             )
 
         # Prevent overshooting the interval's end.
@@ -321,15 +322,8 @@ def assemble_default_time_scheduler(
         )
 
 
-class CannotRecomputeTimeStep(Exception):
-    """Exception thrown by TimeSchedulerBase.compute_next_time_step if it is impossible
-    to adjust the time step and the simulation should be stopped.
-
-    """
-
-
 class _IntervalMap:
-    """An auxilary data structure used by TimeScheduler. For any simulation time,
+    """An auxiliary data structure used by TimeScheduler. For any simulation time,
     returns the time interval it belongs to, and the next interval.
 
     Implementation note: does binary search over a sorted array of interval starts with

@@ -455,8 +455,6 @@ def slow_test_buoyancy_flow_benchmark(
         schedule=[0.0, tf],
         dt_init=dt,
         constant_dt=True,
-        iter_max=50,
-        print_info=True,
     )
 
     solid_constants = pp.SolidConstants(

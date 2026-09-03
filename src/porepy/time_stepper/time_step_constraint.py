@@ -18,6 +18,7 @@ __all__ = [
     "TimeStepConstraint",
     "TargetNonlinearIterations",
     "CourantTimeStepConstraint",
+    "CannotRecomputeTimeStep",
 ]
 
 
@@ -40,8 +41,15 @@ class TimeStepConstraint(ABC):
         """
 
 
+class CannotRecomputeTimeStep(Exception):
+    """Exception thrown by TimeSchedulerBase.compute_next_time_step if it is impossible
+    to adjust the time step and the simulation should be stopped.
+
+    """
+
+
 class TargetNonlinearIterations(TimeStepConstraint):
-    """Increases / decreases dt if the number of nonlinear solver iterations if below
+    """Increases / decreases dt if the number of nonlinear solver iterations is below
     `iter_min` / above `iter_max`, respectively.
 
     Expects "nonlinear_solver_status" (:class:`pp.solvers.NonlinearSolverStatus`) in
@@ -52,12 +60,12 @@ class TargetNonlinearIterations(TimeStepConstraint):
         iter_max: Right bound of the nonlinear solver's desired iterations range.
         increase_factor: How much to increase dt if iterations are below `iter_min`.
         decrease_factor: How much to decrease dt if iterations are above `iter_max`.
-        retry_factory: How much to decrease dt if the nonlinear solver failed.
+        retry_factor: How much to decrease dt if the nonlinear solver failed.
         dt_min: Sets the dt point that is guaranteed to try when decreasing dt. If
             `dt == dt_min`, will decrease dt below `dt_min`. The practical use case is
             during repeating failures, where it will ensure that it will attempt to make
             the time step with `dt_min`, before stopping the simulation with failure. If
-            the value is not specified (default), does not affect.
+            the value is not specified (default), it does not affect.
         t_snap: Snapping time. If time difference is below it, treats it as zero.
 
     """
@@ -116,16 +124,16 @@ class TargetNonlinearIterations(TimeStepConstraint):
 
         if status.is_converged():
             num_iter = status.number_of_iterations()
-            if num_iter < self.iter_min:
+            if num_iter <= self.iter_min:
                 return dt * self.increase_factor
-            elif num_iter > self.iter_max:
+            elif num_iter >= self.iter_max:
                 # Decrease dt, but not below dt_min.
                 return max(dt * self.decrease_factor, self.dt_min)
             else:
                 return dt
         else:
             if abs(dt - self.dt_min) < self.t_snap:
-                return dt * self.retry_factor
+                raise CannotRecomputeTimeStep()
             return max(dt * self.retry_factor, self.dt_min)
 
 
@@ -137,7 +145,7 @@ class CourantTimeStepConstraint(TimeStepConstraint):
 
     Parameters:
         target_cfl: Target dimensionless value.
-        atol: Velosity tolerance, below treated as zero.
+        atol: Velocity tolerance, below treated as zero.
 
     """
 
@@ -145,7 +153,7 @@ class CourantTimeStepConstraint(TimeStepConstraint):
         self.target_cfl = target_cfl
         """Target dimensionless value."""
         self.atol = atol
-        """Velosity tolerance, below treated as zero."""
+        """Velocity tolerance, below treated as zero."""
 
     def suggest_dt(self, dt: float, context: dict) -> float:
         model = cast(pp.PorePyModel | None, context.get("model", None))
@@ -154,9 +162,11 @@ class CourantTimeStepConstraint(TimeStepConstraint):
 
         dt = float("inf")
         for subdomain in model.mdg.subdomains():
-            v = np.max(model.equation_system.evaluate(model.darcy_flux([subdomain])))
+            # TODO: Mobility is not included, unit of darcy_flux is [m^2 / s].
+            v = abs(model.equation_system.evaluate(model.darcy_flux([subdomain])))
+            v = np.max(v)
             if v < self.atol:
-                # Velosity is zero in this subdomain, not applying constraint.
+                # Velocity is zero in this subdomain, not applying constraint.
                 continue
             x = subdomain.cell_diameters(cell_wise=False, func=np.max).min()
             dt = min(dt, self.target_cfl * x / v)
