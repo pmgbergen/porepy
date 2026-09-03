@@ -326,16 +326,16 @@ def test_dt_not_within_min_max_range(dt_init: float, bad_interval_index: int):
 
 def test_target_nonlinear_iterations_init():
     with pytest.raises(ValueError):
-        _ = TargetNonlinearIterations(iter_min=5, iter_max=4, dt_min=0.1)
+        _ = TargetNonlinearIterations(iter_min=5, iter_max=4)
 
     with pytest.raises(ValueError):
-        _ = TargetNonlinearIterations(increase_factor=0.5, dt_min=0.1)
+        _ = TargetNonlinearIterations(increase_factor=0.5)
 
     with pytest.raises(ValueError):
-        _ = TargetNonlinearIterations(decrease_factor=1.2, dt_min=0.1)
+        _ = TargetNonlinearIterations(decrease_factor=1.2)
 
     with pytest.raises(ValueError):
-        _ = TargetNonlinearIterations(retry_factor=1.2, dt_min=0.1)
+        _ = TargetNonlinearIterations(retry_factor=1.2)
 
 
 @pytest.mark.parametrize("constant_dt", [True, False])
@@ -389,15 +389,19 @@ def test_constant_time_step(schedule, dt, time, is_success, context):
         },
         {
             "context": get_context_success(num_linear_iterations=4),
-            "expected_dt": 0.5,
+            "expected_dt": 0.5 * 1.3,
         },
         {
             "context": get_context_success(num_linear_iterations=5),
             "expected_dt": 0.5,
         },
         {
-            "context": get_context_success(num_linear_iterations=7),
+            "context": get_context_success(num_linear_iterations=6),
             "expected_dt": 0.5,
+        },
+        {
+            "context": get_context_success(num_linear_iterations=7),
+            "expected_dt": 0.5 * 0.7,
         },
         {
             "context": get_context_success(num_linear_iterations=9),

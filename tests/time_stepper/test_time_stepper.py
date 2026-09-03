@@ -404,7 +404,7 @@ class DynamicNewtonSolver(pp.solvers.NonlinearSolverBase):
             "time_step_converged": [True, True, False, False, False, False],
             "exported_dt_expected": [1, 2, 4, 1.2, 0.36, 0.108],
             "schedule_end": 10,  # Far beyond possible dt to avoid dt_max clipping.
-            "failure_reason": "Max retries (4)",
+            "failure_reason": "Max attempts (4) exhausted; stopping.",
         },
         # Case 6: All time steps are successful so dt reaches dt_max and remains it.
         {
@@ -527,9 +527,8 @@ def test_advanced_scheduler():
                     name="injection",
                     t_start=3,
                     dt_start=0.1,
-                    constraints=[
-                        pp.time_stepper.TargetNonlinearIterations(dt_min=0.01)
-                    ],
+                    dt_min=0.01,
+                    constraints=[pp.time_stepper.TargetNonlinearIterations()],
                 ),
                 TimeInterval.create(
                     name="relaxation",
