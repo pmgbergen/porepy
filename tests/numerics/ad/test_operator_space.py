@@ -119,7 +119,7 @@ class TestOperatorSpaceScalar:
         s = OperatorSpace.scalar()
         assert s.domain_type == DomainType.scalar
         assert s.grids == ()
-        assert s.dof_info == {}
+        assert s.dof_info == GridEntities()
 
     def test_scalar_is_singleton_value(self):
         """Two calls to scalar() return equal (but not necessarily identical)
@@ -143,26 +143,27 @@ class TestOperatorSpaceFromDomains:
         space = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
         assert space.domain_type == DomainType.subdomains
         assert space.grids == (g1, g2)
-        assert space.dof_info == {GridEntity.cells: 1}
+        assert space.dof_info == GridEntities(cells=1)
 
     def test_interfaces(self, one_mortar):
         space = OperatorSpace.from_domains([one_mortar], {GridEntity.cells: 2})
         assert space.domain_type == DomainType.interfaces
         assert space.grids == (one_mortar,)
-        assert space.dof_info == {GridEntity.cells: 2}
+        assert space.dof_info == GridEntities(cells=2)
 
     def test_mixed_grid_types_raises(self, two_subdomains, one_mortar):
         g1, _ = two_subdomains
         with pytest.raises(ValueError, match="same type"):
             OperatorSpace.from_domains([g1, one_mortar], {GridEntity.cells: 1})
 
-    def test_dof_info_is_copied(self, two_subdomains):
-        """Mutating the original dict must not affect the stored one."""
+    def test_dof_info_is_normalized_not_aliased(self, two_subdomains):
+        """A mapping is normalized to a GridEntities on construction, so mutating the
+        original dict must not affect the stored one."""
         g1, _ = two_subdomains
         dof = {GridEntity.cells: 1}
         space = OperatorSpace.from_domains([g1], dof)
         dof[GridEntity.faces] = 99
-        assert GridEntity.faces not in space.dof_info
+        assert space.dof_info == GridEntities(cells=1)
 
 
 class TestOperatorSpaceEquality:
@@ -267,14 +268,14 @@ class TestVariableSpace:
 
     def test_variable_space_dof_info(self, two_subdomains):
         var = Variable("u", GridEntities(cells=2, faces=1), two_subdomains[0])
-        assert var.source.dof_info == {GridEntity.cells: 2, GridEntity.faces: 1}
+        assert var.source.dof_info == GridEntities(cells=2, faces=1)
 
     def test_variable_on_mortar_grid_has_interface_space(self, one_mortar):
         """Variable on a MortarGrid gets DomainType.interfaces."""
         var = Variable("lam", GridEntities(cells=2), one_mortar)
         assert var.source.domain_type == DomainType.interfaces
         assert var.source.grids == (one_mortar,)
-        assert var.source.dof_info == {GridEntity.cells: 2}
+        assert var.source.dof_info == GridEntities(cells=2)
 
 
 class TestMixedDimensionalVariableSpace:
@@ -323,7 +324,7 @@ class TestSurrogateOperatorSpace:
         )
         op = factory(list(mdg.subdomains()))
         assert op.source.domain_type == DomainType.subdomains
-        assert op.source.dof_info == {GridEntity.cells: 1}
+        assert op.source.dof_info == GridEntities(cells=1)
         assert op.target == op.source
 
     def test_surrogate_operator_default_dof_info_gives_space(self, surrogate_setup):
@@ -336,7 +337,7 @@ class TestSurrogateOperatorSpace:
         )
         op = factory(list(mdg.subdomains()))
         assert op.source is not None
-        assert op.source.dof_info == {GridEntity.cells: 1}
+        assert op.source.dof_info == GridEntities(cells=1)
 
     def test_surrogate_operator_direct_no_dof_info_gives_none_space(
         self, two_subdomains
@@ -351,8 +352,8 @@ class TestSurrogateOperatorSpace:
             children=[v1, v2],
             dof_info=None,
         )
-        assert op.source.dof_info == {GridEntity.cells: 1}
-        assert op.target.dof_info == {GridEntity.cells: 1}
+        assert op.source.dof_info == GridEntities(cells=1)
+        assert op.target.dof_info == GridEntities(cells=1)
 
 
 class TestArraySpace:
@@ -447,8 +448,8 @@ class TestTimeDependentDenseArraySpaces:
         g1, g2 = two_subdomains
         arr = pp.ad.TimeDependentDenseArray("x", [g1, g2])
         # When domains are provided but no dof_info, cells:1 is assumed.
-        assert arr.source.dof_info == {GridEntity.cells: 1}
-        assert arr.target.dof_info == {GridEntity.cells: 1}
+        assert arr.source.dof_info == GridEntities(cells=1)
+        assert arr.target.dof_info == GridEntities(cells=1)
 
     def test_dof_info_cells(self, two_subdomains):
         g1, g2 = two_subdomains
@@ -456,7 +457,7 @@ class TestTimeDependentDenseArraySpaces:
             "x", [g1, g2], dof_info={GridEntity.cells: 1}
         )
         assert arr.source == arr.target
-        assert GridEntity.cells in arr.source.dof_info
+        assert arr.source.dof_info == GridEntities(cells=1)
         assert set(arr.source.grids) == {g1, g2}
 
     def test_dof_info_faces(self, two_subdomains):
@@ -464,7 +465,7 @@ class TestTimeDependentDenseArraySpaces:
         arr = pp.ad.TimeDependentDenseArray(
             "x", [g1, g2], dof_info={GridEntity.faces: 2}
         )
-        assert arr.source.dof_info == {GridEntity.faces: 2}
+        assert arr.source.dof_info == GridEntities(faces=2)
 
     def test_empty_domains_and_domain_type_raises(self):
         with pytest.raises(
@@ -495,10 +496,10 @@ class TestMergedOperatorSpaces:
                 pass
 
             def get_row_dof_info(self, matrix_key: str = "", nd: int = 1):
-                return {GridEntity.cells: 1}
+                return GridEntities(cells=1)
 
             def get_col_dof_info(self, matrix_key: str = "", nd: int = 1):
-                return {GridEntity.faces: 1}
+                return GridEntities(faces=1)
 
         g1, g2 = two_subdomains
         discr = MockDiscretization()
@@ -509,8 +510,8 @@ class TestMergedOperatorSpaces:
             physics_key="flow",
             domains=[g1, g2],
         )
-        assert GridEntity.faces in op.source.dof_info
-        assert GridEntity.cells in op.target.dof_info
+        assert op.source.dof_info == GridEntities(faces=1)
+        assert op.target.dof_info == GridEntities(cells=1)
         assert set(op.source.grids) == {g1, g2}
         assert set(op.target.grids) == {g1, g2}
 

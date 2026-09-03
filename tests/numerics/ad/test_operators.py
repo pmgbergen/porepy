@@ -29,7 +29,7 @@ from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
-from porepy.numerics.ad.equation_system import GridEntity
+from porepy.numerics.ad.equation_system import GridEntities, GridEntity
 from porepy.numerics.ad.operators import DomainType
 
 AdType = Union[float, np.ndarray, sps.spmatrix, pp.ad.AdArray]
@@ -960,10 +960,10 @@ class _MockDiscretization:
         self.keyword = key
 
     def get_row_dof_info(self, matrix_key: str = "", nd: int = 1):
-        return {GridEntity.cells: 1}
+        return GridEntities(cells=1)
 
     def get_col_dof_info(self, matrix_key: str = "", nd: int = 1):
-        return {GridEntity.faces: 1}
+        return GridEntities(faces=1)
 
 
 def _get_scalar(wrapped: bool) -> float | pp.ad.Scalar:
