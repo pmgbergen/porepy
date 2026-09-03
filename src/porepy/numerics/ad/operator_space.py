@@ -70,6 +70,10 @@ class OperatorSpace:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "grids", tuple(self.grids))
+        # Plain mappings are accepted for convenience. Normalize before validating, so
+        # that the checks below see a GridEntities, for which a zero count and an
+        # absent entity are the same thing.
+        object.__setattr__(self, "dof_info", GridEntities.from_mapping(self.dof_info))
 
         if self.domain_type in (
             DomainType.scalar,
@@ -86,14 +90,12 @@ class OperatorSpace:
                     " dof_info."
                 )
                 raise ValueError(s)
-            object.__setattr__(self, "dof_info", GridEntities())
             return
 
         if not self.dof_info:
             raise ValueError(
                 f"{self.domain_type.value.capitalize()} spaces must define dof_info."
             )
-        object.__setattr__(self, "dof_info", GridEntities.from_mapping(self.dof_info))
 
         # Note: self.grids may legitimately be empty for operators that are constructed
         # on an empty list of subdomains/interfaces/boundary grids, but whose
@@ -135,29 +137,26 @@ class OperatorSpace:
                 f"{self.domain_type.value.capitalize()} spaces have no "
                 "grid-based DOF count."
             )
+        dof_info = self.dof_info
         total = 0
         for grid in self.grids:
-            for entity, num_per_entity in self.dof_info.items():
-                if entity == GridEntity.cells:
-                    total += num_per_entity * grid.num_cells
-                elif entity == GridEntity.faces:
-                    if isinstance(grid, pp.Grid):
-                        total += num_per_entity * grid.num_faces
-                    elif num_per_entity:
-                        raise ValueError(
-                            f"{type(grid).__name__} has no faces, but dof_info "
-                            f"specifies {num_per_entity} DOFs per face."
-                        )
-                elif entity == GridEntity.nodes:
-                    if isinstance(grid, (pp.Grid, pp.MortarGrid)):
-                        total += num_per_entity * grid.num_nodes
-                    elif num_per_entity:
-                        raise ValueError(
-                            f"{type(grid).__name__} has no nodes, but dof_info "
-                            f"specifies {num_per_entity} DOFs per node."
-                        )
-                else:
-                    raise ValueError(f"Unknown grid entity {entity}.")
+            # All grid types have cells, so cell DOFs need no compatibility check.
+            if dof_info.cells:
+                total += dof_info.cells * grid.num_cells
+            if dof_info.faces:
+                if not isinstance(grid, pp.Grid):
+                    raise ValueError(
+                        f"{type(grid).__name__} has no faces, but dof_info "
+                        f"specifies {dof_info.faces} DOFs per face."
+                    )
+                total += dof_info.faces * grid.num_faces
+            if dof_info.nodes:
+                if not isinstance(grid, (pp.Grid, pp.MortarGrid)):
+                    raise ValueError(
+                        f"{type(grid).__name__} has no nodes, but dof_info "
+                        f"specifies {dof_info.nodes} DOFs per node."
+                    )
+                total += dof_info.nodes * grid.num_nodes
         return total
 
     @classmethod
