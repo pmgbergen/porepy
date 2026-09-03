@@ -81,10 +81,11 @@ def time_stepper_status(
                 )
             ],
         )
-    elif status in ["continue_iterating", "failed"]:
-        # return TimeStepperStatusContinueIterating(
-        #     attempt=0, nonlinear_solver_status=nonlinear_solver_status("failed")
-        # )
+    elif status == "continue_iterating":
+        return TimeStepperStatusContinueIterating(
+            attempts=[],
+        )
+    elif status == "failed":
         return TimeStepperStatusFailure(
             time=1.0,
             attempts=[
