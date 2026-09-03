@@ -110,7 +110,7 @@ class TargetNonlinearIterations(TimeStepConstraint):
         if not isinstance(dt_min, (int, float)):
             raise ValueError("TargetNonlinearIterations requires 'dt_min' in context.")
         t_snap = context.get("t_snap")
-        if not isinstance(dt_min, (int, float)):
+        if not isinstance(t_snap, (int, float)):
             raise ValueError("TargetNonlinearIterations requires 't_snap' in context.")
 
         if status.is_converged():
