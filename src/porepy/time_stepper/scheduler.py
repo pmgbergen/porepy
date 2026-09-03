@@ -1,7 +1,18 @@
+"""Module defines a `TimeSchedulerBase` protocol responsible for adjusting the
+simulation time step to comform the schedule and provided constraints. Two
+implementations are available:
+- TimeSchedulerConstantDt: a naive implementation with a fixed time step.
+- TimeScheduler: an implementation that supports multiple intervals with different
+    constraints.
+
+Also provides a convenience factory function `assemble_default_time_scheduler`.
+
+"""
+
 from abc import ABC, abstractmethod
 from bisect import bisect_right
 from logging import getLogger
-from typing import Optional
+from typing import Iterable, Optional
 
 import numpy as np
 
@@ -13,11 +24,11 @@ from porepy.time_stepper.time_step_constraint import (
 from porepy.time_stepper.time_step_control import Schedule, TimeInterval
 
 __all__ = [
+    "assemble_default_time_scheduler",
     "CannotRecomputeTimeStep",
     "TimeSchedulerBase",
+    "TimeSchedulerConstantDt",
     "TimeScheduler",
-    "Schedule",
-    "assemble_default_time_scheduler",
 ]
 
 logger = getLogger(__name__)
@@ -38,22 +49,41 @@ class TimeSchedulerBase(ABC):
             success: Whether the current time step was successful.
             context: Data used by `TimeStepConstraint`s' to adjust the time step.
 
+        Raises:
+            CannotRecomputeTimeStep: If the time step cannot be adjusted and the
+                simulatin should be stopped.
+
+        Returns:
+            The next time step magnitude.
+
         """
 
 
 class TimeSchedulerConstantDt(TimeSchedulerBase):
-    """Constant time step scheduler."""
+    """Constant time step scheduler.
+
+    Parameters:
+        time_manager: The simulation time data structure. Used in constractor for
+            validation.
+        schedule: Array of time points, which the simulation time must match exactly
+            within tolerance defined by `t_snap`. Must contain at least two points:
+            start and end time.
+        dt: Constant time step.
+        t_snap: Snapping time. Time difference below it is treated as zero.
+
+    """
 
     def __init__(
         self,
         time_manager: pp.TimeManager,
-        schedule: np.ndarray | list[float | int],
+        schedule: Iterable[pp.number],
         dt: float,
         t_snap: float = 1e-8,
     ) -> None:
         self.schedule = np.array(schedule, dtype=float)
         if len(self.schedule) < 2:
             raise ValueError("Schedule must have at least two points: start and end.")
+        assert t_snap > 0
         self.dt = float(dt)
         if self.dt <= 0:
             raise ValueError("Time step must be positive.")
@@ -79,7 +109,32 @@ class TimeSchedulerConstantDt(TimeSchedulerBase):
 
 
 class TimeScheduler(TimeSchedulerBase):
-    """Non-constant time step scheduler."""
+    """Non-constant time step scheduler.
+
+    Each schedule interval may containt its own set of time step constraints, that
+    adjust dt based on simulation context. Each constraint suggest the new dt value,
+    which may be smaller or larger than the current dt. The minimum of the suggestions
+    is applied. If minimum is below the interval's `dt_min`, the simulation is stopped.
+
+    The algorithm is inspired by:
+    [1] Simunek, J., Van Genuchten, M. T., & Sejna, M. (2005). The HYDRUS-1D software
+        package for simulating the one-dimensional movement of water, heat, and multiple
+        solutes in variably-saturated media. University of California-Riverside Research
+        Reports, 3, 1-240.
+
+    [2] Varela, J., Gasda, S. E., Keilegavlen, E., & Nordbotten, J. M. (2021). A
+        Finite-Volume-Based Module for Unsaturated Poroelasticity. Advanced Modeling
+        with the MATLAB Reservoir Simulation Toolbox.
+
+    Parameters:
+        time_manager: The simulation time data structure. Used in constractor for
+            validation.
+        schedule: Data structure defining schedule points, which the simulation time
+            must match exactly within tolerance defined by `t_snap`. Must contain at
+            least one time interval.
+        t_snap: Snapping time. Time difference below it is treated as zero.
+
+    """
 
     def __init__(
         self,
@@ -136,8 +191,10 @@ class TimeScheduler(TimeSchedulerBase):
                 name=current_interval.name,
             )
 
-        # Apply constraints. If this is a start of a new interval, dt_start can be
-        # adjusted by constraints as well.
+        # Apply constraints. Each constraint suggest the new dt value, which may be
+        # smaller or larger than the current dt. The minimum of the suggestions
+        # is applied.
+        # Note: If this is a start of a new interval, dt_start can be adjusted as well.
         if len(current_interval.constraints) > 0:
             suggested_dt = [
                 constraint.suggest_dt(dt=dt, context=context)
@@ -161,13 +218,15 @@ class TimeScheduler(TimeSchedulerBase):
     ) -> float:
         """Adjust dt based on schedule requirements."""
 
+        # If next_interval is None, we are in the last interval. Next checkpoint is
+        # t_end.
         next_checkpoint = (
             self.schedule.t_end if next_interval is None else next_interval.t_start
         )
 
-        # Constraints should not make dt larger than the interval's dt_max.
+        # Dt should be not larger than the interval's dt_max.
         dt = min(dt, current_interval.dt_max)
-        # If constraints made dt smaller than the interval's dt_min, abort simulation.
+        # If dt became smaller than the interval's dt_min, abort simulation.
         if dt < current_interval.dt_min:
             raise CannotRecomputeTimeStep(
                 f"Adjusted time step size ({dt:.1e}) is lower than the minimum "
@@ -181,6 +240,7 @@ class TimeScheduler(TimeSchedulerBase):
         return dt
 
     def _is_hitting_interval_start(self, interval: TimeInterval, time: float) -> bool:
+        """Whether the given time matches the given interval's start time."""
         return (
             (interval.t_start - self.t_snap) <= time <= (interval.t_start + self.t_snap)
         )
@@ -189,31 +249,37 @@ class TimeScheduler(TimeSchedulerBase):
 def assemble_default_time_scheduler(
     time_manager: pp.TimeManager, constraints: Optional[list[TimeStepConstraint]] = None
 ) -> TimeSchedulerBase:
-    schedule = time_manager.schedule
+    """Convenience factory function that constructs the time scheduler based on the
+    parameters specified by the `time_manager`. Additional `constraints` can be passed.
+
+    If `dt_min` and `dt_max` are not specified by the `time_manager`, defaults to 3
+    orders of magnitude difference from `dt_init`.
+
+    """
+    if constraints is None:
+        constraints = []
+
+    # Unpacking time_manager.
     dt_init = time_manager.dt_init
-    constant_dt = time_manager.is_constant
+    iter_min, iter_max = time_manager.iter_optimal_range
+    decrease_factor, increase_factor = time_manager.iter_relax_factors
+    nonlinear_iter_retry_factor = time_manager.recomp_factor
+
+    if len(time_manager.schedule) < 2:
+        raise ValueError("Schedule must have at least two points (t_start and t_end).")
+    schedule = np.array(time_manager.schedule, dtype=float)
+
+    # Initialize dt_min and dt_max if not given.
     if time_manager.dt_min_max is None:
         dt_min = dt_max = None
     else:
         dt_min, dt_max = time_manager.dt_min_max
-    nonlinear_iter_optimal_range = time_manager.iter_optimal_range
-    nonlinear_iter_relax_factors = time_manager.iter_relax_factors
-    nonlinear_iter_retry_factor = time_manager.recomp_factor
-    atol = time_manager.atol
-
-    if len(schedule) < 2:
-        raise ValueError("Schedule must have at least two points (t_start and t_end).")
-
-    schedule = np.array(schedule, dtype=float)
     if dt_min is None:
         dt_min = float(dt_init) * 1e-3
     if dt_max is None:
         dt_max = float(dt_init) * 1e3
-    iter_min, iter_max = nonlinear_iter_optimal_range
-    decrease_factor, increase_factor = nonlinear_iter_relax_factors
-    if constraints is None:
-        constraints = []
-    if not constant_dt:
+
+    if not time_manager.is_constant:
         # Avoid repeating constraint of target nonlinear iterations.
         assert not any(isinstance(c, TargetNonlinearIterations) for c in constraints)
         constraints.append(
@@ -241,7 +307,7 @@ def assemble_default_time_scheduler(
                 ],
                 t_end=schedule[-1],
             ),
-            t_snap=atol,
+            t_snap=time_manager.atol,
         )
     else:
         dt_min = dt_max = dt_init
@@ -249,7 +315,7 @@ def assemble_default_time_scheduler(
             time_manager=time_manager,
             schedule=schedule,
             dt=dt_init,
-            t_snap=atol,
+            t_snap=time_manager.atol,
         )
 
 
@@ -276,6 +342,7 @@ class _IntervalMap:
     def __init__(self, intervals: list[TimeInterval], atol: float) -> None:
         self.intervals = intervals
         self._interval_starts = [interval.t_start - atol for interval in intervals]
+        # Sanity check: they must be sorted.
         assert self._interval_starts == sorted(self._interval_starts)
 
     def get(self, time: float) -> tuple[TimeInterval, TimeInterval | None]:
@@ -289,7 +356,7 @@ class _IntervalMap:
                 current interval is the last one, next is `None`.
 
         """
-        # Do the binary search. Off by one to match the interval index (bisect_right
+        # Do the binary search. Off by one to match the array index (bisect_right
         # returns 0 if we are below minimum).
         i = bisect_right(self._interval_starts, time) - 1
         if i < 0:
@@ -351,4 +418,6 @@ def _validate_schedule_non_constant_dt(
 def _validate_schedule_common(schedule: np.ndarray, atol: float) -> None:
     increments = np.ediff1d(schedule)
     if not np.all(increments > atol):
-        raise ValueError
+        raise ValueError(
+            f"Time schedule points must be strictly increasing, {schedule}."
+        )
