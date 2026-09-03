@@ -1555,3 +1555,47 @@ def test_well_length_is_partitioned_across_a_fracture_crossing() -> None:
     rock, _ = _rock_and_fracture_interfaces(model)
     contact_length = sum(float(intf.cell_volumes.sum()) for intf in rock)
     assert contact_length == pytest.approx(trajectory, abs=1e-10)
+
+
+@pytest.mark.parametrize(
+    "completion, rock_conducts",
+    [(None, False), ({0: {"open_intervals": [(0.0, 10.0)]}}, True)],
+    ids=["rock_closed", "rock_open"],
+)
+def test_the_injected_rate_is_shared_between_the_couplings(
+    completion, rock_conducts
+) -> None:
+    """What is injected into a well leaves it through the two couplings together.
+
+    A well may reach the rock matrix and a fracture at nearly the same place, and each
+    coupling can be correct alone while the pair accounts for the injected fluid twice
+    or not at all. The tolerance below is the linear solver's, not a physical one:
+    the two couplings are disjoint pieces of the well, so the balance is exact in the
+    discretisation and nothing about it may be traded away.
+    """
+    params = {
+        "material_constants": {
+            "solid": pp.SolidConstants(permeability=1e-6 / 4, well_radius=0.01)
+        },
+        "fracture_indices": [2],
+        "times_to_export": [],
+    }
+    if completion is not None:
+        params["well_completion"] = completion
+    model = WellModel(params)
+    pp.ModelRunner(model).run()
+
+    rock, fracture = _rock_and_fracture_interfaces(model)
+    rock_flux = float(np.sum(model.equation_system.evaluate(model.well_flux(rock))))
+    fracture_flux = float(
+        np.sum(model.equation_system.evaluate(model.well_flux(fracture)))
+    )
+
+    # Negative by the convention that interface fluxes run from higher to lower
+    # dimension; the well injects at unit rate.
+    assert rock_flux + fracture_flux == pytest.approx(-1.0, rel=1e-10)
+
+    # Both couplings must carry a share when both are open, or the sum above could be
+    # right for the wrong reason.
+    assert (rock_flux < -1e-3) is rock_conducts
+    assert fracture_flux < -1e-3
