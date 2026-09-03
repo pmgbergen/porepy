@@ -10,15 +10,12 @@ from typing import Self
 
 import porepy as pp
 from porepy.numerics import solvers
-from porepy.time_stepper.scheduler import (
-    CannotRecomputeTimeStep,
-    TimeSchedulerBase,
-)
+from porepy.time_stepper.scheduler import CannotRecomputeTimeStep, TimeSchedulerBase
 from porepy.time_stepper.time_step_status import (
     TimeStepperAttemptData,
     TimeStepperStatus,
-    TimeStepperStatusFailure,
     TimeStepperStatusContinueIterating,
+    TimeStepperStatusFailure,
     TimeStepperStatusSuccess,
 )
 
