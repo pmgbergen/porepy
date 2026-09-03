@@ -347,6 +347,111 @@ class Tpsa(Discretization):
         else:
             raise NotImplementedError("Tpsa is only implemented for 2d and 3d grids.")
 
+    def get_row_dof_info(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
+        """Return row DOF info for the named Tpsa matrix.
+
+        Parameters:
+            matrix_key: Attribute-name fragment identifying the matrix
+                (e.g. ``"stress_displacement"``).
+            nd: Spatial dimension.
+
+        Raises:
+            ValueError: If the matrix_key is not recognized by this discretization.
+
+        Returns:
+            A :class:`~porepy.numerics.ad.GridEntities` with the DOFs per entity.
+
+        """
+        nrot = 3 if nd == 3 else 1
+
+        nd_rows = {
+            "stress_displacement",
+            "stress_rotation",
+            "stress_total_pressure",
+            "bound_stress",
+            "bound_displacement_cell",
+            "bound_displacement_face",
+            "bound_displacement_rotation_cell",
+            "bound_displacement_solid_pressure_cell",
+        }
+        nrot_rows = {
+            "rotation_displacement",
+            "rotation_rotation",
+            "bound_rotation_displacement",
+        }
+        scalar_rows = {
+            "mass_total_pressure",
+            "mass_displacement",
+            "bound_mass_displacement",
+        }
+        if matrix_key in nd_rows:
+            return pp.ad.GridEntities(faces=nd)
+        if matrix_key in nrot_rows:
+            return pp.ad.GridEntities(faces=nrot)
+        if matrix_key in scalar_rows:
+            return pp.ad.GridEntities(faces=1)
+        raise ValueError(
+            f"Unrecognized matrix key '{matrix_key}' for Tpsa discretization."
+        )
+
+    def get_col_dof_info(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
+        """Return column DOF info for the named Tpsa matrix.
+
+        Parameters:
+            matrix_key: Attribute-name fragment identifying the matrix
+                (e.g. ``"stress_displacement"``).
+            nd: Spatial dimension.
+
+        Raises:
+            ValueError: If the matrix_key is not recognized by this discretization.
+
+        Returns:
+            A :class:`~porepy.numerics.ad.GridEntities` with the DOFs per entity.
+
+        """
+
+        nrot = 3 if nd == 3 else 1
+
+        nd_cols_cells = {
+            "stress_displacement",
+            "rotation_displacement",
+            "mass_displacement",
+            "bound_displacement_cell",
+        }
+        nd_cols_faces = {
+            "bound_stress",
+            "bound_rotation_displacement",
+            "bound_mass_displacement",
+            "bound_displacement_face",
+        }
+        nrot_cols_cells = {
+            "stress_rotation",
+            "rotation_rotation",
+            "bound_displacement_rotation_cell",
+        }
+        nrot_cols_faces: set[str] = set()
+        scalar_cols_cells = {
+            "stress_total_pressure",
+            "mass_total_pressure",
+            "bound_displacement_solid_pressure_cell",
+        }
+        scalar_cols_faces: set[str] = set()
+        if matrix_key in nd_cols_cells:
+            return pp.ad.GridEntities(cells=nd)
+        if matrix_key in nd_cols_faces:
+            return pp.ad.GridEntities(faces=nd)
+        if matrix_key in nrot_cols_cells:
+            return pp.ad.GridEntities(cells=nrot)
+        if matrix_key in nrot_cols_faces:
+            return pp.ad.GridEntities(faces=nrot)
+        if matrix_key in scalar_cols_cells:
+            return pp.ad.GridEntities(cells=1)
+        if matrix_key in scalar_cols_faces:
+            return pp.ad.GridEntities(faces=1)
+        raise ValueError(
+            f"Unrecognized matrix key '{matrix_key}' for Tpsa discretization."
+        )
+
     def assemble_matrix_rhs(
         self, sd: pp.Grid, sd_data: dict
     ) -> tuple[sps.spmatrix, np.ndarray]:

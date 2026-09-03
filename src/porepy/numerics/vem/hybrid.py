@@ -4,6 +4,10 @@
 @author: fumagalli, alessio
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import numpy as np
 import scipy.sparse as sps
 from numpy.linalg import solve
@@ -11,6 +15,9 @@ from numpy.linalg import solve
 import porepy as pp
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 from porepy.numerics.vem.dual_elliptic import DualElliptic
+
+if TYPE_CHECKING:
+    from porepy.numerics.ad.grid_entity import GridEntities
 
 
 class HybridDualVEM:
@@ -41,6 +48,16 @@ class HybridDualVEM:
 
         """
         return g.num_faces
+
+    def get_row_dof_info(self, matrix_key: str = "", nd: int = 1) -> GridEntities:
+        """Placeholder method. This functionality is not supported for HybridDualVEM."""
+        raise NotImplementedError("HybridDualVEM does not provide row DOF information.")
+
+    def get_col_dof_info(self, matrix_key: str = "", nd: int = 1) -> GridEntities:
+        """Placeholder method. This functionality is not supported for HybridDualVEM."""
+        raise NotImplementedError(
+            "HybridDualVEM does not provide column DOF information."
+        )
 
     def matrix_rhs(self, g, data):
         """

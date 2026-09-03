@@ -58,8 +58,9 @@ def concatenate_ad_arrays(ad_arrays: list[pp.ad.AdArray], axis=0):
 
 
 def wrap_discretization(
-    obj: pp.ad.Discretization,
+    obj: pp.ad.DiscretizationAd,
     discr: Discretization | InterfaceDiscretization,
+    nd: int,
     subdomains: Optional[list[pp.Grid]] = None,
     interfaces: Optional[list[pp.MortarGrid]] = None,
     coupling_terms: Optional[list[str]] = None,
@@ -91,6 +92,9 @@ def wrap_discretization(
             ['displacement_divergence', 'bound_displacement_divergence',
             'bound_pressure', 'consistency', 'scalar_gradient'].
 
+        nd: Ambient dimension used to determine the number of vector-valued degrees of
+            freedom.
+
         The coupling keywords and coupling terms are combined in this wrapper, so that
         if ``obj`` has coupling terms ``foo`` and ``bar``, with a coupling keywords
         ``baz`` and ``qux``, then:
@@ -116,6 +120,7 @@ def wrap_discretization(
 
     # Process the domains
     domains: pp.GridLikeSequence
+    domain_type: pp.ad.DomainType
     if subdomains is None:
         # This is an interface discretization
         if interfaces is None:
@@ -124,11 +129,13 @@ def wrap_discretization(
             raise ValueError("Interfaces must be a list")
 
         domains = interfaces
+        domain_type = pp.ad.DomainType.interfaces
     elif interfaces is None:
         # This is a subdomain discretization
         if not isinstance(subdomains, list):
             raise ValueError("Subdomains must be a list")
         domains = subdomains
+        domain_type = pp.ad.DomainType.subdomains
     else:
         raise ValueError("Either subdomains or interfaces must be provided, not both")
 
@@ -166,6 +173,8 @@ def wrap_discretization(
                 discretization_matrix_key=discretization_key,
                 physics_key=discr.keyword,
                 domains=domains,
+                domain_type=domain_type,
+                nd=nd,
             )
             # Store the new
             operators[discretization_key].update({discr.keyword: op})
@@ -189,6 +198,8 @@ def wrap_discretization(
                 physics_key=discr.keyword,
                 inner_physics_key=inner_physics_key,
                 domains=domains,
+                domain_type=domain_type,
+                nd=nd,
             )
             return op
 
@@ -243,28 +254,25 @@ def uniquify_discretization_list(
         key = (cls, param_keyword)
 
         if key in cls_key_covered:
-            # If this has been encountered before, we add subdomains not earlier
-            # associated with this discretization to the existing list. of subdomains.
+            # If this has been encountered before, we add grids not earlier
+            # associated with this discretization to the existing list.
             # Map from discretization class to Ad discretization
             d = cls_obj_map[cls]
-            for g in discr.subdomains:
+            for g in discr.domains:
                 if g not in unique_discr_grids[d]:
                     unique_discr_grids[d].append(g)
-            for e in discr.interfaces:
-                if e not in unique_discr_grids[d]:
-                    unique_discr_grids[d].append(e)
         else:
             # Take note we have now encountered this discretization and parameter
             # keyword.
             cls_obj_map[cls] = discr._discr
             cls_key_covered.append(key)
 
-            # Add new discretization with associated list of subdomains.
-            # Need a copy here to avoid assigning additional subdomains to this
-            # discretization (if not copy, this may happen if
-            # the key-discr combination is encountered a second time and the
-            # code enters the if part of this if-else).
-            grid_likes = discr.subdomains.copy() + discr.interfaces.copy()
+            # Add new discretization with associated list of grids. Conversoin to list
+            # creates a copy, which avoids assigning additional grids to this
+            # discretization (if not copy, this may happen if the key-discr combination
+            # is encountered a second time and the code enters the if part of this
+            # if-else).
+            grid_likes = list(discr.domains)
             unique_discr_grids[discr._discr] = grid_likes
 
     return unique_discr_grids
@@ -316,37 +324,80 @@ class MergedOperator(operators.Operator):
         discr: pp.discretization_type,
         discretization_matrix_key: str,
         physics_key: str,
+        nd: int,
         inner_physics_key: Optional[str] = None,
         domains: Optional[pp.GridLikeSequence] = None,
+        domain_type: Optional[operators.DomainType] = None,
     ) -> None:
         """Initiate a merged discretization.
 
         Parameters:
             discr: Mapping between subdomains, or interfaces, where the discretization
                 is applied, and the actual Discretization objects.
-            key: Keyword that identifies this discretization matrix, e.g. for a class
-                with an attribute foo_matrix_key, the key will be foo.
-            mat_dict_key: Keyword used to access discretization matrices.
+            discretization_matrix_key: Keyword that identifies this discretization
+                matrix, e.g. for a class with an attribute foo_matrix_key, the key
+                will be foo.
+            physics_key: Keyword used to access discretization matrices.
+            nd: Ambient dimension, used to determine the number of degrees of freedom
+                for vector-valued discretization terms.
+            inner_physics_key: For nested matrix dicts, the inner key.
             domains: Domains on which the discretization is defined.
+            domain_type: The type of domain (subdomains or interfaces) that
+                ``domains`` represents. Known to the caller (``wrap_discretization``)
+                even when ``domains`` is empty, and is used to build a typed-but-empty
+                :class:`~porepy.numerics.ad.operator_space.OperatorSpace` in that case.
+
+        Raises:
+            ValueError: If ``domains`` is empty and ``domain_type`` is not provided.
 
         """
         name = discr.__class__.__name__
-        super().__init__(name=name, domains=domains)
+        self._merged_domains: list[pp.GridLike] = list(domains) if domains else []
+
+        # Infer operator source (column space) and target (row space) from the
+        # discretization.
+        op_source: operators.OperatorSpace
+        op_target: operators.OperatorSpace
+        domain_list: list[pp.GridLike] = list(domains) if domains else []
+        if not (domains or domain_type is not None):
+            raise ValueError(
+                "If domains is empty, domain_type must be provided to construct "
+                "the operator spaces."
+            )
+
+        op_source = operators.OperatorSpace.from_domains(
+            domain_list,
+            discr.get_col_dof_info(discretization_matrix_key, nd=nd),
+            domain_type=domain_type,
+        )
+        op_target = operators.OperatorSpace.from_domains(
+            domain_list,
+            discr.get_row_dof_info(discretization_matrix_key, nd=nd),
+            domain_type=domain_type,
+        )
+
+        super().__init__(name=name, source=op_source, target=op_target)
 
         self._discretization_matrix_key = discretization_matrix_key
         self._discr = discr
 
         self._physics_key = physics_key
         self._inner_physics_key = inner_physics_key
-        self.domain = domains
+
+    @property
+    def domains(self) -> tuple[pp.GridLike, ...]:
+        return tuple(self._merged_domains)
 
     def __repr__(self) -> str:
-        if len(self.interfaces) == 0:
-            s = f"Operator with key {self._discretization_matrix_key} defined on "
-            s += f"{len(self.subdomains)} subdomains"
-        else:
-            s = f"Operator with key {self._discretization_matrix_key} defined on "
-            s += f"{len(self.interfaces)} edges"
+        domain_label = (
+            self.target.domain_type.value
+            if self.target and self.target.domain_type
+            else "unknown"
+        )
+        s = (
+            f"Operator with key {self._discretization_matrix_key} defined on "
+            f"{len(self.domains)} {domain_label}"
+        )
         return s
 
     def __str__(self) -> str:

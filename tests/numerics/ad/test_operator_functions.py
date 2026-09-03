@@ -10,6 +10,8 @@ import numpy as np
 import pytest
 
 import porepy as pp
+from porepy.numerics.ad.equation_system import GridEntity
+from porepy.numerics.ad.operators import OperatorSpace
 
 
 def test_ad_function():
@@ -25,8 +27,9 @@ def test_ad_function():
     """
 
     func = lambda x: x  # identity
+    domain = OperatorSpace.scalar()
 
-    F = pp.ad.Function(func, "identity")
+    F = pp.ad.Function(func, "identity", domain, domain)
 
     grid = pp.CartGrid(np.array([3, 2]))
     mdg = pp.meshing.subdomains_to_mdg([grid])
@@ -34,7 +37,7 @@ def test_ad_function():
 
     subdomains = mdg.subdomains()
     equation_system = pp.ad.EquationSystem(mdg)
-    equation_system.create_variables("foo", {"cells": 1}, subdomains)
+    equation_system.create_variables("foo", {GridEntity.cells: 1}, subdomains)
 
     var = equation_system.md_variable("foo", subdomains)
 

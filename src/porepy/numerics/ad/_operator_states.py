@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from porepy.numerics.ad.operators import (
         Operations,
         Operator,
+        OperatorSpace,
         _IterativeOperator,
         _ReferenceOperator,
         _TimeDependentOperator,
@@ -60,12 +61,18 @@ class TimeDependentOperator:
     def __init__(
         self,
         name: str | None = None,
-        domains: Optional[pp.GridLikeSequence] = None,
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
+        *,
+        source: OperatorSpace,
+        target: OperatorSpace,
     ) -> None:
         super().__init__(  # type: ignore[call-arg]
-            name=name, domains=domains, operation=operation, children=children
+            name=name,
+            operation=operation,
+            children=children,
+            source=source,
+            target=target,
         )
 
         self.original_operator: Operator
@@ -180,12 +187,18 @@ class IterativeOperator:
     def __init__(
         self,
         name: str | None = None,
-        domains: Optional[pp.GridLikeSequence] = None,
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
+        *,
+        source: OperatorSpace,
+        target: OperatorSpace,
     ) -> None:
         super().__init__(  # type: ignore[call-arg]
-            name=name, domains=domains, operation=operation, children=children
+            name=name,
+            operation=operation,
+            children=children,
+            source=source,
+            target=target,
         )
 
         self.original_operator: Operator
@@ -312,12 +325,18 @@ class ReferenceOperator:
     def __init__(
         self,
         name: str | None = None,
-        domains: Optional[pp.GridLikeSequence] = None,
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
+        *,
+        source: OperatorSpace,
+        target: OperatorSpace,
     ) -> None:
         super().__init__(  # type: ignore[call-arg]
-            name=name, domains=domains, operation=operation, children=children
+            name=name,
+            operation=operation,
+            children=children,
+            source=source,
+            target=target,
         )
 
         self.original_operator: Operator

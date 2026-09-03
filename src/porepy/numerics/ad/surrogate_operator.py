@@ -122,7 +122,7 @@ Example:
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Any, Callable, Optional, Sequence, cast
+from typing import Any, Callable, Mapping, Optional, Sequence, Union, cast
 
 import numpy as np
 import scipy.sparse as sps
@@ -132,6 +132,7 @@ from porepy.numerics.ad.forward_mode import AdArray
 
 from ._operator_states import IterativeOperator, TimeDependentOperator
 from .functions import FloatType
+from .grid_entity import GridEntities, GridEntity
 from .operators import Operations, Operator
 
 __all__ = [
@@ -161,7 +162,11 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         domains: Arguments to its call.
         children: The first-order dependencies of the called
             :class:`SurrogateFactory` in AD form (defined on the same ``domains``).
-
+        dof_info: Mapping from grid entities to the number of DOFs per entity. Defaults
+            to ``{GridEntity.cells: 1}``.
+        domain_type: The type of domain (subdomains or interfaces) that *domains*
+            represents. If not given, it is inferred from the grid types found in
+            *domains*.
     """
 
     def __init__(
@@ -169,12 +174,19 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         name: str,
         domains: Sequence[pp.Grid] | Sequence[pp.MortarGrid],
         children: Sequence[pp.ad.Variable],
+        dof_info: Optional[Union[GridEntities, Mapping[GridEntity, int]]] = None,
+        domain_type: Optional[pp.ad.DomainType] = None,
     ) -> None:
+        op_space = pp.ad.OperatorSpace.from_domains(
+            list(domains), dof_info, domain_type=domain_type
+        )
+
         super().__init__(
             name=name,
-            domains=domains,
             operation=Operations.evaluate,
             children=children,
+            source=op_space,
+            target=op_space,
         )
 
         self._fetch_data: Callable[[SurrogateOperator, pp.GridLike, bool], np.ndarray]
@@ -202,9 +214,12 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         """String representation giving information on name, time and iterate index, as
         well as domains and dependencies."""
 
+        domain_type = self._source.domain_type if self._source else None
+        num_grids = len(self.domains)
+        domain_label = domain_type.value if domain_type is not None else "unknown"
         msg = (
             f"Surrogate operator {self.name}.\n"
-            + f"\nDefined on {len(self._domains)} {self._domain_type}.\n"
+            + f"\nDefined on {num_grids} {domain_label}.\n"
             + f"Dependent on {len(self.children)} independent variables.\n"
         )
 
@@ -429,7 +444,9 @@ class SurrogateFactory:
             dependencies are defined there.
         dof_info: ``default=None``
 
-            See
+            A :class:`~porepy.numerics.ad.grid_entity.GridEntities`, or (for backwards
+            compatibility) a mapping from :class:`GridEntity` to the number of DOFs
+            per that entity. See also
             :meth:`~porepy.numerics.ad.equation_system.EquationSystem.create_variables`.
 
             The number of DOFs of this expression is used to validate the shape of
@@ -447,16 +464,10 @@ class SurrogateFactory:
         name: str,
         mdg: pp.MixedDimensionalGrid,
         dependencies: Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]],
-        dof_info: Optional[dict[pp.ad.equation_system.GridEntity, int]] = None,
+        dof_info: Optional[Union[GridEntities, Mapping[GridEntity, int]]] = None,
     ) -> None:
         if len(dependencies) == 0:
             raise ValueError("Surrogate operators must have dependencies.")
-
-        if dof_info is None:
-            dof_info = {"cells": 1}
-
-        # help mypy with default values
-        dof_info = cast(dict[pp.ad.equation_system.GridEntity, int], dof_info)
 
         self._dependencies: Sequence[
             Callable[[pp.GridLikeSequence], pp.ad.Variable]
@@ -467,8 +478,13 @@ class SurrogateFactory:
         self._name: str = name
         """See :meth:`name`."""
 
-        self._dof_info: dict[pp.ad.equation_system.GridEntity, int] = dof_info
-        """Passed at insantiation, with default value leading to scalar, cell-wise dofs.
+        self._dof_info: Optional[GridEntities] = (
+            None if dof_info is None else GridEntities.from_mapping(dof_info)
+        )
+        """Passed at insantiation, normalized to a
+        :class:`~porepy.numerics.ad.grid_entity.GridEntities`. ``None`` leads to
+        scalar, cell-wise dofs (see
+        :meth:`~porepy.numerics.ad.operator_space.OperatorSpace.from_domains`).
         """
 
         self.mdg: pp.MixedDimensionalGrid = mdg
@@ -495,7 +511,9 @@ class SurrogateFactory:
 
         # This is for completeness reasons, when calling equations on empty list
         if len(domains) == 0:
-            return pp.wrap_as_dense_ad_array(np.zeros((0,)), name=self.name)
+            return pp.wrap_as_dense_ad_array(
+                np.zeros((0,)), name=self.name, grids=domains
+            )
         # On the boundary, this is a Time-Dependent dense array
         elif all(isinstance(grid, pp.BoundaryGrid) for grid in domains):
             return pp.ad.TimeDependentDenseArray(self.name, domains)
@@ -521,6 +539,7 @@ class SurrogateFactory:
                 name=self.name,
                 domains=domains_,
                 children=children,
+                dof_info=self._dof_info,
             )
 
             # assign the function which extracts the data
@@ -634,7 +653,7 @@ class SurrogateFactory:
 
         Returns:
             For boundary grids and interfaces it returns ``grid.num_cells`` multiplied
-            with ``dof_info['cells']``.
+            with ``dof_info.cells``.
             For subdomains, it returns information based on ``dof_info``,
             number of cells, number of faces and number of nodes in ``grid``.
 
@@ -642,20 +661,9 @@ class SurrogateFactory:
             TypeError: If ``grid`` is neither a boundary, interface or subdomain.
 
         """
-        if isinstance(grid, (pp.BoundaryGrid, pp.MortarGrid)):
-            # NOTE using default value of 1, because this is the general default value
-            # and only cells are supported on boundaries and interfaces
-            return self._dof_info.get("cells", 1) * grid.num_cells
-        elif isinstance(grid, pp.Grid):
-            # NOTE cannot use default value of scalar, cell-wise, to not mess with
-            # cases where the user defines only node- or face-wise dofs.
-            return (
-                self._dof_info.get("cells", 0) * grid.num_cells
-                + self._dof_info.get("faces", 0) * grid.num_faces
-                + self._dof_info.get("nodes", 0) * grid.num_nodes
-            )
-        else:
+        if not isinstance(grid, (pp.BoundaryGrid, pp.MortarGrid, pp.Grid)):
             raise TypeError(f"Unsupported type of grid {type(grid)}.")
+        return pp.ad.OperatorSpace.from_domains((grid,), self._dof_info).num_dofs()
 
     @property
     def name(self) -> str:

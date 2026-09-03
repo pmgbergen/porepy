@@ -203,7 +203,9 @@ def __subdomains_assertions(model):
         )
     assert are_equal(rho_hat, rho_hat_expected)
 
-    w_flux = eval(model.density_driven_flux(subdomains, pp.ad.Scalar(1.0)))
+    w_flux = eval(
+        model.density_driven_flux(subdomains, pp.ad.Scalar(1.0, domains=subdomains))
+    )
     if len(phase_context) == 2:
         w_flux_expected = np.array(
             [
@@ -479,7 +481,9 @@ def __interface_assertions(model):
     are_equal = lambda a, b: np.allclose(a, b)
 
     intf_w_flux = eval(
-        model.interface_density_driven_flux(interfaces, pp.ad.Scalar(1.0))
+        model.interface_density_driven_flux(
+            interfaces, pp.ad.Scalar(1.0, domains=subdomains)
+        )
     )
     if len(phase_context) == 2:
         intf_w_flux_expected = np.array(

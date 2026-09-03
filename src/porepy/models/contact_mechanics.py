@@ -15,6 +15,7 @@ import numpy as np
 import porepy as pp
 from porepy.models import constitutive_laws
 from porepy.models.abstract_equations import VariableMixin
+from porepy.numerics.ad import GridEntity, OperatorSpace
 
 
 class ContactMechanicsEquations(pp.BalanceEquation):
@@ -70,12 +71,8 @@ class ContactMechanicsEquations(pp.BalanceEquation):
         fracture_eq_tangential = self.tangential_fracture_deformation_equation(
             fracture_subdomains
         )
-        self.equation_system.set_equation(
-            fracture_eq_normal, fracture_subdomains, {"cells": 1}
-        )
-        self.equation_system.set_equation(
-            fracture_eq_tangential, fracture_subdomains, {"cells": self.nd - 1}
-        )
+        self.equation_system.set_equation(fracture_eq_normal)
+        self.equation_system.set_equation(fracture_eq_tangential)
 
     def normal_fracture_deformation_equation(
         self, subdomains: list[pp.Grid]
@@ -113,10 +110,17 @@ class ContactMechanicsEquations(pp.BalanceEquation):
         t_n: pp.ad.Operator = nd_vec_to_normal @ self.contact_traction(subdomains)
         u_n: pp.ad.Operator = nd_vec_to_normal @ self.displacement_jump(subdomains)
 
+        domain_and_range = OperatorSpace.from_domains(subdomains)
+
         # Maximum function
         num_cells: int = sum([sd.num_cells for sd in subdomains])
-        max_function = pp.ad.Function(pp.ad.maximum, "max_function")
-        zeros_frac = pp.ad.DenseArray(np.zeros(num_cells), "zeros_frac")
+        max_function = pp.ad.Function(pp.ad.maximum, "max_function", domain_and_range)
+        zeros_frac = pp.ad.DenseArray(
+            np.zeros(num_cells),
+            "zeros_frac",
+            source=domain_and_range,
+            target=domain_and_range,
+        )
 
         # The complimentarity condition
         equation: pp.ad.Operator = t_n + max_function(
@@ -174,7 +178,9 @@ class ContactMechanicsEquations(pp.BalanceEquation):
         # Basis vectors for the tangential components. This is a list of Ad matrices,
         # each of which represents a cell-wise basis vector which is non-zero in one
         # dimension (and this is known to be in the tangential plane of the subdomains).
-        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
+        tangential_basis = self.basis(
+            subdomains, dim=self.nd - 1, domain_type=pp.ad.DomainType.subdomains
+        )
 
         # To map a scalar to the tangential plane, we need to sum the basis vectors. The
         # individual basis vectors can be represented as projection matrices of shape
@@ -194,11 +200,25 @@ class ContactMechanicsEquations(pp.BalanceEquation):
         u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
 
         # Vectors needed to express the governing equations
-        ones_frac = pp.ad.DenseArray(np.ones(num_cells * (self.nd - 1)))
-        zeros_frac = pp.ad.DenseArray(np.zeros(num_cells))
+        tangential_domain = OperatorSpace.from_domains(
+            subdomains, {GridEntity.cells: self.nd - 1}
+        )
+        ones_frac = pp.ad.DenseArray(
+            np.ones(num_cells * (self.nd - 1)),
+            source=tangential_domain,
+            target=tangential_domain,
+        )
+        domain_and_range = OperatorSpace.from_domains(subdomains)
+        zeros_frac = pp.ad.DenseArray(
+            np.zeros(num_cells), source=domain_and_range, target=domain_and_range
+        )
 
-        f_max = pp.ad.Function(pp.ad.maximum, "max_function")
-        f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
+        f_max = pp.ad.Function(pp.ad.maximum, "max_function", domain_and_range)
+        f_norm = pp.ad.Function(
+            partial(pp.ad.l2_norm, self.nd - 1),
+            "norm_function",
+            domain_and_range,
+        )
 
         # The numerical constant is used to loosen the sensitivity in the transition
         # between sticking and sliding. Expanding using only left multiplication to with
@@ -282,7 +302,10 @@ class InterfaceDisplacementArray(pp.PorePyModel):
 
         """
         return pp.ad.TimeDependentDenseArray(
-            self.interface_displacement_parameter_key, interfaces
+            self.interface_displacement_parameter_key,
+            interfaces,
+            dof_info={pp.ad.GridEntity.cells: self.nd},
+            domain_type=pp.ad.DomainType.interfaces,
         )
 
     def interface_displacement_parameter_values(
@@ -361,7 +384,7 @@ class ContactTractionVariable(VariableMixin):
         super().create_variables()
 
         self.equation_system.create_variables(
-            dof_info={"cells": self.nd},
+            dof_info={pp.ad.GridEntity.cells: self.nd},
             name=self.contact_traction_variable,
             subdomains=self.mdg.subdomains(dim=self.nd - 1),
             tags={"si_units": "-"},
@@ -501,7 +524,9 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
             c_num: Numerical constant.
 
         """
-        constant = pp.ad.Scalar(1.0) / self.characteristic_displacement(subdomains)
+        constant = pp.ad.Scalar(
+            1.0, domains=subdomains
+        ) / self.characteristic_displacement(subdomains)
         constant.set_name("Contact_mechanics_numerical_constant")
         return constant
 
@@ -538,15 +563,20 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
         tol = self.numerical.open_state_tolerance
         # The characteristic function will evaluate to 1 if the argument is less than
         # the tolerance, and 0 otherwise.
+        domain_and_range = OperatorSpace.from_domains(subdomains)
+
         f_characteristic = pp.ad.Function(
             partial(pp.ad.functions.characteristic_function, tol),
             "characteristic_function_for_zero_normal_traction",
+            domain_and_range,
         )
 
         # Composing b_p = max(friction_bound, 0).
         num_cells = sum([sd.num_cells for sd in subdomains])
-        zeros_frac = pp.ad.DenseArray(np.zeros(num_cells))
-        f_max = pp.ad.Function(pp.ad.maximum, "max_function")
+        zeros_frac = pp.ad.DenseArray(
+            np.zeros(num_cells), source=domain_and_range, target=domain_and_range
+        )
+        f_max = pp.ad.Function(pp.ad.maximum, "max_function", domain_and_range)
         b_p = f_max(self.friction_bound(subdomains), zeros_frac)
         b_p.set_name("bp")
 
@@ -655,7 +685,9 @@ class RadialReturnTangentialContactMechanicsEquation(pp.PorePyModel):
         nd_vec_to_tangential = self.tangential_component(subdomains)
 
         # Basis vectors for the tangential components.
-        tangential_basis = self.basis(subdomains, self.nd - 1)
+        tangential_basis = self.basis(
+            subdomains, self.nd - 1, domain_type=pp.ad.DomainType.subdomains
+        )
 
         # To map a scalar to the tangential plane, we need to sum the basis vectors.
         scalar_to_tangential = pp.ad.sum_projection_list(tangential_basis)
@@ -671,14 +703,21 @@ class RadialReturnTangentialContactMechanicsEquation(pp.PorePyModel):
         u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
 
         # Auxiliary functions.
-        f_max = pp.ad.Function(pp.ad.maximum, "max_function")
-        f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
+        domain_and_range = OperatorSpace.from_domains(subdomains)
+
+        f_max = pp.ad.Function(pp.ad.maximum, "max_function", domain_and_range)
+        f_norm = pp.ad.Function(
+            partial(pp.ad.l2_norm, self.nd - 1),
+            "norm_function",
+            domain_and_range,
+        )
         f_mask_by_threshold = pp.ad.Function(
             partial(
                 pp.ad.mask_by_threshold,
                 self.numerical.open_state_tolerance,
             ),
             "mask_by_threshold_function",
+            domain_and_range,
         )
 
         # Augment the traction.
@@ -692,7 +731,9 @@ class RadialReturnTangentialContactMechanicsEquation(pp.PorePyModel):
         norm_t_t_trial.set_name("norm_t_t_trial")
 
         # Friction bound - cut off negative values to avoid open state.
-        zeros_frac = pp.ad.DenseArray(np.zeros(num_cells))
+        zeros_frac = pp.ad.DenseArray(
+            np.zeros(num_cells), source=domain_and_range, target=domain_and_range
+        )
         b_p = f_max(self.friction_bound(subdomains), zeros_frac)
 
         # Define the traction to be the linear radial return projection of the augmented

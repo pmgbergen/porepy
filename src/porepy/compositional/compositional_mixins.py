@@ -658,7 +658,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         if self.fluid.num_components == 1:
 
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-                return pp.ad.Scalar(1.0, "single_feed_fraction")
+                return pp.ad.Scalar(1.0, "single_feed_fraction", domains=domains)
 
         # NOTE: If the reference component fraction is independent, below elif-clause
         # will be executed, instead of the next one.
@@ -737,7 +737,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         if self.fluid.num_phases == 1:
 
             def saturation(subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-                return pp.ad.Scalar(1.0, "single_phase_saturation")
+                return pp.ad.Scalar(1.0, "single_phase_saturation", domains=subdomains)
 
         # NOTE: If the reference phase is independent, below elif-clause will be
         # executed.
@@ -773,7 +773,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         if self.fluid.num_phases == 1:
 
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-                return pp.ad.Scalar(1.0, "single_phase_fraction")
+                return pp.ad.Scalar(1.0, "single_phase_fraction", domains=domains)
 
         elif get_local_equilibrium_condition(self) is None:
 
@@ -845,7 +845,9 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
                 return pp.ad.Scalar(
-                    1.0, "single_component_single_phase_extended_fraction"
+                    1.0,
+                    "single_component_single_phase_extended_fraction",
+                    domains=domains,
                 )
 
         # If no unified equilibrium, calling the extended fractions will raise an error.
@@ -901,7 +903,9 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
                 return pp.ad.Scalar(
-                    1.0, f"single_partial_fraction_{component.name}_{phase.name}"
+                    1.0,
+                    f"single_partial_fraction_{component.name}_{phase.name}",
+                    domains=domains,
                 )
 
         # Case only 1 phase in entire mixture, partial fractions are equal to overall

@@ -35,6 +35,7 @@ from typing import Callable, cast
 import numpy as np
 
 import porepy as pp
+from porepy.numerics.ad import GridEntity, OperatorSpace
 
 
 class FractureDamageVariables(pp.VariableMixin):
@@ -161,7 +162,6 @@ class DilationDamageVariable(FractureDamageVariables):
         super().create_variables()
 
         self.equation_system.create_variables(
-            dof_info={"cells": 1},
             name=self.dilation_damage_history_variable,
             subdomains=self.mdg.subdomains(dim=self.nd - 1),
             tags={"si_units": "-"},
@@ -199,7 +199,6 @@ class FrictionDamageVariable(FractureDamageVariables):
         super().create_variables()
 
         self.equation_system.create_variables(
-            dof_info={"cells": 1},
             name=self.friction_damage_history_variable,
             subdomains=self.mdg.subdomains(dim=self.nd - 1),
             tags={"si_units": "-"},
@@ -287,7 +286,7 @@ class DilationDamageEquation(FractureDamageEquations):
 
         dilation_eq = self.dilation_damage_equation(fractures)
         dilation_eq.set_name(self.dilation_damage_equation_name)
-        self.equation_system.set_equation(dilation_eq, fractures, {"cells": 1})
+        self.equation_system.set_equation(dilation_eq)
 
     def before_nonlinear_loop(self):
         """Update the dilation damage equation to include new term."""
@@ -343,7 +342,7 @@ class FrictionDamageEquation(FractureDamageEquations):
 
         friction_eq = self.friction_damage_equation(fractures)
         friction_eq.set_name(self.friction_damage_equation_name)
-        self.equation_system.set_equation(friction_eq, fractures, {"cells": 1})
+        self.equation_system.set_equation(friction_eq)
 
     def before_nonlinear_loop(self):
         """Update the friction damage equation to include new term."""
@@ -352,8 +351,6 @@ class FrictionDamageEquation(FractureDamageEquations):
         self.equation_system.update_equation(
             equation_name=self.friction_damage_equation_name,
             new_equation=self.friction_damage_equation(fractures),
-            grids=fractures,
-            equations_per_grid_entity={"cells": 1},
         )
 
     def friction_damage_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -412,7 +409,9 @@ class IsotropicFractureDamageLength(pp.PorePyModel):
             the full contribution is also zero.
         """
         nd_vec_to_tangential = self.tangential_component(subdomains)
-        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
+        tangential_basis = self.basis(
+            subdomains, dim=self.nd - 1, domain_type=pp.ad.DomainType.subdomains
+        )
         tangential_to_scalar = pp.ad.sum_projection_list(
             [e_i.T for e_i in tangential_basis]
         )
@@ -420,8 +419,19 @@ class IsotropicFractureDamageLength(pp.PorePyModel):
         u_t_increment = u_t.previous_timestep(time_step_index) - u_t.previous_timestep(
             time_step_index + 1
         )
+        # f_norm maps the tangential (nd - 1)-vector u_t_increment to a cell-wise
+        # scalar (its norm), so its domain and range differ.
+        tangential_domain = OperatorSpace.from_domains(
+            subdomains, {GridEntity.cells: self.nd - 1}
+        )
+        scalar_range = OperatorSpace.from_domains(subdomains)
 
-        f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
+        f_norm = pp.ad.Function(
+            partial(pp.ad.l2_norm, self.nd - 1),
+            "norm_function",
+            tangential_domain,
+            scalar_range,
+        )
 
         contribution = f_norm(u_t_increment)
 
@@ -472,12 +482,15 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
             the full contribution is also zero.
         """
         # Fracture coordinate basis functions.
-        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
+        tangential_basis = self.basis(
+            subdomains, dim=self.nd - 1, domain_type=pp.ad.DomainType.subdomains
+        )
         tangential_to_scalar = pp.ad.sum_projection_list(
             [e_i.T for e_i in tangential_basis]
         )
 
         # Get variables.
+
         u_t: pp.ad.Operator = self.tangential_component(
             subdomains
         ) @ self.plastic_displacement_jump(subdomains)
@@ -488,7 +501,8 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
         u_t_0 = u_t.previous_timestep(time_step_index)
 
         # Length is evaluated using the ramp function max(x, 0)
-        f_max = pp.ad.Function(pp.ad.maximum, "max_function")
+        domain_and_range = OperatorSpace.from_domains(subdomains)
+        f_max = pp.ad.Function(pp.ad.maximum, "max_function", domain_and_range)
         zero = pp.ad.Scalar(0.0)
         max_0 = f_max(
             tangential_to_scalar @ (m_t * u_t_0),
@@ -498,7 +512,7 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
             tangential_to_scalar @ (m_t * u_t_1),
             zero,
         )
-        f_abs = pp.ad.Function(pp.ad.abs, "abs_function")
+        f_abs = pp.ad.Function(pp.ad.abs, "abs_function", domain_and_range)
         contribution = f_abs(max_1 - max_0)
         # If time_step_index > 0, we can safely disregard the contribution if the
         # displacement increment is zero. Return increment for checking before adding
@@ -520,21 +534,40 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
         """
         # Operators for the tangential basis and the tangential component in local
         # coordinates.
-        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
+        tangential_basis = self.basis(
+            subdomains, dim=self.nd - 1, domain_type=pp.ad.DomainType.subdomains
+        )
         nd_vec_to_tangential = self.tangential_component(subdomains)
         scalar_to_tangential = pp.ad.sum_projection_list(tangential_basis)
         # Compute the tangential plastic displacement jump.
         u_t = nd_vec_to_tangential @ self.plastic_displacement_jump(subdomains)
 
+        # f_norm maps the tangential (nd - 1)-vector u_t to a cell-wise scalar (the
+        # norm of that vector), so its domain and range differ.
+        tangential_domain = OperatorSpace.from_domains(
+            subdomains, {GridEntity.cells: self.nd - 1}
+        )
+        scalar_domain_and_range = OperatorSpace.from_domains(subdomains)
         # Define the functions for the norm and zero-division-safe power.
-        f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
+        f_norm = pp.ad.Function(
+            partial(pp.ad.l2_norm, self.nd - 1),
+            "norm_function",
+            tangential_domain,
+            scalar_domain_and_range,
+        )
         zero_tol = 1e-10 * cast(
             float,
             self.equation_system.evaluate(self.characteristic_displacement(subdomains)),
         )
+        # f_power is applied to norm_u_t, which is the norm broadcast to the tangential
+        # (nd - 1)-dimensional space (see below), and its result is subsequently
+        # multiplied elementwise with the tangential vector u_t. Hence, both its domain
+        # and range are the tangential space, not a cell-wise scalar space.
         f_power = pp.ad.Function(
             partial(pp.ad.safe_power, -1, 1 / np.sqrt(self.nd - 1), zero_tol),
             "safe power",
+            tangential_domain,
+            tangential_domain,
         )
         # Compute normalized tangential displacement. First, compute the norm of the
         # displacement jump.

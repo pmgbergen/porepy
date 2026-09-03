@@ -27,6 +27,7 @@ from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
+from porepy.numerics.ad.equation_system import GridEntity
 
 
 @pytest.fixture(scope="module")
@@ -143,9 +144,9 @@ def test_variable_based_lebesgue_metric_on_grids(orthogonal_2d_model: pp.PorePyM
     variables = orthogonal_2d_model.equation_system.variables
     result = {v.name: 0.0 for v in variables}
     for v in variables:
-        domain = v.domain
+        domain = v.domains[0]
         volume = domain.cell_volumes.sum()
-        dimensionality = v._cells
+        dimensionality = v.target.dof_info.cells
         result[v.name] += volume * dimensionality
     for name in result:
         result[name] = np.sqrt(result[name])
@@ -369,7 +370,7 @@ class DummyEquations(pp.PorePyModel):
         """Set dummy equations based on the polynomial expression."""
         subdomains = self.mdg.subdomains()
         sd_eq = self.sd_eq(subdomains)
-        self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
+        self.equation_system.set_equation(sd_eq, {GridEntity.cells: 1})
 
 
 class SimpleVolumeIntegralMixin(pp.models.constitutive_laws.DimensionReduction):

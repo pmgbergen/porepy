@@ -30,6 +30,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.ad.grid_entity import GridEntities
 
 from . import _fvutils
 
@@ -121,6 +122,64 @@ class Biot(pp.Mpsa):
 
         """
         return sd.num_cells * (1 + sd.dim)
+
+    def get_row_dof_info(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
+        """Return row DOF info for the named Biot matrix.
+
+        Handles the Biot-specific coupling matrices and falls back to the parent
+        :class:`~porepy.numerics.fv.mpsa.Mpsa` for inherited stress matrices.
+
+        Parameters:
+            matrix_key: Attribute-name fragment (e.g. ``"scalar_gradient"``).
+            nd: Spatial dimension.
+
+        Raises:
+            ValueError: If the matrix_key is not recognized by this discretization.
+
+        Returns:
+            A :class:`~porepy.numerics.ad.GridEntities` with the DOFs per entity.
+
+        """
+
+        biot_row_mapping: dict[str, pp.ad.GridEntities] = {
+            "displacement_divergence": pp.ad.GridEntities(cells=1),
+            "bound_displacement_divergence": pp.ad.GridEntities(cells=1),
+            "scalar_gradient": pp.ad.GridEntities(faces=nd),
+            "consistency": pp.ad.GridEntities(cells=1),
+            "bound_pressure": pp.ad.GridEntities(faces=nd),
+        }
+        if matrix_key in biot_row_mapping:
+            return biot_row_mapping[matrix_key]
+        return super().get_row_dof_info(matrix_key, nd=nd)
+
+    def get_col_dof_info(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
+        """Return column DOF info for the named Biot matrix.
+
+        Handles the Biot-specific coupling matrices and falls back to the parent
+        :class:`~porepy.numerics.fv.mpsa.Mpsa` for inherited stress matrices.
+
+        Parameters:
+            matrix_key: Attribute-name fragment (e.g. ``"scalar_gradient"``).
+            nd: Spatial dimension.
+
+        Raises:
+            ValueError: If the matrix_key is not recognized by this discretization.
+
+        Returns:
+            A :class:`~porepy.numerics.ad.GridEntities` with the DOFs per entity.
+
+        """
+
+        biot_col_mapping: dict[str, pp.ad.GridEntities] = {
+            "displacement_divergence": pp.ad.GridEntities(cells=nd),
+            "bound_displacement_divergence": pp.ad.GridEntities(faces=nd),
+            "scalar_gradient": pp.ad.GridEntities(cells=1),
+            "consistency": pp.ad.GridEntities(cells=1),
+            "bound_pressure": pp.ad.GridEntities(cells=1),
+        }
+        if matrix_key in biot_col_mapping:
+            return biot_col_mapping[matrix_key]
+        return super().get_col_dof_info(matrix_key, nd=nd)
 
     def assemble_matrix_rhs(
         self, sd: pp.Grid, sd_data: dict

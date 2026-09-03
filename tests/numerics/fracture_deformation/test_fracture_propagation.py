@@ -40,6 +40,7 @@ import porepy as pp
 from porepy.applications.test_utils.arrays import compare_arrays
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
+from porepy.numerics.ad.equation_system import GridEntity
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 FractureNetwork = Union[FractureNetwork2d, FractureNetwork3d]
@@ -546,7 +547,7 @@ class MockPropagationModel(pp.ConformingFracturePropagation):
     """
 
     def _initialize_new_variable_values(self, g, d, var, dofs):
-        cell_dof: int = dofs.get("cells")
+        cell_dof: int = dofs.cells
         # Number of new variables is given by the size of the cell map.
         cell_map = d["cell_index_map"]
         n_new = cell_map.shape[0] - cell_map.shape[1]
@@ -853,7 +854,7 @@ class TestVariableMappingInitializationUnderPropagation:
         # Initialize the state by the known variable, and the iterate as twice that
         # value (mostly a why not)
         d = mdg.subdomain_data(g_2d)
-        equation_system.create_variables(self.cv2, {"cells": 1}, [g_2d])
+        equation_system.create_variables(self.cv2, {GridEntity.cells: 1}, [g_2d])
 
         val_sol = cell_val_2d
         val_it = 2 * cell_val_2d
@@ -863,7 +864,9 @@ class TestVariableMappingInitializationUnderPropagation:
 
         for g in g_1d:
             d = mdg.subdomain_data(g)
-            equation_system.create_variables(self.cv1, {"cells": var_sz_1d}, [g])
+            equation_system.create_variables(
+                self.cv1, {GridEntity.cells: var_sz_1d}, [g]
+            )
 
             val_sol = cell_val_1d[g]
             val_it = 2 * cell_val_1d[g]
@@ -879,7 +882,7 @@ class TestVariableMappingInitializationUnderPropagation:
 
             d = mdg.interface_data(intf)
             equation_system.create_variables(
-                self.mv, {"cells": var_sz_mortar}, interfaces=[intf]
+                self.mv, {GridEntity.cells: var_sz_mortar}, interfaces=[intf]
             )
 
             val_sol = cell_val_mortar[g]

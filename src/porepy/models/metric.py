@@ -12,6 +12,8 @@ from typing import Optional, cast
 import numpy as np
 
 import porepy as pp
+from porepy.numerics.ad.grid_entity import GridEntity
+from porepy.numerics.ad.operator_space import OperatorSpace
 from porepy.numerics.ad.operators import DenseArray
 
 
@@ -182,7 +184,10 @@ class LebesgueMetric:
             float: measure of values
 
         """
-        l2_norm = pp.ad.Function(partial(pp.ad.l2_norm, dim), "l2_norm")
+        domain_and_range = OperatorSpace.from_domains(grids)
+        l2_norm = pp.ad.Function(
+            partial(pp.ad.l2_norm, dim), "l2_norm", domain_and_range
+        )
         return np.sqrt(
             np.sum(
                 self.model.equation_system.evaluate(
@@ -248,7 +253,9 @@ class VariableBasedLebesgueMetric(LebesgueMetric):
 
         # Sanity check: Ensure that variables are defined on cells.
         for variable in variable_indexer.indices:
-            if not variable._faces == 0 and variable._nodes == 0:
+            dof_info = variable.source.dof_info
+
+            if dof_info.faces != 0 or dof_info.nodes != 0:
                 raise NotImplementedError(
                     """VariableBasedLebesgueMetric currently only supports """
                     """variables defined on cells."""
@@ -257,8 +264,13 @@ class VariableBasedLebesgueMetric(LebesgueMetric):
         norms = {v.name: 0.0 for v in variable_indexer.indices}
 
         for variable, indices in variable_indexer.indices.items():
-            variable_values = pp.ad.DenseArray(values[indices])
-            dim = variable.dof_info["cells"]
+            dim = variable.source.dof_info.cells
+            space = OperatorSpace.from_domains(
+                [variable.domain], {GridEntity.cells: dim}
+            )
+            variable_values = pp.ad.DenseArray(
+                values[indices], source=space, target=space
+            )
             domains: pp.GridLikeSequence = [variable.domain]  # type: ignore[assignment]
             norms[variable.name] += (
                 self._lebesgue2_norm(variable_values, dim, domains) ** 2
@@ -327,11 +339,14 @@ class EquationBasedLebesgueMetric(LebesgueMetric):
         for name, grids_dofs in self.equation_indexer.group_by_name().items():
             indices = np.concatenate(list(grids_dofs.values()))
             domains = cast(pp.GridLikeSequence, list(grids_dofs.keys()))
-            equation_dim = equation_system.equation_image_size_info[name]["cells"]
+            equation_dim = equation_system.equations[name].target.dof_info.cells
             equation_values = values[indices].reshape((equation_dim, -1), order="F")
             cell_weights = np.hstack([domain.cell_volumes for domain in domains])
+            space = OperatorSpace.from_domains(domains, {GridEntity.cells: 1})
             intensive_equation_values = pp.ad.DenseArray(
-                np.linalg.norm(equation_values, ord=2, axis=0) / cell_weights
+                np.linalg.norm(equation_values, ord=2, axis=0) / cell_weights,
+                source=space,
+                target=space,
             )
             norms[name] = self._lebesgue2_norm(intensive_equation_values, 1, domains)
 

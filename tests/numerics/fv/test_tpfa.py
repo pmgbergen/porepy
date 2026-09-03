@@ -20,6 +20,7 @@ from porepy.applications.md_grids.model_geometries import CubeDomainOrthogonalFr
 from porepy.applications.test_utils import common_xpfa_tests as xpfa_tests
 from porepy.applications.test_utils import well_models
 from porepy.applications.test_utils.models import add_mixin
+from porepy.numerics.ad import GridEntity, OperatorSpace
 
 """Local utility functions."""
 
@@ -142,13 +143,17 @@ class UnitTestAdTpfaFlux(
         self.mdg = mdg
         self.nd = 2
 
-    def _cell_projection(self, cell_id: int) -> sps.csr_matrix:
+    def _cell_projection(
+        self, cell_id: int, subdomains: list[pp.Grid]
+    ) -> pp.ad.SparseArray:
+        space = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
         if cell_id == 0:
-            return pp.ad.SparseArray(sps.csr_matrix(np.array([[1, 0], [0, 0]])))
+            mat = sps.csr_matrix(np.array([[1, 0], [0, 0]]))
         elif cell_id == 1:
-            return pp.ad.SparseArray(sps.csr_matrix(np.array([[0, 0], [0, 1]])))
+            mat = sps.csr_matrix(np.array([[0, 0], [0, 1]]))
         else:
             raise ValueError(f"Cell id {cell_id} is not valid.")
+        return pp.ad.SparseArray(mat, source=space, target=space)
 
     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Non-constant permeability tensor. Depends on pressure.
@@ -157,7 +162,7 @@ class UnitTestAdTpfaFlux(
         test function.
         """
         if len(subdomains) == 0:
-            return pp.wrap_as_dense_ad_array(0, size=0)
+            return pp.wrap_as_dense_ad_array(0, size=0, grids=subdomains)
 
         nc = sum([sd.num_cells for sd in subdomains])
         # K is a second order tensor having nd^2 entries per cell. 3d:
@@ -182,23 +187,26 @@ class UnitTestAdTpfaFlux(
         e_yy = self.e_i(subdomains, i=4, dim=tensor_dim)
         p = self.pressure(subdomains)
 
-        cell_0_projection = self._cell_projection(0)
-        cell_1_projection = self._cell_projection(1)
+        cell_0_projection = self._cell_projection(0, subdomains)
+        cell_1_projection = self._cell_projection(1, subdomains)
 
         # Non-constant component of the permeability in cell 0
         cell_0_permeability = (
-            e_xx @ cell_0_projection @ p + e_yy @ cell_0_projection @ p**2
+            e_xx @ cell_0_projection @ p
+            + e_yy @ cell_0_projection @ p ** pp.ad.Scalar(2)
         )
         # Non-constant component of the permeability in cell 1
         cell_1_permeability = (
-            pp.ad.Scalar(2) * e_xx @ cell_1_projection @ p**2
+            pp.ad.Scalar(2) * e_xx @ cell_1_projection @ p ** pp.ad.Scalar(2)
             + e_xy @ cell_1_projection @ p
             + e_yx @ cell_1_projection @ p
-            + pp.ad.Scalar(3) * e_yy @ cell_1_projection @ p**2
+            + pp.ad.Scalar(3) * e_yy @ cell_1_projection @ p ** pp.ad.Scalar(2)
         )
 
         return (
-            pp.wrap_as_dense_ad_array(all_vals, name="Constant_permeability_component")
+            pp.wrap_as_dense_ad_array(
+                all_vals, name="Constant_permeability_component", grids=subdomains
+            )
             + cell_0_permeability
             + cell_1_permeability
         )
@@ -215,7 +223,7 @@ class UnitTestAdTpfaFlux(
         """
         arr = self.params["vector_source"]
 
-        v = pp.wrap_as_dense_ad_array(arr, name="Vector_source")
+        v = pp.wrap_as_dense_ad_array(arr, name="Vector_source", grids=subdomains)
         return v
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -615,7 +623,7 @@ class DiffTpfaGridsOfAllDimensions(
     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Non-constant permeability tensor, the y-component depends on pressure."""
         if len(subdomains) == 0:
-            return pp.wrap_as_dense_ad_array(0, size=0)
+            return pp.wrap_as_dense_ad_array(0, size=0, grids=subdomains)
 
         nc = sum([sd.num_cells for sd in subdomains])
         # K is a second order tensor having nd^2 entries per cell. 3d:
@@ -632,10 +640,9 @@ class DiffTpfaGridsOfAllDimensions(
         # Basis vector for the yy-component
         e_yy = self.e_i(subdomains, i=4, dim=tensor_dim)
 
-        return (
-            pp.wrap_as_dense_ad_array(all_vals, name="Constant_permeability_component")
-            + e_yy @ self.pressure(subdomains) ** 2
-        )
+        return pp.wrap_as_dense_ad_array(
+            all_vals, name="Constant_permeability_component", grids=subdomains
+        ) + e_yy @ self.pressure(subdomains) ** pp.ad.Scalar(2)
 
     def initial_condition(self):
         """Set a random initial condition, to avoid the trivial case of a constant
@@ -729,7 +736,7 @@ class WithDiffTpfa(
     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Constant permeability tensor."""
         if len(subdomains) == 0:
-            return pp.wrap_as_dense_ad_array(0, size=0)
+            return pp.wrap_as_dense_ad_array(0, size=0, grids=subdomains)
 
         nc = sum([sd.num_cells for sd in subdomains])
         tensor_dim = 3**2
@@ -740,7 +747,7 @@ class WithDiffTpfa(
         all_vals[8::tensor_dim] = 1
 
         return pp.wrap_as_dense_ad_array(
-            all_vals, name="Constant_permeability_component"
+            all_vals, name="Constant_permeability_component", grids=subdomains
         )
 
 
@@ -813,7 +820,10 @@ class DiffTpfaNewtonPerformanceGeometry(
         if self.params["constant_permeability"]:
             return super().permeability(subdomains)
         else:
-            f_max = pp.ad.Function(pp.ad.maximum, "maximum_function")
+            domain = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+            range_ = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+
+            f_max = pp.ad.Function(pp.ad.maximum, "maximum_function", domain, range_)
             permeability = pp.ad.Scalar(self.solid.permeability) * f_max(
                 self.pressure(subdomains), pp.ad.Scalar(1e-5)
             )

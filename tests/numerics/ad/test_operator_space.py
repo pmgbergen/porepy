@@ -1,0 +1,794 @@
+"""Tests for ``DomainType`` and ``OperatorSpace``, the classes representing an AD
+operator's mathematical domain/range, and for the ``source``/``target`` attributes
+they back on every ``Operator``.
+
+Covers three things, each marked with a ``# MARK:`` comment below for navigation:
+  - OperatorSpace/DomainType construction, equality and hashing: ``OperatorSpace``
+    itself (and its ``scalar``/``unclear``/``waived`` sentinel spaces).
+  - How each operator type acquires its source/target: the various operator types
+    (``Scalar``, ``Variable``, ``MixedDimensionalVariable``, ``SurrogateOperator``,
+    ``DenseArray``/``SparseArray``, ``TimeDependentDenseArray``, ``MergedOperator``)
+    acquiring their ``source``/``target`` from their constructor arguments, including
+    the shape-consistency check between a grid-based space and the wrapped
+    array/matrix.
+  - Propagation through arithmetic and composition: ``source``/``target`` propagating
+    through operator arithmetic and composition (elementwise operations, ``@``,
+    ``sum_operator_list``), including the ``unclear``-domain sentinel and the errors
+    raised for incompatible spaces.
+
+Space checks for the grid operators themselves (``SubdomainProjections``,
+``MortarProjections``, ``BoundaryProjection``, ``Trace``, ``Divergence``) live
+alongside their numerical-correctness tests in ``test_grid_operators.py`` instead.
+"""
+
+import operator as _op
+
+import numpy as np
+import pytest
+import scipy.sparse as sps
+
+import porepy as pp
+from porepy.numerics.ad.ad_utils import MergedOperator
+from porepy.numerics.ad.grid_entity import GridEntities, GridEntity
+from porepy.numerics.ad.operators import (
+    DenseArray,
+    DomainType,
+    MixedDimensionalVariable,
+    Operations,
+    Operator,
+    OperatorSpace,
+    Scalar,
+    SparseArray,
+    Variable,
+    sum_operator_list,
+)
+from porepy.numerics.ad.surrogate_operator import SurrogateOperator
+from porepy.numerics.discretization import Discretization
+
+
+def _grid_for_dim(dim: int) -> pp.Grid:
+    """Return a simple Cartesian grid of the given spatial dimension."""
+    g = pp.CartGrid([3, 3] if dim == 2 else [2, 2, 2])
+    g.compute_geometry()
+    return g
+
+
+def _zeros_for(space: OperatorSpace) -> np.ndarray:
+    """A zero array whose size matches ``space``'s actual DOF count.
+
+    Used throughout this test module so that constructing a ``DenseArray``
+    with a given (grid-based) space always passes the shape-consistency
+    check added to :class:`DenseArray`/:class:`SparseArray`, regardless of
+    the concrete grids used to build that space.
+    """
+    return np.zeros(space.num_dofs())
+
+
+def _ones_for(space: OperatorSpace) -> np.ndarray:
+    """Like :func:`_zeros_for`, but filled with ones."""
+    return np.ones(space.num_dofs())
+
+
+def _eye_for(target: OperatorSpace, source: OperatorSpace) -> sps.spmatrix:
+    """An identity-like (possibly rectangular) sparse matrix whose shape matches
+    ``(target.num_dofs(), source.num_dofs())``, for use with :class:`SparseArray`.
+    """
+    return sps.eye(target.num_dofs(), source.num_dofs(), format="csr")
+
+
+@pytest.fixture
+def two_subdomains():
+    """Two 2-D Cartesian grids."""
+    g1 = pp.CartGrid([2, 2])
+    g2 = pp.CartGrid([3, 3])
+    g1.compute_geometry()
+    g2.compute_geometry()
+    return g1, g2
+
+
+@pytest.fixture
+def one_mortar():
+    """A single mortar grid."""
+    g = pp.CartGrid([2])
+    g.compute_geometry()
+    return pp.MortarGrid(g.dim, {0: g, 1: g})
+
+
+# MARK: OperatorSpace/DomainType construction, equality and hashing -------------
+
+
+class TestDomainType:
+    def test_members(self):
+        assert DomainType.subdomains.value == "subdomains"
+        assert DomainType.interfaces.value == "interfaces"
+        assert DomainType.boundary_grids.value == "boundary_grids"
+        assert DomainType.scalar.value == "scalar"
+
+    def test_distinct(self):
+        types = [
+            DomainType.subdomains,
+            DomainType.interfaces,
+            DomainType.boundary_grids,
+            DomainType.scalar,
+        ]
+        assert len(set(types)) == 4
+
+
+class TestOperatorSpaceScalar:
+    def test_scalar_factory(self):
+        s = OperatorSpace.scalar()
+        assert s.domain_type == DomainType.scalar
+        assert s.grids == ()
+        assert s.dof_info == GridEntities()
+
+    def test_scalar_is_singleton_value(self):
+        """Two calls to scalar() return equal (but not necessarily identical)
+        objects."""
+        assert OperatorSpace.scalar() == OperatorSpace.scalar()
+
+    def test_scalar_hash(self):
+        s1 = OperatorSpace.scalar()
+        s2 = OperatorSpace.scalar()
+        assert hash(s1) == hash(s2)
+        assert s1 in {s2}
+
+
+class TestOperatorSpaceFromDomains:
+    def test_empty_domains_gives_scalar(self):
+        space = OperatorSpace.from_domains([], {GridEntity.cells: 1})
+        assert space.domain_type == DomainType.scalar
+
+    def test_subdomains(self, two_subdomains):
+        g1, g2 = two_subdomains
+        space = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
+        assert space.domain_type == DomainType.subdomains
+        assert space.grids == (g1, g2)
+        assert space.dof_info == GridEntities(cells=1)
+
+    def test_interfaces(self, one_mortar):
+        space = OperatorSpace.from_domains([one_mortar], {GridEntity.cells: 2})
+        assert space.domain_type == DomainType.interfaces
+        assert space.grids == (one_mortar,)
+        assert space.dof_info == GridEntities(cells=2)
+
+    def test_mixed_grid_types_raises(self, two_subdomains, one_mortar):
+        g1, _ = two_subdomains
+        with pytest.raises(ValueError, match="same type"):
+            OperatorSpace.from_domains([g1, one_mortar], {GridEntity.cells: 1})
+
+    def test_dof_info_is_normalized_not_aliased(self, two_subdomains):
+        """A mapping is normalized to a GridEntities on construction, so mutating the
+        original dict must not affect the stored one."""
+        g1, _ = two_subdomains
+        dof = {GridEntity.cells: 1}
+        space = OperatorSpace.from_domains([g1], dof)
+        dof[GridEntity.faces] = 99
+        assert space.dof_info == GridEntities(cells=1)
+
+
+class TestOperatorSpaceEquality:
+    def test_equal_spaces(self, two_subdomains):
+        g1, g2 = two_subdomains
+        s1 = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
+        s2 = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
+        assert s1 == s2
+        assert hash(s1) == hash(s2)
+        d = {s1: "value"}
+        assert d[s2] == "value"
+
+
+class TestOperatorSpaceInequality:
+    def test_different_grids(self, two_subdomains):
+        g1, g2 = two_subdomains
+        s1 = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
+        s2 = OperatorSpace.from_domains([g2], {GridEntity.cells: 1})
+        assert s1 != s2
+
+    def test_different_dof_info(self, two_subdomains):
+        g1, _ = two_subdomains
+        s1 = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
+        s2 = OperatorSpace.from_domains([g1], {GridEntity.cells: 2})
+        assert s1 != s2
+
+    def test_different_domain_type(self, two_subdomains, one_mortar):
+        g1, _ = two_subdomains
+        s1 = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
+        s2 = OperatorSpace.from_domains([one_mortar], {GridEntity.cells: 1})
+        assert s1 != s2
+
+
+# MARK: How each operator type acquires its source/target -----------------------
+
+
+class TestOperatorProperties:
+    def test_operator_requires_explicit_source(self):
+        with pytest.raises(TypeError):
+            Operator(name="test")
+
+    def test_none_source_raises(self, two_subdomains):
+        space = OperatorSpace.from_domains([two_subdomains[0]], {GridEntity.cells: 1})
+        with pytest.raises(TypeError):
+            Operator(name="test", source=None, target=space)
+
+    def test_target_defaults_to_source(self, two_subdomains):
+        """If target is omitted, or explicitly None, it defaults to source (i.e. the
+        operator is assumed to be a self-mapping)."""
+        space = OperatorSpace.from_domains([two_subdomains[0]], {GridEntity.cells: 1})
+        op_omitted = Operator(name="test", source=space)
+        assert op_omitted.target == space
+
+        op_explicit_none = Operator(name="test", source=space, target=None)
+        assert op_explicit_none.target == space
+
+    def test_set_source_target_in_init(self, two_subdomains):
+        space = OperatorSpace.from_domains([two_subdomains[0]], {GridEntity.cells: 1})
+        op = Operator(name="test", source=space, target=space)
+        assert op.source == space
+        assert op.target == space
+
+
+class TestScalarSpace:
+    def test_scalar_has_scalar_space(self):
+        s = Scalar(3.14)
+        assert s.source == OperatorSpace.scalar()
+        assert s.target == OperatorSpace.scalar()
+
+    def test_scalar_scalar_gives_scalar_space(self):
+        s1 = Scalar(1.0)
+        s2 = Scalar(2.0)
+        result = s1 + s2
+        assert result.source == OperatorSpace.scalar()
+        assert result.target == OperatorSpace.scalar()
+
+    @pytest.mark.parametrize("fixture_name", ["two_subdomains", "one_mortar"])
+    def test_scalar_with_subdomain_or_interface(self, request, fixture_name):
+        grids = request.getfixturevalue(fixture_name)
+        grids = grids if isinstance(grids, (list, tuple)) else [grids]
+        grid = list(grids)[0]
+        s = Scalar(1.0, domains=[grid])
+        assert s.source.grids == (grid,)
+        assert s.source == s.target
+        expected_domain_type = (
+            DomainType.subdomains
+            if isinstance(grid, pp.Grid)
+            else DomainType.interfaces
+        )
+        assert s.source.domain_type == expected_domain_type
+
+
+class TestVariableSpace:
+    def test_variable_has_subdomain_space(self, two_subdomains):
+        var = Variable("p", GridEntities(cells=1), two_subdomains[0])
+        assert var.source.domain_type == DomainType.subdomains
+        assert var.source == var.target
+
+    def test_variable_space_contains_correct_grid(self, two_subdomains):
+        var = Variable("p", GridEntities(cells=1), two_subdomains[0])
+        assert var.source.grids == (two_subdomains[0],)
+
+    def test_variable_space_dof_info(self, two_subdomains):
+        var = Variable("u", GridEntities(cells=2, faces=1), two_subdomains[0])
+        assert var.source.dof_info == GridEntities(cells=2, faces=1)
+
+    def test_variable_on_mortar_grid_has_interface_space(self, one_mortar):
+        """Variable on a MortarGrid gets DomainType.interfaces."""
+        var = Variable("lam", GridEntities(cells=2), one_mortar)
+        assert var.source.domain_type == DomainType.interfaces
+        assert var.source.grids == (one_mortar,)
+        assert var.source.dof_info == GridEntities(cells=2)
+
+
+class TestMixedDimensionalVariableSpace:
+    """MixedDimensionalVariable carries the union space of its sub-variables."""
+
+    @pytest.fixture
+    def md_var(self, two_subdomains):
+        g1, g2 = two_subdomains
+        v1 = Variable("p", GridEntities(cells=1), g1)
+        v2 = Variable("p", GridEntities(cells=1), g2)
+        return MixedDimensionalVariable([v1, v2])
+
+    def test_md_variable_source_target_are_union(self, md_var, two_subdomains):
+        expected = OperatorSpace.from_domains(two_subdomains, {GridEntity.cells: 1})
+        assert md_var.source == expected
+        assert md_var.target == expected
+
+
+class TestSurrogateOperatorSpace:
+    """SurrogateOperator carries source/range derived from its dof_info."""
+
+    @pytest.fixture
+    def simple_mdg(self, two_subdomains):
+        return pp.meshing.subdomains_to_mdg([two_subdomains])
+
+    @pytest.fixture
+    def surrogate_setup(self, simple_mdg):
+        """Return (mdg, var) ready for SurrogateFactory construction."""
+        eq = pp.ad.EquationSystem(simple_mdg)
+        var = eq.create_variables(
+            "p",
+            dof_info={GridEntity.cells: 1},
+            subdomains=list(simple_mdg.subdomains()),
+        )
+        return simple_mdg, var
+
+    def test_surrogate_source_with_dof_info(self, surrogate_setup):
+        """SurrogateFactory with explicit dof_info: the produced operator has a
+        space."""
+        mdg, var = surrogate_setup
+        factory = pp.ad.SurrogateFactory(
+            name="f",
+            mdg=mdg,
+            dependencies=[lambda grids: var],
+            dof_info={GridEntity.cells: 1},
+        )
+        op = factory(list(mdg.subdomains()))
+        assert op.source.domain_type == DomainType.subdomains
+        assert op.source.dof_info == GridEntities(cells=1)
+        assert op.target == op.source
+
+    def test_surrogate_operator_default_dof_info_gives_space(self, surrogate_setup):
+        """dof_info=None (default) falls back to cells:1 and still sets a space."""
+        mdg, var = surrogate_setup
+        factory = pp.ad.SurrogateFactory(
+            name="f",
+            mdg=mdg,
+            dependencies=[lambda grids: var],
+        )
+        op = factory(list(mdg.subdomains()))
+        assert op.source is not None
+        assert op.source.dof_info == GridEntities(cells=1)
+
+    def test_surrogate_operator_direct_no_dof_info_gives_none_space(
+        self, two_subdomains
+    ):
+        """SurrogateOperator instantiated directly with dof_info=None gets cells:1."""
+        g1, g2 = two_subdomains
+        v1 = Variable("p", GridEntities(cells=1), g1)
+        v2 = Variable("p", GridEntities(cells=1), g2)
+        op = SurrogateOperator(
+            name="bare",
+            domains=[g1, g2],
+            children=[v1, v2],
+            dof_info=None,
+        )
+        assert op.source.dof_info == GridEntities(cells=1)
+        assert op.target.dof_info == GridEntities(cells=1)
+
+
+class TestArraySpace:
+    """DenseArray and SparseArray both carry the explicit source/target OperatorSpace
+    passed to their constructor."""
+
+    @pytest.mark.parametrize(
+        "array_cls, make_data",
+        [
+            (DenseArray, _ones_for),
+            (SparseArray, lambda space: sps.eye(space.num_dofs(), format="csr")),
+        ],
+        ids=["dense", "sparse"],
+    )
+    def test_array_with_explicit_space(self, two_subdomains, array_cls, make_data):
+        g, _ = two_subdomains
+        space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
+        arr = array_cls(make_data(space), source=space, target=space)
+        assert arr.source == space
+        assert arr.target == space
+
+
+class TestShapeConsistencyCheck:
+    """Tests for the shape-consistency.
+
+    This check verifies, at construction time, that a grid-based ``source``/``target``
+    space actually predicts the same number of degrees of freedom as the wrapped
+    array/matrix's shape.
+    """
+
+    @pytest.fixture(autouse=True)
+    def setup(self, two_subdomains):
+        g, _ = two_subdomains
+        self.g = g
+        self.cell_space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
+        self.face_space = OperatorSpace.from_domains([g], {GridEntity.faces: 1})
+
+    def test_dense_array_consistent_shape_passes(self):
+        # g has 4 cells; this must not raise.
+        DenseArray(
+            np.ones(self.g.num_cells), source=self.cell_space, target=self.cell_space
+        )
+
+    def test_dense_array_inconsistent_shape_raises(self):
+        with pytest.raises(ValueError, match="degrees of freedom"):
+            DenseArray(
+                np.ones(self.g.num_cells + 1),  # g has 4 cells, not 5.
+                source=self.cell_space,
+                target=self.cell_space,
+            )
+
+    def test_dense_array_inconsistent_source_raises(self):
+        """Source and target need not be equal, but each must independently be
+        consistent with the array's size."""
+        with pytest.raises(ValueError, match="degrees of freedom"):
+            DenseArray(
+                np.ones(self.g.num_cells),
+                source=self.face_space,
+                target=self.cell_space,
+            )
+
+    def test_sparse_array_consistent_shape_passes(self):
+        mat = _eye_for(self.cell_space, self.face_space)
+        # Rows (target) match cell_space, columns (source) match face_space.
+        SparseArray(mat, source=self.face_space, target=self.cell_space)
+
+    def test_sparse_array_inconsistent_target_raises(self):
+        # Shape's row count (g.num_faces) does not match cell_space's DOF count.
+        mat = _eye_for(self.face_space, self.face_space)
+        with pytest.raises(ValueError, match="degrees of freedom"):
+            SparseArray(mat, source=self.face_space, target=self.cell_space)
+
+    def test_sparse_array_inconsistent_source_raises(self):
+        mat = _eye_for(self.cell_space, self.cell_space)
+        with pytest.raises(ValueError, match="degrees of freedom"):
+            SparseArray(mat, source=self.cell_space, target=self.face_space)
+
+    @pytest.mark.parametrize(
+        "space",
+        [OperatorSpace.scalar(), OperatorSpace.unclear(), OperatorSpace.waived()],
+    )
+    def test_spaces_skip_check(self, space):
+        """Spaces that are not grid-based (scalar, unclear) skip the shape check."""
+        arr = np.ones(2)
+        DenseArray(arr, source=space, target=space)
+        mat = sps.eye(3, format="csr")
+        SparseArray(mat, source=space, target=space)
+
+
+class TestTimeDependentDenseArraySpaces:
+    def test_no_dof_info_gives_default(self, two_subdomains):
+        g1, g2 = two_subdomains
+        arr = pp.ad.TimeDependentDenseArray("x", [g1, g2])
+        # When domains are provided but no dof_info, cells:1 is assumed.
+        assert arr.source.dof_info == GridEntities(cells=1)
+        assert arr.target.dof_info == GridEntities(cells=1)
+
+    def test_dof_info_cells(self, two_subdomains):
+        g1, g2 = two_subdomains
+        arr = pp.ad.TimeDependentDenseArray(
+            "x", [g1, g2], dof_info={GridEntity.cells: 1}
+        )
+        assert arr.source == arr.target
+        assert arr.source.dof_info == GridEntities(cells=1)
+        assert set(arr.source.grids) == {g1, g2}
+
+    def test_dof_info_faces(self, two_subdomains):
+        g1, g2 = two_subdomains
+        arr = pp.ad.TimeDependentDenseArray(
+            "x", [g1, g2], dof_info={GridEntity.faces: 2}
+        )
+        assert arr.source.dof_info == GridEntities(faces=2)
+
+    def test_empty_domains_and_domain_type_raises(self):
+        with pytest.raises(
+            ValueError, match="Either domains or domain_type must be provided"
+        ):
+            pp.ad.TimeDependentDenseArray("x", [], dof_info={GridEntity.cells: 1})
+
+
+class TestMergedOperatorSpaces:
+    """Tests that MergedOperator inherits source/range from the
+    underlying discretization's get_row/col_dof_info methods."""
+
+    def test_custom_dof_info_gives_space(self, two_subdomains):
+        """A discretization that overrides get_row/col_dof_info populates spaces."""
+
+        class MockDiscretization(Discretization):
+            def __init__(self):
+                self.keyword = "flow"
+                self.flux_matrix_key = "flux"
+
+            def ndof(self, sd):
+                return sd.num_cells
+
+            def discretize(self, sd, data):
+                pass
+
+            def assemble_matrix_rhs(self, sd, data):
+                pass
+
+            def get_row_dof_info(self, matrix_key: str = "", nd: int = 1):
+                return GridEntities(cells=1)
+
+            def get_col_dof_info(self, matrix_key: str = "", nd: int = 1):
+                return GridEntities(faces=1)
+
+        g1, g2 = two_subdomains
+        discr = MockDiscretization()
+        op = MergedOperator(
+            discr=discr,
+            discretization_matrix_key="flux",
+            nd=1,
+            physics_key="flow",
+            domains=[g1, g2],
+        )
+        assert op.source.dof_info == GridEntities(faces=1)
+        assert op.target.dof_info == GridEntities(cells=1)
+        assert set(op.source.grids) == {g1, g2}
+        assert set(op.target.grids) == {g1, g2}
+
+
+# MARK: Propagation through arithmetic and composition ---------------------------
+
+
+class TestInferDomainRange:
+    """Tests for Operations.infer_source_target."""
+
+    @pytest.fixture
+    def cell_space(self, two_subdomains):
+        g1, g2 = two_subdomains
+        return OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
+
+    @pytest.fixture
+    def face_space(self, two_subdomains):
+        g1, g2 = two_subdomains
+        return OperatorSpace.from_domains([g1, g2], {GridEntity.faces: 1})
+
+    @pytest.fixture
+    def cell_op(self, cell_space):
+        """A leaf operator with source=target=cell_space."""
+        return DenseArray(_zeros_for(cell_space), source=cell_space, target=cell_space)
+
+    @pytest.fixture
+    def face_op(self, face_space):
+        """A leaf operator with source=target=face_space."""
+        return DenseArray(_zeros_for(face_space), source=face_space, target=face_space)
+
+    # --- elementwise: compatible operands ---
+
+    @pytest.mark.parametrize(
+        "binary_op",
+        [_op.add, _op.sub, _op.mul, _op.truediv, _op.pow],
+        ids=["add", "sub", "mul", "div", "pow"],
+    )
+    def test_elementwise_compatible(self, cell_op, cell_space, binary_op):
+        """Elementwise ops between same-space operands preserve source/target."""
+        result = binary_op(cell_op, cell_op)
+        assert result.source == cell_space
+        assert result.target == cell_space
+
+    def test_rsub_compatible(self, cell_op, cell_space):
+        """__rsub__ must also propagate source/target."""
+        result = pp.ad.Scalar(42) - cell_op
+        assert result.source == cell_space
+        assert result.target == cell_space
+
+    # --- elementwise: incompatible targets raise before AD parsing ---
+
+    @pytest.mark.parametrize(
+        "binary_op",
+        [_op.add, _op.sub, _op.mul, _op.truediv, _op.pow],
+        ids=["add", "sub", "mul", "div", "pow"],
+    )
+    def test_elementwise_incompatible_targets_raises_at_construction(
+        self, cell_op, face_op, binary_op
+    ):
+        """Elementwise ops between operators whose *targets* are genuinely
+        incompatible (same grids, but different grid entities, hence different
+        actual DOF counts) must raise at operator-construction time, before any AD
+        parsing/evaluation is attempted.
+
+        This is distinct from
+        :meth:`test_elementwise_incompatible_domain_becomes_unclear` above, where the
+        two operands' targets are made equal via an explicit
+        projection first (so no error occurs, only the *source* becomes unclear).
+        Here, ``cell_op`` and ``face_op`` are combined directly, with their
+        cell-wise and face-wise targets left unreconciled.
+        """
+        with pytest.raises(ValueError, match="Incompatible operator targets"):
+            _ = binary_op(cell_op, face_op)
+
+    @pytest.mark.parametrize(
+        "binary_op",
+        [_op.add, _op.sub, _op.mul, _op.truediv, _op.pow],
+        ids=["add", "sub", "mul", "div", "pow"],
+    )
+    def test_elementwise_incompatible_source_becomes_unclear(
+        self, cell_op, face_op, binary_op
+    ):
+        """Elementwise ops with different domains get the unclear-domain sentinel."""
+
+        projected = SparseArray(
+            _eye_for(cell_op.target, face_op.source),
+            source=face_op.source,
+            target=cell_op.target,
+        )
+        result = binary_op(cell_op, projected)
+        assert result.source == OperatorSpace.unclear()
+        assert result.target == cell_op.target
+
+    def test_elementwise_different_grids_becomes_unclear_source(self, two_subdomains):
+        """Different grids are enough to make the inferred domain unclear."""
+        g1, g2 = two_subdomains
+        left_space = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
+        right_space = OperatorSpace.from_domains([g2], {GridEntity.cells: 1})
+        left = DenseArray(_zeros_for(left_space), source=left_space, target=left_space)
+        right = SparseArray(
+            _eye_for(left_space, right_space), source=right_space, target=left_space
+        )
+
+        result = left + right
+
+        assert result.source == OperatorSpace.unclear()
+        assert result.target == left_space
+
+    def test_elementwise_unclear_domain_propagates(self, cell_space, face_space):
+        """Once unclear, the elementwise result remains unclear."""
+        unclear = SparseArray(
+            _eye_for(cell_space, cell_space),
+            source=OperatorSpace.unclear(),
+            target=cell_space,
+        )
+        known = SparseArray(
+            _eye_for(cell_space, face_space), source=face_space, target=cell_space
+        )
+
+        result = unclear + known
+
+        assert result.source == OperatorSpace.unclear()
+        assert result.target == cell_space
+
+    # --- matmul: compatible ---
+
+    def test_matmul_different_grids_incompatible(self, two_subdomains):
+        """Matrix multiplication requires exact space equality, including grids."""
+        g1, g2 = two_subdomains
+        left_domain = OperatorSpace.from_domains([g1], {GridEntity.faces: 1})
+        right_range = OperatorSpace.from_domains([g2], {GridEntity.faces: 1})
+        left_range = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
+        right_domain = OperatorSpace.from_domains([g2], {GridEntity.cells: 1})
+        left = SparseArray(
+            _eye_for(left_range, left_domain), source=left_domain, target=left_range
+        )
+        right = SparseArray(
+            _eye_for(right_range, right_domain),
+            source=right_domain,
+            target=right_range,
+        )
+
+        with pytest.raises(ValueError, match="matrix multiplication"):
+            _ = left @ right
+
+    def test_matmul_with_unclear_left_source_raises(self, cell_space, face_space):
+        """A left operand with unclear source cannot be used in matmul."""
+        unclear = SparseArray(
+            sps.eye(cell_space.num_dofs(), format="csr"),
+            source=OperatorSpace.unclear(),
+            target=cell_space,
+        )
+        rhs = DenseArray(_zeros_for(face_space), source=face_space, target=face_space)
+
+        with pytest.raises(ValueError, match="left operand.*source is unclear"):
+            _ = unclear @ rhs
+
+    def test_rmatmul_with_unclear_right_operand_raises(self, cell_space, face_space):
+        """The operator on the right-hand side of rmatmul cannot have unclear source."""
+        unclear = SparseArray(
+            sps.eye(cell_space.num_dofs(), format="csr"),
+            source=OperatorSpace.unclear(),
+            target=cell_space,
+        )
+        lhs = SparseArray(
+            _eye_for(face_space, face_space), source=face_space, target=face_space
+        )
+
+        with pytest.raises(ValueError, match="left operand.*source is unclear"):
+            _ = lhs.__rmatmul__(unclear)
+
+
+class TestCompoundOperatorSpaces:
+    """Tests that source/target propagates correctly through multi-step expressions."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self, two_subdomains, spaces):
+        g1, g2 = two_subdomains
+        self.cell_sp = spaces[0]
+        self.face_sp = spaces[1]
+        self.A = SparseArray(
+            _eye_for(self.cell_sp, self.face_sp),
+            source=self.face_sp,
+            target=self.cell_sp,
+        )
+        self.B = SparseArray(
+            _eye_for(self.face_sp, self.cell_sp),
+            source=self.cell_sp,
+            target=self.face_sp,
+        )
+        self.v = DenseArray(
+            _zeros_for(self.face_sp), source=self.face_sp, target=self.face_sp
+        )
+
+    @pytest.fixture
+    def spaces(self, two_subdomains):
+        g1, g2 = two_subdomains
+        cell_sp = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
+        face_sp = OperatorSpace.from_domains([g1, g2], {GridEntity.faces: 1})
+        return cell_sp, face_sp
+
+    def test_chained_matmul_source_target(self):
+        """(A @ B): result.source=B.source, result.target=A.target."""
+        result = self.A @ self.B
+        assert result.source == self.cell_sp
+        assert result.target == self.cell_sp
+
+    def test_three_way_matmul(self):
+        """(A @ B) @ C propagates spaces through two matmul steps."""
+        AB = self.A @ self.B
+        assert AB.source == self.cell_sp
+        assert AB.target == self.cell_sp
+        ABA = AB @ self.A
+        assert ABA.source == self.face_sp
+        assert ABA.target == self.cell_sp
+
+    def test_chained_matmul_incompatible_raises(self):
+        """(A @ B) @ C raises ValueError when target(C) != source(A@B)."""
+
+        AB = self.A @ self.B  # source=cell_sp, target=cell_sp
+        with pytest.raises(ValueError, match="matrix multiplication"):
+            _ = AB @ self.B
+
+    def test_add_after_matmul(self):
+        """(A @ v) + (B @ w) where both results have the same range."""
+        Av_1 = self.A @ self.v
+        Av_2 = self.A @ self.v
+        result = Av_1 + Av_2
+        assert result.source == self.face_sp
+        assert result.target == self.cell_sp
+
+    def test_add_matmul_incompatible_raises(self):
+        """(A @ v) + (B @ w) where ranges differ raises ValueError."""
+        Av = self.A @ self.v
+        w = DenseArray(
+            _zeros_for(self.cell_sp), source=self.cell_sp, target=self.cell_sp
+        )
+        Bw = self.B @ w
+        with pytest.raises(ValueError):
+            _ = Av + Bw
+
+    def test_scalar_mul_after_matmul(self):
+        """Scalar(k) * (A @ v) preserves A's range as the result range."""
+        Av = self.A @ self.v
+        result = Scalar(2.0) * Av
+        assert result.source == self.face_sp
+        assert result.target == self.cell_sp
+
+
+class TestSumOperatorListSpace:
+    """sum_operator_list delegates to __add__, so source/target must propagate."""
+
+    def test_sum_two_arrays_propagates_space(self, two_subdomains):
+        """sum_operator_list([a, b]) with compatible spaces inherits those spaces."""
+        g, _ = two_subdomains
+        space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
+        a = DenseArray(np.ones(4), source=space, target=space)
+        b = DenseArray(np.ones(4), source=space, target=space)
+        result = sum_operator_list([a, b])
+        assert result.source == space
+        assert result.target == space
+
+    def test_sum_three_arrays_propagates_space(self, two_subdomains):
+        """sum_operator_list([a, b, c]) propagates spaces through the full reduce."""
+        g, _ = two_subdomains
+        space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
+        ops = [DenseArray(np.ones(4), source=space, target=space) for _ in range(3)]
+        result = sum_operator_list(ops)
+        assert result.source == space
+        assert result.target == space
+
+    def test_sum_incompatible_spaces_raises(self, two_subdomains):
+        """sum_operator_list raises ValueError when spaces are incompatible."""
+        g1, g2 = two_subdomains
+        s1 = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
+        s2 = OperatorSpace.from_domains([g2], {GridEntity.cells: 1})
+        a = DenseArray(np.ones(4), source=s1, target=s1)
+        b = DenseArray(np.ones(9), source=s2, target=s2)
+        with pytest.raises(ValueError):
+            sum_operator_list([a, b])

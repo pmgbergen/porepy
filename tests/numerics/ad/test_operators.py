@@ -29,44 +29,13 @@ from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
+from porepy.numerics.ad.equation_system import GridEntities, GridEntity
+from porepy.numerics.ad.operators import DomainType
 
 AdType = Union[float, np.ndarray, sps.spmatrix, pp.ad.AdArray]
-_operations = pp.ad.operators.Operations
-
-operators = [
-    ("+", _operations.add),
-    ("-", _operations.sub),
-    ("*", _operations.mul),
-    ("/", _operations.div),
-    ("**", _operations.pow),
-]
 
 
-@pytest.mark.parametrize("operator", operators)
-def test_elementary_operations(operator):
-    """Test that performing elementary arithmetic operations on operators return
-    operator trees with the expected structure.
-
-    The test does not consider evaluation of the numerical values of the operators.
-    """
-    # Generate two generic operators
-    a = pp.ad.Operator()
-    b = pp.ad.Operator()
-
-    # Combine the operators with the provided operation.
-    c = eval(f"a {operator[0]} b")
-
-    # Check that the combined operator has the expected structure.
-    assert c.operation == operator[1]
-
-    # Need to check the id of the objects since the equality of pp.ad.Operator (or
-    # rather the _key method which is called by eq) does not allow for generic void
-    # operators like a and b.
-    assert id(c.children[0]) == id(a)
-    assert id(c.children[1]) == id(b)
-
-
-def test_copy_operator_tree():
+class TestCopyOperatorTree:
     """Test that copying of an operator tree works as expected.
 
     The test makes a simple tree by combining a scalar and a numpy array. The intention
@@ -74,79 +43,93 @@ def test_copy_operator_tree():
     should be done elsewhere.
 
     """
-    # To verify the difference between copy and deepcopy, keep pointers to the data
-    # structures to be wrapped
-    a_val = 42
-    a = pp.ad.Scalar(a_val)
 
-    b_arr = np.arange(3)
-    b = pp.ad.DenseArray(b_arr)
+    def setup_method(self):
+        # To verify the difference between copy and deepcopy, keep pointers to the data
+        # structures to be wrapped
+        self.a_val = 42
+        self.a = pp.ad.Scalar(self.a_val)
+        # Use an unclear operator space here since we do not care about the actual
+        # domain of the DenseArray (tests of this is carried out elsewhere).
+        space = pp.ad.OperatorSpace.unclear()
+        b_val = np.arange(3)
+        self.b = pp.ad.DenseArray(b_val, source=space, target=space)
 
-    # The combined operator, and two copies
-    c = a + b
-    c_copy = copy.copy(c)
-    c_deepcopy = copy.deepcopy(c)
+        # The combined operator, and two copies
+        self.c = self.a + self.b
+        self.c_copy = copy.copy(self.c)
+        self.c_deepcopy = copy.deepcopy(self.c)
+        # Create an EquationSystem defined on a MixedDimensionalGrid (not really used)
+        # for parsing the operators.
+        mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+            "cartesian",
+            {"cell_size": 0.5},
+            fracture_indices=[],
+        )
+        self.equation_system = pp.ad.EquationSystem(mdg)
 
-    # First check that the two copies have behaved as they should.
-    # The operators should be the same for all trees.
-    assert c.operation == c_copy.operation
-    assert c.operation == c_deepcopy.operation
+    def test_operator_properties(self):
+        """Unit tests involving no parsing."""
 
-    # The operator version of scalars and dense arrays calculates the hash based on the
-    # value of the underlying object, hence the comparison operator for pp.ad.Operator
-    # should evaluate for True for both the copy and the deepcopy. The id of the
-    # underlying object should be the same for the copy, but different for the deepcopy.
-    for c1, c2 in zip(c.children, c_copy.children):
-        assert c1 == c2
-        assert id(c1) == id(c2)
-    for c1, c2 in zip(c.children, c_deepcopy.children):
-        assert c1 == c2
-        assert id(c1) != id(c2)
+        # First check that the two copies have behaved as they should.
+        # The operators should be the same for all trees.
+        for item in ["operation", "source", "target"]:
+            assert getattr(self.c, item) == getattr(self.c_copy, item)
+            assert getattr(self.c, item) == getattr(self.c_deepcopy, item)
 
-    # As a second test, also validate that the operators are parsed correctly.
-    # This should not be strictly necessary - the above test should be sufficient,
-    # but better safe than sorry.
-    # Some boilerplate is needed before the expression can be evaluated.
-    mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
-        "cartesian",
-        {"cell_size": 0.2},
-        fracture_indices=[1],
-    )
-    equation_system = pp.ad.EquationSystem(mdg)
-    equation_system.create_variables("foo", {"cells": 1}, mdg.subdomains())
-    equation_system.set_variable_values(
-        np.zeros(equation_system.num_dofs()), iterate_index=0, time_step_index=0
-    )
+        # The operator version of scalars and dense arrays calculates the hash based on
+        # the value of the underlying object, hence the comparison operator for
+        # pp.ad.Operator should evaluate for True for both the copy and the deepcopy.
+        # The id of the underlying object should be the same for the copy, but different
+        # for the deepcopy.
+        for c1, c2 in zip(self.c.children, self.c_copy.children):
+            assert c1 == c2
+            assert id(c1) == id(c2)
+        for c1, c2 in zip(self.c.children, self.c_deepcopy.children):
+            assert c1 == c2
+            assert id(c1) != id(c2)
 
-    # In their initial state, all operators should have the same values
-    assert np.allclose(equation_system.evaluate(c), equation_system.evaluate(c_copy))
-    assert np.allclose(
-        equation_system.evaluate(c), equation_system.evaluate(c_deepcopy)
-    )
+    def test_parsed_evaluation_no_changes(self):
+        """Validate that the operators are parsed correctly through an
+        EquationSystem."""
 
-    # Increase the value of the scalar. This should have no effect, since the scalar
-    # wrapps an immutable, see comment in pp.ad.Scalar
-    a_val += 1
-    assert np.allclose(equation_system.evaluate(c), equation_system.evaluate(c_copy))
-    assert np.allclose(
-        equation_system.evaluate(c), equation_system.evaluate(c_deepcopy)
-    )
+        np.testing.assert_allclose(
+            self.equation_system.evaluate(self.c),
+            self.equation_system.evaluate(self.c_copy),
+        )
+        np.testing.assert_allclose(
+            self.equation_system.evaluate(self.c),
+            self.equation_system.evaluate(self.c_deepcopy),
+        )
 
-    # Increase the value of the Scalar. This will be seen by the copy, but not the
-    # deepcopy.
-    a._value += 1
-    assert np.allclose(equation_system.evaluate(c), equation_system.evaluate(c_copy))
-    assert not np.allclose(
-        equation_system.evaluate(c), equation_system.evaluate(c_deepcopy)
-    )
+    def test_changing_scalar_outside_operator_has_no_impact(self):
+        """Increase the value of the scalar used to construct the operators. This should
+        have no effect, since the scalar wrapps an immutable, see comment in
+        pp.ad.Scalar.
+        """
+        self.a_val += 1
+        np.testing.assert_allclose(
+            self.equation_system.evaluate(self.c),
+            self.equation_system.evaluate(self.c_copy),
+        )
+        assert np.allclose(
+            self.equation_system.evaluate(self.c),
+            self.equation_system.evaluate(self.c_deepcopy),
+        )
 
-    # Next increase the values in the array. This changes the shallow copy, but not the
-    # deep one.
-    b_arr += 1
-    assert np.allclose(equation_system.evaluate(c), equation_system.evaluate(c_copy))
-    assert not np.allclose(
-        equation_system.evaluate(c), equation_system.evaluate(c_deepcopy)
-    )
+    def test_changing_scalar_operator_not_seen_by_deep_copy(self):
+        """Increase the value of the scalar used to construct the operators. This should
+        not be seen by the deep copy, since it is a separate object.
+        """
+        self.a._value += 1
+        np.testing.assert_allclose(
+            self.equation_system.evaluate(self.c),
+            self.equation_system.evaluate(self.c_copy),
+        )
+        np.testing.assert_allclose(
+            self.equation_system.evaluate(self.c),
+            self.equation_system.evaluate(self.c_deepcopy) + 1,
+        )
 
 
 ## Test of pp.ad.SparseArray, pp.ad.DenseArray, pp.ad.Scalar
@@ -169,7 +152,15 @@ def test_elementary_wrappers(field):
 
     """
     obj = field[1]
-    wrapped_obj = field[0](obj, name="foo")
+    if field[0] == pp.ad.Scalar:
+        wrapped_obj = field[0](obj, name="foo")
+    else:
+        wrapped_obj = field[0](
+            obj,
+            name="foo",
+            source=pp.ad.OperatorSpace.unclear(),
+            target=pp.ad.OperatorSpace.unclear(),
+        )
 
     # Evaluate the Ad wrapper using parse, which will act directly on the wrapper
     # (as oposed to evaluate, which will invoke the full evaluation machinery of the
@@ -220,7 +211,15 @@ def test_ad_arrays_unary_minus_parsing(field):
 
     """
     obj = field[1]
-    wrapped_obj = -field[0](obj, name="foo")  # Using the __neg__ method
+    if field[0] == pp.ad.Scalar:
+        wrapped_obj = -field[0](obj, name="foo")
+    else:
+        wrapped_obj = -field[0](
+            obj,
+            name="foo",
+            source=pp.ad.OperatorSpace.unclear(),
+            target=pp.ad.OperatorSpace.unclear(),
+        )
     stored_obj = wrapped_obj.parse(None)
 
     def compare(one, other):
@@ -242,8 +241,11 @@ def test_ad_operator_unary_minus_parsing():
     """
     mat1 = sps.csr_matrix(np.random.rand(3))
     mat2 = sps.csr_matrix(np.random.rand(3))
-    sp_array1 = pp.ad.SparseArray(mat1)
-    sp_array2 = pp.ad.SparseArray(mat2)
+    # Use an unclear operator space here since we do not care about the actual domain of
+    # the SparseArray (tests of this is carried out elsewhere).
+    space = pp.ad.OperatorSpace.unclear()
+    sp_array1 = pp.ad.SparseArray(mat1, source=space, target=space)
+    sp_array2 = pp.ad.SparseArray(mat2, source=space, target=space)
     equation_system = pp.ad.EquationSystem(pp.MixedDimensionalGrid())
     op = sp_array1 + sp_array2
     assert np.allclose(equation_system.evaluate(-op, None).data, -(mat1 + mat2).data)
@@ -303,9 +305,13 @@ def test_time_dependent_array():
     bg_array = pp.ad.TimeDependentDenseArray("foobar", domains=mdg.boundaries())
 
     # Check correct domain types
-    assert sd_array.domain_type == sd_array_top.domain_type == "subdomains"
-    assert intf_array.domain_type == "interfaces"
-    assert bg_array.domain_type == "boundary grids"
+    assert (
+        sd_array.target.domain_type
+        == sd_array_top.target.domain_type
+        == DomainType.subdomains
+    )
+    assert intf_array.target.domain_type == DomainType.interfaces
+    assert bg_array.target.domain_type == DomainType.boundary_grids
 
     # Evaluate each of the Ad objects, verify that they have the expected values.
     sd_array_top_eval = sd_array_top.parse(mdg)
@@ -343,7 +349,9 @@ def test_time_dependent_array():
 
     # Create and evaluate a time-dependent array that is a function of neither
     # subdomains nor interfaces.
-    empty_array = pp.ad.TimeDependentDenseArray("none", domains=[])
+    empty_array = pp.ad.TimeDependentDenseArray(
+        "none", domains=[], domain_type=DomainType.subdomains
+    )
     # In this case evaluation should return an empty array.
     empty_eval = empty_array.parse(mdg)
     assert empty_eval.size == 0
@@ -381,7 +389,7 @@ def test_ad_variable_creation():
         fracture_indices=[1],
     )
     equation_system = pp.ad.EquationSystem(mdg)
-    equation_system.create_variables("foo", {"cells": 1}, mdg.subdomains())
+    equation_system.create_variables("foo", {GridEntity.cells: 1}, mdg.subdomains())
 
     var_1 = equation_system.get_variables(["foo"], mdg.subdomains(dim=mdg.dim_max()))[0]
     var_2 = equation_system.get_variables(["foo"], mdg.subdomains(dim=mdg.dim_max()))[0]
@@ -471,23 +479,23 @@ def test_ad_variable_evaluation():
     # It should be possible to avoid this by using dof-indices of the subdomains, but EK
     # cannot wrap his head around this at the moment (it is Friday afternoon).
     equation_system.create_variables(
-        var, dof_info={"cells": 1}, subdomains=mdg.subdomains(dim=2)
+        var, dof_info={GridEntity.cells: 1}, subdomains=mdg.subdomains(dim=2)
     )
     equation_system.create_variables(
-        var, dof_info={"cells": 2}, subdomains=mdg.subdomains(dim=1)
+        var, dof_info={GridEntity.cells: 2}, subdomains=mdg.subdomains(dim=1)
     )
     equation_system.create_variables(
-        var, dof_info={"cells": 1}, subdomains=mdg.subdomains(dim=0)
+        var, dof_info={GridEntity.cells: 1}, subdomains=mdg.subdomains(dim=0)
     )
     equation_system.create_variables(
-        var2, dof_info={"cells": 1}, subdomains=mdg.subdomains(dim=2)
+        var2, dof_info={GridEntity.cells: 1}, subdomains=mdg.subdomains(dim=2)
     )
     # Next create interface variables.
     equation_system.create_variables(
-        mortar_var, dof_info={"cells": 2}, interfaces=mdg.interfaces(dim=1)
+        mortar_var, dof_info={GridEntity.cells: 2}, interfaces=mdg.interfaces(dim=1)
     )
     equation_system.create_variables(
-        mortar_var, dof_info={"cells": 1}, interfaces=mdg.interfaces(dim=0)
+        mortar_var, dof_info={GridEntity.cells: 1}, interfaces=mdg.interfaces(dim=0)
     )
 
     for sd, data in mdg.subdomains(return_data=True):
@@ -496,7 +504,7 @@ def test_ad_variable_evaluation():
         else:
             num_dofs = 1
 
-        data[pp.PRIMARY_VARIABLES] = {var: {"cells": num_dofs}}
+        data[pp.PRIMARY_VARIABLES] = {var: {GridEntity.cells: num_dofs}}
 
         val_state = np.random.rand(sd.num_cells * num_dofs)
         val_iterate = np.random.rand(sd.num_cells * num_dofs)
@@ -509,7 +517,7 @@ def test_ad_variable_evaluation():
 
         # Add a second variable to the 2d grid, just for the fun of it
         if sd.dim == 2:
-            data[pp.PRIMARY_VARIABLES][var2] = {"cells": 1}
+            data[pp.PRIMARY_VARIABLES][var2] = {GridEntity.cells: 1}
             val_state = np.random.rand(sd.num_cells)
             val_iterate = np.random.rand(sd.num_cells)
 
@@ -529,7 +537,7 @@ def test_ad_variable_evaluation():
         else:
             num_dofs = 1
 
-        data[pp.PRIMARY_VARIABLES] = {mortar_var: {"cells": num_dofs}}
+        data[pp.PRIMARY_VARIABLES] = {mortar_var: {GridEntity.cells: num_dofs}}
 
         val_state = np.random.rand(intf.num_cells * num_dofs)
         val_iterate = np.random.rand(intf.num_cells * num_dofs)
@@ -552,7 +560,7 @@ def test_ad_variable_evaluation():
     double_iterate = np.zeros(equation_system.num_dofs())
 
     for v in equation_system.variables:
-        g = v.domain
+        g = v.domains[0]
         inds = equation_system.dofs_of([v])
         if v.name == var2:
             true_state[inds] = state_map_2[g]
@@ -673,7 +681,7 @@ def test_variable_combinations(grids, variables):
     for sd, data in mdg.subdomains(return_data=True):
         data[pp.PRIMARY_VARIABLES] = {}
         for var in variables:
-            data[pp.PRIMARY_VARIABLES].update({var: {"cells": 1}})
+            data[pp.PRIMARY_VARIABLES].update({var: {GridEntity.cells: 1}})
 
             vals = np.random.rand(sd.num_cells)
             pp.set_solution_values(name=var, values=vals, data=data, time_step_index=0)
@@ -681,7 +689,7 @@ def test_variable_combinations(grids, variables):
     # Ad boilerplate
     equation_system = pp.ad.EquationSystem(mdg)
     for var in variables:
-        equation_system.create_variables(var, {"cells": 1}, mdg.subdomains())
+        equation_system.create_variables(var, {GridEntity.cells: 1}, mdg.subdomains())
         equation_system.set_variable_values(
             np.random.rand(mdg.num_subdomain_cells()),
             [var],
@@ -697,7 +705,7 @@ def test_variable_combinations(grids, variables):
     for sd in grids:
         data = mdg.subdomain_data(sd)
         for var in ad_vars:
-            if sd == var.domain:
+            if sd == var.domains[0]:
                 expr = var.value_and_jacobian(equation_system)
                 # Check that the size of the variable is correct
                 values = pp.get_solution_values(
@@ -712,7 +720,7 @@ def test_variable_combinations(grids, variables):
         expr = var.value_and_jacobian(equation_system)
         vals = []
         for sub_var in var.sub_vars:
-            data = mdg.subdomain_data(sub_var.domain)
+            data = mdg.subdomain_data(sub_var.domains[0])
             values = pp.get_solution_values(
                 name=sub_var.name, data=data, time_step_index=0
             )
@@ -724,6 +732,7 @@ def test_variable_combinations(grids, variables):
     # Finally, check that the size of the Jacobian matrix is correct when combining
     # variables (this will cover both variables and mixed-dimensional variable with the
     # same name, and with different name).
+    target = pp.ad.OperatorSpace.from_domains(grids, dof_info={GridEntity.cells: 1})
     for sd in grids:
         for var in ad_vars:
             nc = var.size
@@ -735,15 +744,20 @@ def test_variable_combinations(grids, variables):
                 # The variable must be projected to the full set of grid for addition
                 # to be meaningful. This requires a bit of work.
                 sv_size = np.array([sv.size for sv in mv.sub_vars])
-                mv_grids = [sv._grid for sv in mv.sub_vars]
-                ind = mv_grids.index(var._grid)
+                mv_grids = [sv.domains[0] for sv in mv.sub_vars]
+                ind = mv_grids.index(var.domains[0])
                 offset = np.hstack((0, np.cumsum(sv_size)))[ind]
                 rows = offset + np.arange(nc)
+                source = pp.ad.OperatorSpace.from_domains(
+                    var.domains, dof_info={GridEntity.cells: 1}
+                )
                 P = pp.ad.SparseArray(
-                    sps.coo_matrix((data, (rows, cols)), shape=(nr, nc))
+                    sps.coo_matrix((data, (rows, cols)), shape=(nr, nc)),
+                    source=source,
+                    target=target,
                 )
 
-                eq = eq = mv + P @ var
+                eq = mv + P @ var
                 expr = eq.value_and_jacobian(equation_system)
                 # Jacobian matrix size is set according to the dof manager,
                 assert expr.jac.shape[1] == equation_system.num_dofs()
@@ -815,7 +829,7 @@ def test_time_differentiation():
         )
 
     equation_system = pp.ad.EquationSystem(mdg)
-    equation_system.create_variables("foo", {"cells": 1}, mdg.subdomains())
+    equation_system.create_variables("foo", {GridEntity.cells: 1}, mdg.subdomains())
     # The time step, represented as a scalar.
     ts = 2
     time_step = pp.ad.Scalar(ts)
@@ -903,16 +917,16 @@ def test_ad_discretization_class():
     sub_discr = _MockDiscretization(sub_key)
 
     # Ad wrappers
-    # This mimics the old init of Discretization, before it was decided to
-    # make that class semi-ABC. Still checks the wrap method
-    discr_ad = pp.ad.Discretization()
+    # This mimics the old generic AD discretization wrapper and still checks the
+    # wrap_discretization utility directly.
+    discr_ad = pp.ad.DiscretizationAd()
     discr_ad.subdomains = subdomains
     discr_ad._discretization = discr
-    pp.ad.wrap_discretization(discr_ad, discr, subdomains)
-    sub_discr_ad = pp.ad.Discretization()
+    pp.ad.wrap_discretization(discr_ad, discr, mdg.dim_max(), subdomains)
+    sub_discr_ad = pp.ad.DiscretizationAd()
     sub_discr_ad.subdomains = sub_list
     sub_discr_ad._discretization = sub_discr
-    pp.ad.wrap_discretization(sub_discr_ad, sub_discr, sub_list)
+    pp.ad.wrap_discretization(sub_discr_ad, sub_discr, mdg.dim_max(), sub_list)
 
     # values
     known_val = np.random.rand(len(subdomains))
@@ -945,6 +959,12 @@ class _MockDiscretization:
 
         self.keyword = key
 
+    def get_row_dof_info(self, matrix_key: str = "", nd: int = 1):
+        return GridEntities(cells=1)
+
+    def get_col_dof_info(self, matrix_key: str = "", nd: int = 1):
+        return GridEntities(faces=1)
+
 
 def _get_scalar(wrapped: bool) -> float | pp.ad.Scalar:
     """Helper to set a scalar. Expected values in the test are hardcoded with respect to
@@ -956,19 +976,22 @@ def _get_scalar(wrapped: bool) -> float | pp.ad.Scalar:
         return scalar
 
 
-def _get_dense_array(wrapped: bool) -> np.ndarray | pp.ad.DenseArray:
+def _get_dense_array(wrapped: bool, mdg) -> np.ndarray | pp.ad.DenseArray:
     """Helper to set a dense array (numpy array). Expected values in the test are
     hardcoded with respect to this value. The array is either returned as-is, or wrapped
     as an Ad DenseArray."""
     array = np.array([1, 2, 3]).astype(float)
+    space = pp.ad.OperatorSpace.from_domains(
+        mdg.subdomains(), dof_info={GridEntity.cells: 1}
+    )
     if wrapped:
-        return pp.ad.DenseArray(array)
+        return pp.ad.DenseArray(array, source=space, target=space)
     else:
         return array
 
 
 def _get_sparse_array(
-    wrapped: bool, use_csr_matrix: bool
+    wrapped: bool, use_csr_matrix: bool, mdg
 ) -> sps.spmatrix | sps.sparray | pp.ad.SparseArray:
     """Helper to set a sparse array (scipy sparse array). Expected values in the test
     are hardcoded with respect to this value. The array is either returned as-is, or
@@ -976,14 +999,18 @@ def _get_sparse_array(
     inner = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
     mat = sps.csr_matrix(inner) if use_csr_matrix else sps.csr_array(inner)
     mat = mat.astype(float)
+
+    space = pp.ad.OperatorSpace.from_domains(
+        mdg.subdomains(), dof_info={GridEntity.cells: 1}
+    )
     if wrapped:
-        return pp.ad.SparseArray(mat)
+        return pp.ad.SparseArray(mat, source=space, target=space)
     else:
         return mat
 
 
 def _get_ad_array(
-    wrapped: bool,
+    wrapped: bool, mdg
 ) -> pp.ad.AdArray | tuple[pp.ad.AdArray, pp.ad.EquationSystem]:
     """Get an AdArray object which can be used in the tests."""
 
@@ -1011,20 +1038,21 @@ def _get_ad_array(
     expression_val = jac @ variable_val
 
     if wrapped:
-        g = pp.CartGrid([3, 1])
-        mdg = pp.MixedDimensionalGrid()
-        mdg.add_subdomains([g])
-
         equation_system = pp.ad.EquationSystem(mdg)
-        equation_system.create_variables("foo", subdomains=[g])
+        equation_system.create_variables(
+            "foo", subdomains=mdg.subdomains(), dof_info={GridEntity.cells: 1}
+        )
         var = equation_system.variables[0]
-        d = mdg.subdomain_data(g)
+        d = mdg.subdomain_data(mdg.subdomains()[0])
 
         pp.set_solution_values(
             name="foo", values=variable_val, data=d, time_step_index=0
         )
         pp.set_solution_values(name="foo", values=variable_val, data=d, iterate_index=0)
-        mat = pp.ad.SparseArray(jac)
+        space = pp.ad.OperatorSpace.from_domains(
+            mdg.subdomains(), dof_info={GridEntity.cells: 1}
+        )
+        mat = pp.ad.SparseArray(jac, source=space, target=space)
 
         return mat @ var, equation_system
 
@@ -1480,17 +1508,24 @@ def test_arithmetic_operations_on_ad_objects(
         # is okay, thus we do not skip if wrapped is True.
         return
 
+    # TODO: This can be made into a fixture, but that should be part of a full
+    # restructuring of this test file, which will be done as part of an ongoing
+    # extension to cell-wise AdArrays.
+    g = pp.CartGrid([3, 1])
+    mdg = pp.MixedDimensionalGrid()
+    mdg.add_subdomains([g])
+
     def _var_from_string(v, do_wrap: bool):
         if v == "scalar":
             return _get_scalar(do_wrap)
         elif v == "dense":
-            return _get_dense_array(do_wrap)
+            return _get_dense_array(do_wrap, mdg)
         elif v == "sparse_matrix":
-            return _get_sparse_array(do_wrap, use_csr_matrix=True)
+            return _get_sparse_array(do_wrap, use_csr_matrix=True, mdg=mdg)
         elif v == "sparse_array":
-            return _get_sparse_array(do_wrap, use_csr_matrix=False)
+            return _get_sparse_array(do_wrap, use_csr_matrix=False, mdg=mdg)
         elif v == "ad":
-            return _get_ad_array(do_wrap)
+            return _get_ad_array(do_wrap, mdg)
         else:
             raise ValueError("Unknown variable type")
 
@@ -1687,7 +1722,10 @@ def test_hashing_sparse_array(two_spmatrices):
     almost identical, but it is crucial to distinguish between them.
 
     """
-    m1, m2 = [pp.ad.SparseArray(mat) for mat in two_spmatrices]
+    space = pp.ad.OperatorSpace.unclear()
+    m1, m2 = [
+        pp.ad.SparseArray(mat, source=space, target=space) for mat in two_spmatrices
+    ]
     assert hash(m1) != hash(m2)
 
 

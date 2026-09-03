@@ -8,11 +8,16 @@ conservation.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
 from porepy.numerics.discretization import Discretization
+
+if TYPE_CHECKING:
+    from porepy.numerics.ad.grid_entity import GridEntities
 
 
 class DualScalarSource(Discretization):
@@ -40,6 +45,20 @@ class DualScalarSource(Discretization):
 
         """
         return sd.num_faces + sd.num_cells
+
+    def get_row_dof_info(self, matrix_key: str = "", nd: int = 1) -> GridEntities:
+        """Placeholder method. This functionality is not supported for
+        DualScalarSource."""
+        raise NotImplementedError(
+            "DualScalarSource does not provide row DOF information."
+        )
+
+    def get_col_dof_info(self, matrix_key: str = "", nd: int = 1) -> GridEntities:
+        """Placeholder method. This functionality is not supported for
+        DualScalarSource."""
+        raise NotImplementedError(
+            "DualScalarSource does not provide column DOF information."
+        )
 
     def assemble_matrix_rhs(
         self, sd: pp.Grid, data: dict

@@ -398,14 +398,12 @@ class ResidualExporting:
         for name, operator in self.equation_system.equations.items():
             residuals = cast(NDArray, self.equation_system.evaluate(operator))
 
-            # Get image_info as dict[GridEntity, int], where
-            # GridEntity = Literal["cells", "faces", "nodes"]
-            image_info = self.equation_system.equation_image_size_info[name]
+            # Number of equations the operator provides per grid entity.
+            image_info = operator.target.dof_info
             dof_start, dof_end = 0, 0
             for g in operator.domains:
-                # Add number of dofs for each entity in image_info.
-                for entity, num in image_info.items():
-                    dof_end += getattr(g, "num_" + entity) * num
+                # Add the number of dofs the operator has on the current grid.
+                dof_end += pp.ad.OperatorSpace.from_domains((g,), image_info).num_dofs()
                 # Append residuals for current grid.
                 data.append(
                     (

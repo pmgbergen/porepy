@@ -19,6 +19,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.numerics import solvers
+from porepy.numerics.ad import OperatorSpace
 from porepy.viz.solver_statistics import SolverStatisticsFactory
 
 logger = logging.getLogger(__name__)
@@ -963,7 +964,9 @@ class ContactIndicators(pp.PorePyModel):
         # Mapping from a full vector to the tangential component
         nd_vec_to_tangential = self.tangential_component(subdomains)
 
-        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
+        tangential_basis = self.basis(
+            subdomains, dim=self.nd - 1, domain_type=pp.ad.DomainType.subdomains
+        )
 
         # Variables: The tangential component of the contact traction and the
         # displacement jump
@@ -971,14 +974,25 @@ class ContactIndicators(pp.PorePyModel):
         u_t: pp.ad.Operator = nd_vec_to_tangential @ self.displacement_jump(subdomains)
         # The time increment of the tangential displacement jump
         u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
-        zeros_frac = pp.ad.DenseArray(np.zeros(num_cells))
+        domain_and_range = OperatorSpace.from_domains(subdomains)
+        zeros_frac = pp.ad.DenseArray(
+            np.zeros(num_cells), source=domain_and_range, target=domain_and_range
+        )
 
-        f_max = pp.ad.Function(pp.ad.maximum, "max_function")
-        f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
+        f_max = pp.ad.Function(pp.ad.maximum, "max_function", domain_and_range)
+        f_norm = pp.ad.Function(
+            partial(pp.ad.l2_norm, self.nd - 1),
+            "norm_function",
+            domain_and_range,
+        )
         # Heaviside function. The 0 as the second argument to partial() implies
         # f_heaviside(0)=0, a choice that is not expected to affect the result in this
         # context.
-        f_heaviside = pp.ad.Function(partial(pp.ad.heaviside, 0), "heaviside_function")
+        f_heaviside = pp.ad.Function(
+            partial(pp.ad.heaviside, 0),
+            "heaviside_function",
+            domain_and_range,
+        )
 
         c_num_as_scalar = self.contact_mechanics_numerical_constant(subdomains)
 
@@ -1015,11 +1029,21 @@ class ContactIndicators(pp.PorePyModel):
 
         """
         t: pp.ad.Operator = self.contact_traction(subdomains)
-        e_n = self.e_i(subdomains, dim=self.nd, i=self.nd - 1)
+        e_n = self.e_i(
+            subdomains,
+            dim=self.nd,
+            i=self.nd - 1,
+            domain_type=pp.ad.DomainType.subdomains,
+        )
 
         u = self.displacement_jump(subdomains) - e_n @ self.fracture_gap(subdomains)
         c_num = self.contact_mechanics_numerical_constant(subdomains)
-        f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd), "norm_function")
+        domain_and_range = OperatorSpace.from_domains(subdomains)
+        f_norm = pp.ad.Function(
+            partial(pp.ad.l2_norm, self.nd),
+            "norm_function",
+            domain_and_range,
+        )
         return f_norm(t) + f_norm(c_num * u)
 
     def compute_traction_norm(self, val: np.ndarray) -> float:

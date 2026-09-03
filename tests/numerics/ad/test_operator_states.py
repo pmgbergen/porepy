@@ -15,6 +15,7 @@ import numpy as np
 import pytest
 
 import porepy as pp
+from porepy.numerics.ad.equation_system import GridEntity
 
 
 def grid():
@@ -49,7 +50,7 @@ class TestTimeDependentAndIterative:
         # more if-else statements when setting and fetching values and expected results.
         self.name = "foo"
         self.var = self.equation_system.create_variables(
-            self.name, dof_info={"cells": 1}, subdomains=self.mdg.subdomains()
+            self.name, dof_info={GridEntity.cells: 1}, subdomains=self.mdg.subdomains()
         )
         self.dense_arr = pp.ad.TimeDependentDenseArray(
             name=self.name, domains=self.mdg.subdomains()
@@ -203,7 +204,7 @@ class TestReferenceOperator:
         # fetching values and expected results.
         name = "foo"
         self.equation_system.create_variables(
-            name, dof_info={"cells": 1}, subdomains=self.mdg.subdomains()
+            name, dof_info={GridEntity.cells: 1}, subdomains=self.mdg.subdomains()
         )
         self.var = self.equation_system.md_variable(name=name)
         self.dense_arr = pp.ad.TimeDependentDenseArray(

@@ -73,8 +73,8 @@ class VerificationUtils(pp.PorePyModel):
         p = self.pressure([sd])
 
         # Discretization
-        discr_mech = pp.ad.MpsaAd(self.stress_keyword, [sd])
-        discr_poromech = pp.ad.BiotAd(self.stress_keyword, [sd])
+        discr_mech = pp.ad.MpsaAd(self.stress_keyword, [sd], nd=self.nd)
+        discr_poromech = pp.ad.BiotAd(self.stress_keyword, [sd], nd=self.nd)
 
         # Boundary conditions
         bc = LinearElasticMechanicalStress.combine_boundary_operators_mechanical_stress(
