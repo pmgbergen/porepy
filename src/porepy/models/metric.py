@@ -255,7 +255,7 @@ class VariableBasedLebesgueMetric(LebesgueMetric):
         for variable in variable_indexer.indices:
             dof_info = variable.source.dof_info
 
-            if not dof_info.faces == 0 and dof_info.nodes == 0:
+            if dof_info.faces != 0 or dof_info.nodes != 0:
                 raise NotImplementedError(
                     """VariableBasedLebesgueMetric currently only supports """
                     """variables defined on cells."""
@@ -264,7 +264,7 @@ class VariableBasedLebesgueMetric(LebesgueMetric):
         norms = {v.name: 0.0 for v in variable_indexer.indices}
 
         for variable, indices in variable_indexer.indices.items():
-            dim = variable.source.dof_info[GridEntity.cells]
+            dim = variable.source.dof_info.cells
             space = OperatorSpace.from_domains(
                 [variable.domain], {GridEntity.cells: dim}
             )
@@ -339,9 +339,7 @@ class EquationBasedLebesgueMetric(LebesgueMetric):
         for name, grids_dofs in self.equation_indexer.group_by_name().items():
             indices = np.concatenate(list(grids_dofs.values()))
             domains = cast(pp.GridLikeSequence, list(grids_dofs.keys()))
-            equation_dim = equation_system.equations[name].target.dof_info[
-                GridEntity.cells
-            ]
+            equation_dim = equation_system.equations[name].target.dof_info.cells
             equation_values = values[indices].reshape((equation_dim, -1), order="F")
             cell_weights = np.hstack([domain.cell_volumes for domain in domains])
             space = OperatorSpace.from_domains(domains, {GridEntity.cells: 1})

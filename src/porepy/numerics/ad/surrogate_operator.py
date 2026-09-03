@@ -478,10 +478,12 @@ class SurrogateFactory:
         self._name: str = name
         """See :meth:`name`."""
 
-        self._dof_info: Optional[Union[GridEntities, Mapping[GridEntity, int]]] = (
-            dof_info
+        self._dof_info: Optional[GridEntities] = (
+            None if dof_info is None else GridEntities.from_mapping(dof_info)
         )
-        """Passed at insantiation. ``None`` leads to scalar, cell-wise dofs (see
+        """Passed at insantiation, normalized to a
+        :class:`~porepy.numerics.ad.grid_entity.GridEntities`. ``None`` leads to
+        scalar, cell-wise dofs (see
         :meth:`~porepy.numerics.ad.operator_space.OperatorSpace.from_domains`).
         """
 
@@ -651,7 +653,7 @@ class SurrogateFactory:
 
         Returns:
             For boundary grids and interfaces it returns ``grid.num_cells`` multiplied
-            with ``dof_info['cells']``.
+            with ``dof_info.cells``.
             For subdomains, it returns information based on ``dof_info``,
             number of cells, number of faces and number of nodes in ``grid``.
 
