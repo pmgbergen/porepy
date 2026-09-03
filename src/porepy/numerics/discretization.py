@@ -1,5 +1,7 @@
 """Module contains the abstract superclass for all discretizations."""
 
+from __future__ import annotations
+
 import abc
 from typing import TYPE_CHECKING, Dict, Union
 
