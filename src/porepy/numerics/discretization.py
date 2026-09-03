@@ -9,7 +9,7 @@ import scipy.sparse as sps
 import porepy as pp
 
 if TYPE_CHECKING:
-    from porepy.numerics.ad.grid_entity import GridEntity
+    from porepy.numerics.ad.grid_entity import GridEntities
 
 
 class Discretization(abc.ABC):
@@ -124,9 +124,7 @@ class Discretization(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def get_row_dof_info(
-        self, matrix_key: str = "", nd: int = 1
-    ) -> dict["GridEntity", int]:
+    def get_row_dof_info(self, matrix_key: str = "", nd: int = 1) -> GridEntities:
         """Return the DOF information for the rows of a discretization matrix.
 
         Parameters:
@@ -138,15 +136,14 @@ class Discretization(abc.ABC):
             ValueError: If the matrix_key is not recognized by this discretization.
 
         Returns:
-            A mapping from :class:`~porepy.numerics.ad.GridEntity` to the number of
-            DOFs per grid entity that occupy the rows of the named matrix.
+            A :class:`~porepy.numerics.ad.grid_entity.GridEntities` giving the
+            number of DOFs per grid entity that occupy the rows of the named
+            matrix.
 
         """
 
     @abc.abstractmethod
-    def get_col_dof_info(
-        self, matrix_key: str = "", nd: int = 1
-    ) -> dict["GridEntity", int]:
+    def get_col_dof_info(self, matrix_key: str = "", nd: int = 1) -> GridEntities:
         """Return the DOF information for the columns of a discretization matrix.
 
         Parameters:
@@ -160,8 +157,9 @@ class Discretization(abc.ABC):
             ValueError: If the matrix_key is not recognized by this discretization.
 
         Returns:
-            A mapping from :class:`~porepy.numerics.ad.GridEntity` to the number of
-            DOFs per grid entity that occupy the columns of the named matrix.
+            A :class:`~porepy.numerics.ad.grid_entity.GridEntities` giving the
+            number of DOFs per grid entity that occupy the columns of the named
+            matrix.
 
         """
 
@@ -199,9 +197,7 @@ class InterfaceDiscretization(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def get_row_dof_info(
-        self, matrix_key: str = "", nd: int = 1
-    ) -> dict["GridEntity", int]:
+    def get_row_dof_info(self, matrix_key: str = "", nd: int = 1) -> GridEntities:
         """Return the DOF information for the rows (range) of a discretization matrix.
 
         Parameters:
@@ -213,16 +209,15 @@ class InterfaceDiscretization(abc.ABC):
             ValueError: If the matrix_key is not recognized by this discretization.
 
         Returns:
-            A mapping from :class:`~porepy.numerics.ad.GridEntity` to the number of
-            DOFs per grid entity that occupy the rows of the named matrix.
+            A :class:`~porepy.numerics.ad.grid_entity.GridEntities` giving the
+            number of DOFs per grid entity that occupy the rows of the named
+            matrix.
 
         """
         pass
 
     @abc.abstractmethod
-    def get_col_dof_info(
-        self, matrix_key: str = "", nd: int = 1
-    ) -> dict["GridEntity", int]:
+    def get_col_dof_info(self, matrix_key: str = "", nd: int = 1) -> GridEntities:
         """Return the DOF information for the columns (domain) of a discretization
         matrix.
 
@@ -235,8 +230,9 @@ class InterfaceDiscretization(abc.ABC):
             ValueError: If the matrix_key is not recognized by this discretization.
 
         Returns:
-            A mapping from :class:`~porepy.numerics.ad.GridEntity` to the number of
-            DOFs per grid entity that occupy the columns of the named matrix.
+            A :class:`~porepy.numerics.ad.grid_entity.GridEntities` giving the
+            number of DOFs per grid entity that occupy the columns of the named
+            matrix.
 
         """
         pass
