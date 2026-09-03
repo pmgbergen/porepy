@@ -958,10 +958,9 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     )
     # Check that the mapping of equation to grid entity block size
     # is set correctly.
-    assert (
-        equation_system.equations[model.eq_single_subdomain.name].target.dof_info
-        == dof_info_subdomain
-    )
+    assert equation_system.equations[
+        model.eq_single_subdomain.name
+    ].target.dof_info == pp.ad.GridEntities.from_mapping(dof_info_subdomain)
 
     # Add a second equation, defined on both subdomains
     equation_system.set_equation(

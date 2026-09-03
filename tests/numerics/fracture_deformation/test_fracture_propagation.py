@@ -547,7 +547,7 @@ class MockPropagationModel(pp.ConformingFracturePropagation):
     """
 
     def _initialize_new_variable_values(self, g, d, var, dofs):
-        cell_dof: int = dofs.get(GridEntity.cells, 0)
+        cell_dof: int = dofs.cells
         # Number of new variables is given by the size of the cell map.
         cell_map = d["cell_index_map"]
         n_new = cell_map.shape[0] - cell_map.shape[1]
