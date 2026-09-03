@@ -1236,7 +1236,7 @@ class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator, Operator
         self,
         name: str,
         domains: GridLikeSequence,
-        dof_info: Optional[dict[GridEntity, int]] = None,
+        dof_info: Optional[Union[GridEntities, Mapping[GridEntity, int]]] = None,
         domain_type: Optional[DomainType] = None,
     ):
         if domains or domain_type is not None:
@@ -1678,13 +1678,13 @@ class MixedDimensionalVariable(Variable):
             assert len(set(domains)) == len(domains), (
                 "Cannot create md-variable from variables with overlapping domains."
             )
-            dof_sets = {frozenset(dof_info.items()) for dof_info in dof_infos}
+            unique_dof_infos = set(dof_infos)
             all_same_grid_class = (
                 all(isinstance(grid, pp.Grid) for grid in domains)
                 or all(isinstance(grid, pp.MortarGrid) for grid in domains)
                 or all(isinstance(grid, pp.BoundaryGrid) for grid in domains)
             )
-            if len(dof_sets) == 1 and all_same_grid_class:
+            if len(unique_dof_infos) == 1 and all_same_grid_class:
                 op_space = OperatorSpace.from_domains(domains, dof_infos[0])
             else:
                 # The sub-variables genuinely disagree on dof_info and/or grid class:

@@ -98,7 +98,7 @@ class FracturePropagation(abc.ABC):
 
         """
         # Number of cell dofs for this variable
-        cell_dof = dofs.get(pp.ad.GridEntity.cells)
+        cell_dof = dofs.cells
 
         # Number of new variables is given by the size of the cell map.
         cell_map: sps.spmatrix = d["cell_index_map"]
@@ -168,14 +168,12 @@ class FracturePropagation(abc.ABC):
             # It should not be difficult to handle other types of variables,
             # but the need has not been there.
             dofs = var.source.dof_info
-            face_dof: int = dofs.get(pp.ad.GridEntity.faces, 0)
-            node_dof: int = dofs.get(pp.ad.GridEntity.nodes, 0)
-            if face_dof != 0 or node_dof != 0:
+            if dofs.faces != 0 or dofs.nodes != 0:
                 raise NotImplementedError(
                     "Have only implemented variable mapping for face dofs"
                 )
 
-            cell_dof: int = dofs[pp.ad.GridEntity.cells]
+            cell_dof: int = dofs.cells
 
             # Map old solution
             mapping = sps.kron(cell_map, sps.eye(cell_dof))
@@ -237,7 +235,7 @@ class FracturePropagation(abc.ABC):
 
             # Mapping of old variables.
             dofs = var.source.dof_info
-            cell_dof = dofs[pp.ad.GridEntity.cells]
+            cell_dof = dofs.cells
             mapping = sps.kron(cell_map, sps.eye(cell_dof))
             x_new[self.equation_system.dofs_of([var])] = (
                 mapping * data["old_solution"][var]
