@@ -30,7 +30,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.grid_entity import GridEntity
+from porepy.numerics.ad.grid_entity import GridEntities
 
 from . import _fvutils
 
@@ -125,7 +125,7 @@ class Biot(pp.Mpsa):
 
     def get_row_dof_info(
         self, matrix_key: str = "", nd: int = 1
-    ) -> dict[pp.ad.GridEntity, int]:
+    ) -> pp.ad.GridEntities:
         """Return row DOF info for the named Biot matrix.
 
         Handles the Biot-specific coupling matrices and falls back to the parent
@@ -139,16 +139,16 @@ class Biot(pp.Mpsa):
             ValueError: If the matrix_key is not recognized by this discretization.
 
         Returns:
-            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity.
+            A :class:`~porepy.numerics.ad.GridEntities` with the DOFs per entity.
 
         """
 
-        biot_row_mapping: dict[str, dict[pp.ad.GridEntity, int]] = {
-            "displacement_divergence": {pp.ad.GridEntity.cells: 1},
-            "bound_displacement_divergence": {pp.ad.GridEntity.cells: 1},
-            "scalar_gradient": {pp.ad.GridEntity.faces: nd},
-            "consistency": {pp.ad.GridEntity.cells: 1},
-            "bound_pressure": {pp.ad.GridEntity.faces: nd},
+        biot_row_mapping: dict[str, pp.ad.GridEntities] = {
+            "displacement_divergence": pp.ad.GridEntities(cells=1),
+            "bound_displacement_divergence": pp.ad.GridEntities(cells=1),
+            "scalar_gradient": pp.ad.GridEntities(faces=nd),
+            "consistency": pp.ad.GridEntities(cells=1),
+            "bound_pressure": pp.ad.GridEntities(faces=nd),
         }
         if matrix_key in biot_row_mapping:
             return biot_row_mapping[matrix_key]
@@ -156,7 +156,7 @@ class Biot(pp.Mpsa):
 
     def get_col_dof_info(
         self, matrix_key: str = "", nd: int = 1
-    ) -> dict[pp.ad.GridEntity, int]:
+    ) -> pp.ad.GridEntities:
         """Return column DOF info for the named Biot matrix.
 
         Handles the Biot-specific coupling matrices and falls back to the parent
@@ -170,16 +170,16 @@ class Biot(pp.Mpsa):
             ValueError: If the matrix_key is not recognized by this discretization.
 
         Returns:
-            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity.
+            A :class:`~porepy.numerics.ad.GridEntities` with the DOFs per entity.
 
         """
 
-        biot_col_mapping: dict[str, dict[pp.ad.GridEntity, int]] = {
-            "displacement_divergence": {pp.ad.GridEntity.cells: nd},
-            "bound_displacement_divergence": {pp.ad.GridEntity.faces: nd},
-            "scalar_gradient": {pp.ad.GridEntity.cells: 1},
-            "consistency": {pp.ad.GridEntity.cells: 1},
-            "bound_pressure": {pp.ad.GridEntity.cells: 1},
+        biot_col_mapping: dict[str, pp.ad.GridEntities] = {
+            "displacement_divergence": pp.ad.GridEntities(cells=nd),
+            "bound_displacement_divergence": pp.ad.GridEntities(faces=nd),
+            "scalar_gradient": pp.ad.GridEntities(cells=1),
+            "consistency": pp.ad.GridEntities(cells=1),
+            "bound_pressure": pp.ad.GridEntities(cells=1),
         }
         if matrix_key in biot_col_mapping:
             return biot_col_mapping[matrix_key]

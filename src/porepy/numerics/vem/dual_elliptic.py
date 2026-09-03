@@ -16,7 +16,7 @@ from porepy.numerics.discretization import Discretization
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 if TYPE_CHECKING:
-    from porepy.numerics.ad.grid_entity import GridEntity
+    from porepy.numerics.ad.grid_entity import GridEntities
 
 
 def project_flux(
@@ -112,19 +112,15 @@ class DualElliptic(Discretization):
         """
         return sd.num_cells + sd.num_faces
 
-    def get_row_dof_info(
-        self, matrix_key: str = "", nd: int = 1
-    ) -> dict["GridEntity", int]:
+    def get_row_dof_info(self, matrix_key: str = "", nd: int = 1) -> GridEntities:
         # Though the method is present in the base class, it is not expected to be used
         # by the dual elliptic methods. Return empty.
-        return {}
+        return pp.ad.GridEntities()
 
-    def get_col_dof_info(
-        self, matrix_key: str = "", nd: int = 1
-    ) -> dict["GridEntity", int]:
+    def get_col_dof_info(self, matrix_key: str = "", nd: int = 1) -> GridEntities:
         # Though the method is present in the base class, it is not expected to be used
         # by the dual elliptic methods. Return empty.
-        return {}
+        return pp.ad.GridEntities()
 
     def assemble_matrix_rhs(
         self, sd: pp.Grid, data: dict

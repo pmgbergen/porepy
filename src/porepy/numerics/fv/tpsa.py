@@ -349,7 +349,7 @@ class Tpsa(Discretization):
 
     def get_row_dof_info(
         self, matrix_key: str = "", nd: int = 1
-    ) -> dict[pp.ad.GridEntity, int]:
+    ) -> pp.ad.GridEntities:
         """Return row DOF info for the named Tpsa matrix.
 
         Parameters:
@@ -361,7 +361,7 @@ class Tpsa(Discretization):
             ValueError: If the matrix_key is not recognized by this discretization.
 
         Returns:
-            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity.
+            A :class:`~porepy.numerics.ad.GridEntities` with the DOFs per entity.
 
         """
         nrot = 3 if nd == 3 else 1
@@ -387,18 +387,18 @@ class Tpsa(Discretization):
             "bound_mass_displacement",
         }
         if matrix_key in nd_rows:
-            return {pp.ad.GridEntity.faces: nd}
+            return pp.ad.GridEntities(faces=nd)
         if matrix_key in nrot_rows:
-            return {pp.ad.GridEntity.faces: nrot}
+            return pp.ad.GridEntities(faces=nrot)
         if matrix_key in scalar_rows:
-            return {pp.ad.GridEntity.faces: 1}
+            return pp.ad.GridEntities(faces=1)
         raise ValueError(
             f"Unrecognized matrix key '{matrix_key}' for Tpsa discretization."
         )
 
     def get_col_dof_info(
         self, matrix_key: str = "", nd: int = 1
-    ) -> dict[pp.ad.GridEntity, int]:
+    ) -> pp.ad.GridEntities:
         """Return column DOF info for the named Tpsa matrix.
 
         Parameters:
@@ -410,7 +410,7 @@ class Tpsa(Discretization):
             ValueError: If the matrix_key is not recognized by this discretization.
 
         Returns:
-            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity.
+            A :class:`~porepy.numerics.ad.GridEntities` with the DOFs per entity.
 
         """
 
@@ -433,25 +433,25 @@ class Tpsa(Discretization):
             "rotation_rotation",
             "bound_displacement_rotation_cell",
         }
-        nrot_cols_faces: dict[pp.ad.GridEntity, int] = {}
+        nrot_cols_faces: set[str] = set()
         scalar_cols_cells = {
             "stress_total_pressure",
             "mass_total_pressure",
             "bound_displacement_solid_pressure_cell",
         }
-        scalar_cols_faces: dict[pp.ad.GridEntity, int] = {}
+        scalar_cols_faces: set[str] = set()
         if matrix_key in nd_cols_cells:
-            return {pp.ad.GridEntity.cells: nd}
+            return pp.ad.GridEntities(cells=nd)
         if matrix_key in nd_cols_faces:
-            return {pp.ad.GridEntity.faces: nd}
+            return pp.ad.GridEntities(faces=nd)
         if matrix_key in nrot_cols_cells:
-            return {pp.ad.GridEntity.cells: nrot}
+            return pp.ad.GridEntities(cells=nrot)
         if matrix_key in nrot_cols_faces:
-            return {pp.ad.GridEntity.faces: nrot}
+            return pp.ad.GridEntities(faces=nrot)
         if matrix_key in scalar_cols_cells:
-            return {pp.ad.GridEntity.cells: 1}
+            return pp.ad.GridEntities(cells=1)
         if matrix_key in scalar_cols_faces:
-            return {pp.ad.GridEntity.faces: 1}
+            return pp.ad.GridEntities(faces=1)
         raise ValueError(
             f"Unrecognized matrix key '{matrix_key}' for Tpsa discretization."
         )
