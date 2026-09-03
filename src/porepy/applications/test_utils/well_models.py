@@ -1,6 +1,6 @@
 """Contains code for setting up a simple but non-trivial model with a well."""
 
-from typing import Literal
+from typing import Literal, Sequence
 
 import numpy as np
 
@@ -189,6 +189,73 @@ class BoundaryConditionsWellSetup(pp.PorePyModel):
 
         """
         return self._bc_type(sd, "neu")
+
+
+class BoundaryConditionsOneRateOnePressureWell(BoundaryConditionsWellSetup):
+    """Rate control on one well and pressure control on another.
+
+    The rate-controlled well is driven by the ``well_flux`` parameter as in
+    :class:`BoundaryConditionsWellSetup`. Use with a model of more than one well, such
+    as :class:`~porepy.applications.md_grids.model_geometries.TwoWells3d`. The well
+    named by :attr:`pressure_controlled_well` is instead held at the ``well_pressure``
+    parameter, and therefore produces wherever the formation around it stands above
+    that pressure. The direction of flow across its contacts is thus an outcome of the
+    simulation rather than something imposed, which is what makes the setup useful for
+    testing the upwind direction of the advected quantities.
+
+    """
+
+    pressure_controlled_well: int = 1
+    """Number of the well held at a fixed pressure. The others are rate-controlled."""
+
+    def is_pressure_controlled(self, grid: pp.Grid | pp.BoundaryGrid) -> bool:
+        """Whether a grid belongs to the pressure-controlled well.
+
+        Parameters:
+            grid: A subdomain, or a boundary grid of one.
+
+        Returns:
+            True if the grid is, or bounds, the pressure-controlled well.
+
+        """
+        subdomain = grid.parent if isinstance(grid, pp.BoundaryGrid) else grid
+        return getattr(subdomain, "well_num", -1) == self.pressure_controlled_well
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Boundary condition type for Darcy flux.
+
+        The pressure-controlled well is given a Dirichlet condition where the
+        rate-controlled wells are given a Neumann one.
+
+        Parameters:
+            sd: Subdomain for which to define boundary conditions.
+
+        Returns:
+            Boundary condition object.
+
+        """
+        if self.is_pressure_controlled(sd):
+            return self._bc_type(sd, "dir")
+        return super().bc_type_darcy_flux(sd)
+
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        """Boundary condition values for pressure.
+
+        The pressure of the pressure-controlled well is taken from the
+        ``well_pressure`` model parameter and assigned at the top of that well, where
+        it is open. All other boundary values are left to the superclass.
+
+        Parameters:
+            bg: Boundary grid for which to define boundary conditions.
+
+        Returns:
+            Boundary condition values array.
+
+        """
+        if not self.is_pressure_controlled(bg):
+            return super().bc_values_pressure(bg)  # type: ignore[misc]
+        value = self.units.convert_units(self.params.get("well_pressure", -1), "Pa")
+        return self._bc_values(bg, value)
 
 
 class WellPermeability(pp.constitutive_laws.CubicLawPermeability):

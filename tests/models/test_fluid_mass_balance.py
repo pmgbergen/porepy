@@ -38,6 +38,7 @@ from porepy.applications.md_grids.model_geometries import (
     CubeDomainOrthogonalFractures,
     NonMatchingSquareDomainOrthogonalFractures,
     SquareDomainOrthogonalFractures,
+    TwoWells3d,
 )
 from porepy.applications.test_utils import models, well_models
 from porepy.applications.test_utils.arrays import projection_matrix_from_array_slicers
@@ -1831,3 +1832,99 @@ def test_a_well_in_hydrostatic_equilibrium_drives_no_flux() -> None:
 
     assert np.max(np.abs(disturbed)) > 0.0
     assert np.max(np.abs(at_rest)) < 1e-9 * np.max(np.abs(disturbed))
+
+
+class InjectorAndProducerModel(
+    TwoWells3d,
+    well_models.BoundaryConditionsOneRateOnePressureWell,
+    well_models.WellPermeability,
+    SinglePhaseFlow,
+):
+    """Two wells in a cuboid, one on rate control and one on pressure."""
+
+
+def _injector_and_producer_model(params: dict | None = None) -> pp.PorePyModel:
+    """A charging well and a producing one, run to the end of the schedule."""
+    full_params: dict = {
+        "material_constants": {
+            "solid": pp.SolidConstants(
+                well_radius=0.02,
+                residual_aperture=1.0,
+                permeability=1e4,
+                normal_permeability=1e4,
+            )
+        },
+        "grid_type": "simplex",
+        "meshing_arguments": {"cell_size": 0.25, "cell_size_min": 0.05},
+        "times_to_export": [],
+        "well_completion": {
+            0: {"open_intervals": [(0.0, 10.0)]},
+            1: {"open_intervals": [(0.0, 10.0)]},
+        },
+    }
+    full_params.update(params or {})
+    model = InjectorAndProducerModel(full_params)
+    pp.ModelRunner(model).run()
+    return model
+
+
+def _rock_contacts_by_well(model: pp.PorePyModel) -> dict[int, pp.MortarGrid]:
+    """The well-matrix interface of each well, keyed by the well's number."""
+    return {
+        pp.fracs.wells_3d.well_number_of_interface(model.mdg, intf): intf
+        for intf in model.mdg.interfaces(codim=2)
+        if not _is_well_fracture_interface(model, intf)
+    }
+
+
+def test_a_pressure_controlled_well_produces_what_a_rate_controlled_one_charges():
+    """Holding one well at a pressure below the formation makes it produce.
+
+    Both directions of flow across a well-matrix contact are needed to exercise the
+    upwinding of advected quantities, and imposing them by hand would not test that the
+    sign is an outcome of the pressures. A failure means the pair no longer drives flow
+    in both directions, and the tests that rely on it are then only testing one.
+    """
+    model = _injector_and_producer_model({"well_pressure": -1.0})
+    contacts = _rock_contacts_by_well(model)
+    assert set(contacts) == {0, 1}
+
+    fluxes = {
+        well: model.equation_system.evaluate(model.well_flux([intf]))
+        for well, intf in contacts.items()
+    }
+    # Interface fluxes run from higher to lower dimension, so a negative flux leaves
+    # the well for the rock.
+    assert np.sum(fluxes[0]) < 0, "the rate-controlled well must charge the formation"
+    assert np.sum(fluxes[1]) > 0, "the pressure-controlled well must produce"
+
+    # Both signs must occur among the contacts of a single well too: a well cell can
+    # take fluid from one matrix cell and give it to another, which is the cross-flow
+    # the one-mortar-cell-per-contact granularity exists to represent.
+    for well, flux in fluxes.items():
+        assert np.any(flux > 1e-12), f"well {well} has no contact taking fluid in"
+        assert np.any(flux < -1e-12), f"well {well} has no contact giving fluid out"
+
+
+def test_the_sign_of_a_well_contact_flux_follows_its_pressure_difference():
+    """Fluid crosses a contact towards the lower pressure, contact by contact.
+
+    This is the statement the upwinding of enthalpy and of component fractions rests
+    on: the side a quantity is advected from is decided by the sign of the mass flux.
+    A failure means that sign disagrees with the pressures that produced it, and every
+    advected quantity would then be taken from the wrong side.
+    """
+    model = _injector_and_producer_model({"well_pressure": -1.0})
+
+    for intf in _rock_contacts_by_well(model).values():
+        rock, well = model.mdg.interface_to_subdomain_pair(intf)
+        flux = model.equation_system.evaluate(model.well_flux([intf]))
+        pressure_drop = intf.primary_to_mortar_avg() @ model.equation_system.evaluate(
+            model.pressure([rock])
+        ) - intf.secondary_to_mortar_avg() @ model.equation_system.evaluate(
+            model.pressure([well])
+        )
+        significant = np.abs(flux) > 1e-12
+        np.testing.assert_array_equal(
+            np.sign(flux[significant]), np.sign(pressure_drop[significant])
+        )
