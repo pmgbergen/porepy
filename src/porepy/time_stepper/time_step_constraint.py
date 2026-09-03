@@ -51,21 +51,19 @@ class TargetNonlinearIterations(TimeStepConstraint):
     """Increases / decreases dt if the number of nonlinear solver iterations is below
     `iter_min` / above `iter_max`, respectively.
 
-    Expects "nonlinear_solver_status" (:class:`pp.solvers.NonlinearSolverStatus`) in
-    context.
+    Expects "nonlinear_solver_status" (:class:`pp.solvers.NonlinearSolverStatus`),
+    "t_snap" and "dt_min" in context.
+
+    If dt is to be decreased due to failure and it is about to become smaller than
+    `dt_min`, it will first decrease it to `dt_min`. If the attempt with dt = dt_min
+    fails, it will decrease dt below `dt_min`, which will force the TimeScheduler to
+    stop the simulation.
 
     Parameters:
         iter_min: Left bound of the nonlinear solver's desired iterations range.
         iter_max: Right bound of the nonlinear solver's desired iterations range.
         increase_factor: How much to increase dt if iterations are below `iter_min`.
         decrease_factor: How much to decrease dt if iterations are above `iter_max`.
-        retry_factor: How much to decrease dt if the nonlinear solver failed.
-        dt_min: Sets the dt point that is guaranteed to try when decreasing dt. If
-            `dt == dt_min`, will decrease dt below `dt_min`. The practical use case is
-            during repeating failures, where it will ensure that it will attempt to make
-            the time step with `dt_min`, before stopping the simulation with failure. If
-            the value is not specified (default), it does not affect.
-        t_snap: Snapping time. If time difference is below it, treats it as zero.
 
     """
 
@@ -76,21 +74,11 @@ class TargetNonlinearIterations(TimeStepConstraint):
         increase_factor: float = 1.3,
         decrease_factor: float = 0.7,
         retry_factor: float = 0.5,
-        dt_min: float = 0,
-        t_snap: float = 1e-6,
     ) -> None:
         if iter_min > iter_max:
             raise ValueError(
                 f"Incorrect optimal iteration range: [{iter_min, {iter_max}}]."
             )
-        self.dt_min: float = dt_min
-        """Sets the dt point that is guaranteed to try when decreasing dt. If
-        `dt == dt_min`, will decrease dt below `dt_min`. The practical use case is
-        during repeating failures, where it will ensure that it will attempt to make
-        the time step with `dt_min`, before stopping the simulation with failure. If
-        the value is not specified (default), does not affect.
-
-        """
         self.iter_min = iter_min
         """Left bound of the nonlinear solver's desired iterations range."""
         self.iter_max = iter_max
@@ -110,8 +98,6 @@ class TargetNonlinearIterations(TimeStepConstraint):
         """How much to decrease dt if iterations are above `iter_max`."""
         self.retry_factor = retry_factor
         """How much to decrease dt if the nonlinear solver failed."""
-        self.t_snap: float = t_snap
-        """Snapping time. If time difference is below it, treats it as zero."""
 
     def suggest_dt(self, dt: float, context: dict) -> float:
         status = context.get("nonlinear_solver_status")
@@ -120,6 +106,12 @@ class TargetNonlinearIterations(TimeStepConstraint):
                 "TargetNonlinearIterations requires 'nonlinear_solver_status' in "
                 "context."
             )
+        dt_min = context.get("dt_min")
+        if not isinstance(dt_min, (int, float)):
+            raise ValueError("TargetNonlinearIterations requires 'dt_min' in context.")
+        t_snap = context.get("t_snap")
+        if not isinstance(dt_min, (int, float)):
+            raise ValueError("TargetNonlinearIterations requires 't_snap' in context.")
 
         if status.is_converged():
             num_iter = status.number_of_iterations()
@@ -127,16 +119,17 @@ class TargetNonlinearIterations(TimeStepConstraint):
                 return dt * self.increase_factor
             elif num_iter >= self.iter_max:
                 # Decrease dt, but not below dt_min.
-                return max(dt * self.decrease_factor, self.dt_min)
+                return max(dt * self.decrease_factor, dt_min)
             else:
                 return dt
         else:
-            if abs(dt - self.dt_min) < self.t_snap:
-                raise CannotRecomputeTimeStep(
-                    f"Adjusted time step size ({dt * self.retry_factor:.1e}) is lower "
-                    f"than the minimum admissible value ({self.dt_min:.1e})."
-                )
-            return max(dt * self.retry_factor, self.dt_min)
+            # See the class docstring. It will first decrease to dt_min, and only if it
+            # failed will decrease below it.
+            if abs(dt - dt_min) < t_snap:
+                # Dt equals to dt_min. Decrease below it.
+                return dt * self.retry_factor
+            # Decrease dt but not smaller than dt_min.
+            return max(dt * self.retry_factor, dt_min)
 
 
 class CourantTimeStepConstraint(TimeStepConstraint):
