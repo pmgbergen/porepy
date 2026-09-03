@@ -9,6 +9,8 @@ Also provides a convenience factory function `assemble_default_time_scheduler`.
 
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from bisect import bisect_right
 from logging import getLogger
