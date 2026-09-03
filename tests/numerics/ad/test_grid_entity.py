@@ -1,15 +1,17 @@
 """Tests for the ``GridEntity`` enum and the ``GridEntities`` value object.
 
 Verifies:
-  1. Enum member values and the ``void`` sentinel.
+  1. Enum member values.
   2. ``GridEntity`` is accessible as ``pp.ad.GridEntity``.
   3. ``create_variables`` works with enum-keyed ``dof_info`` dicts.
   4. ``set_equation`` works with enum-keyed ``equations_per_grid_entity`` dicts.
-  5. ``GridEntities`` behaves like a read-only, nonzero-filtered
-     ``Mapping[GridEntity, int]``, while also being immutable and hashable.
+  5. ``GridEntities`` is an immutable, hashable value object with one field per
+     ``GridEntity`` member, and its derived properties treat a zero count and an
+     absent entity as the same thing.
 """
 
-import numpy as np
+import dataclasses
+
 import pytest
 
 import porepy as pp
@@ -144,49 +146,59 @@ class TestGridEntitiesEqualityAndHashing:
         assert len({a, b, c}) == 2
 
 
-@pytest.fixture(
-    params=[
-        (GridEntities(), {}),
-        (GridEntities(cells=1), {GridEntity.cells: 1}),
-        (GridEntities(cells=1, faces=2), {GridEntity.cells: 1, GridEntity.faces: 2}),
+@pytest.mark.parametrize(
+    "dof_info, expected",
+    [
+        (GridEntities(), False),
+        (GridEntities(cells=1), True),
+        (GridEntities(cells=0, faces=0, nodes=0), False),
+        (GridEntities(nodes=3), True),
+    ],
+)
+def test_bool_is_true_iff_some_entity_is_present(dof_info, expected):
+    """A GridEntities is falsy exactly when no entity carries any DOFs."""
+    assert bool(dof_info) is expected
+
+
+@pytest.mark.parametrize(
+    "dof_info, expected",
+    [
+        (GridEntities(), frozenset()),
+        (GridEntities(cells=1), frozenset({GridEntity.cells})),
+        (GridEntities(cells=0, faces=2), frozenset({GridEntity.faces})),
         (
             GridEntities(cells=1, faces=2, nodes=3),
-            {GridEntity.cells: 1, GridEntity.faces: 2, GridEntity.nodes: 3},
+            frozenset({GridEntity.cells, GridEntity.faces, GridEntity.nodes}),
         ),
     ],
-    ids=["empty", "single", "double", "triple"],
 )
-def dof_info_case(request):
-    """A (GridEntities, equivalent plain dict) pair, covering representative
-    combinations of present/absent entities."""
-    return request.param
+def test_present_entities(dof_info, expected):
+    """Entities with a zero count are not present."""
+    assert dof_info.present_entities == expected
 
 
-class TestGridEntitiesMappingInterface:
-    """GridEntities behaves like a dict, filtered to nonzero entities only, matching
-    the convention that an absent entity and an explicit zero count are the same.
-    Each check is compared directly against an equivalent plain dict, across the
-    representative dof_info_case patterns, rather than one test per method/pattern.
-    """
+@pytest.mark.parametrize(
+    "dof_info, expected",
+    [
+        (GridEntities(), False),
+        (GridEntities(cells=1), True),
+        (GridEntities(faces=1), True),
+        (GridEntities(nodes=1), True),
+        (GridEntities(cells=2), False),
+        (GridEntities(cells=1, faces=1), False),
+    ],
+)
+def test_is_unit_on_single_entity(dof_info, expected):
+    """Only one entity present, carrying exactly one DOF, broadcasts."""
+    assert dof_info.is_unit_on_single_entity() is expected
 
-    def test_bulk_conversions_match_reference_dict(self, dof_info_case):
-        g, expected = dof_info_case
-        assert dict(g) == expected
-        assert dict(g.items()) == expected
-        assert set(g.keys()) == set(expected.keys())
-        assert set(g.values()) == set(expected.values())
-        assert set(g) == set(expected.keys())  # __iter__
-        assert len(g) == len(expected)
-        assert bool(g) == bool(expected)
 
-    @pytest.mark.parametrize("entity", list(GridEntity))
-    def test_per_entity_access_matches_reference_dict(self, dof_info_case, entity):
-        g, expected = dof_info_case
-        assert g.get(entity) == expected.get(entity, 0)
-        assert g.get(entity, -1) == expected.get(entity, -1)
-        assert (entity in g) == (entity in expected)
-        if entity in expected:
-            assert g[entity] == expected[entity]
-        else:
-            with pytest.raises(KeyError):
-                g[entity]
+def test_zero_count_equals_absent_entity():
+    """An explicit zero and an omitted entity describe the same DOF distribution."""
+    assert GridEntities(cells=1, faces=0) == GridEntities(cells=1)
+    assert GridEntities.from_mapping({GridEntity.faces: 0}) == GridEntities()
+
+
+def test_is_immutable():
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        GridEntities(cells=1).cells = 2  # type: ignore[misc]
