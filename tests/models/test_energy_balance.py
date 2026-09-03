@@ -12,6 +12,7 @@ import numpy as np
 import pytest
 
 import porepy as pp
+from porepy.applications.md_grids.model_geometries import TwoWells3d
 from porepy.applications.test_utils import models, well_models
 
 
@@ -366,3 +367,148 @@ def test_energy_conservation():
         model.well_flux(model.mdg.interfaces(codim=2))
     )
     assert np.isclose(np.sum(all_well_flux), -1, rtol=1e-10)
+
+
+class InjectorAndProducerEnergyModel(
+    TwoWells3d,
+    well_models.BoundaryConditionsOneRateOnePressureWell,
+    well_models.WellPermeability,
+    pp.MassAndEnergyBalance,
+):
+    """A charging and a producing well, both open to the rock they pass through."""
+
+
+def _injector_and_producer_energy_model() -> pp.PorePyModel:
+    """Two wells with opposite flow directions, run to the end of the schedule."""
+    dt = 1e-4
+    model = InjectorAndProducerEnergyModel(
+        {
+            "material_constants": {
+                "solid": pp.SolidConstants(
+                    specific_heat_capacity=1e0,
+                    well_radius=0.02,
+                    residual_aperture=1.0,
+                    thermal_conductivity=1e-6,
+                    permeability=1e4,
+                    normal_permeability=1e4,
+                ),
+                "fluid": pp.FluidComponent(
+                    specific_heat_capacity=1e0,
+                    thermal_conductivity=1e-6,
+                    normal_thermal_conductivity=1e-6,
+                ),
+            },
+            "time_manager": pp.TimeManager(
+                schedule=[0, dt], dt_init=dt, constant_dt=True
+            ),
+            "grid_type": "simplex",
+            "meshing_arguments": {"cell_size": 0.25, "cell_size_min": 0.05},
+            "times_to_export": [],
+            # A deeper drawdown than this fails to converge once the energy balance is
+            # wired in, while the mass balance alone handles an order of magnitude
+            # more. This is enough to reverse the flow at several contacts.
+            "well_pressure": -1e-1,
+            "well_completion": {
+                0: {"open_intervals": [(0.0, 10.0)]},
+                1: {"open_intervals": [(0.0, 10.0)]},
+            },
+        }
+    )
+    pp.ModelRunner(model).run()
+    return model
+
+
+def _well_matrix_interfaces(model: pp.PorePyModel) -> list[pp.MortarGrid]:
+    """The interfaces coupling a well to the rock matrix it passes through."""
+    return [
+        intf
+        for intf in model.mdg.interfaces(codim=2)
+        if model.mdg.interface_to_subdomain_pair(intf)[1].dim == 1
+    ]
+
+
+def test_the_well_enthalpy_flux_is_advected_from_the_side_the_fluid_comes_from():
+    """Enthalpy crosses a well contact on the fluid that carries it.
+
+    The enthalpy flux must equal the advected enthalpy of the upstream side times the
+    mass flux, and the upstream side is the one the sign of the mass flux names. The
+    expectation here selects that side from the mass flux alone, so it does not repeat
+    the discretisation's own upwind matrices; a failure means the enthalpy of the wrong
+    side is being carried, which for an injecting well would take formation enthalpy
+    into the rock instead of the well's own.
+    """
+    model = _injector_and_producer_energy_model()
+
+    directions = []
+    for intf in _well_matrix_interfaces(model):
+        rock, well = model.mdg.interface_to_subdomain_pair(intf)
+        mass_flux = model.equation_system.evaluate(model.well_flux([intf]))
+        enthalpy_flux = model.equation_system.evaluate(model.well_enthalpy_flux([intf]))
+
+        # A positive flux runs from the primary, higher-dimensional side to the
+        # secondary one, so it carries rock enthalpy into the well.
+        from_rock = intf.primary_to_mortar_avg() @ model.equation_system.evaluate(
+            model.advection_weight_energy_balance([rock])
+        )
+        from_well = intf.secondary_to_mortar_avg() @ model.equation_system.evaluate(
+            model.advection_weight_energy_balance([well])
+        )
+        upstream = np.where(mass_flux > 0, from_rock, from_well)
+
+        np.testing.assert_allclose(
+            enthalpy_flux, upstream * mass_flux, rtol=1e-10, atol=1e-14
+        )
+        directions.append(np.sign(mass_flux[np.abs(mass_flux) > 1e-12]))
+
+    # Unless both directions occur, only one branch of the expectation was tested.
+    signs = np.concatenate(directions)
+    assert np.any(signs > 0) and np.any(signs < 0)
+
+
+def test_energy_reaches_the_rock_through_a_well_open_to_it():
+    """A completed well delivers its energy to the rock, and none is lost on the way.
+
+    ``test_energy_conservation`` keeps the rock closed, so the whole injected enthalpy
+    crosses the single fracture contact and the well-matrix coupling carries nothing.
+    Opening the well moves that energy onto many contacts of codimension two; a failure
+    means the energy balance does not account for what the new coupling transports.
+    """
+    dt = 1e-4
+    model_params = {
+        "material_constants": {
+            "solid": pp.SolidConstants(
+                specific_heat_capacity=1e0,
+                well_radius=0.02,
+                residual_aperture=1.0,
+                thermal_conductivity=1e-6,
+                permeability=1e4,
+                normal_permeability=1e4,
+            ),
+            "fluid": pp.FluidComponent(
+                specific_heat_capacity=1e0,
+                thermal_conductivity=1e-6,
+                normal_thermal_conductivity=1e-6,
+            ),
+        },
+        "fracture_indices": [2],
+        "time_manager": pp.TimeManager(schedule=[0, dt], dt_init=dt, constant_dt=True),
+        "grid_type": "cartesian",
+        "meshing_args": {"cell_size": 0.25},
+        "times_to_export": [],
+        "well_completion": {0: {"open_intervals": [(0.0, 10.0)]}},
+    }
+    model = MassAndEnergyWellModel(model_params)
+    pp.ModelRunner(model).run()
+
+    subdomains = model.mdg.subdomains()
+    energy = model.volume_integral(
+        model.total_internal_energy(subdomains), subdomains, 1
+    )
+    assert np.isclose(
+        np.sum(model.equation_system.evaluate(energy)), 1e7 * dt, rtol=1e-3
+    )
+
+    # The rock contacts, not the fracture, must be the ones carrying it.
+    rock = _well_matrix_interfaces(model)
+    rock_flux = model.equation_system.evaluate(model.well_flux(rock))
+    assert np.isclose(np.sum(rock_flux), -1, rtol=1e-6)
