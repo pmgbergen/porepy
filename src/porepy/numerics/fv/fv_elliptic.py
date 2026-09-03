@@ -66,7 +66,7 @@ class FVElliptic(Discretization):
 
     def get_row_dof_info(
         self, matrix_key: str = "", nd: int = 1
-    ) -> dict[pp.ad.GridEntity, int]:
+    ) -> pp.ad.GridEntities:
         """Return row DOF info for the named FVElliptic matrix.
 
         Parameters:
@@ -77,7 +77,7 @@ class FVElliptic(Discretization):
             ValueError: If the matrix_key is not recognized by this discretization.
 
         Returns:
-            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity.
+            A :class:`~porepy.numerics.ad.GridEntities` with the DOFs per entity.
 
         """
 
@@ -90,14 +90,14 @@ class FVElliptic(Discretization):
             "bound_pressure_vector_source",
         }
         if matrix_key in recognised:
-            return {pp.ad.GridEntity.faces: 1}
+            return pp.ad.GridEntities(faces=1)
         raise ValueError(
             f"Unrecognized matrix key '{matrix_key}' for FVElliptic discretization."
         )
 
     def get_col_dof_info(
         self, matrix_key: str = "", nd: int = 1
-    ) -> dict[pp.ad.GridEntity, int]:
+    ) -> pp.ad.GridEntities:
         """Return column DOF info for the named FVElliptic matrix.
 
         Parameters:
@@ -108,17 +108,17 @@ class FVElliptic(Discretization):
             ValueError: If the matrix_key is not recognized by this discretization.
 
         Returns:
-            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity.
+            A :class:`~porepy.numerics.ad.GridEntities` with the DOFs per entity.
 
         """
 
-        mapping: dict[str, dict[pp.ad.GridEntity, int]] = {
-            "flux": {pp.ad.GridEntity.cells: 1},
-            "bound_flux": {pp.ad.GridEntity.faces: 1},
-            "bound_pressure_cell": {pp.ad.GridEntity.cells: 1},
-            "bound_pressure_face": {pp.ad.GridEntity.faces: 1},
-            "vector_source": {pp.ad.GridEntity.cells: nd},
-            "bound_pressure_vector_source": {pp.ad.GridEntity.cells: nd},
+        mapping: dict[str, pp.ad.GridEntities] = {
+            "flux": pp.ad.GridEntities(cells=1),
+            "bound_flux": pp.ad.GridEntities(faces=1),
+            "bound_pressure_cell": pp.ad.GridEntities(cells=1),
+            "bound_pressure_face": pp.ad.GridEntities(faces=1),
+            "vector_source": pp.ad.GridEntities(cells=nd),
+            "bound_pressure_vector_source": pp.ad.GridEntities(cells=nd),
         }
         if matrix_key in mapping:
             return mapping[matrix_key]
