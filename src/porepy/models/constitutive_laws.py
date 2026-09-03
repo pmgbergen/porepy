@@ -18,7 +18,10 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.compositional.materials import FractureDamageSolidConstants
+from porepy.compositional.materials import (
+    AsperityContactSolidConstants,
+    FractureDamageSolidConstants,
+)
 
 from .fluid_property_library import *  # noqa: F403, F401
 from .fluid_property_library import (
@@ -3915,6 +3918,12 @@ class CoulombFrictionBound(pp.PorePyModel):
         where :math:`F` is the friction coefficient and :math:`t_n` is the normal
         component of the contact traction.
 
+        The bound is linear in :math:`t_n` only insofar as :math:`F` is independent of
+        it, which is not required: a friction coefficient that resolves the contact into
+        sliding and shearing parts depends on the normal traction, and the bound is then
+        nonlinear in it. See
+        :meth:`FractureDamage.friction_coefficient`.
+
         Parameters:
             subdomains: List of fracture subdomains.
 
@@ -4011,6 +4020,353 @@ class ShearDilation(pp.PorePyModel):
 
         """
         return Scalar(self.solid.dilation_angle, "dilation_angle")
+
+
+class DilationRotatedFriction(pp.PorePyModel):
+    r"""Friction on surfaces inclined by the dilation angle.
+
+    A dilatant fracture slides on planes tilted by :math:`\psi` rather than on its mean
+    plane, so the resistance it offers is that of the basic friction angle and the
+    dilation angle added, not either alone:
+
+    .. math::
+        \mu = \tan(\phi_b + \psi) = \frac{\mu_b + \tan\psi}{1 - \mu_b \tan\psi},
+
+    with :math:`\mu_b = \tan\phi_b` the basic friction coefficient of the rock surfaces.
+    This is Patton's (1966) sliding envelope, written as a tangent addition, which is
+    what places the dilation angle and the friction angle on the same footing.
+
+    The class introduces no material constants of its own: :math:`\mu_b` and
+    :math:`\psi_0` are the friction coefficient and dilation angle any model with
+    :class:`ShearDilation` already carries. It therefore composes with a plain dilatant
+    fracture; :class:`AsperityStressPartition` and :class:`FractureDamage` refine
+    :math:`\tan\psi` above it without this class knowing they are there.
+
+    References:
+        Patton, F. D. (1966): Multiple modes of shear failure in rock. 1st ISRM
+        Congress.
+
+    """
+
+    tangent_dilation_angle: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method returning the tangent of the dilation angle. Normally defined in a mixin
+    instance of :class:`ShearDilation`, possibly modified by classes above it."""
+
+    def basic_friction_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        r"""Basic friction coefficient :math:`\mu_b` [-].
+
+        The friction of the rock surfaces themselves, exclusive of any contribution from
+        their roughness. It is a property of the material rather than of the geometry,
+        so it is unaffected by both the stress partition and any wear of the asperities,
+        and the composed coefficient has a floor here.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Operator for the basic friction coefficient.
+
+        """
+        return Scalar(self.solid.friction_coefficient, "basic_friction_coefficient")
+
+    def friction_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        r"""Friction coefficient [-].
+
+        .. math::
+            \mu = \frac{\mu_b + \tan\psi}{1 - \mu_b \tan\psi},
+
+        as described in the class documentation. The dilation angle is read through
+        :meth:`tangent_dilation_angle`, so whatever reduces it above this class -- a
+        stress partition, wear -- enters here without further arrangement.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Raises:
+            ValueError: If :math:`\mu_b \tan\psi_0 \geq 1`, where the composition has a
+                pole. See :meth:`_validate_sliding_composition`.
+
+        Returns:
+            Friction coefficient operator.
+
+        """
+        self._validate_sliding_composition(subdomains)
+
+        basic = self.basic_friction_coefficient(subdomains)
+        tangent = self.tangent_dilation_angle(subdomains)
+        op = (basic + tangent) / (Scalar(1.0) - basic * tangent)
+        op.set_name("dilation_rotated_friction_coefficient")
+        return op
+
+    def _validate_sliding_composition(self, subdomains: list[pp.Grid]) -> None:
+        r"""Check that the sliding term stays away from its pole.
+
+        The composition is a tangent addition, so it diverges as
+        :math:`\mu_b \tan\psi \to 1`, i.e. as :math:`\phi_b + \psi \to \pi/2`. It is
+        enough to check the intact angle, since the stress partition and any damage only
+        reduce :math:`\tan\psi` below :math:`\tan\psi_0`, so no state reachable during a
+        simulation is closer to the pole than the parameters are. This is therefore a
+        check on the parameters, made once where the operator is built, rather than a
+        per-cell guard inside the nonlinear loop.
+
+        Reaching it means the dilation angle was characterised at a scale finer than the
+        discretisation resolves; clipping would hide that rather than fix it.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Raises:
+            ValueError: If the intact parameters put any cell at or beyond the pole.
+
+        """
+        # Check that the super class has a tangent dilation angle method. Otherwise,
+        # something has gone wrong in the inheritance.
+        if not hasattr(super(), "tangent_dilation_angle"):
+            raise ValueError(
+                "The super class of DilationRotatedFriction must have a "
+                "tangent_dilation_angle method."
+            )
+        intact_product = self.basic_friction_coefficient(
+            subdomains
+        ) * super().tangent_dilation_angle(subdomains)  # type: ignore[misc]
+        value = np.asarray(self.equation_system.evaluate(intact_product))
+        if np.any(value >= 1.0):
+            raise ValueError(
+                "The composed friction coefficient has a pole at "
+                "basic_friction_coefficient * tan(dilation_angle) = 1, and the "
+                f"parameters reach {np.max(value)}. Reduce the dilation angle or the "
+                "basic friction coefficient."
+            )
+
+
+class AsperityStressPartition(pp.PorePyModel):
+    r"""Contact split between climbing over asperities and shearing through them.
+
+    Under light normal load the surfaces ride over their asperities; under heavy load
+    the asperities are sheared off instead, and the surfaces do not ride up. Ladanyi and
+    Archambault (1970) describe the transition by the fraction :math:`a_s` of the
+    contact in the second regime, a function of the normal traction alone. Both
+    consequences follow from that one fraction:
+
+    .. math::
+        \tan\psi = (1 - a_s)\tan\psi_0, \qquad \mu = \mu_{\text{sliding}} + a_s \mu_p^0,
+
+    the dilation angle reduced by the part of the contact that no longer climbs, and the
+    friction raised by the ploughing resistance of the part that shears. The same
+    :math:`a_s` appears in both, so contact transferred from one regime to the other is
+    neither lost nor counted twice.
+
+    The class modifies rather than replaces: the sliding term comes from whatever
+    friction law sits below, e.g. :class:`DilationRotatedFriction`. It must
+    therefore precede that law in the method resolution order. Otherwise its
+    :meth:`friction_coefficient` is never reached and the ploughing term is silently
+    absent.
+
+    References:
+        Ladanyi, B. and Archambault, G. (1970): Simulation of shear behavior of a
+        jointed rock mass. https://doi.org/10.1016/0148-9062(70)90007-8
+
+    """
+
+    characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method returning the characteristic contact traction of the fracture."""
+
+    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method returning the fracture contact traction."""
+
+    solid: AsperityContactSolidConstants
+    """SolidConstants with asperity contact parameters."""
+
+    def tangent_dilation_angle(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        r"""Tangent of the dilation angle [-].
+
+        .. math::
+            \tan\psi = (1 - a_s)\tan\psi_0,
+
+        the dilation reduced by the fraction of the contact that is sheared through
+        rather than climbed. This is a reversible function of the current normal
+        traction: unloading restores it.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Cell-wise tangent of the dilation angle [-].
+
+        """
+        # Check that the super class has a tangent dilation angle method. Otherwise,
+        # something has gone wrong in the inheritance.
+        if not hasattr(super(), "tangent_dilation_angle"):
+            raise ValueError(
+                "The super class of AsperityStressPartition must have a "
+                "tangent_dilation_angle method."
+            )
+        unpartitioned = super().tangent_dilation_angle(subdomains)  # type: ignore[misc]
+        sliding_fraction = Scalar(1.0) - self.stress_partition(subdomains)
+        op = sliding_fraction * unpartitioned
+        op.set_name("partitioned_tangent_dilation_angle")
+        return op
+
+    def friction_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        r"""Friction coefficient with the ploughing contribution [-].
+
+        Adds :math:`a_s \mu_p^0` to the sliding resistance of the law below. Note that
+        the result depends on the normal traction, through :meth:`stress_partition`, so
+        the friction bound built from it is no longer linear in the contact traction.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Friction coefficient operator.
+
+        """
+        if not hasattr(super(), "friction_coefficient"):
+            raise ValueError(
+                "The super class of AsperityStressPartition must have a "
+                "friction_coefficient method."
+            )
+        sliding = super().friction_coefficient(subdomains)  # type: ignore[misc]
+        sliding.set_name("sliding_friction_coefficient")
+
+        ploughing = self.stress_partition(
+            subdomains
+        ) * self.ploughing_friction_coefficient(subdomains)
+        ploughing.set_name("ploughing_friction_contribution")
+
+        op = sliding + ploughing
+        op.set_name("composed_friction_coefficient")
+        return op
+
+    def transitional_normal_traction(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        r"""Transitional normal traction :math:`\sigma_T` [Pa].
+
+        Parameters:
+            subdomains: List of subdomains where the traction is defined.
+
+        Returns:
+            Operator for the transitional normal traction.
+
+        """
+        return Scalar(
+            self.solid.transitional_normal_traction, "transitional_normal_traction"
+        )
+
+    def stress_partition_exponent(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        r"""Exponent :math:`K` of the stress partition [-].
+
+        Parameters:
+            subdomains: List of subdomains where the exponent is defined.
+
+        Returns:
+            Operator for the stress partition exponent.
+
+        """
+        return Scalar(self.solid.stress_partition_exponent, "stress_partition_exponent")
+
+    def ploughing_friction_coefficient(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        r"""Ploughing friction coefficient :math:`\mu_p^0` [-].
+
+        The value reached when the asperities are intact.
+        :meth:`friction_coefficient` weights it by the fraction of the contact that is
+        actually being sheared, so this is the fully-ploughing limit rather than the
+        current contribution. :class:`FractureDamage` overrides it to account for wear.
+
+        Parameters:
+            subdomains: List of subdomains where the coefficient is defined.
+
+        Returns:
+            Operator for the limiting ploughing friction coefficient.
+
+        """
+        return Scalar(
+            self.solid.ploughing_friction_coefficient, "ploughing_friction_coefficient"
+        )
+
+    def stress_partition(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        r"""Fraction of the contact carried by sheared asperities [-].
+
+        Following Ladanyi and Archambault (1970),
+
+        .. math::
+            a_s = 1 - \left(1 - \frac{\sigma_n}{\sigma_T}\right)^K,
+
+        the proportion of the contact area over which asperities are sheared through
+        rather than slid over. It rises from zero at vanishing normal traction to one at
+        the transitional traction :math:`\sigma_T`, and the complement
+        :math:`1 - a_s` is the sliding fraction.
+
+        The base is clipped to :math:`[0, 1]` *before* it is raised to the power. Both
+        bounds are needed and neither is cosmetic: above :math:`\sigma_T` the base is
+        negative, and a non-integer :math:`K` has no real value there; in tension the
+        base exceeds one, which would drive :math:`a_s` negative. Clipping afterwards
+        would come too late for the former.
+
+        The result is continuously differentiable at :math:`\sigma_T` for
+        :math:`K > 1`, since :math:`\partial a_s / \partial \sigma_n \propto
+        (1 - \sigma_n/\sigma_T)^{K-1}` approaches zero from the unclipped side, and the
+        clip zeroes the derivative on the other.
+
+        References:
+            Ladanyi, B. and Archambault, G. (1970): Simulation of shear behavior of a
+            jointed rock mass. https://doi.org/10.1016/0148-9062(70)90007-8
+
+        Parameters:
+            subdomains: List of subdomains where the partition is defined. Should be of
+                co-dimension one, i.e. fractures.
+
+        Returns:
+            Operator for the stress partition.
+
+        """
+        # The normal traction is nondimensional, so multiply the characteristic traction
+        # back in before comparing it with the transitional traction.
+        ratio = self._positive_normal_traction(subdomains) * (
+            self.characteristic_contact_traction(subdomains)
+            / self.transitional_normal_traction(subdomains)
+        )
+        f_clip = Function(
+            partial(pp.ad.functions.clip, min_val=0.0, max_val=1.0),
+            "clip_function",
+        )
+        sliding_fraction = f_clip(
+            Scalar(1.0) - ratio
+        ) ** self.stress_partition_exponent(subdomains)
+        op = Scalar(1.0) - sliding_fraction
+        op.set_name("stress_partition")
+        return op
+
+    def _positive_normal_traction(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Positive normal traction for fractures [-].
+
+        Nondimensional, as the contact traction variable it is taken from. Callers that
+        need it in Pa multiply by :meth:`characteristic_contact_traction`.
+
+        Parameters:
+            subdomains: List of subdomains where the traction is defined.
+
+        Returns:
+            Operator for the positive normal traction.
+
+        """
+        # Clip the contact traction to negative values, i.e. compression, so that the
+        # returned quantity is non-negative. Wear is driven by contact, and a fracture
+        # in tension carries no load to wear against; without the clip a tensile state
+        # would give a negative damage evolution coefficient, i.e. healing. The open
+        # state is additionally excluded by the open-state characteristic in the damage
+        # equations, so this clip guards only the intermediate evaluation.
+        f_clip = Function(
+            partial(pp.ad.functions.clip, min_val=-np.inf, max_val=-1e-15),
+            "clip_function",
+        )
+        t = self.normal_component(subdomains) @ f_clip(
+            self.contact_traction(subdomains)
+        )
+        op = Scalar(-1, "sign_inverter") * t
+        op.set_name("positive_normal_traction")
+        return op
 
 
 class BartonBandis(pp.PorePyModel):
@@ -4336,6 +4692,10 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method returning the fracture contact traction."""
 
+    _positive_normal_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method returning the compressive part of the normal traction. Normally
+    defined in a mixin instance of :class:`AsperityStressPartition`."""
+
     solid: FractureDamageSolidConstants
     """SolidConstants with damage parameters."""
 
@@ -4404,85 +4764,6 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
             self.solid.friction_wear_energy_scale, "friction_wear_energy_scale"
         )
 
-    def transitional_normal_traction(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        r"""Transitional normal traction :math:`\sigma_T` [Pa].
-
-        Parameters:
-            subdomains: List of subdomains where the traction is defined.
-
-        Returns:
-            Operator for the transitional normal traction.
-
-        """
-        return Scalar(
-            self.solid.transitional_normal_traction, "transitional_normal_traction"
-        )
-
-    def stress_partition_exponent(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        r"""Exponent :math:`K` of the stress partition [-].
-
-        Parameters:
-            subdomains: List of subdomains where the exponent is defined.
-
-        Returns:
-            Operator for the stress partition exponent.
-
-        """
-        return Scalar(self.solid.stress_partition_exponent, "stress_partition_exponent")
-
-    def stress_partition(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        r"""Fraction of the contact carried by sheared asperities [-].
-
-        Following Ladanyi and Archambault (1970),
-
-        .. math::
-            a_s = 1 - \left(1 - \frac{\sigma_n}{\sigma_T}\right)^K,
-
-        the proportion of the contact area over which asperities are sheared through
-        rather than slid over. It rises from zero at vanishing normal traction to one at
-        the transitional traction :math:`\sigma_T`, and the complement
-        :math:`1 - a_s` is the sliding fraction.
-
-        The base is clipped to :math:`[0, 1]` *before* it is raised to the power. Both
-        bounds are needed and neither is cosmetic: above :math:`\sigma_T` the base is
-        negative, and a non-integer :math:`K` has no real value there; in tension the
-        base exceeds one, which would drive :math:`a_s` negative. Clipping afterwards
-        would come too late for the former.
-
-        The result is continuously differentiable at :math:`\sigma_T` for
-        :math:`K > 1`, since :math:`\partial a_s / \partial \sigma_n \propto
-        (1 - \sigma_n/\sigma_T)^{K-1}` approaches zero from the unclipped side, and the
-        clip zeroes the derivative on the other.
-
-        References:
-            Ladanyi, B. and Archambault, G. (1970): Simulation of shear behavior of a
-            jointed rock mass. https://doi.org/10.1016/0148-9062(70)90007-8
-
-        Parameters:
-            subdomains: List of subdomains where the partition is defined. Should be of
-                co-dimension one, i.e. fractures.
-
-        Returns:
-            Operator for the stress partition.
-
-        """
-        # The normal traction is nondimensional, so multiply the characteristic traction
-        # back in before comparing it with the transitional traction.
-        ratio = self._positive_normal_traction(subdomains) * (
-            self.characteristic_contact_traction(subdomains)
-            / self.transitional_normal_traction(subdomains)
-        )
-        f_clip = Function(
-            partial(pp.ad.functions.clip, min_val=0.0, max_val=1.0),
-            "clip_function",
-        )
-        sliding_fraction = f_clip(
-            Scalar(1.0) - ratio
-        ) ** self.stress_partition_exponent(subdomains)
-        op = Scalar(1.0) - sliding_fraction
-        op.set_name("stress_partition")
-        return op
-
     def damage_evolution_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         r"""Damage evolution coefficient [1/m].
 
@@ -4511,36 +4792,6 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
         )
         coefficient.set_name("damage_evolution_coefficient")
         return coefficient
-
-    def _positive_normal_traction(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Positive normal traction for fractures [-].
-
-        Nondimensional, as the contact traction variable it is taken from. Callers that
-        need it in Pa multiply by :meth:`characteristic_contact_traction`.
-
-        Parameters:
-            subdomains: List of subdomains where the traction is defined.
-
-        Returns:
-            Operator for the positive normal traction.
-
-        """
-        # Clip the contact traction to negative values, i.e. compression, so that the
-        # returned quantity is non-negative. Wear is driven by contact, and a fracture
-        # in tension carries no load to wear against; without the clip a tensile state
-        # would give a negative damage evolution coefficient, i.e. healing. The open
-        # state is additionally excluded by the open-state characteristic in the damage
-        # equations, so this clip guards only the intermediate evaluation.
-        f_clip = Function(
-            partial(pp.ad.functions.clip, min_val=-np.inf, max_val=-1e-15),
-            "clip_function",
-        )
-        t = self.normal_component(subdomains) @ f_clip(
-            self.contact_traction(subdomains)
-        )
-        op = Scalar(-1, "sign_inverter") * t
-        op.set_name("positive_normal_traction")
-        return op
 
 
 class FractureDamage(pp.PorePyModel):
@@ -4706,52 +4957,83 @@ class FractureDamage(pp.PorePyModel):
         """
         return Scalar(self.solid.residual_friction_damage, "residual_friction_damage")
 
-    def shear_dilation_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Shear dilation gap [m].
+    def tangent_dilation_angle(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        r"""Tangent of the dilation angle [-].
 
-        Parameters:
-            subdomains: List of subdomains where the shear dilation gap is defined.
-                Should be of co-dimension one, i.e. fractures.
-
-        Returns:
-            Operator for nondimensionalized shear dilation gap.
-
-        """
-        # Check that the super class has a shear dilation gap method. Otherwise,
-        # something has gone wrong in the inheritance.
-        if not hasattr(super(), "shear_dilation_gap"):
-            raise ValueError(
-                "The super class of FractureDamage must have a shear_dilation_gap "
-                "method."
-            )
-        # Combine the dilation damage with the non-damaged dilation gap.
-        intact_gap = super().shear_dilation_gap(subdomains)  # type: ignore[misc]
-        intact_gap.set_name("intact_shear_dilation")
-        op = self.dilation_damage_state(subdomains) * intact_gap
-        op.set_name("damaged_shear_dilation")
-        return op
-
-    def friction_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Friction coefficient [-].
+        The dilation the asperities can still produce: :math:`d^d` times what the
+        underlying law gives. This reduction is permanent, being geometry that has been
+        worn away.
 
         Parameters:
             subdomains: List of fracture subdomains.
 
         Returns:
-            Friction coefficient operator.
+            Cell-wise tangent of the dilation angle [-].
 
         """
-        if not hasattr(super(), "friction_coefficient"):
+        # Check that the super class has a tangent dilation angle method. Otherwise,
+        # something has gone wrong in the inheritance.
+        if not hasattr(super(), "tangent_dilation_angle"):
             raise ValueError(
-                "The super class of FractureDamage must have a friction_coefficient "
+                "The super class of FractureDamage must have a tangent_dilation_angle "
                 "method."
             )
-        # After the check, we can safely call the super class method to get the
-        # non-damaged friction, ignoring the type checker.
-        intact_bound = super().friction_coefficient(subdomains)  # type: ignore[misc]
-        intact_bound.set_name("intact_friction_coefficient")
-        op = self.friction_damage_state(subdomains) * intact_bound
-        op.set_name("damaged_friction_coefficient")
+        intact = super().tangent_dilation_angle(subdomains)  # type: ignore[misc]
+        intact.set_name("undamaged_tangent_dilation_angle")
+        op = self.dilation_damage_state(subdomains) * intact
+        op.set_name("damaged_tangent_dilation_angle")
+        return op
+
+    def ploughing_friction_coefficient(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        r"""Ploughing friction coefficient [-].
+
+        The resistance asperities still offer to being sheared through: :math:`d^f`
+        times what the underlying law gives. Asperities worn flat cease to plough, which
+        is why :math:`d_0^f = 0` is admissible here.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Operator for the ploughing friction coefficient.
+
+        """
+        if not hasattr(super(), "ploughing_friction_coefficient"):
+            raise ValueError(
+                "The super class of FractureDamage must have a "
+                "ploughing_friction_coefficient method."
+            )
+        limit = super().ploughing_friction_coefficient(subdomains)  # type: ignore[misc]
+        limit.set_name("undamaged_ploughing_friction_coefficient")
+        op = self.friction_damage_state(subdomains) * limit
+        op.set_name("damaged_ploughing_friction_coefficient")
+        return op
+
+    def reference_fracture_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Reference fracture gap [m].
+
+        The aperture the asperities hold open when the two surfaces are mated, that is,
+        at zero shear displacement. Wearing the asperities down closes it with them: it
+        decays from its intact value :math:`g_0` towards :math:`d_0^d g_0`.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Cell-wise reference fracture gap operator [m].
+
+        """
+        if not hasattr(super(), "reference_fracture_gap"):
+            raise ValueError(
+                "The super class of FractureDamage must have a reference_fracture_gap "
+                "method."
+            )
+        mated_gap = super().reference_fracture_gap(subdomains)  # type: ignore[misc]
+        mated_gap.set_name("intact_reference_fracture_gap")
+        op = self.dilation_damage_state(subdomains) * mated_gap
+        op.set_name("damaged_reference_fracture_gap")
         return op
 
 

@@ -427,19 +427,80 @@ class SolidConstants(Constants):
 
 
 @dataclass(kw_only=True, eq=False)
-class FractureDamageSolidConstants(SolidConstants):
-    """Solid parameters for fracture damage models."""
+class AsperityContactSolidConstants(SolidConstants):
+    """Solid parameters for friction composed from asperity contact.
+
+    See :class:`~porepy.constitutive_laws.AsperityStressPartition`. The basic
+    friction coefficient and the dilation angle the law also needs are inherited
+    from :class:`SolidConstants`.
+
+    """
 
     # NOTE this makes a deep copy of the solid constants dict.
     SI_units: ClassVar[dict[str, str]] = dict(**SolidConstants.SI_units)
+    SI_units.update(
+        {
+            "ploughing_friction_coefficient": "-",
+            "transitional_normal_traction": "Pa",
+            "stress_partition_exponent": "-",
+        }
+    )
+
+    ploughing_friction_coefficient: float = 0.0
+    r"""Ploughing friction coefficient :math:`\mu_p^0` [-].
+
+    The frictional resistance of asperities being sheared through, in the limit where
+    all contact is doing so. It enters the composed friction coefficient as
+    :math:`a_s \mu_p^0 d^f`, so it is the value reached at
+    :math:`\sigma_n = \sigma_T` with the asperities intact; see
+    :meth:`~porepy.constitutive_laws.FractureDamage.friction_coefficient`.
+
+    The default of zero leaves the ploughing term absent, reducing the composed
+    coefficient to the sliding law alone.
+
+    """
+
+    transitional_normal_traction: float = float("inf")
+    r"""Transitional normal traction :math:`\sigma_T` [Pa].
+
+    The normal traction at which the asperities are fully sheared through rather than
+    slid over, so that the stress partition
+    :meth:`~porepy.constitutive_laws.AsperityStressPartition.stress_partition`
+    reaches one. Ladanyi and Archambault (1970) identify it with the strength of the
+    asperity material, hence a value of the order of the uniaxial compressive strength.
+
+    The default is infinite, which holds :math:`a_s \equiv 0` and thereby leaves the
+    partition inert: all contact is then sliding contact, which is the low-traction
+    limit of the law.
+
+    """
+
+    stress_partition_exponent: float = 1.5
+    r"""Exponent :math:`K` of the stress partition [-].
+
+    Sets how abruptly contact transfers from sliding to shearing as the normal traction
+    approaches :math:`\sigma_T`. The default of 1.5 is the value of Ladanyi and
+    Archambault (1970).
+
+    Values in :math:`(1, 2)` are non-integer, so the partition's base must be clipped to
+    the non-negative branch before it is raised; see
+    :meth:`~porepy.constitutive_laws.AsperityStressPartition.stress_partition`.
+
+    """
+
+
+@dataclass(kw_only=True, eq=False)
+class FractureDamageSolidConstants(AsperityContactSolidConstants):
+    """Solid parameters for fracture damage models."""
+
+    # NOTE this makes a deep copy of the solid constants dict.
+    SI_units: ClassVar[dict[str, str]] = dict(**AsperityContactSolidConstants.SI_units)
     SI_units.update(
         {
             "residual_dilation_damage": "-",
             "residual_friction_damage": "-",
             "dilation_wear_energy_scale": "J * m^-2",
             "friction_wear_energy_scale": "J * m^-2",
-            "transitional_normal_traction": "Pa",
-            "stress_partition_exponent": "-",
         }
     )
     residual_friction_damage: float = 1.0
@@ -450,8 +511,9 @@ class FractureDamageSolidConstants(SolidConstants):
 
     :math:`d_0^f = 1` holds :math:`d^f \equiv 1` and thereby switches friction damage
     off, leaving the intact coefficient; this is how an undamaged reference run is
-    configured. :math:`d_0^f` is a floor on the friction coefficient, since the damage
-    state multiplies it in full.
+    configured. :math:`d_0^f` floors the ploughing term alone, not the whole friction
+    coefficient, so :math:`d_0^f = 0` is admissible: it says that asperities worn flat
+    cease to ploughing-resist, while the basic friction of the rock surfaces remains.
 
     """
 
@@ -477,45 +539,21 @@ class FractureDamageSolidConstants(SolidConstants):
     dimensionless wear coefficient and is therefore an effective calibrated quantity
     rather than a purely geometric one.
 
-    Associated with the longer-wavelength waviness of the fracture surface, which is the
-    scale that produces resolvable aperture change.
+    Together with :attr:`friction_wear_energy_scale` it sets how fast the two roles of
+    one asperity population degrade: this one governs the loss of the surfaces' ability
+    to force climbing, and hence of resolvable aperture change.
 
     """
 
     friction_wear_energy_scale: float = 1.0
     r"""Wear energy scale for friction damage :math:`\Lambda_c^f` [J * m^-2].
 
-    As :attr:`dilation_wear_energy_scale`, but for the friction channel, and associated
-    with the shorter-wavelength unevenness, which contributes frictional resistance
-    without geometrically resolvable dilation.
-
-    """
-
-    transitional_normal_traction: float = float("inf")
-    r"""Transitional normal traction :math:`\sigma_T` [Pa].
-
-    The normal traction at which the asperities are fully sheared through rather than
-    slid over, so that the stress partition
-    :meth:`~porepy.constitutive_laws.FractureDamageEvolutionCoefficients.stress_partition`
-    reaches one. Ladanyi and Archambault (1970) identify it with the strength of the
-    asperity material, hence a value of the order of the uniaxial compressive strength.
-
-    The default is infinite, which holds :math:`a_s \equiv 0` and thereby leaves the
-    partition inert: all contact is then sliding contact, which is the low-traction
-    limit of the law.
-
-    """
-
-    stress_partition_exponent: float = 1.5
-    r"""Exponent :math:`K` of the stress partition [-].
-
-    Sets how abruptly contact transfers from sliding to shearing as the normal traction
-    approaches :math:`\sigma_T`. The default of 1.5 is the value of Ladanyi and
-    Archambault (1970).
-
-    Values in :math:`(1, 2)` are non-integer, so the partition's base must be clipped to
-    the non-negative branch before it is raised; see
-    :meth:`~porepy.constitutive_laws.FractureDamageEvolutionCoefficients.stress_partition`.
+    As :attr:`dilation_wear_energy_scale`, but governing the loss of the asperities'
+    resistance to being sheared through, i.e. of the ploughing term. Which of the two
+    roles an asperity plays at a given moment is decided by the normal traction through
+    :meth:`~porepy.constitutive_laws.AsperityStressPartition.stress_partition`,
+    not by the asperity's size, so the two scales are not a decomposition of the
+    roughness into wavelength bands.
 
     """
 

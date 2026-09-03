@@ -12,8 +12,11 @@ Covered formulas
 ----------------
 - Damage factor:
     ``d_alpha = d0_alpha + (1 - d0_alpha) * exp(-max(Lambda, 0) / Lambda_c_alpha)``
-- Friction coefficient:
-    ``mu = d_f * mu_intact``
+- Stress partition:
+    ``a_s = 1 - clip(1 - sigma_n / sigma_T, 0, 1) ** K``
+- Composed friction coefficient:
+    ``mu* = (mu_b + tan psi)/(1 - mu_b tan psi) + a_s mu_p0 d_f``,
+    with ``tan psi = (1 - a_s) tan psi_0 d_d``
 - Damage evolution coefficient (shared by both channels, Archard):
     ``k = pos_normal * char_traction / sqrt(Lambda_c_d * Lambda_c_f)``
 - Damage length:
@@ -593,7 +596,275 @@ class TestStressPartition:
 
 
 # ---------------------------------------------------------------------------
-# 4.  Damage length kernel
+# 4.  Composed friction coefficient
+# ---------------------------------------------------------------------------
+
+
+MU_B = 0.5
+"""Basic friction coefficient used throughout the composition tests."""
+
+PSI_0 = 0.05
+"""Intact dilation angle [rad] used throughout the composition tests."""
+
+MU_P0 = 0.3
+"""Ploughing coefficient in the fully-ploughing limit."""
+
+
+class TestComposedFriction:
+    r"""Composition ``mu* = (mu_b + tan psi)/(1 - mu_b tan psi) + mu_p``.
+
+    with ``tan psi = (1 - a_s) tan psi_0 d^d`` and ``mu_p = a_s mu_p0 d^f``. Tests
+    prescribe the normal traction as a fraction of ``sigma_T`` and the history as a
+    multiple of the wear energy scale, then compare against values computed in numpy
+    from the same two inputs.
+    """
+
+    @staticmethod
+    def _model(
+        residual_dilation: float = 1.0,
+        residual_friction: float = 1.0,
+        dilation_angle: float = PSI_0,
+        friction_coefficient: float = MU_B,
+    ):
+        return _prepared_model(
+            damages=["dilation", "friction"],
+            solid_overrides={
+                "transitional_normal_traction": SIGMA_T,
+                "stress_partition_exponent": 1.5,
+                "ploughing_friction_coefficient": MU_P0,
+                "friction_coefficient": friction_coefficient,
+                "dilation_angle": dilation_angle,
+                "residual_dilation_damage": residual_dilation,
+                "residual_friction_damage": residual_friction,
+            },
+        )
+
+    @staticmethod
+    def _fractures(model):
+        return model.mdg.subdomains(dim=model.nd - 1)
+
+    def _set_state(self, model, traction_fraction: float, exponent: float = 0.0):
+        """Prescribe ``sigma_n = fraction * sigma_T`` and ``Lambda = exponent * Lc^f``.
+
+        The history is expressed against the friction scale. The dilation channel sees
+        the same history divided by its own scale, which the closed forms below account
+        for.
+        """
+        fractures = self._fractures(model)
+        nc = sum(sd.num_cells for sd in fractures)
+        evaluate = model.equation_system.evaluate
+        char_t = float(
+            np.mean(evaluate(model.characteristic_contact_traction(fractures)))
+        )
+        traction = np.zeros(nc * model.nd)
+        traction[model.nd - 1 :: model.nd] = -traction_fraction * SIGMA_T / char_t
+        model.equation_system.set_variable_values(
+            traction, variables=[model.contact_traction(fractures)], iterate_index=0
+        )
+        scale_f = _nondimensional_wear_energy_scale(model, "friction")
+        model.equation_system.set_variable_values(
+            exponent * scale_f * np.ones(nc),
+            variables=[model.damage_history(fractures)],
+            iterate_index=0,
+        )
+
+    @staticmethod
+    def _mean(model, operator) -> float:
+        """Return the mean of an operator evaluated at iterate index 0."""
+        return float(np.mean(model.equation_system.evaluate(operator)))
+
+    # -- Patton recovery, brief section 6.2 ---------------------------------------
+
+    def test_patton_recovery_at_vanishing_traction(self):
+        """``mu* -> tan(phi_b + psi_0)`` as ``sigma_n -> 0`` with intact asperities.
+
+        At vanishing traction nothing is sheared through, so ``a_s = 0`` removes the
+        ploughing term and leaves the full dilation angle. The composition is then a
+        tangent addition, and it must reproduce Patton's sliding envelope exactly. This
+        is the strongest single check on the composition: it ties three separate pieces
+        -- the partition, the dilation scaling and the tangent-addition formula -- to
+        one closed-form value that none of them contains.
+        """
+        model = self._model()
+        self._set_state(model, traction_fraction=1e-9)
+
+        expected = np.tan(np.arctan(MU_B) + PSI_0)
+        np.testing.assert_allclose(
+            self._mean(model, model.friction_coefficient(self._fractures(model))),
+            expected,
+            rtol=1e-8,
+        )
+
+    def test_patton_recovery_at_the_transition(self):
+        """``mu* = mu_b + mu_p0`` at ``sigma_n = sigma_T`` with intact asperities.
+
+        The other end of the envelope: all contact is sheared through, so the dilation
+        term vanishes with ``1 - a_s`` and the ploughing term is at its limit. That the
+        dilation contribution disappears *exactly*, leaving no residue of the tangent
+        addition, is what this pins down.
+        """
+        model = self._model()
+        self._set_state(model, traction_fraction=1.0)
+
+        np.testing.assert_allclose(
+            self._mean(model, model.friction_coefficient(self._fractures(model))),
+            MU_B + MU_P0,
+            rtol=1e-12,
+        )
+
+    # -- The composition away from the two limits ---------------------------------
+
+    @pytest.mark.parametrize("traction_fraction", [0.15, 0.4, 0.8])
+    @pytest.mark.parametrize("exponent", [0.0, 0.7, 2.5])
+    def test_composition_matches_formula(
+        self, traction_fraction: float, exponent: float
+    ):
+        """``mu*`` matches the closed form between the limits and under damage.
+
+        Parameters:
+            traction_fraction: Normal traction as a fraction of ``sigma_T``.
+            exponent: History as this multiple of the friction wear energy scale.
+        """
+        residual_d, residual_f = 0.6, 0.3
+        model = self._model(residual_dilation=residual_d, residual_friction=residual_f)
+        self._set_state(model, traction_fraction, exponent)
+
+        # The dilation channel reads the same history against its own scale.
+        scale_ratio = _nondimensional_wear_energy_scale(
+            model, "friction"
+        ) / _nondimensional_wear_energy_scale(model, "dilation")
+
+        a_s = 1.0 - (1.0 - traction_fraction) ** 1.5
+        d_f = residual_f + (1.0 - residual_f) * np.exp(-exponent)
+        d_d = residual_d + (1.0 - residual_d) * np.exp(-exponent * scale_ratio)
+        tan_psi = (1.0 - a_s) * np.tan(PSI_0) * d_d
+        expected = (MU_B + tan_psi) / (1.0 - MU_B * tan_psi) + a_s * MU_P0 * d_f
+
+        np.testing.assert_allclose(
+            self._mean(model, model.friction_coefficient(self._fractures(model))),
+            expected,
+            rtol=1e-10,
+        )
+
+    def test_basic_friction_is_the_floor(self):
+        """Fully worn asperities leave ``mu_b`` and nothing else.
+
+        ``mu_b`` is a property of the rock surfaces, not of their geometry, so no amount
+        of wear removes it. With both residual states at zero and a large history, both
+        the dilation and the ploughing term must vanish, whatever the traction.
+        """
+        model = self._model(residual_dilation=0.0, residual_friction=0.0)
+        for traction_fraction in (0.05, 0.5, 1.0):
+            self._set_state(model, traction_fraction, exponent=200.0)
+            np.testing.assert_allclose(
+                self._mean(model, model.friction_coefficient(self._fractures(model))),
+                MU_B,
+                rtol=1e-12,
+            )
+
+    def test_dissipation_is_positive(self):
+        r"""``mu* - tan psi > 0`` everywhere in the admissible parameter set.
+
+        The dissipation per unit slip is ``(mu* - tan psi) sigma_n``: the frictional
+        work less the part recovered as dilation. Positivity is what makes the law
+        thermodynamically admissible, and it is an identity rather than a numerical
+        accident, since
+
+            mu* - tan psi = mu_b (1 + tan^2 psi)/(1 - mu_b tan psi) + mu_p,
+
+        which is positive term by term whenever ``mu_b tan psi < 1``. The test is
+        therefore checking the implementation against the algebra, not exploring a
+        risk: a failure means the composition was assembled wrongly, not that the
+        parameters strayed.
+
+        It is asserted over a grid of traction and history because ``tan psi`` and
+        ``mu_p`` move in opposite directions as either is varied, so a sign error in one
+        term can be masked at any single point.
+        """
+        model = self._model(residual_dilation=0.2, residual_friction=0.0)
+        fractures = self._fractures(model)
+
+        for traction_fraction in (0.01, 0.2, 0.6, 1.0, 2.0):
+            for exponent in (0.0, 0.5, 2.0, 10.0):
+                self._set_state(model, traction_fraction, exponent)
+                dissipation = self._mean(
+                    model,
+                    model.friction_coefficient(fractures)
+                    - model.tangent_dilation_angle(fractures),
+                )
+                assert dissipation > 0.0, (
+                    f"Dissipation {dissipation} not positive at "
+                    f"sigma_n/sigma_T={traction_fraction}, Lambda/Lc^f={exponent}"
+                )
+
+    # -- The pole ------------------------------------------------------------------
+
+    def test_pole_is_rejected_at_setup(self):
+        """Parameters at the pole raise rather than producing a huge friction bound.
+
+        ``mu*`` diverges as ``mu_b tan psi -> 1``. Since ``tan psi <= tan psi_0``, no
+        state reachable during a run is closer to the pole than the parameters are, so
+        the check belongs to the parameters and can be made once.
+
+        The raise happens inside ``prepare_simulation``, where ``set_equations`` builds
+        the friction bound -- before any solve, which is the point of checking there.
+        """
+        with pytest.raises(ValueError, match="pole"):
+            self._model(friction_coefficient=1.0, dilation_angle=np.arctan(1.0) + 0.01)
+
+    def test_admissible_parameters_are_accepted(self):
+        """The guard does not fire for a steep but admissible dilation angle."""
+        model = self._model(friction_coefficient=1.0, dilation_angle=np.arctan(0.9))
+        self._set_state(model, traction_fraction=0.3)
+        assert np.isfinite(
+            self._mean(model, model.friction_coefficient(self._fractures(model)))
+        )
+
+
+# ---------------------------------------------------------------------------
+# 5.  Mated fracture gap (g_0)
+# ---------------------------------------------------------------------------
+
+
+class TestMatedFractureGap:
+    """The mated aperture wears down with the dilation damage state."""
+
+    def test_reference_gap_carries_the_dilation_damage(self):
+        """``g_0`` is scaled by ``d^d``, so the mated gap closes towards ``d_0^d g_0``.
+
+        The reference gap is the aperture held by the asperities in the mated
+        configuration, so it is subject to the same wear as the dilation angle they
+        also set.
+        """
+        g_0, residual_d = 3.0e-4, 0.4
+        model = _prepared_model(
+            damages=["dilation", "friction"],
+            solid_overrides={
+                "fracture_gap": g_0,
+                "residual_dilation_damage": residual_d,
+            },
+        )
+        fractures = model.mdg.subdomains(dim=model.nd - 1)
+        nc = sum(sd.num_cells for sd in fractures)
+        scale_d = _nondimensional_wear_energy_scale(model, "dilation")
+        evaluate = model.equation_system.evaluate
+
+        for exponent in (0.0, 1.0, 50.0):
+            model.equation_system.set_variable_values(
+                exponent * scale_d * np.ones(nc),
+                variables=[model.damage_history(fractures)],
+                iterate_index=0,
+            )
+            d_d = residual_d + (1.0 - residual_d) * np.exp(-exponent)
+            np.testing.assert_allclose(
+                evaluate(model.reference_fracture_gap(fractures)),
+                d_d * g_0,
+                rtol=1e-12,
+            )
+
+
+# ---------------------------------------------------------------------------
+# 6.  Damage length kernel
 # ---------------------------------------------------------------------------
 
 

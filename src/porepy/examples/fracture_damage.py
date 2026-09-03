@@ -154,6 +154,8 @@ class FractureDamageMomentumBalance(  # type: ignore[misc]
     pp.models.solution_strategy.ContactIndicators,
     DamageDataSaving,
     pp.constitutive_laws.FractureDamage,
+    pp.constitutive_laws.AsperityStressPartition,
+    pp.constitutive_laws.DilationRotatedFriction,
     pp.constitutive_laws.FractureDamageEvolutionCoefficients,
     TimeDependentDamageBCs,
     pp.MomentumBalance,
