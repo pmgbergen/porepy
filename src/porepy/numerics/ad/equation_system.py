@@ -6,7 +6,7 @@ using the AD framework.
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Any, Literal, Optional, Sequence, Union, overload
+from typing import Any, Literal, Mapping, Optional, Sequence, Union, overload
 from warnings import warn
 
 import numpy as np
@@ -395,7 +395,7 @@ class EquationSystem:
     def create_variables(
         self,
         name: str,
-        dof_info: Optional[dict[GridEntity, int]] = None,
+        dof_info: Optional[Union[GridEntities, Mapping[GridEntity, int]]] = None,
         subdomains: Optional[list[pp.Grid]] = None,
         interfaces: Optional[list[pp.MortarGrid]] = None,
         tags: Optional[dict[str, Any]] = None,
@@ -436,15 +436,8 @@ class EquationSystem:
             KeyError: If a variable with given name is already defined.
 
         """
-        # Sanity check for admissible DOF types. A dof_info of None defaults to one DOF
-        # per cell (see Variable.__init__), which is always admissible.
-        if dof_info is not None:
-            requested_type = set(dof_info.keys())
-            if not requested_type.issubset(set(GridEntity)):
-                non_admissible = requested_type.difference(set(GridEntity))
-                raise ValueError(
-                    f"Non-admissible DOF types {non_admissible} requested."
-                )
+        # A dof_info of None defaults to one DOF per cell (see Variable.__init__),
+        # which is always admissible.
         grid_entities = (
             None if dof_info is None else GridEntities.from_mapping(dof_info)
         )
@@ -949,7 +942,9 @@ class EquationSystem:
     def set_equation(
         self,
         equation: Operator,
-        equations_per_grid_entity: Optional[dict[GridEntity, int]] = None,
+        equations_per_grid_entity: Optional[
+            Union[GridEntities, Mapping[GridEntity, int]]
+        ] = None,
     ) -> None:
         """Sets an equation using the passed operator and uses its name as an
         identifier.
@@ -1004,7 +999,9 @@ class EquationSystem:
         # If provided, check that the number of equations per grid entity is consistent
         # with the equation operator's own target.dof_info.
         if equations_per_grid_entity is not None:
-            if dict(equation.target.dof_info) != dict(equations_per_grid_entity):
+            if equation.target.dof_info != GridEntities.from_mapping(
+                equations_per_grid_entity
+            ):
                 s = (
                     f"equations_per_grid_entity {equations_per_grid_entity} does not "
                     f"match the equation operator's own target.dof_info "
@@ -1065,7 +1062,9 @@ class EquationSystem:
         self,
         equation_name: str,
         new_equation: Operator,
-        equations_per_grid_entity: Optional[dict[GridEntity, int]] = None,
+        equations_per_grid_entity: Optional[
+            Union[GridEntities, Mapping[GridEntity, int]]
+        ] = None,
     ) -> None:
         """Updates an existing equation with a new equation operator.
 
@@ -1084,9 +1083,7 @@ class EquationSystem:
 
         """
         if equations_per_grid_entity is None:
-            equations_per_grid_entity = dict(
-                self._equations[equation_name].target.dof_info
-            )
+            equations_per_grid_entity = self._equations[equation_name].target.dof_info
 
         self.remove_equation(equation_name)
         new_equation.set_name(equation_name)

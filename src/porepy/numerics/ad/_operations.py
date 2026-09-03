@@ -191,7 +191,7 @@ class Operations(Enum):
         per grid entity (e.g. per cell) and hence have one DOF per entity.
 
         """
-        return len(space.dof_info) == 1 and set(space.dof_info.values()) == {1}
+        return space.dof_info.is_unit_on_single_entity()
 
     def _spaces_compatible(self, a: OperatorSpace, b: OperatorSpace) -> bool:
         """Return True if a and b represent compatible operator spaces."""
@@ -205,8 +205,8 @@ class Operations(Enum):
         if (
             a.domain_type == b.domain_type
             and a.grids == b.grids
-            and set(a.dof_info.keys()) == set(b.dof_info.keys())
-            and len(a.dof_info) == 1
+            and a.dof_info.present_entities == b.dof_info.present_entities
+            and len(a.dof_info.present_entities) == 1
         ):
             # Spaces are not equal, but they are defined on the same grids, same entity
             # type, and one of them is a cellwise scalar, hence we can broadcast the
@@ -246,8 +246,8 @@ class Operations(Enum):
             if (
                 a.domain_type == b.domain_type
                 and a.grids == b.grids
-                and set(a.dof_info.keys()) == set(b.dof_info.keys())
-                and len(a.dof_info) == 1
+                and a.dof_info.present_entities == b.dof_info.present_entities
+                and len(a.dof_info.present_entities) == 1
             ):
                 # Same grids/domain type/entity key, differing only in the per-entity
                 # DOF count (e.g. one side is a cellwise-scalar broadcast). Keep the
