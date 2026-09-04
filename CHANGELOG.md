@@ -11,6 +11,7 @@ author.
 ## Unreleased
 
 ### Changes
+PR 1766: Fix bug in generation of Cartesian grids not anchored in the origin.
 
 ### Breaking changes
 
