@@ -153,6 +153,9 @@ class DamageDataSaving(pp.PorePyModel):
 class FractureDamageMomentumBalance(  # type: ignore[misc]
     pp.models.solution_strategy.ContactIndicators,
     DamageDataSaving,
+    pp.constitutive_laws.FractureDamage,
+    pp.constitutive_laws.AsperityStressPartition,
+    pp.constitutive_laws.DilationRotatedFriction,
     pp.constitutive_laws.FractureDamageEvolutionCoefficients,
     TimeDependentDamageBCs,
     pp.MomentumBalance,
@@ -180,21 +183,12 @@ class FractureDamageHistoryMixin(
 ):
     """The damage history variable and its convolution equation.
 
-    Mixed in whenever any damage channel is active, since the history is common to
-    them. The channels themselves are added by the constitutive mixins in
-    :data:`damage_types`.
+    Separate from the constitutive laws in
+    :class:`~porepy.constitutive_laws.FractureDamage` so that the history, which is
+    common to both channels, is supplied exactly once.
     """
 
     pass
-
-
-# Collect the damage types in a dictionary for easy access when building models with
-# different regimes. These supply the constitutive laws only; the history they read is
-# provided once by :class:`FractureDamageHistoryMixin`.
-damage_types = {
-    "dilation": pp.constitutive_laws.DilationDamage,
-    "friction": pp.constitutive_laws.FrictionDamage,
-}
 
 
 class ExactSolution:
@@ -461,6 +455,7 @@ solid_params.update(
         # dilation damage without incurring too much normal opening and stress.
         "maximum_elastic_fracture_opening": 0.0,  # [m] Simplify by assuming no elastic
         # opening.
+        "fracture_gap": 0.0,  # [m] Mated aperture.
     }
 )
 # Increase shear modulus to suppress shear displacements relative to normal ones.
@@ -526,7 +521,9 @@ def create_displacement_controlled_setup(
     Parameters:
         isotropic: If True, use isotropic damage length; otherwise anisotropic.
         dim: Spatial dimension of the bulk domain (2 or 3).
-        damages: Damage types to include (subset of {"dilation", "friction"}).
+        damages: Damage channels to activate (subset of {"dilation", "friction"}).
+            Channels left out have their residual damage state pinned at one, which
+            holds them intact.
 
     Returns:
         Tuple ``(model_class, model_params, solver_params)`` with caller-owned mutable
@@ -542,8 +539,6 @@ def create_displacement_controlled_setup(
         params["exact_solution"] = ExactSolutionAnisotropic
         model_class = add_mixin(damage.AnisotropicFractureDamageLength, model_class)
 
-    for name in damages:
-        model_class = add_mixin(damage_types[name], model_class)
     model_class = add_mixin(FractureDamageHistoryMixin, model_class)
 
     geom = (
@@ -553,9 +548,9 @@ def create_displacement_controlled_setup(
 
     displacements = north_displacements_3d.copy()
     displacements = displacements[:dim]
-    # Keep compression for the first steps and open the fracture in the last one.
-    displacements[1] = 0.98e-3
-    displacements[1, 4] = 3e-3
+    # Keep the fracture closed for the first steps and open it in the last one.
+    displacements[1] = -2e-5
+    displacements[1, 4] = 2e-3
 
     params.update(
         {
@@ -563,8 +558,12 @@ def create_displacement_controlled_setup(
             "north_displacements": displacements,
         }
     )
+    solid = solid_params.copy()
+    for name in ("dilation", "friction"):
+        if name not in damages:
+            solid[f"residual_{name}_damage"] = 1.0
     params["material_constants"] = {
-        "solid": FractureDamageSolidConstants(**solid_params.copy()),  # type: ignore[arg-type]
+        "solid": FractureDamageSolidConstants(**solid),  # type: ignore[arg-type]
     }
 
     solver_params = {
