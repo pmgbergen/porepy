@@ -1755,3 +1755,79 @@ def test_a_well_fracture_contact_is_deaf_to_the_density_of_its_point() -> None:
         np.testing.assert_allclose(values_after, before[intf], atol=1e-12)
         checked += 1
     assert checked > 0
+
+
+def _hydrostatic_well_model() -> pp.PorePyModel:
+    """A well open to the rock, under gravity, with a fluid of constant density.
+
+    Constant density makes exact hydrostatic equilibrium a linear pressure profile, so
+    the balance can be imposed rather than solved for.
+    """
+    model = GravityWellModel(
+        {
+            "material_constants": {
+                "solid": pp.SolidConstants(
+                    well_radius=0.02,
+                    residual_aperture=1.0,
+                    permeability=1e4,
+                    normal_permeability=1e4,
+                ),
+                "fluid": pp.FluidComponent(compressibility=0.0, density=1000.0),
+            },
+            "fracture_indices": [2],
+            "grid_type": "cartesian",
+            "meshing_args": {"cell_size": 0.25},
+            "times_to_export": [],
+            "well_completion": {0: {"open_intervals": [(0.0, 10.0)]}},
+        }
+    )
+    model.prepare_simulation()
+    return model
+
+
+def _impose_pressure_profile(model: pp.PorePyModel, gradient: float) -> None:
+    """Set the pressure to ``gradient`` times elevation, everywhere, and zero the flux.
+
+    With the flux unknowns at zero, the residual of the well flux equation is the well
+    index times the driving force, so it measures exactly what drives flow.
+    """
+    for sd in model.mdg.subdomains():
+        variable = model.equation_system.md_variable(model.pressure_variable, [sd])
+        model.equation_system.set_variable_values(
+            gradient * sd.cell_centers[model.nd - 1, :], [variable], iterate_index=0
+        )
+    for intf in model.mdg.interfaces(codim=2):
+        variable = model.equation_system.md_variable(model.well_flux_variable, [intf])
+        model.equation_system.set_variable_values(
+            np.zeros(intf.num_cells), [variable], iterate_index=0
+        )
+
+
+def test_a_well_in_hydrostatic_equilibrium_drives_no_flux() -> None:
+    """Nothing flows through a well contact when nothing should drive it.
+
+    The gravity correction transports each cell-centre pressure to the elevation of the
+    contact, and the whole point of it is that the transported pressures agree when the
+    fluid is at rest. The other gravity tests check which density carries which
+    pressure, but none of them checks the sign: a correction added where it should be
+    subtracted still varies with density and elevation, and would leave a well at rest
+    driving twice the hydrostatic pressure difference across every contact.
+
+    Reversing the pressure gradient is the same error seen from the other side, and is
+    asserted to produce a large residual, so the equilibrium result cannot pass merely
+    because the well index is small.
+    """
+    model = _hydrostatic_well_model()
+    interfaces = list(model.mdg.interfaces(codim=2))
+    hydrostatic_gradient = -1000.0 * pp.GRAVITY_ACCELERATION
+
+    _impose_pressure_profile(model, hydrostatic_gradient)
+    at_rest = model.equation_system.evaluate(model.well_flux_equation(interfaces))
+
+    # The same profile with the gradient reversed is out of equilibrium by twice the
+    # hydrostatic difference, which is what a sign error in the correction would give.
+    _impose_pressure_profile(model, -hydrostatic_gradient)
+    disturbed = model.equation_system.evaluate(model.well_flux_equation(interfaces))
+
+    assert np.max(np.abs(disturbed)) > 0.0
+    assert np.max(np.abs(at_rest)) < 1e-9 * np.max(np.abs(disturbed))
