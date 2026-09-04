@@ -11,6 +11,8 @@ author.
 ## Unreleased
 
 ### Changes
+#1732: Added support for evaluating restricted variable subsystems without evaluating
+    the full Jacobian and then slicing columns.
 
 ### Breaking changes
 
