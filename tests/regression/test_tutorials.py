@@ -28,7 +28,7 @@ def test_run_tutorials(tutorial_path: Path):
     cmd_run = "python " + str(new_file)
     status = os.system(cmd_run)
 
-    assert status == 0
+    assert status == 0, f"Tutorial {tutorial_path} failed."
 
     # Removing the generated source file after the assertion. If the test fails, it is
     # useful to keep it in order to see what went wrong there.

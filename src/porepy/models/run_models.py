@@ -138,8 +138,8 @@ def _run_iterative_model(model, params: dict) -> None:
     # for everything ``tqdm`` related.
     def time_step() -> None:
         model.propagation_index = 0
-        model.time_manager.increase_time()
-        model.time_manager.increase_time_index()
+        model.time_manager.time += model.time_manager.dt
+        model.time_manager.time_index += 1
         logger.info(
             f"\nTime step {model.time_manager.time_index} at time"
             + f" {model.time_manager.time:.1e} of"

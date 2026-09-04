@@ -54,8 +54,6 @@ def _build_buoyancy_model(
         schedule=[0.0, tf],
         dt_init=dt,
         constant_dt=True,
-        iter_max=50,
-        print_info=True,
     )
     params = {
         "fractional_flow": True,

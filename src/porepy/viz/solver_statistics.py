@@ -15,6 +15,7 @@ from porepy.numerics.solvers.convergence_check import _recursive_append
 from porepy.time_stepper.time_step_status import (
     TimeStepperStatus,
     TimeStepperStatusContinueIterating,
+    TimeStepperStatusFailure,
 )
 
 logger = logging.getLogger(__name__)
@@ -69,14 +70,7 @@ class SolverStatistics:
     )
     """Nonlinear solver status."""
     simulation_status: TimeStepperStatus = field(
-        default_factory=lambda: TimeStepperStatusContinueIterating(
-            attempt=-1,
-            nonlinear_solver_status=solvers.NewtonSolverConverged(
-                linear_solver_statuses=[],
-                convergence_statuses=solvers.ConvergenceStatusCollection(),
-                divergence_statuses=solvers.ConvergenceStatusCollection(),
-            ),
-        )
+        default_factory=lambda: TimeStepperStatusContinueIterating(attempts=[])
     )
     """Simulation time step status."""
     simulation_status_history: list[TimeStepperStatus] = field(default_factory=list)
@@ -385,14 +379,17 @@ class NonlinearSolverStatistics(SolverStatistics):
         # Extract final convergence status.
         final_convergence_status = _leafs_only(self.convergence_status.to_str())
 
-        # Determine number of waisted iterations.
+        # Determine number of wasted iterations.
         # TODO: Rethink during upgrade of time integration.
         total_num_waisted_iterations = 0
-        for simulation_status, num_iterations in zip(
+        for simulation_status, num_iterations in zip(  # TODO YZ: Remove num iterations.
             self.simulation_status_history, self.num_iterations_history
         ):
-            if not simulation_status.is_success():
-                total_num_waisted_iterations += num_iterations
+            if isinstance(simulation_status, TimeStepperStatusFailure):
+                for attempt in simulation_status.attempts:
+                    total_num_waisted_iterations += (
+                        attempt.nonlinear_solve_status.number_of_iterations()
+                    )
 
         # Update global data.
         data["global"].update(

@@ -59,7 +59,9 @@ def well_subdomains(neuBC_model):
     return wells
 
 
-def test_NeumannWellBCs_in_FirstTimeInterval(neuBC_model, well_subdomains):
+def test_NeumannWellBCs_in_FirstTimeInterval(
+    neuBC_model: pp.PorePyModel, well_subdomains
+):
     """
     Test that well grids have Neumann BCs during the first time interval.
     """

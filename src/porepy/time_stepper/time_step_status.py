@@ -11,10 +11,20 @@ are immediate candidates for removal.
 
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 from porepy.numerics import solvers
+
+__all__ = [
+    "TimeStepperAttemptData",
+    "TimeStepperStatus",
+    "TimeStepperStatusSuccess",
+    "TimeStepperStatusFailure",
+    "TimeStepperStatusContinueIterating",
+]
 
 
 @dataclass
@@ -57,10 +67,8 @@ class TimeStepperStatusContinueIterating(TimeStepperStatus):
 
     """
 
-    attempt: int
-    """Retry attempt number."""
-    nonlinear_solver_status: solvers.NonlinearSolverStatus
-    """Nonlinear solver status that caused the time step retry."""
+    attempts: list[TimeStepperAttemptData]
+    """List of unsuccessful attempts to make this time step."""
 
     def serialize(self) -> str:
         return "in_progress"
@@ -70,26 +78,53 @@ class TimeStepperStatusContinueIterating(TimeStepperStatus):
 class TimeStepperStatusSuccess(TimeStepperStatus):
     """The TimeStepper made a time step successfully."""
 
-    dt: float
-    """Simulation time step magnitude."""
     time: float
-    """Simulation time at the end of the time step (t0 + dt)."""
+    """Simulation time at the start of the time step (t0)."""
 
-    nonlinear_solver_status: solvers.NonlinearSolverStatusConverged
-    """Nonlinear solver status that caused the time step success."""
+    attempts: list[TimeStepperAttemptData]
+    """List of attempts to make this time step, where the final attempt is successful.
+
+    """
 
     def serialize(self) -> str:
         return "successful"
+
+    @property
+    def dt(self) -> float:
+        """Simulation time step magnitude."""
+        if len(self.attempts) == 0:
+            raise ValueError
+        return self.attempts[-1].dt
 
 
 @dataclass
 class TimeStepperStatusFailure(TimeStepperStatus):
     """The TimeStepper attempted to make a time step, but failed and gave up."""
 
-    nonlinear_solver_status: solvers.NonlinearSolverStatus
-    """Nonlinear solver status that caused the time step failure."""
     reason: str
     """Reason of failure."""
 
+    time: float
+    """Simulation time at the start of the time step (t0), seconds."""
+
+    attempts: list[TimeStepperAttemptData]
+    """List of unsuccessful attempts to make this time step."""
+
     def serialize(self) -> str:
         return "failed"
+
+    @property
+    def dt(self) -> float:
+        """Simulation time step magnitude."""
+        if len(self.attempts) == 0:
+            raise ValueError
+        return self.attempts[-1].dt
+
+
+@dataclass
+class TimeStepperAttemptData:
+    """Data corresponding to a single time step attempt."""
+
+    dt: float
+    """Time step this attempt was made with, seconds."""
+    nonlinear_solve_status: solvers.NonlinearSolverStatus

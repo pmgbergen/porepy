@@ -16,7 +16,7 @@ from porepy.models.model_runner import ModelRunner, ModelRunnerStatusFailure
 from porepy.models.protocol import PorePyModel
 from porepy.numerics.ad.indexers import EquationOnDomain
 from porepy.numerics.ad.operators import Variable
-from porepy.time_stepper.time_step_control import TimeManager
+from porepy.time_stepper.time_step_control import Schedule, TimeInterval, TimeManager
 from porepy.time_stepper.time_stepper import TimeStepper
 from porepy.viz.solver_statistics import SolverStatisticsFactory
 
@@ -75,6 +75,9 @@ class MockModel(PorePyModel):
         if statistics_path:
             self.nonlinear_solver_statistics.path = Path(statistics_path)
         """Used by the TimeStepper and the NewtonSolver."""
+
+        self.time_manager = pp.TimeManager(schedule=[0, 1], dt_init=1)
+        """Used by the TimeStepper."""
 
     def before_time_step(self):
         self.sequence_of_calls.append("before_time_step")
@@ -195,11 +198,7 @@ def test_model_delegate_methods_called(
         raise ValueError
 
     # Initialize the real TimeStepper and the MockModel.
-    time_stepper = TimeStepper(
-        time_manager=TimeManager(
-            schedule=[0, 1], dt_init=1, constant_dt=False, dt_min_max=(0.1, 2)
-        )
-    )
+    time_stepper = TimeStepper.with_time_manager(model.time_manager)
 
     # Do the time step.
     time_stepper.perform_time_step(model=model, solver=solver)
@@ -382,7 +381,7 @@ class DynamicNewtonSolver(pp.solvers.NonlinearSolverBase):
             "time_step_converged": [True, False],
             "exported_dt_expected": [1, 1],
             "schedule_end": 2,  # Matches the constant dt = 1.
-            "failure_reason": "Max retries (1)",
+            "failure_reason": "Constant time scheduler cannot decrease time step size",
         },
         # Case 3: An unsuccessful simulation with dynamic time stepping. Reached the
         # minimal time step and should fail.
@@ -390,7 +389,7 @@ class DynamicNewtonSolver(pp.solvers.NonlinearSolverBase):
             "num_nonlinear_iterations": [1, 1, 1],
             "time_step_converged": [False, False, False],
             "exported_dt_expected": [1, 0.3, 0.1],
-            "failure_reason": "time step achieved its minimum admissible value",
+            "failure_reason": "is lower than the minimum admissible value",
         },
         # Case 4: The time step fails right before the schedule point. Expected to
         # decrease dt and meet the schedule regardless.
@@ -405,7 +404,7 @@ class DynamicNewtonSolver(pp.solvers.NonlinearSolverBase):
             "time_step_converged": [True, True, False, False, False, False],
             "exported_dt_expected": [1, 2, 4, 1.2, 0.36, 0.108],
             "schedule_end": 10,  # Far beyond possible dt to avoid dt_max clipping.
-            "failure_reason": "Max retries (4)",
+            "failure_reason": "Max attempts (4) exhausted; stopping.",
         },
         # Case 6: All time steps are successful so dt reaches dt_max and remains it.
         {
@@ -466,7 +465,6 @@ def test_model_time_step_control(params: dict):
     schedule_end = params.get("schedule_end", 1.35)
 
     should_fail = len(failure_reason) != 0
-
     time_manager = TimeManager(
         schedule=(0, schedule_end),
         dt_init=1,
@@ -475,7 +473,6 @@ def test_model_time_step_control(params: dict):
         iter_relax_factors=(0.4, 2),
         iter_optimal_range=(4, 7),
         recomp_factor=0.3,
-        recomp_max=3,  # Max 3 retries <=> max 4 attempts.
     )
 
     model = DynamicTimeStepTestCaseModel(
@@ -485,16 +482,23 @@ def test_model_time_step_control(params: dict):
         },
     )
 
+    time_stepper = pp.time_stepper.TimeStepper.with_time_manager(
+        model.time_manager, max_attempts=4
+    )
+
     nonlinear_solver = DynamicNewtonSolver(
         num_nonlinear_iterations=num_nonlinear_iterations,
         time_step_converged=time_step_converged,
         call_model_methods=True,
     )
+    model_runner = ModelRunner(
+        model, nonlinear_solver=nonlinear_solver, time_stepper=time_stepper
+    )
     if not should_fail:
-        status = ModelRunner(model, nonlinear_solver=nonlinear_solver).run()
+        status = model_runner.run()
     else:
         try:
-            ModelRunner(model, nonlinear_solver=nonlinear_solver).run()
+            model_runner.run()
         except RuntimeError as e:
             status = e.args[0]
         else:
@@ -503,9 +507,72 @@ def test_model_time_step_control(params: dict):
     assert model.time_manager.final_time_reached() != should_fail
     if should_fail:
         assert isinstance(status, ModelRunnerStatusFailure)
-        assert status.reason.find(failure_reason) != -1
+        assert failure_reason in status.reason
     else:
         assert status.is_success()
+
+
+def test_advanced_scheduler():
+    time_manager = TimeManager.with_advanced_schedule(
+        schedule=Schedule(
+            intervals=[
+                TimeInterval.create(
+                    name="initialization",
+                    t_start=0,
+                    dt_start=1,
+                    dt_max=1,
+                    constraints=[pp.time_stepper.TargetNonlinearIterations()],
+                ),
+                TimeInterval.create(
+                    name="injection",
+                    t_start=3,
+                    dt_start=0.1,
+                    dt_min=0.01,
+                    constraints=[pp.time_stepper.TargetNonlinearIterations()],
+                ),
+                TimeInterval.create(
+                    name="relaxation",
+                    t_start=3.02,
+                    dt_start=1e2,
+                    constraints=[
+                        pp.time_stepper.TargetNonlinearIterations(),
+                    ],
+                ),
+            ],
+            t_end=3e2,
+        ),
+    )
+    model = DynamicTimeStepTestCaseModel(
+        params={
+            "time_manager": time_manager,
+            "times_to_export": [],  # Suspends export
+        },
+    )
+    nonlinear_solver = DynamicNewtonSolver(
+        num_nonlinear_iterations=[2] * 10,
+        # The first injection step fails and is retried at dt_min. All other
+        # attempts converge.
+        time_step_converged=[True, True, True, False] + [True] * 6,
+        call_model_methods=True,
+    )
+    model_runner = ModelRunner(model, nonlinear_solver=nonlinear_solver)
+
+    status = model_runner.run()
+    assert status.is_success()
+    dt_expected = [
+        # Initialization.
+        1,
+        1,
+        1,
+        # Injection: align with the next interval, then retry at dt_min.
+        0.02,
+        0.01,
+        0.01,
+        # Relaxation.
+        130,
+        166.98,
+    ]
+    assert np.allclose(model.time_step_history, dt_expected)
 
 
 # MARK: Statistics
@@ -565,8 +632,8 @@ def test_solve_convergence_time_dependent_statistics(statistics_path: Path):
     # Minimal setup.
     model = MockModel(statistics_path=statistics_path)
     solver = default_newton_solver(iter_converge=2)
-    time_manager = TimeManager(schedule=[0, 1], dt_init=0.5, constant_dt=True)
-    time_stepper = TimeStepper(time_manager=time_manager)
+    model.time_manager = TimeManager(schedule=[0, 1], dt_init=0.5, constant_dt=True)
+    time_stepper = TimeStepper.with_time_manager(model.time_manager)
 
     # Define the reference solver statistics, for two time steps.
     reference_data = {
@@ -597,7 +664,7 @@ def test_solve_convergence_time_dependent_statistics(statistics_path: Path):
         },
         "0": {
             "final_time_reached": 0,
-            "time_index": 1,
+            "time_index": 1,  # Note that time_index is off-by-one from the dict key.
             "time": 0.5,
             "dt": 0.5,
             "num_iterations": 2,
@@ -662,10 +729,10 @@ def test_solve_failure_time_dependent_statistics(statistics_path: Path):
     """
     model = MockModel(statistics_path=statistics_path)
     solver = default_newton_solver(iter_converge=5)
-    time_manager = TimeManager(
+    model.time_manager = TimeManager(
         schedule=[0, 1], dt_init=1, constant_dt=False, dt_min_max=(0.5, 1)
     )
-    time_stepper = TimeStepper(time_manager=time_manager)
+    time_stepper = TimeStepper.with_time_manager(model.time_manager)
 
     # It will attempt to make a time step twice here, with dt=1 and dt=0.5. Both will
     # fail after two unsuccessful nonlinear iterations.
@@ -678,7 +745,7 @@ def test_solve_failure_time_dependent_statistics(statistics_path: Path):
     status = time_stepper.perform_time_step(model=model, solver=solver)
     assert status.is_success()
 
-    # The 4th time step will converge after 1 iteration with dt=4.
+    # The 4th time-step attempt will converge after 1 iteration with dt=0.5.
     status = time_stepper.perform_time_step(model=model, solver=solver)
     assert status.is_success()
 
@@ -691,7 +758,7 @@ def test_solve_failure_time_dependent_statistics(statistics_path: Path):
         "global": {
             "num_cells": {},
             "num_domains": {},
-            # Four time stemp attempts, 0th failed (the time stepper retried), 1st
+            # Four time-step attempts, 0th failed (the time stepper retried), 1st
             # failed (the time stepper gave up), 2nd and 3rd succeeded.
             "simulation_status_history": [
                 "in_progress",
@@ -795,4 +862,11 @@ def test_solve_failure_time_dependent_statistics(statistics_path: Path):
         },
     }
 
-    assert DeepDiff(data, reference_data) == {}
+    assert (
+        DeepDiff(
+            data,
+            reference_data,
+            ignore_numeric_type_changes=True,  # to treat 1 and 1.0 as equal.
+        )
+        == {}
+    )

@@ -29,6 +29,7 @@ from porepy.numerics.solvers.nonlinear_solvers import (
     NonlinearSolverStatusFailed,
 )
 from porepy.time_stepper.time_step_status import (
+    TimeStepperAttemptData,
     TimeStepperStatusContinueIterating,
     TimeStepperStatusFailure,
     TimeStepperStatusSuccess,
@@ -46,23 +47,33 @@ def time_step_success() -> TimeStepperStatusSuccess:
     """Create a successful time-step status for statistics tests."""
     return TimeStepperStatusSuccess(
         time=1.0,
-        dt=0.5,
-        nonlinear_solver_status=NewtonSolverConverged(
-            linear_solver_statuses=linear_solver_statuses(2),
-            convergence_statuses=ConvergenceStatusCollection(),
-            divergence_statuses=ConvergenceStatusCollection(),
-        ),
+        attempts=[
+            TimeStepperAttemptData(
+                dt=0.5,
+                nonlinear_solve_status=NewtonSolverConverged(
+                    linear_solver_statuses=linear_solver_statuses(2),
+                    convergence_statuses=ConvergenceStatusCollection(),
+                    divergence_statuses=ConvergenceStatusCollection(),
+                ),
+            ),
+        ],
     )
 
 
 def time_step_failure() -> TimeStepperStatusFailure:
     """Create a failed time-step status for statistics tests."""
     return TimeStepperStatusFailure(
-        nonlinear_solver_status=NewtonSolverFailed(
-            linear_solver_statuses=linear_solver_statuses(2),
-            convergence_statuses=ConvergenceStatusCollection(),
-            divergence_statuses=ConvergenceStatusCollection(),
-        ),
+        time=1.0,
+        attempts=[
+            TimeStepperAttemptData(
+                dt=0.5,
+                nonlinear_solve_status=NewtonSolverFailed(
+                    linear_solver_statuses=linear_solver_statuses(2),
+                    convergence_statuses=ConvergenceStatusCollection(),
+                    divergence_statuses=ConvergenceStatusCollection(),
+                ),
+            )
+        ],
         reason="Nonlinear solver failed.",
     )
 
@@ -70,12 +81,16 @@ def time_step_failure() -> TimeStepperStatusFailure:
 def time_step_status_in_progress() -> TimeStepperStatusContinueIterating:
     """Create an in-progress time-step status for statistics tests."""
     return TimeStepperStatusContinueIterating(
-        attempt=0,
-        nonlinear_solver_status=NewtonSolverFailed(
-            linear_solver_statuses=linear_solver_statuses(2),
-            convergence_statuses=ConvergenceStatusCollection(),
-            divergence_statuses=ConvergenceStatusCollection(),
-        ),
+        attempts=[
+            TimeStepperAttemptData(
+                dt=0.5,
+                nonlinear_solve_status=NewtonSolverFailed(
+                    linear_solver_statuses=linear_solver_statuses(2),
+                    convergence_statuses=ConvergenceStatusCollection(),
+                    divergence_statuses=ConvergenceStatusCollection(),
+                ),
+            )
+        ],
     )
 
 
@@ -228,38 +243,6 @@ class MockLinearSolver(pp.solvers.LinearSolverBase):
         self.iteration_counter += 1
         increment = np.array(self.nonlinear_increment_history[self.iteration_counter])
         return increment, pp.solvers.LinearSolverStatusSuccess(solve_time=0)
-
-
-class TimeDependentMockModel(MockModel):
-    """Use nested lists for convergence history and adapted statistics."""
-
-    def __init__(
-        self,
-        residual_history=None,
-        path=None,
-    ):
-        super().__init__(residual_history=residual_history, path=path)
-        self.nonlinear_solver_statistics = pp.NonlinearSolverAndTimeStatistics(
-            path=path
-        )
-        self.time_manager = pp.TimeManager(
-            schedule=[0.0, 1.0], dt_init=0.5, constant_dt=True
-        )
-
-    def before_nonlinear_loop(self):
-        super().before_nonlinear_loop()
-        self.residuals = self.residual_history[0]
-        self.residual_history = self.residual_history[1:]
-
-    def before_nonlinear_iteration(self):
-        self.equation_system.residual = np.array(self.residuals[0])
-        self.residuals = self.residuals[1:]
-
-    def _is_time_dependent(self):
-        return True
-
-    def _is_nonlinear_problem(self):
-        return True
 
 
 # ! ---- Unit tests ---- ! #
@@ -478,31 +461,6 @@ def test_solve_convergence_statistics():
     Path("solver_statistics.json").unlink()
 
 
-def test_solve_convergence_time_dependent():
-    """Test that the solver returns SUCCESSFUL for converged time-dependent model."""
-    # Minimal setup.
-    model = TimeDependentMockModel(residual_history=[[1.0, 0.5], [1.0, 1.0, 0.5]])
-    solver = default_newton_solver(
-        nonlinear_increment_history=[2.0, 0.5, 2.0, 1.0, 0.5]
-    )
-
-    # First time step - advance time to log the time step.
-    model.time_manager.increase_time()
-    model.time_manager.increase_time_index()
-    solver_status = solver.solve(model)
-
-    # Check simulation status.
-    assert solver_status.is_converged()
-
-    # Second time step.
-    model.time_manager.increase_time()
-    model.time_manager.increase_time_index()
-    solver_status = solver.solve(model)
-
-    # Check simulation status.
-    assert solver_status.is_converged()
-
-
 def test_solve_failure():
     """Test that the solver returns FAILED on divergence."""
     # Minimal setup for failure after two iterations.
@@ -586,42 +544,6 @@ def test_solve_failure_statistics():
 
     # Clean up.
     Path("solver_statistics.json").unlink()
-
-
-def test_solve_failure_time_dependent():
-    """Test that the solver returns FAILED on divergence for a time-dependent model,"""
-    # Minimal setup for failure for first of three iterations - last two identical.
-    model = TimeDependentMockModel(
-        residual_history=[[1.0, np.nan], [1.0, 1.0, 0.5], [1.0, 1.0, 0.5]],
-    )
-    solver = default_newton_solver(
-        nonlinear_increment_history=[2.0, 100.0, 2.0, 1.0, 0.5, 2.0, 1.0, 0.5]
-    )
-
-    # First time step - advance time to log the time step.
-    model.time_manager.increase_time()
-    model.time_manager.increase_time_index()
-    solver_status = solver.solve(model)
-
-    # Check simulation status.
-    assert not model.time_manager.final_time_reached()
-    assert solver_status.is_failed()
-
-    # Retry time step, so do not increase time.
-    solver_status = solver.solve(model)
-
-    # Check simulation status.
-    assert not model.time_manager.final_time_reached()
-    assert solver_status.is_converged()
-
-    # First time step - advance time to log the time step.
-    model.time_manager.increase_time()
-    model.time_manager.increase_time_index()
-    solver_status = solver.solve(model)
-
-    # Check simulation status.
-    assert model.time_manager.final_time_reached()
-    assert solver_status.is_converged()
 
 
 def test_before_nonlinear_loop():

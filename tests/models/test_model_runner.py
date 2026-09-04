@@ -79,3 +79,42 @@ def test_failed_nonlinear_solve_dynamic_time_step():
     assert num_times_visited_before_nonlinear_iteration == 2, (
         "Should do exactly 2 attempts."
     )
+
+
+def test_time_data_seeded_from_time_stepper_before_prepare_simulation():
+    """Test that model.time_data reflects the real schedule from the time_stepper
+    already during prepare_simulation(), not just after the first time step.
+
+    ModelRunner.__init__ must resolve the passed-in time_stepper and seed
+    model.time_data from its scheduler *before* calling prepare_simulation(). Otherwise,
+    anything invoked during prepare_simulation() that depends on self.time_data.schedule
+    (e.g. time-dependent boundary conditions defined per schedule point) would
+    incorrectly see the SolutionStrategy.__init__ placeholder schedule [0.0, 1.0]
+    instead of the real one.
+
+    TODO: Written based on discovery pattern. Consider less specific test.
+    """
+    observed_schedule_sizes = []
+    observed_times = []
+
+    class RecordingModel(pp.SinglePhaseFlow):
+        def update_all_boundary_conditions(self) -> None:
+            observed_schedule_sizes.append(self.time_manager.schedule.size)
+            observed_times.append(self.time_manager.time)
+            super().update_all_boundary_conditions()
+
+    schedule = [0, 1, 2, 3]
+    model = RecordingModel(
+        {
+            "times_to_export": [],
+            "time_manager": pp.TimeManager(schedule=schedule, dt_init=1),
+        }
+    )
+    pp.ModelRunner(model)
+
+    assert observed_schedule_sizes, (
+        "update_all_boundary_conditions should be invoked during prepare_simulation."
+    )
+    assert observed_schedule_sizes[0] == len(schedule)
+    assert observed_times[0] == schedule[0]
+    assert np.array_equal(model.time_manager.schedule, schedule)
