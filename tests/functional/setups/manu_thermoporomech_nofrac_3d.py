@@ -861,7 +861,7 @@ class UnitCubeGrid(pp.PorePyModel):
         if self.params["grid_type"] == "simplex":
             # Mark the fractures added as constraints (not to be represented as
             # lower-dimensional objects).
-            return {"constraints": [0, 1, 2]}
+            return {"constraints": np.array([0, 1, 2])}
         else:
             return {}
 
