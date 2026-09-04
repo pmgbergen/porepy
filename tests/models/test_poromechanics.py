@@ -614,6 +614,36 @@ class PoromechanicsWell(
         return mesh_sizes
 
 
+def _well_model_params(open_to_rock: bool) -> dict:
+    """Parameters for the well model, either cased or open to the rock it passes.
+
+    Both cases are covered by sibling tests rather than by one parametrized test,
+    since the cased test predates the coupling between a well and the rock matrix.
+    They are written against a single helper so that folding them together later is a
+    small change.
+
+    Parameters:
+        open_to_rock: Whether the well exchanges fluid with the rock along its length.
+
+    Returns:
+        Model parameters.
+
+    """
+    # These parameters hopefully yield a relatively easy problem
+    params: dict = {
+        "fracture_indices": [2],
+        "well_flux": -1e-2,
+        "times_to_export": [],
+    }
+    if open_to_rock:
+        # The default well radius of 0.1 exceeds the equivalent radius of cells this
+        # coarse, which the Peaceman well index refuses rather than extrapolate. The
+        # slimmer well used by the flow tests fits.
+        params["material_constants"] = {"solid": pp.SolidConstants(well_radius=0.02)}
+        params["well_completion"] = {0: {"open_intervals": [(0.0, 10.0)]}}
+    return params
+
+
 def test_poromechanics_well():
     """Test that the poromechanics model runs without errors."""
     # These parameters hopefully yield a relatively easy problem
@@ -624,6 +654,33 @@ def test_poromechanics_well():
     }
     model = PoromechanicsWell(model_params)
     pp.ModelRunner(model).run()
+
+
+def test_poromechanics_well_open_to_the_rock():
+    """What is injected into an open well reaches the rock it passes through.
+
+    The test above cases the well, so its contacts with the rock carry nothing and the
+    coupling is never exercised alongside a momentum balance. A failure means the
+    well-matrix interfaces transport nothing, or not all of it, once mechanics is
+    present, which a test that only checks the model runs would not notice.
+    """
+    model = PoromechanicsWell(_well_model_params(open_to_rock=True))
+    pp.ModelRunner(model).run()
+
+    well_interfaces = list(model.mdg.interfaces(codim=2))
+    rock = [
+        intf
+        for intf in well_interfaces
+        if model.mdg.interface_to_subdomain_pair(intf)[1].dim == 1
+    ]
+    total = np.sum(model.equation_system.evaluate(model.well_flux(well_interfaces)))
+    through_rock = np.sum(model.equation_system.evaluate(model.well_flux(rock)))
+
+    # Negative by the convention that interface fluxes run from higher to lower
+    # dimension. Nothing is lost between the well and what it feeds.
+    assert total == pytest.approx(-1e-2, rel=1e-6)
+    # The rock, not the fracture, is what carries it once the well is open.
+    assert through_rock / total > 0.9
 
 
 @pytest.mark.parametrize(
