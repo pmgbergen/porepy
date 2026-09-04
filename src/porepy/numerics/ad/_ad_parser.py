@@ -238,19 +238,21 @@ class AdParser:
         if op.is_leaf():
             if isinstance(op, pp.ad.MixedDimensionalVariable):
                 # Check if the MDVariable is not active (not present in ad_base).
+                not_active_variable = False
                 num_not_in_indexer = sum(
                     sub_var not in variable_indexer.indices for sub_var in op.sub_vars
                 )
-                not_active_variable = num_not_in_indexer == len(op.sub_vars)
-                if not not_active_variable and num_not_in_indexer > 0:
+                if num_not_in_indexer > 0:
+                    not_active_variable = num_not_in_indexer == len(op.sub_vars)
                     # It is in principly possible to evaluate variable which is active
                     # on some domains and disabled on others, but we do not need this
                     # yet, so it is not implemented. If we ever need it, the change
                     # should be localized by restructuring the loops in this function.
-                    raise NotImplementedError(
-                        "Evaluating MDVariables partially disabled on some domains is "
-                        "not supported yet."
-                    )
+                    if not not_active_variable:
+                        raise NotImplementedError(
+                            "Evaluating MDVariables partially disabled on some domains "
+                            "is not supported yet."
+                        )
 
                 if (
                     op.is_previous_iterate
