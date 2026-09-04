@@ -4641,7 +4641,7 @@ class ElasticTangentialFractureDeformation(pp.PorePyModel):
 
 
 class FractureDamageEvolutionCoefficients(pp.PorePyModel):
-    r"""Damage evolution coefficient following Archard's wear law.
+    r"""Damage evolution coefficient driven by frictional work.
 
     This is used for computing the history variable according to
 
@@ -4653,17 +4653,27 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
     :class:`~porepy.models.fracture_damage.AnisotropicFractureDamageLength` or
     :class:`~porepy.models.fracture_damage.IsotropicFractureDamageLength`.
 
-    Archard's law states that the volume of material removed by sliding wear is
-    proportional to the normal load and the sliding distance (Archard, 1953,
-    https://doi.org/10.1063/1.1721448). Taking the damage increment to be proportional
-    to the volume worn, the driver is the normal traction,
+    The driver is the frictional shear stress the contact sustains,
 
     .. math::
-        k = -\lambda_n,
+        k = \mu^* \sigma_n,
 
-    with the convention of negative compressive stress implying :math:`k \geq 0`. The
-    history :math:`\Lambda` is then the frictional work per unit area dissipated against
-    the asperities, a wear energy with SI units J m^-2.
+    so that :math:`\ell` supplying the slip makes :math:`\Lambda` the frictional work
+    per unit area done against the asperities, a wear energy with SI units J m^-2. The
+    asperities are worn by the work spent sliding against them, which is what the
+    softening functions are calibrated against.
+
+    Taking the product rather than the traction alone distinguishes this from Archard's
+    law (1953, https://doi.org/10.1063/1.1721448), where the volume worn is proportional
+    to the normal load and the sliding distance. The difference is the factor
+    :math:`\mu^*`: a smooth, well-lubricated contact carrying a heavy load wears more
+    slowly than a rough one carrying the same load over the same distance, and only the
+    work-based driver expresses that.
+
+    Because :math:`\mu^*` may itself depend on the damage state, the current step's
+    contribution to :math:`\Lambda` depends on :math:`\Lambda`. This is a well-posed
+    implicit relation rather than a circularity: :math:`\mu^*` is non-increasing in the
+    history, so the residual is strictly decreasing in it and the root is unique.
 
     Both damage channels share this single history. They are distinguished by their wear
     energy scales :math:`\Lambda_c^{\alpha}`, which enter the softening functions rather
@@ -4695,6 +4705,10 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
     _positive_normal_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method returning the compressive part of the normal traction. Normally
     defined in a mixin instance of :class:`AsperityStressPartition`."""
+
+    friction_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method returning the friction coefficient. Normally defined in a mixin instance
+    of :class:`CoulombFrictionBound`, as modified by the laws above it."""
 
     solid: FractureDamageSolidConstants
     """SolidConstants with damage parameters."""
@@ -4765,17 +4779,29 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
         )
 
     def damage_evolution_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        r"""Damage evolution coefficient [1/m].
+        r"""Damage evolution coefficient [-].
 
-        Implements :math:`k = -\lambda_n`, nondimensionalised by
-        :meth:`characteristic_wear_energy`. The contact traction is itself
+        Implements :math:`k = \mu^* \sigma_n`, the frictional shear stress the contact
+        sustains, so that :math:`\Lambda = \int k\, \ell\, \mathrm{d}s` is the
+        frictional work per unit area done against the asperities. Nondimensionalised by
+        :meth:`characteristic_wear_energy`; the contact traction is itself
         nondimensionalised by the characteristic contact traction, which is therefore
         multiplied back in here.
 
-        Since :meth:`_positive_normal_traction` clips to the compressive branch, the
-        coefficient is non-negative for any state, and it is linear in the normal
-        traction: the wear rate is monotone in the load, with no turning point above
-        which further confinement would slow the wear.
+        The friction coefficient is read through :meth:`friction_coefficient`, so the
+        driver reflects whatever composition the model actually uses for the friction
+        bound, and the two cannot drift apart.
+
+        Both factors are non-negative --- :meth:`_positive_normal_traction` clips to the
+        compressive branch --- so the history is non-decreasing whatever the state. The
+        coefficient is *not* linear in the normal traction when a stress partition is
+        active, since :math:`\mu^*` then depends on it as well.
+
+        Note that this is the total frictional work, not the dissipation: the part
+        recovered as dilation, :math:`\tan\psi\, \sigma_n`, is included. The
+        dissipation :math:`(\mu^* - \tan\psi)\sigma_n` is the quantity whose
+        positivity makes the law admissible, and it is a different quantity from the one
+        that drives the wear.
 
         Parameters:
             subdomains: List of subdomains where the damage coefficient is defined.
@@ -4786,7 +4812,8 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
 
         """
         coefficient = (
-            self._positive_normal_traction(subdomains)
+            self.friction_coefficient(subdomains)
+            * self._positive_normal_traction(subdomains)
             * self.characteristic_contact_traction(subdomains)
             / self.characteristic_wear_energy(subdomains)
         )

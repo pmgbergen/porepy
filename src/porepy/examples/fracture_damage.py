@@ -69,22 +69,43 @@ DATA_SAVING_METHOD_NAMES = [
     "dilation_damage_state",
     "friction_damage_state",
 ]
+"""Quantities recorded from the model at every time step."""
+
+EXACT_SOLUTION_METHOD_NAMES = ["damage_length"]
+"""Of those, the ones :class:`ExactSolution` supplies a reference value for."""
 
 
-def make_damagesavedata_class(method_names: list[str]) -> type:
-    """Create a dataclass type with fields for exact/approx values and errors."""
+def make_damagesavedata_class(
+    method_names: list[str], exact_names: list[str] | None = None
+) -> type:
+    """Create a dataclass type with fields for approximate and exact values.
+
+    Parameters:
+        method_names: Names recorded from the model, each gaining an ``approx_`` field.
+        exact_names: Subset of those that also gain an ``exact_`` field. Defaults to all
+            of them, for callers that supply a reference for every quantity.
+
+    Returns:
+        The dataclass type.
+
+    """
+    if exact_names is None:
+        exact_names = list(method_names)
     annotations: dict[str, type] = {}
     namespace: dict[str, object] = {"__annotations__": annotations}
 
     for name in method_names:
-        annotations[f"exact_{name}"] = np.ndarray
+        if name in exact_names:
+            annotations[f"exact_{name}"] = np.ndarray
         annotations[f"approx_{name}"] = np.ndarray
 
     cls = type("DamageSaveData", (object,), namespace)
     return dataclass(cls)
 
 
-DamageSaveData = make_damagesavedata_class(DATA_SAVING_METHOD_NAMES)
+DamageSaveData = make_damagesavedata_class(
+    DATA_SAVING_METHOD_NAMES, EXACT_SOLUTION_METHOD_NAMES
+)
 
 
 class DamageDataSaving(pp.PorePyModel):
@@ -121,33 +142,24 @@ class DamageDataSaving(pp.PorePyModel):
         sds = self.mdg.subdomains(dim=self.nd - 1)
         sd = sds[0]
         n: int = self.time_manager.time_index
-        names = DATA_SAVING_METHOD_NAMES
-        vals = {}
-        for name in names:
+        vals: dict[str, np.ndarray] = {}
+        for name in DATA_SAVING_METHOD_NAMES:
             if name == "damage_length":
-                # Treat damage length as a special case because of signature
-                exact_val = cast(np.ndarray, self.exact_sol.damage_length(sd, n, n))
-                # Since we have already updated the solution, time_step_index=1 gives
-                # the most recent increment.
+                # Treated separately because of its signature. Since the solution has
+                # already been updated, time_step_index=1 gives the most recent
+                # increment.
                 length, _ = self.damage_length(sds, 1)
-                approx_val = cast(np.ndarray, length.value(self.equation_system))
+                vals["approx_" + name] = cast(
+                    np.ndarray, length.value(self.equation_system)
+                )
+                vals["exact_" + name] = cast(
+                    np.ndarray, self.exact_sol.damage_length(sd, n, n)
+                )
             else:
-                if hasattr(self, name):
-                    # Collect data.
-                    exact_val = cast(np.ndarray, getattr(self.exact_sol, name)(sd, n))
-                    approx_val = cast(
-                        np.ndarray, getattr(self, name)(sds).value(self.equation_system)
-                    )
-                else:
-                    # By setting different values, we ensure that the error is large if
-                    # the lack of the method masks some other error.
-                    exact_val = np.ones(sd.num_cells)
-                    approx_val = np.zeros_like(exact_val)
-
-            vals["exact_" + name] = exact_val
-            vals["approx_" + name] = approx_val
-        collected_data = DamageSaveData(**vals)
-        return collected_data
+                vals["approx_" + name] = cast(
+                    np.ndarray, getattr(self, name)(sds).value(self.equation_system)
+                )
+        return DamageSaveData(**vals)
 
 
 class FractureDamageMomentumBalance(  # type: ignore[misc]
@@ -192,10 +204,14 @@ class FractureDamageHistoryMixin(
 
 
 class ExactSolution:
-    """Exact solution for the damage model.
+    """Reference values for the damage verification setup.
 
     The driving force of the problem is assumed to be a Dirichlet boundary condition
-    with transient values defined in the class parameters.
+    with transient values defined in the class parameters, and the displacement jump is
+    taken to follow it. That is what makes a closed form available at all, and it is why
+    the reference covers the damage length rather than the damage itself: the length
+    follows from the prescribed displacements, whereas the history and the damage states
+    would additionally require the contact traction and the whole constitutive law.
 
     """
 
@@ -274,113 +290,6 @@ class ExactSolution:
         # Both should be (nd-1, num_cells)
         return disp_n - disp_prev
 
-    def friction_damage_state(self, sd: pp.Grid, n: int):
-        """Return the exact solution at time step n.
-
-        Parameters:
-            sd: Subdomain where the boundary displacement is defined.
-            n: Time step index.
-
-        Returns:
-            Array of friction damage for the given time step.
-
-        """
-        h = self.damage_history(sd, n)
-        d0 = self.model.solid.residual_friction_damage
-        return d0 + (1 - d0) * np.exp(-h / self._wear_energy_scale("friction"))
-
-    def damage_history(self, sd: pp.Grid, n: int) -> np.ndarray:
-        """Return the damage history at time step n.
-
-        Parameters:
-            sd: Subdomain where the boundary displacement is defined.
-            n: Time step index.
-
-        Returns:
-            Array of damage history for the given time step.
-
-        """
-        return self.convolution(sd, n, self.damage_evolution_coefficient)
-
-    def dilation_damage_state(self, sd: pp.Grid, n: int) -> np.ndarray:
-        """Return the exact solution at time step n.
-
-        Parameters:
-            sd: Subdomain where the boundary displacement is defined.
-            n: Time step index.
-
-        Returns:
-            Array of dilation damage for the given time step.
-
-        """
-        h = self.damage_history(sd, n)
-        d0 = self.model.solid.residual_dilation_damage
-        return d0 + (1 - d0) * np.exp(-h / self._wear_energy_scale("dilation"))
-
-    def convolution(self, sd: pp.Grid, n: int, coefficient_function) -> np.ndarray:
-        """Return the convolution of the displacement increment with the damage kernel.
-
-        Parameters:
-            sd: Subdomain where the boundary displacement is defined.
-            n: Time step index.
-            coefficient_function: Function to compute the coefficient for the
-                convolution.
-
-        Returns:
-            Array of convolution values for the given time step.
-
-        """
-        var = np.zeros(sd.num_cells)
-        # This method can be implemented in subclasses if needed.
-        for i in range(1, n + 1):
-            # Compute the contribution to the damage from the current time step.
-            var_i = self.damage_length(sd, n, i) * coefficient_function(sd, i)
-            var += var_i
-        return var
-
-    def _wear_energy_scale(self, damage: str) -> float:
-        """Wear energy scale of a channel, scaled as the history variable is.
-
-        The history is nondimensionalised by the characteristic wear energy, so the
-        scale it is divided by must be too.
-
-        Parameters:
-            damage: Damage type, either ``"dilation"`` or ``"friction"``.
-
-        Returns:
-            The nondimensionalised wear energy scale.
-
-        """
-        scale = getattr(self.model.solid, f"{damage}_wear_energy_scale")
-        reference_energy = np.sqrt(
-            self.model.solid.dilation_wear_energy_scale
-            * self.model.solid.friction_wear_energy_scale
-        )
-        return float(scale / reference_energy)
-
-    def damage_evolution_coefficient(self, sd: pp.Grid, n: int) -> np.ndarray:
-        """Archard damage evolution coefficient, ``k = -t_n / sqrt(Lc_d * Lc_f)``.
-
-        Mirrors the constitutive-law method of the same name in
-        :class:`~porepy.constitutive_laws.FractureDamageEvolutionCoefficients`; the two
-        must be changed together. ``normal_traction`` is dimensional, so the whole of
-        the nondimensionalisation is the division by the characteristic wear energy.
-
-        Parameters:
-            sd: Subdomain where the boundary displacement is defined.
-            n: Time step index.
-
-        Returns:
-            Array of damage evolution coefficients for the given time step.
-
-        """
-        t = self.normal_traction(sd, n)
-        reference_energy = np.sqrt(
-            self.model.solid.dilation_wear_energy_scale
-            * self.model.solid.friction_wear_energy_scale
-        )
-        return -t / reference_energy
-
 
 class ExactSolutionIsotropic(ExactSolution):
     def damage_length(self, sd: pp.Grid, n: int, i: int):
@@ -443,12 +352,15 @@ solid_params = pp.solid_values.extended_granite_values_for_testing.copy()
 solid_params.update(
     {
         "friction_coefficient": 0.01,  # Low friction => slip \approx bc displacement
-        # Wear energy scales, order 1e2-1e3 Pa m so that the boundary displacements
-        # below accumulate softening exponents of order one, i.e. visible but not
-        # saturated damage. The ratio of the two sets which channel degrades faster.
+        # Wear energy scales, chosen so that the boundary displacements below accumulate
+        # softening exponents of order one, i.e. visible but not saturated damage. Since
+        # the history is the frictional work, the scales that achieve this are smaller
+        # than the traction alone would suggest by roughly the friction coefficient,
+        # which this fixture keeps deliberately low. The ratio of the two sets which
+        # channel degrades faster.
         # IS: Could be changed later to more physically motivated values.
-        "friction_wear_energy_scale": 666.6666666666667,
-        "dilation_wear_energy_scale": 408.8726586591035,
+        "friction_wear_energy_scale": 6.666666666666667,
+        "dilation_wear_energy_scale": 4.088726586591035,
         "residual_friction_damage": 0.3,
         "residual_dilation_damage": 0.6,
         "dilation_angle": 0.01,  # [rad] # Low but nonzero dilation angle to get some

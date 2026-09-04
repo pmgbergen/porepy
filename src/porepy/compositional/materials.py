@@ -535,9 +535,9 @@ class FractureDamageSolidConstants(AsperityContactSolidConstants):
 
     The frictional work per unit area that must be dissipated against the asperities for
     the dilation damage state to decay by a factor :math:`e` towards its residual; see
-    :class:`~porepy.constitutive_laws.FractureDamage`. It absorbs Archard's
-    dimensionless wear coefficient and is therefore an effective calibrated quantity
-    rather than a purely geometric one.
+    :class:`~porepy.constitutive_laws.FractureDamage`. It absorbs the efficiency with
+    which that work removes asperity height, and is therefore an effective calibrated
+    quantity rather than a purely geometric one.
 
     Together with :attr:`friction_wear_energy_scale` it sets how fast the two roles of
     one asperity population degrade: this one governs the loss of the surfaces' ability
