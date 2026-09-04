@@ -158,6 +158,13 @@ class FractureDamageVariable(pp.PorePyModel):
         displacement jump, which requires the contact traction in the case of a nonzero
         elastic jump.
 
+        The history variable itself is also included, so that a damage evolution
+        coefficient depending on the damage state can be evaluated at the step it
+        belongs to. :meth:`FractureDamageEquation.damage_convolution_integral` reaches
+        past steps by pushing the whole coefficient back with ``previous_timestep``,
+        which rewrites every variable in it, so what is stored is the history rather
+        than a separately cached coefficient.
+
         Note that if used with a pure contact mechanics model, the contact traction
         variable is the only variable stored at all time steps, since the interface
         displacement is not included in the model. In that case, the method should be
@@ -171,6 +178,7 @@ class FractureDamageVariable(pp.PorePyModel):
             variables=[
                 self.interface_displacement_variable,
                 self.contact_traction_variable,
+                self.damage_history_variable,
             ]
         )
 

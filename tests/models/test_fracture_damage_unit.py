@@ -1164,3 +1164,78 @@ class TestDamageLength:
             a * np.sqrt(2.0) * np.ones(nc),
             rtol=1e-10,
         )
+
+
+# ---------------------------------------------------------------------------
+# 7.  History storage
+# ---------------------------------------------------------------------------
+
+
+class TestAllTimeStepStorage:
+    """Variables the convolution reaches back through are kept at every past step.
+
+    The damage history is a sum over the whole history, so the terms of the sum are
+    formed by pushing operators back with ``previous_timestep(i)`` for arbitrary ``i``.
+    That rewrites every variable inside them, so each such variable must have a stored
+    value at every index rather than the default rolling window of one.
+    ``variables_stored_all_time_steps`` is the declaration of which those are.
+
+    Getting it wrong fails with a ``KeyError`` on the third time step of a run: loud,
+    but only after two steps of work. These tests pin it without running a simulation.
+    """
+
+    @staticmethod
+    def _advanced_model(shifts: int = 4):
+        """A prepared model whose stored solutions have been shifted ``shifts`` times.
+
+        No solve is performed; the shift is what decides how far back values survive.
+        """
+        model = _prepared_model(damages=["dilation", "friction"])
+        for _ in range(shifts):
+            model.update_time_step_solution()
+        return model
+
+    def test_declared_variables_survive_every_past_step(self):
+        """Every variable the model declares is retrievable arbitrarily far back.
+
+        Driven off ``variables_stored_all_time_steps`` rather than a hard-coded list, so
+        that a variable added to the declaration is covered without touching this test,
+        and one dropped from it fails here.
+        """
+        model = self._advanced_model()
+        declared = model.variables_stored_all_time_steps()
+        assert declared, "No variables declared for all-time-step storage"
+
+        for variable in declared:
+            for steps in range(1, 5):
+                model.equation_system.evaluate(variable.previous_timestep(steps))
+
+    def test_the_history_and_its_ingredients_are_declared(self):
+        """The declaration covers the history and the jump it is accumulated from.
+
+        The contact traction is needed alongside the displacements because the plastic
+        jump is obtained from the total jump by subtracting the elastic part.
+        """
+        model = _prepared_model(damages=["dilation", "friction"])
+        declared = {v.name for v in model.variables_stored_all_time_steps()}
+
+        assert model.damage_history_variable in declared
+        assert model.contact_traction_variable in declared
+        assert model.interface_displacement_variable in declared
+
+    def test_undeclared_variables_keep_only_the_default_window(self):
+        """A variable outside the declaration is not retained beyond one step.
+
+        Without this the first test would pass on a model that happened to store
+        everything, and would say nothing about the declaration doing the selecting.
+        The matrix displacement is the natural control: the convolution never reaches
+        back through it, so it keeps the default window.
+        """
+        model = self._advanced_model()
+        matrix_displacement = model.displacement(model.mdg.subdomains(dim=model.nd))
+
+        # One step back is within the default window.
+        model.equation_system.evaluate(matrix_displacement.previous_timestep(1))
+
+        with pytest.raises(KeyError):
+            model.equation_system.evaluate(matrix_displacement.previous_timestep(2))
