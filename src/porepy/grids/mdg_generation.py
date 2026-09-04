@@ -860,7 +860,7 @@ def create_mdg(
     # Keep a reference to the user-provided constraints before they are consumed
     # (and removed from kwargs) by the simplex preprocessing below. This is needed
     # for the fractures-outside-domain check further down.
-    constraints: np.ndarray = np.asarray(kwargs.get("constraints", np.array([])))
+    constraints: np.ndarray = kwargs.get("constraints", np.array([]))
 
     # Unstructured cases
     dim: int = _infer_dimension_from_network(fracture_network)
