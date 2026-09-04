@@ -137,6 +137,11 @@ class AdParser:
             state = equation_system.get_variable_values(
                 iterate_index=0, variables=list(variable_indexer.indices)
             )
+        elif state.size != variable_indexer.size:
+            raise ValueError(
+                f"Passed state shape ({state.size}) does not conform to the variable "
+                f"indexer size ({variable_indexer.size})."
+            )
 
         # Create an AdArray representation of the state, if the derivative is requested.
         # If not, the state is used as is (as a numpy array).
