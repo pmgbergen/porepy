@@ -1584,9 +1584,14 @@ class EquationSystem:
             derivative: Whether to evaluate the derivative of the operator. Defaults to
                 False.
             state: State vector to evaluate the operator on. By default, the current
-                state is used. TODO YZ: What if state if variable_indexer is used? The
-                full state? Or the local state corresponding to variable indexer?
-                Unclear API.
+                state is used.
+            variable_indexer: The indexer that defines the arrangement in a vector of
+                active variables. If both variable_indexer and state are provided, the
+                state must conform to the variable indexer. I.e., if we want to evaluate
+                the operator only with respect to the pressure variable and provide
+                custom state, we need to pass the restricted variable_indexer (with only
+                pressure) and the restricted state array (with only pressure values). By
+                default, the global indexer defined by the equation_system is used.
 
         Returns:
             The operator evaluated on the current state. If the operator is a list, a
