@@ -647,3 +647,139 @@ class TestMDGridGenerationWithoutDomains:
             assert mdg.dim_min() == 1
             assert mdg.num_subdomains() == 3
             assert mdg.num_interfaces() == 2
+
+
+class TestDomainsAwayFromOrigin:
+    """Tests of structured meshing of domains whose lower corner is not the origin.
+
+    The structured grid generators mesh a domain anchored at the origin, and
+    ``pp.create_mdg`` translates the resulting grids into the position of the true
+    domain. A failure here most likely means that the translation is missing,
+    incomplete (say, for grids of a specific dimension or for the mortar grids) or
+    applied in the wrong direction.
+
+    """
+
+    domain_size = 4.0
+    """Extension of the test domain in each coordinate direction."""
+
+    def offset(self, dim: int) -> np.ndarray:
+        """Translation of the domain relative to the origin, ``shape=(3, 1)``.
+
+        The negative components mimic subsurface domains, which are commonly placed
+        below the origin. The offset is chosen so that the domain straddles the
+        coordinate planes, while no fracture intersection coincides with one of them.
+
+        """
+        return np.array([[1.0], [-2.5], [-4.0 if dim == 3 else 0.0]])
+
+    def domain_and_fractures(
+        self, dim: int, offset: np.ndarray
+    ) -> tuple[pp.Domain, list[pp.LineFracture] | list[pp.PlaneFracture]]:
+        """A cube (square in 2d) of size 4 with fractures crossing in its center.
+
+        The fractures intersect pairwise, and all of them meet in a single point.
+        Meshing therefore produces grids of all dimensions from ``dim`` down to 0.
+
+        Parameters:
+            dim: Dimension of the domain, 2 or 3.
+            offset: ``shape=(3, 1)``
+
+                Translation of the domain and the fractures relative to the origin.
+
+        Returns:
+            The domain and the fractures, both placed relative to ``offset``.
+
+        """
+        size = self.domain_size
+        x_min, y_min, z_min = offset[:, 0]
+        box = {
+            "xmin": x_min,
+            "xmax": x_min + size,
+            "ymin": y_min,
+            "ymax": y_min + size,
+        }
+        fractures: list[pp.LineFracture] | list[pp.PlaneFracture]
+        if dim == 2:
+            fractures = [
+                pp.LineFracture(pts + offset[:2])
+                for pts in [
+                    np.array([[1.0, 3.0], [2.0, 2.0]]),
+                    np.array([[2.0, 2.0], [1.0, 3.0]]),
+                ]
+            ]
+        else:
+            box.update({"zmin": z_min, "zmax": z_min + size})
+            fractures = [
+                pp.PlaneFracture(pts + offset)
+                for pts in [
+                    np.array([[2, 2, 2, 2], [1, 3, 3, 1], [1, 1, 3, 3]], dtype=float),
+                    np.array([[1, 3, 3, 1], [2, 2, 2, 2], [1, 1, 3, 3]], dtype=float),
+                    np.array([[1, 3, 3, 1], [1, 1, 3, 3], [2, 2, 2, 2]], dtype=float),
+                ]
+            ]
+        return pp.Domain(box), fractures
+
+    def generate_mdg(
+        self, grid_type: str, dim: int, offset: np.ndarray
+    ) -> pp.MixedDimensionalGrid:
+        """Mesh the test geometry translated by ``offset``."""
+        domain, fractures = self.domain_and_fractures(dim, offset)
+        fracture_network = pp.create_fracture_network(fractures, domain)
+        return pp.create_mdg(grid_type, {"cell_size": 1.0}, fracture_network)
+
+    @pytest.mark.parametrize("grid_type", ["cartesian", "tensor_grid"])
+    @pytest.mark.parametrize("dim", [2, 3])
+    def test_translation_invariance(self, grid_type: str, dim: int) -> None:
+        """Compare meshing of a domain at the origin with meshing of the same domain
+        and fractures translated away from the origin.
+
+        The two mixed-dimensional grids should be identical up to the translation, for
+        grids of all dimensions as well as for the mortar grids.
+
+        """
+        offset = self.offset(dim)
+        reference_mdg = self.generate_mdg(grid_type, dim, np.zeros((3, 1)))
+        mdg = self.generate_mdg(grid_type, dim, offset)
+
+        # Verify that the geometry is as intended, so that the comparison below indeed
+        # covers grids of all dimensions.
+        assert mdg.dim_max() == dim
+        assert mdg.dim_min() == 0
+
+        for sd, reference_sd in zip(mdg.subdomains(), reference_mdg.subdomains()):
+            assert sd.dim == reference_sd.dim
+            assert np.allclose(sd.nodes, reference_sd.nodes + offset)
+            assert np.allclose(sd.face_centers, reference_sd.face_centers + offset)
+            assert np.allclose(sd.cell_centers, reference_sd.cell_centers + offset)
+            # The translation should not alter the size of the cells.
+            assert np.allclose(sd.cell_volumes, reference_sd.cell_volumes)
+
+        for intf, reference_intf in zip(mdg.interfaces(), reference_mdg.interfaces()):
+            assert np.allclose(intf.nodes, reference_intf.nodes + offset)
+            assert np.allclose(intf.cell_centers, reference_intf.cell_centers + offset)
+            for side, side_grid in intf.side_grids.items():
+                reference_side_grid = reference_intf.side_grids[side]
+                assert np.allclose(
+                    side_grid.cell_centers, reference_side_grid.cell_centers + offset
+                )
+
+    @pytest.mark.parametrize("grid_type", ["cartesian", "tensor_grid"])
+    @pytest.mark.parametrize("dim", [2, 3])
+    def test_grid_covers_domain(self, grid_type: str, dim: int) -> None:
+        """Verify that the highest-dimensional grid fills the domain.
+
+        This guards against the grid having the right shape but the wrong size, which
+        translation alone will not reveal.
+
+        """
+        offset = self.offset(dim)
+        domain, _ = self.domain_and_fractures(dim, offset)
+        mdg = self.generate_mdg(grid_type, dim, offset)
+
+        sd = mdg.subdomains(dim=dim)[0]
+        box = domain.bounding_box
+        upper_corner = [box["xmax"], box["ymax"], box.get("zmax", 0.0)]
+        assert np.allclose(sd.nodes[:dim].min(axis=1), offset[:dim, 0])
+        assert np.allclose(sd.nodes[:dim].max(axis=1), upper_corner[:dim])
+        assert np.isclose(sd.cell_volumes.sum(), self.domain_size**dim)
