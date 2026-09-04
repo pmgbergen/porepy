@@ -568,7 +568,7 @@ def _preprocess_cartesian_args(
 
     Returns:
         nx_cells: Number of cells in each direction.
-        phys_dims: Physical dimensions in each direction. It is inferred from domain.
+        phys_dims: Size of the domain in each direction. It is inferred from domain.
         kwargs: It could contain the item offset: ``float``: Defaults to 0.
 
     """
@@ -578,9 +578,16 @@ def _preprocess_cartesian_args(
     ymin: float = domain.bounding_box["ymin"]
     ymax: float = domain.bounding_box["ymax"]
 
-    phys_dims: list[float] = [xmax, ymax]
+    # The physical dimensions are the extension of the domain in each direction. The
+    # lower corner of the domain is accounted for by translating the grids after
+    # meshing, see create_mdg.
+    phys_dims: list[float] = [xmax - xmin, ymax - ymin]
     if domain.dim == 3:
-        phys_dims = [xmax, ymax, domain.bounding_box["zmax"]]
+        phys_dims = [
+            xmax - xmin,
+            ymax - ymin,
+            domain.bounding_box["zmax"] - domain.bounding_box["zmin"],
+        ]
 
     cell_size: Optional[float] = meshing_args.get("cell_size", None)
     cell_size_x: Optional[float] = meshing_args.get("cell_size_x", cell_size)
@@ -715,6 +722,56 @@ def _preprocess_tensor_grid_args(
     [kwargs.pop(item[0]) for item in meshing_args.items() if item[0] in kwargs]
 
     return (x_pts, y_pts, z_pts, kwargs)
+
+
+def _domain_lower_corner(domain: pp.Domain) -> np.ndarray:
+    """Return the lower corner of the bounding box of a domain.
+
+    Parameters:
+        domain: An instance of :class:`~porepy.geometry.domain.Domain` representing
+            the domain.
+
+    Returns:
+        ``shape=(3, 1)``
+
+        The minimum coordinate of the domain in each of the three coordinate
+        directions. The third component is zero for 2d domains.
+
+    """
+    box = domain.bounding_box
+    return np.array([[box["xmin"]], [box["ymin"]], [box.get("zmin", 0.0)]])
+
+
+def _translate_mdg(mdg: pp.MixedDimensionalGrid, shift: np.ndarray) -> None:
+    """Translate all grids of a mixed-dimensional grid in place.
+
+    Parameters:
+        mdg: The mixed-dimensional grid to be translated.
+        shift: ``shape=(3, 1)``
+
+            Translation vector.
+
+    """
+
+    def translate_grid(grid: pp.Grid) -> None:
+        # The coordinates are shifted directly, rather than recomputing the geometry
+        # from the translated nodes. This is both cheaper and simpler, the latter
+        # since 0d grids have no nodes to recompute their cell center from. All other
+        # geometric quantities (areas, volumes and normal vectors) are invariant under
+        # translation.
+        grid.nodes = grid.nodes + shift
+        grid.face_centers = grid.face_centers + shift
+        grid.cell_centers = grid.cell_centers + shift
+
+    for sd in mdg.subdomains():
+        translate_grid(sd)
+
+    for intf in mdg.interfaces():
+        for side_grid in intf.side_grids.values():
+            translate_grid(side_grid)
+        # The mortar grid keeps its own copy of the coordinates of its side grids.
+        intf.nodes = intf.nodes + shift
+        intf.cell_centers = intf.cell_centers + shift
 
 
 def create_mdg(
@@ -903,9 +960,18 @@ def create_mdg(
             (nx_cells, phys_dims, kwargs) = _preprocess_cartesian_args(
                 domain, meshing_args, kwargs
             )
+            # Structured meshing assumes a domain with its lower corner in the origin.
+            # Mesh a domain translated to the origin, and translate the resulting grids
+            # back to the position of the true domain. The fractures are given in the
+            # coordinates of the true domain, thus they must be translated as well.
+            lower_corner = _domain_lower_corner(domain)
             mdg = pp.meshing.cart_grid(
-                fracs=fractures, nx=nx_cells, physdims=phys_dims, **kwargs
+                fracs=[f - lower_corner[:dim] for f in fractures],
+                nx=nx_cells,
+                physdims=phys_dims,
+                **kwargs,
             )
+            _translate_mdg(mdg, lower_corner)
 
         if grid_type == "tensor_grid":
             (xs, ys, zs, kwargs) = _preprocess_tensor_grid_args(
