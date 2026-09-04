@@ -126,6 +126,12 @@ class AdParser:
             equation_system: The EquationSystem wherein the system state is defined.
             state: The state of the system. If not provided, the state is taken from the
                 variable values provided by equation_system.
+            variable_indexer: The indexer that defines the arrangement in a vector of
+                active variables. If both variable_indexer and state are provided, the
+                state must conform to the variable indexer. I.e., if we want to evaluate
+                the operator only with respect to the pressure variable and provide
+                custom state, we need to pass the restricted variable_indexer (with only
+                pressure) and the restricted state array (with only pressure values).
 
         Returns:
             The value, or value and Jacobian combined in an AdArray, of the operator op,
@@ -213,6 +219,7 @@ class AdParser:
             ad_base: The base for the automatic differentiation. This should be an
                 AdArray if the derivative is requested, and a numpy array if not.
             equation_system: The EquationSystem wherein the system state is defined.
+            variable_indexer: The indexer that defines the arrangement in ad_base.
 
         Returns:
             A numpy array or an AdArray representation of the operator op, depending on
@@ -230,15 +237,31 @@ class AdParser:
         #    them according to the operator.
         if op.is_leaf():
             if isinstance(op, pp.ad.MixedDimensionalVariable):
-                not_active_variable = any(
+                # Check if the MDVariable is not active (not present in ad_base).
+                num_not_in_indexer = sum(
                     sub_var not in variable_indexer.indices for sub_var in op.sub_vars
                 )
+                not_active_variable = num_not_in_indexer == len(op.sub_vars)
+                if not not_active_variable and num_not_in_indexer > 0:
+                    # It is in principly possible to evaluate variable which is active
+                    # on some domains and disabled on others, but we do not need this
+                    # yet, so it is not implemented. If we ever need it, the change
+                    # should be localized by restructuring the loops in this function.
+                    raise NotImplementedError(
+                        "Evaluating MDVariables partially disabled on some domains is "
+                        "not supported yet."
+                    )
+
                 if (
                     op.is_previous_iterate
                     or op.is_previous_time
                     or op.is_reference
                     or not_active_variable
                 ):
+                    # This relies on an assumption, that the domains within a single
+                    # MDVariable are ordered according to the MDG. If this assumption is
+                    # broken, this will not be the failure point, because it will fail
+                    # much earlier.
                     vals = [
                         sub_var.parse(equation_system.mdg) for sub_var in op.sub_vars
                     ]
