@@ -687,26 +687,52 @@ class TestDamageLength:
     @pytest.mark.parametrize(
         "isotropic", [True, False], ids=["isotropic", "anisotropic"]
     )
-    def test_3d_zero_check_uses_norm_not_component_sum(self, isotropic: bool):
+    def test_3d_zero_check_does_not_trigger_for_cancelling_increment(
+        self, isotropic: bool
+    ):
         """The increment measure must not vanish for a cancelling 3D increment.
 
         ``damage_convolution_integral`` drops a history term when this second return
         value falls below tolerance, so it may vanish only when the increment itself
-        does. With ``u_t = (a, -a)`` the tangential components sum to zero while the
-        increment is plainly non-zero. A failure here means the check has reverted to
-        summing components, which silently discards real slip history in 3D.
+        does. With ``u_t = (a, -a)`` and (0, 0) at the previous time step, the
+        tangential components sum to zero while the increment is plainly non-zero.
         """
+        add_contribution = self._compute_add_contribution(
+            time_val=0.0, isotropic=isotropic
+        )
+        assert add_contribution, (
+            "Increment norm must not vanish for cancelling 3D increment"
+        )
+
+    @pytest.mark.parametrize(
+        "isotropic", [True, False], ids=["isotropic", "anisotropic"]
+    )
+    def test_3d_zero_check_triggers_for_zero_increment(self, isotropic: bool):
+        """The increment norm must vanish when the tangential jump is unchanged.
+
+        The second return value of ``damage_length`` is used to determine whether a
+        history term contributes to the convolution integral.  It must vanish only
+        when the tangential jump is unchanged, which is tested here in 3D.
+        """
+        # Same time_val as used for iterate in the helper implies a zero increment (no
+        # change from previous time step).
+        add_contribution = self._compute_add_contribution(
+            time_val=3.0e-4, isotropic=isotropic
+        )
+        assert not add_contribution, (
+            "Increment norm must vanish for unchanged tangential jump."
+        )
+
+    def _compute_add_contribution(self, time_val: float, isotropic: bool) -> bool:
+        """Return whether the increment norm is non-zero for a 3D tangential jump."""
         model = _prepared_model(isotropic=isotropic, damages=["dilation"], dim=3)
         fractures = self._fractures(model)
-        nc = sum(sd.num_cells for sd in fractures)
         a = 3.0e-4
 
         self._set_tangential_jump(model, a, -a, iterate=True)
-        self._set_tangential_jump(model, 0.0, 0.0, time_step_index=0)
-
+        self._set_tangential_jump(model, time_val, -time_val, time_step_index=0)
+        coeff = model.dilation_damage_evolution_coefficient(
+            fractures
+        ).previous_timestep(0)
         _, increment_norm = model.damage_length(fractures, 0)
-        np.testing.assert_allclose(
-            increment_norm.value(model.equation_system),
-            a * np.sqrt(2.0) * np.ones(nc),
-            rtol=1e-10,
-        )
+        return model._check_constant_contribution(increment_norm * coeff)

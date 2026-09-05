@@ -261,14 +261,30 @@ class FractureDamageEquations(pp.PorePyModel):
             # functions, regardless of the current state they are evaluated against, so
             # such terms can be dropped from the sum. Both factors are evaluated at a
             # previous time step and are therefore constant.
-            constant_value = cast(
-                np.ndarray,
-                (increment_norm_i * damage_coefficient_i).value(self.equation_system),
-            )
-            if np.any(np.abs(constant_value) > tolerance):  # tolerance for zero check
+            if self._check_constant_contribution(
+                increment_norm_i * damage_coefficient_i, tolerance
+            ):
                 eq += length_i * damage_coefficient_i
 
         return eq
+
+    def _check_constant_contribution(
+        self, constant_operator: pp.ad.Operator, tolerance: float = 1e-14
+    ) -> bool:
+        """Check if the constant operator has a non-zero contribution.
+
+        Parameters:
+            constant_operator: Operator to check.
+            tolerance: Tolerance for checking if the operator is non-zero.
+
+        Returns:
+            True if the operator has a non-zero contribution, False otherwise.
+        """
+        constant_value = cast(
+            np.ndarray,
+            constant_operator.value(self.equation_system),
+        )
+        return bool(np.any(np.abs(constant_value) > tolerance))
 
 
 class DilationDamageEquation(FractureDamageEquations):
@@ -419,9 +435,7 @@ class IsotropicFractureDamageLength(pp.PorePyModel):
 
         f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
 
-        # The norm vanishes if and only if the increment does, which is what the caller
-        # needs in order to discard a history term. Summing the tangential components
-        # instead would report an increment such as (a, -a) as zero.
+        # Compute norm of the increment.
         increment_norm = f_norm(u_t_increment)
 
         return increment_norm, increment_norm
@@ -499,12 +513,9 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
         )
         f_abs = pp.ad.Function(pp.ad.abs, "abs_function")
         contribution = f_abs(max_1 - max_0)
-        # If time_step_index > 0, we can safely disregard the contribution if the
-        # displacement increment is zero. Return the increment norm for checking before
-        # adding the contribution; the norm vanishes if and only if the increment does,
-        # whereas summing the tangential components would report an increment such as
-        # (a, -a) as zero.
+
         increment = u_t_0 - u_t_1
+        # Compute norm of the increment.
         f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
         return contribution, f_norm(increment)
 
