@@ -133,9 +133,9 @@ def _nondimensional_wear_energy_scale(model, damage: str) -> float:
 class TestDamageStateFormula:
     """Algebraic formula ``d = d0 + (1 - d0) * exp(-Lambda / Lambda_c)``.
 
-    The AD implementation clips Lambda below at zero before exponentiating; no upper
-    clip is applied. Histories are prescribed as multiples of the (nondimensionalized)
-    wear energy scale, so the tests read directly as values of the exponent.
+    The AD implementation floors Lambda at zero before exponentiating; no upper bound
+    is applied. Histories are prescribed as multiples of the (nondimensionalized) wear
+    energy scale, so the tests read directly as values of the exponent.
     """
 
     @staticmethod
@@ -196,6 +196,71 @@ class TestDamageStateFormula:
             model.equation_system
         )
         np.testing.assert_allclose(d, np.ones(nc), rtol=1e-12)
+
+    @pytest.mark.parametrize("damage", ["dilation", "friction"])
+    def test_damage_state_is_differentiable_at_zero_history(self, damage: str):
+        """At Lambda = 0 exactly the derivative is the softening's, not the floor's.
+
+        Zero is the most common initial value and the standing value of every cell that
+        has not yet slipped, and ``-(1 - d0)/Lambda_c`` is the largest the derivative
+        ever gets. A floor implemented so that the boundary counts as *floored* rather
+        than as *passed through* would zero it there, leaving the whole damage channel
+        absent from the Newton tangent until the first cell slips --- with the value
+        still correct, so nothing else would show it.
+
+        Parameters:
+            damage: Damage type, either ``"dilation"`` or ``"friction"``.
+        """
+        model, fractures, nc = self._prepared_model_with_fractures(damages=[damage])
+        equation_system = model.equation_system
+        history = model.damage_history(fractures)
+
+        equation_system.set_variable_values(
+            np.zeros(nc), variables=[history], iterate_index=0
+        )
+        jacobian = (
+            getattr(model, f"{damage}_damage_state")(fractures)
+            .value_and_jacobian(equation_system)
+            .jac.tocsr()[:, equation_system.dofs_of([history])]
+        )
+        jacobian.eliminate_zeros()
+
+        d0 = float(getattr(model.solid, f"residual_{damage}_damage"))
+        expected = -(1.0 - d0) / _nondimensional_wear_energy_scale(model, damage)
+        assert jacobian.nnz == nc, (
+            "the damage state must depend on every cell's history"
+        )
+        np.testing.assert_allclose(jacobian.data, expected, rtol=1e-12)
+
+    @pytest.mark.parametrize("damage", ["dilation", "friction"])
+    def test_negative_history_is_floored_and_contributes_no_derivative(
+        self, damage: str
+    ):
+        """An undershooting Newton iterate must not make exp(-Lambda) diverge.
+
+        The history is non-decreasing in exact arithmetic, but it is a solved variable,
+        so the floor has to hold. Below zero the state must sit at its undamaged value
+        with no derivative --- the complement of the boundary case above, and the reason
+        the floor is there at all.
+
+        Parameters:
+            damage: Damage type, either ``"dilation"`` or ``"friction"``.
+        """
+        model, fractures, nc = self._prepared_model_with_fractures(damages=[damage])
+        equation_system = model.equation_system
+        history = model.damage_history(fractures)
+
+        equation_system.set_variable_values(
+            np.full(nc, -5.0), variables=[history], iterate_index=0
+        )
+        state = getattr(model, f"{damage}_damage_state")(fractures).value_and_jacobian(
+            equation_system
+        )
+        jacobian = state.jac.tocsr()[:, equation_system.dofs_of([history])]
+        jacobian.eliminate_zeros()
+
+        np.testing.assert_allclose(state.val, np.ones(nc), rtol=1e-12)
+        assert jacobian.nnz == 0
 
     def test_dilation_damage_approaches_d0_at_large_history(self):
         """A history of ten scales drives the damage state to d0."""

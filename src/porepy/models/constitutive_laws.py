@@ -4904,13 +4904,22 @@ class FractureDamage(pp.PorePyModel):
         # non-negative, but it is a solved variable and a Newton iterate may undershoot.
         # A negative value would make exp(-history) blow up rather than decay, so the
         # lower bound is retained. No upper bound is imposed: exp(-history) decays
-        # smoothly and underflows gracefully, whereas clipping introduces a kink in the
-        # Jacobian at the clip value.
-        f_clip = Function(
-            partial(pp.ad.functions.clip, min_val=0.0, max_val=np.inf),
-            "clip_function",
+        # smoothly and underflows gracefully, whereas an upper bound would introduce a
+        # kink in the Jacobian at the bound.
+        #
+        # The history is the first argument, which is what places the undamaged state on
+        # the differentiable side of the floor.
+        # :func:`~porepy.numerics.ad.functions.maximum` takes the Jacobian from its
+        # first argument where the two are equal, so at exactly zero history the
+        # derivative is that of the softening rather than that of the constant floor.
+        # This matters more than a boundary case usually would: zero is the natural
+        # initial value and the standing value of every cell that has not yet slipped,
+        # and the softening's derivative is largest there.
+        zeros = pp.ad.DenseArray(
+            np.zeros(sum(sd.num_cells for sd in subdomains)), "zero_damage_history"
         )
-        history = f_clip(self.damage_history(subdomains))
+        f_max = Function(pp.ad.functions.maximum, "max_function")
+        history = f_max(self.damage_history(subdomains), zeros)
 
         # Nondimensionalize the wear energy scale, since the history variable is
         # nondimensional.
