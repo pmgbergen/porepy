@@ -11,6 +11,7 @@ author.
 ## Unreleased
 
 ### Changes
+1770: Simplify PR template by deferring to CONTRIBUTING.md for details on code style and conventions.
 #1732: Added support for evaluating restricted variable subsystems without evaluating
     the full Jacobian and then slicing columns.
 

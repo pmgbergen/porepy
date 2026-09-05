@@ -109,8 +109,7 @@ the prefix for its main purpose rather than inventing a new one.
 * Aim for reasonably sized PRs: a PR that does one thing is easier and faster to review than one that mixes,
   say, a refactoring with a new feature.
 * All pull requests undergo code review and are run against the full test suite and static checks.
-* Fill in the PR template, in particular the checklist confirming that documentation, typing, and tests are in
-  order.
+* Document your changes in [CHANGELOG.md](https://github.com/pmgbergen/porepy/blob/develop/CHANGELOG.md) and fill in the PR template.
 * Response times may vary depending on maintainers' other commitments, but all contributions will be followed up.
 
 ## Reporting issues
