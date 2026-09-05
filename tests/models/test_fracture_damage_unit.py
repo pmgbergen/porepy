@@ -17,16 +17,22 @@ Covered formulas
 - Composed friction coefficient:
     ``mu* = (mu_b + tan psi)/(1 - mu_b tan psi) + a_s mu_p0 d_f``,
     with ``tan psi = (1 - a_s) tan psi_0 d_d``
-- Damage evolution coefficient (shared by both channels, Archard):
-    ``k = pos_normal * char_traction / sqrt(Lambda_c_d * Lambda_c_f)``
-- Damage length:
-    - Isotropic, k=0: ``L = |u_t_iterate − u_t_ts0|``
-    - Anisotropic, k=0: ``L = |max(0, m · u_t_ts0) − |u_t_iterate||``
+- Mated fracture gap:
+    ``g = d_d * g_0``
+- Damage evolution coefficient (shared by both channels):
+    ``k = mu* * pos_normal * char_traction / sqrt(Lambda_c_d * Lambda_c_f)``
+- Damage length, at ``time_step_index=0``:
+    - Isotropic: ``L = |u_t_iterate − u_t_ts0|``
+    - Anisotropic: ``L = |max(0, m · u_t_ts0) − |u_t_iterate||``
 
 where ``t_n_nondim`` is the nondimensional normal contact traction (negative when the
 fracture is in compression), ``char_traction`` is
 ``numerical.characteristic_contact_traction``, ``pos_normal = -t_n_nondim``, ``m =
 u_t_iterate / |u_t_iterate|`` and ``u_t_ts0`` is the value at ``time_step_index=0``.
+
+Not every class here checks a formula: the damage history is a sum over all past steps,
+so the variables it reaches back through must be retained at every step rather than in a
+rolling window, and that declaration is checked too.
 
 TODO: Decide on placement. Everything is defined in constitutive_laws bar the length
 operator, which is defined in the momentum models.fracture_damage.
@@ -127,9 +133,9 @@ def _nondimensional_wear_energy_scale(model, damage: str) -> float:
 class TestDamageStateFormula:
     """Algebraic formula ``d = d0 + (1 - d0) * exp(-Lambda / Lambda_c)``.
 
-    The AD implementation clips Lambda below at zero before exponentiating; no upper
-    clip is applied. Histories are prescribed as multiples of the (nondimensionalized)
-    wear energy scale, so the tests read directly as values of the exponent.
+    The AD implementation floors Lambda at zero before exponentiating; no upper bound
+    is applied. Histories are prescribed as multiples of the (nondimensionalized) wear
+    energy scale, so the tests read directly as values of the exponent.
     """
 
     @staticmethod
@@ -191,6 +197,71 @@ class TestDamageStateFormula:
         )
         np.testing.assert_allclose(d, np.ones(nc), rtol=1e-12)
 
+    @pytest.mark.parametrize("damage", ["dilation", "friction"])
+    def test_damage_state_is_differentiable_at_zero_history(self, damage: str):
+        """At Lambda = 0 exactly the derivative is the softening's, not the floor's.
+
+        Zero is the most common initial value and the standing value of every cell that
+        has not yet slipped, and ``-(1 - d0)/Lambda_c`` is the largest the derivative
+        ever gets. A floor implemented so that the boundary counts as *floored* rather
+        than as *passed through* would zero it there, leaving the whole damage channel
+        absent from the Newton tangent until the first cell slips --- with the value
+        still correct, so nothing else would show it.
+
+        Parameters:
+            damage: Damage type, either ``"dilation"`` or ``"friction"``.
+        """
+        model, fractures, nc = self._prepared_model_with_fractures(damages=[damage])
+        equation_system = model.equation_system
+        history = model.damage_history(fractures)
+
+        equation_system.set_variable_values(
+            np.zeros(nc), variables=[history], iterate_index=0
+        )
+        jacobian = (
+            getattr(model, f"{damage}_damage_state")(fractures)
+            .value_and_jacobian(equation_system)
+            .jac.tocsr()[:, equation_system.dofs_of([history])]
+        )
+        jacobian.eliminate_zeros()
+
+        d0 = float(getattr(model.solid, f"residual_{damage}_damage"))
+        expected = -(1.0 - d0) / _nondimensional_wear_energy_scale(model, damage)
+        assert jacobian.nnz == nc, (
+            "the damage state must depend on every cell's history"
+        )
+        np.testing.assert_allclose(jacobian.data, expected, rtol=1e-12)
+
+    @pytest.mark.parametrize("damage", ["dilation", "friction"])
+    def test_negative_history_is_floored_and_contributes_no_derivative(
+        self, damage: str
+    ):
+        """An undershooting Newton iterate must not make exp(-Lambda) diverge.
+
+        The history is non-decreasing in exact arithmetic, but it is a solved variable,
+        so the floor has to hold. Below zero the state must sit at its undamaged value
+        with no derivative --- the complement of the boundary case above, and the reason
+        the floor is there at all.
+
+        Parameters:
+            damage: Damage type, either ``"dilation"`` or ``"friction"``.
+        """
+        model, fractures, nc = self._prepared_model_with_fractures(damages=[damage])
+        equation_system = model.equation_system
+        history = model.damage_history(fractures)
+
+        equation_system.set_variable_values(
+            np.full(nc, -5.0), variables=[history], iterate_index=0
+        )
+        state = getattr(model, f"{damage}_damage_state")(fractures).value_and_jacobian(
+            equation_system
+        )
+        jacobian = state.jac.tocsr()[:, equation_system.dofs_of([history])]
+        jacobian.eliminate_zeros()
+
+        np.testing.assert_allclose(state.val, np.ones(nc), rtol=1e-12)
+        assert jacobian.nnz == 0
+
     def test_dilation_damage_approaches_d0_at_large_history(self):
         """A history of ten scales drives the damage state to d0."""
         model, fractures, nc = self._prepared_model_with_fractures(damages=["dilation"])
@@ -231,14 +302,19 @@ class TestDamageEvolutionCoefficients:
     value (zero tangential component) and compare the evaluated operator with the
     analytically computed reference.
 
-    The coefficient implements Archard's wear law,
+    The coefficient is the frictional shear stress the contact sustains,
 
     .. math::
-        k = |t_n| / u_{char},
+        k = \mu^* |t_n|,
 
-    which is *linear* in the normal traction. A single coefficient serves both channels:
-    what distinguishes them is the wear energy scale in the softening, which is the
-    subject of :meth:`test_channels_differ_only_by_wear_energy_scale`.
+    so that the history it drives is a frictional work per unit area. A single
+    coefficient serves both channels: what distinguishes them is the wear energy scale
+    in the softening, which is the subject of
+    :meth:`test_channels_differ_only_by_wear_energy_scale`.
+
+    The fixture leaves the transitional normal traction at its infinite default, so the
+    stress partition is inert and :math:`\mu^*` is the sliding composition alone,
+    independent of the traction. Tests that need the partition active set it explicitly.
 
     The formula is written in terms of nondimensional tractions because the contact
     traction variable is nondimensionalized by ``char_traction``, which is multiplied
@@ -288,15 +364,28 @@ class TestDamageEvolutionCoefficients:
         )
         return char_t, reference_energy
 
+    @staticmethod
+    def _sliding_friction(model) -> float:
+        """The composed friction coefficient at zero history and inert partition.
+
+        Computed from the material constants rather than read off the model, so that the
+        driver is compared against an independent number. With the partition inert
+        ``a_s = 0`` leaves the sliding composition, and at zero history both damage
+        states are one.
+        """
+        mu_b = float(model.solid.friction_coefficient)
+        tan_psi = float(np.tan(model.solid.dilation_angle))
+        return (mu_b + tan_psi) / (1.0 - mu_b * tan_psi)
+
     def test_evolution_coefficient_formula(self):
-        """Coefficient equals ``|t_n| * char_traction / sqrt(Lc_d * Lc_f)``."""
+        """Coefficient equals ``mu* * |t_n| * char_traction / sqrt(Lc_d * Lc_f)``."""
         model = _prepared_model(damages=["dilation"])
         fractures = self._fractures(model)
         nc = sum(sd.num_cells for sd in fractures)
         char_t, reference_energy = self._material_constants(model)
 
         self._set_normal_traction(model, -0.4)
-        expected = 0.4 * char_t / reference_energy
+        expected = self._sliding_friction(model) * 0.4 * char_t / reference_energy
 
         result = model.damage_evolution_coefficient(fractures).value(
             model.equation_system
@@ -327,29 +416,69 @@ class TestDamageEvolutionCoefficients:
         scale_f = _nondimensional_wear_energy_scale(model, "friction")
         np.testing.assert_allclose(scale_d * scale_f, 1.0, rtol=1e-12)
 
-    def test_evolution_coefficient_is_linear_in_traction(self):
-        """The coefficient is linear in the normal traction, with no turning point.
-
-        Sampled across a decade of traction, so a wear rate that saturated, turned over
-        or reversed anywhere in that range would fail. A failure most likely means a
-        nonlinear factor has been introduced into the driver.
-        """
-        model = _prepared_model(damages=["dilation"])
+    def _coefficient_sampler(self, model):
+        """Return a sampler of the coefficient at a fraction of a strength scale."""
         fractures = self._fractures(model)
         char_t, _ = self._material_constants(model)
         strength_scale = 1e8  # representative rock strength [Pa], sets the range
 
-        def _eval(fraction_of_strength: float) -> np.ndarray:
+        def sample(fraction_of_strength: float) -> np.ndarray:
             self._set_normal_traction(
                 model, -fraction_of_strength * strength_scale / char_t
             )
-            return model.damage_evolution_coefficient(fractures).value(
-                model.equation_system
+            return np.asarray(
+                model.damage_evolution_coefficient(fractures).value(
+                    model.equation_system
+                )
             )
 
-        base = _eval(0.1)
+        return sample
+
+    def test_evolution_coefficient_is_linear_without_a_partition(self):
+        """With the partition inert the coefficient is linear in the normal traction.
+
+        The friction coefficient does not then depend on the traction, so the driver
+        inherits the traction's own linearity: the wear rate is monotone in the load,
+        with no turning point above which further confinement would slow the wear.
+
+        Sampled across a decade, so a wear rate that saturated, turned over or reversed
+        anywhere in that range would fail.
+        """
+        model = _prepared_model(damages=["dilation"])
+        sample = self._coefficient_sampler(model)
+
+        base = sample(0.1)
         for factor in (2.0, 4.0, 5.0, 9.0):
-            np.testing.assert_allclose(_eval(0.1 * factor), factor * base, rtol=1e-10)
+            np.testing.assert_allclose(sample(0.1 * factor), factor * base, rtol=1e-10)
+
+    def test_evolution_coefficient_is_nonlinear_with_a_partition(self):
+        """An active stress partition makes the driver nonlinear in the traction.
+
+        ``mu*`` then rises with the normal traction as contact transfers to ploughing,
+        so the driver grows faster than the load. The test places the transitional
+        traction inside the sampled range, so the samples straddle the transition, and
+        checks the coefficient grows strictly faster than linearly while remaining
+        monotone.
+
+        This is the counterpart to the linearity above: the two together say that the
+        nonlinearity comes from the partition and from nothing else.
+        """
+        model = _prepared_model(
+            damages=["dilation"],
+            solid_overrides={
+                "transitional_normal_traction": 5.0e7,
+                "ploughing_friction_coefficient": 0.4,
+            },
+        )
+        sample = self._coefficient_sampler(model)
+
+        base = float(np.mean(sample(0.1)))
+        for factor in (2.0, 4.0, 5.0, 9.0):
+            scaled = float(np.mean(sample(0.1 * factor)))
+            assert scaled > factor * base * (1.0 + 1e-6), (
+                f"Coefficient grew only {scaled / base:.4f}-fold for a {factor}-fold "
+                "traction increase; the partition should make it grow faster"
+            )
 
     def test_channels_differ_only_by_wear_energy_scale(self):
         """Only the softening scale distinguishes the two channels.
@@ -402,7 +531,9 @@ class TestDamageEvolutionCoefficients:
         self._set_normal_traction(model, 0.0)
 
         clip_floor = 1e-15  # pos_normal_nondim produced by the clip
-        expected = clip_floor * char_t / reference_energy
+        expected = (
+            self._sliding_friction(model) * clip_floor * char_t / reference_energy
+        )
 
         result = model.damage_evolution_coefficient(fractures).value(
             model.equation_system
@@ -1164,3 +1295,78 @@ class TestDamageLength:
             a * np.sqrt(2.0) * np.ones(nc),
             rtol=1e-10,
         )
+
+
+# ---------------------------------------------------------------------------
+# 7.  History storage
+# ---------------------------------------------------------------------------
+
+
+class TestAllTimeStepStorage:
+    """Variables the convolution reaches back through are kept at every past step.
+
+    The damage history is a sum over the whole history, so the terms of the sum are
+    formed by pushing operators back with ``previous_timestep(i)`` for arbitrary ``i``.
+    That rewrites every variable inside them, so each such variable must have a stored
+    value at every index rather than the default rolling window of one.
+    ``variables_stored_all_time_steps`` is the declaration of which those are.
+
+    Getting it wrong fails with a ``KeyError`` on the third time step of a run: loud,
+    but only after two steps of work. These tests pin it without running a simulation.
+    """
+
+    @staticmethod
+    def _advanced_model(shifts: int = 4):
+        """A prepared model whose stored solutions have been shifted ``shifts`` times.
+
+        No solve is performed; the shift is what decides how far back values survive.
+        """
+        model = _prepared_model(damages=["dilation", "friction"])
+        for _ in range(shifts):
+            model.update_time_step_solution()
+        return model
+
+    def test_declared_variables_survive_every_past_step(self):
+        """Every variable the model declares is retrievable arbitrarily far back.
+
+        Driven off ``variables_stored_all_time_steps`` rather than a hard-coded list, so
+        that a variable added to the declaration is covered without touching this test,
+        and one dropped from it fails here.
+        """
+        model = self._advanced_model()
+        declared = model.variables_stored_all_time_steps()
+        assert declared, "No variables declared for all-time-step storage"
+
+        for variable in declared:
+            for steps in range(1, 5):
+                model.equation_system.evaluate(variable.previous_timestep(steps))
+
+    def test_the_history_and_its_ingredients_are_declared(self):
+        """The declaration covers the history and the jump it is accumulated from.
+
+        The contact traction is needed alongside the displacements because the plastic
+        jump is obtained from the total jump by subtracting the elastic part.
+        """
+        model = _prepared_model(damages=["dilation", "friction"])
+        declared = {v.name for v in model.variables_stored_all_time_steps()}
+
+        assert model.damage_history_variable in declared
+        assert model.contact_traction_variable in declared
+        assert model.interface_displacement_variable in declared
+
+    def test_undeclared_variables_keep_only_the_default_window(self):
+        """A variable outside the declaration is not retained beyond one step.
+
+        Without this the first test would pass on a model that happened to store
+        everything, and would say nothing about the declaration doing the selecting.
+        The matrix displacement is the natural control: the convolution never reaches
+        back through it, so it keeps the default window.
+        """
+        model = self._advanced_model()
+        matrix_displacement = model.displacement(model.mdg.subdomains(dim=model.nd))
+
+        # One step back is within the default window.
+        model.equation_system.evaluate(matrix_displacement.previous_timestep(1))
+
+        with pytest.raises(KeyError):
+            model.equation_system.evaluate(matrix_displacement.previous_timestep(2))
