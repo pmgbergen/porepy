@@ -977,6 +977,66 @@ class TestComposedFriction:
                     f"sigma_n/sigma_T={traction_fraction}, Lambda/Lc^f={exponent}"
                 )
 
+    # -- The standing dissipation check ------------------------------------------------
+
+    def test_check_passes_on_a_correctly_composed_model(self):
+        """The standing check is silent on an ordinary damaged, partitioned state."""
+        model = self._model(residual_dilation=0.2, residual_friction=0.0)
+        self._set_state(model, traction_fraction=0.5, exponent=2.0)
+        model.after_nonlinear_convergence()
+
+    def test_check_fires_when_the_basic_friction_term_is_lost(self):
+        """Losing the basic friction term must be caught.
+
+        ``mu* - tan psi = mu_b (1 + tan^2 psi)/(1 - mu_b tan psi) + mu_p``, and the
+        first term alone exceeds ``tan psi`` for any realistic ``mu_b``, so it is the
+        term that carries the sign. Removing it leaves ``mu* = a_s mu_p0 d^f``, which at
+        low normal traction is below ``tan psi``: a fracture that produces energy by
+        sliding, on a state where nothing else complains.
+
+        Note what this does *not* stand in for. A mis-ordering that costs only the
+        ploughing term leaves the dissipation comfortably positive -- measured, not
+        assumed -- so it is caught by the closed-form tests above rather than here.
+
+        The term is removed by shadowing ``friction_coefficient`` on the instance,
+        which reproduces the effect without building a mis-ordered class.
+        """
+        model = self._model()
+        self._set_state(model, traction_fraction=0.05)
+
+        def ploughing_only(subdomains):
+            return model.stress_partition(
+                subdomains
+            ) * model.ploughing_friction_coefficient(subdomains)
+
+        model.friction_coefficient = ploughing_only
+
+        # Guard against a vacuous test: the mutation must really drive the dissipation
+        # negative, not merely change it. Most perturbations of the composition do not.
+        assert (
+            self._min(model, model.frictional_dissipation(self._fractures(model))) < 0.0
+        )
+        with pytest.raises(ValueError, match="dissipation"):
+            model.after_nonlinear_convergence()
+
+    def test_zero_dissipation_is_admissible(self):
+        """A frictionless, non-ploughing fracture dissipates nothing, and that is fine.
+
+        ``mu* - tan psi = mu_b (1 + tan^2 psi)/(1 - mu_b tan psi) + mu_p`` vanishes when
+        both ``mu_b`` and ``mu_p`` do. The check is therefore on the sign rather than on
+        strict positivity, so that this limit is not reported as a fault.
+        """
+        model = self._model(
+            friction_coefficient=0.0, ploughing_friction_coefficient=0.0
+        )
+        self._set_state(model, traction_fraction=0.4)
+
+        fractures = self._fractures(model)
+        np.testing.assert_allclose(
+            self._mean(model, model.frictional_dissipation(fractures)), 0.0, atol=1e-12
+        )
+        model.after_nonlinear_convergence()
+
     # -- The pole ------------------------------------------------------------------
 
     def test_pole_is_rejected_at_setup(self):
