@@ -4099,9 +4099,18 @@ class DilationRotatedFriction(pp.PorePyModel):
         return op
 
     def _validate_sliding_composition(self, subdomains: list[pp.Grid]) -> None:
-        r"""Check that the sliding term stays away from its pole.
+        r"""Check that the sliding term is admissible and away from its pole.
 
-        The composition is a tangent addition, so it diverges as
+        Two conditions, both on the parameters rather than on the state, and both
+        preconditions of the dissipation identity in
+        :meth:`AsperityStressPartition.frictional_dissipation`.
+
+        First, :math:`\mu_b \geq 0`. Friction resists sliding; a negative coefficient
+        would make the surfaces drive themselves apart, and since the term it enters is
+        the one that carries the sign of the dissipation, it is also the only parameter
+        that can make a correctly composed law dissipate negatively.
+
+        Second, the pole. The composition is a tangent addition, so it diverges as
         :math:`\mu_b \tan\psi \to 1`, i.e. as :math:`\phi_b + \psi \to \pi/2`. It is
         enough to check the intact angle, since the stress partition and any damage only
         reduce :math:`\tan\psi` below :math:`\tan\psi_0`, so no state reachable during a
@@ -4116,7 +4125,8 @@ class DilationRotatedFriction(pp.PorePyModel):
             subdomains: List of fracture subdomains.
 
         Raises:
-            ValueError: If the intact parameters put any cell at or beyond the pole.
+            ValueError: If the basic friction coefficient is negative anywhere, or if
+                the intact parameters put any cell at or beyond the pole.
 
         """
         # Check that the super class has a tangent dilation angle method. Otherwise,
@@ -4126,9 +4136,18 @@ class DilationRotatedFriction(pp.PorePyModel):
                 "The super class of DilationRotatedFriction must have a "
                 "tangent_dilation_angle method."
             )
-        intact_product = self.basic_friction_coefficient(
+        basic = self.basic_friction_coefficient(subdomains)
+        basic_value = np.asarray(self.equation_system.evaluate(basic))
+        if np.any(basic_value < 0.0):
+            raise ValueError(
+                "The basic friction coefficient must be non-negative, but reaches "
+                f"{np.min(basic_value)}. Friction resists sliding; a negative value "
+                "would also take the frictional dissipation below zero."
+            )
+
+        intact_product = basic * super().tangent_dilation_angle(  # type: ignore[misc]
             subdomains
-        ) * super().tangent_dilation_angle(subdomains)  # type: ignore[misc]
+        )
         value = np.asarray(self.equation_system.evaluate(intact_product))
         if np.any(value >= 1.0):
             raise ValueError(
@@ -4277,13 +4296,48 @@ class AsperityStressPartition(pp.PorePyModel):
         Parameters:
             subdomains: List of subdomains where the coefficient is defined.
 
+        Raises:
+            ValueError: If the coefficient is negative anywhere. See
+                :meth:`_validate_ploughing_coefficient`.
+
         Returns:
             Operator for the limiting ploughing friction coefficient.
 
         """
-        return Scalar(
+        op = Scalar(
             self.solid.ploughing_friction_coefficient, "ploughing_friction_coefficient"
         )
+        self._validate_ploughing_coefficient(op)
+        return op
+
+    def _validate_ploughing_coefficient(self, coefficient: pp.ad.Operator) -> None:
+        r"""Check that the ploughing coefficient is non-negative.
+
+        Asperities resist being sheared through; they do not assist. A negative
+        :math:`\mu_p^0` would make the composed friction fall below the sliding law it
+        adds to, and at large enough magnitude would take the dissipation
+        :math:`(\mu^* - \tan\psi)\sigma_n` negative, since that identity is positive
+        term by term only while :math:`\mu_p \geq 0`.
+
+        Checked where the value is produced rather than where it is used, so that the
+        quantity validated is unambiguously the intact coefficient:
+        :class:`FractureDamage` scales this by the damage state, and reaches it through
+        ``super()``.
+
+        Parameters:
+            coefficient: The intact ploughing friction coefficient operator.
+
+        Raises:
+            ValueError: If any cell carries a negative coefficient.
+
+        """
+        value = np.asarray(self.equation_system.evaluate(coefficient))
+        if np.any(value < 0.0):
+            raise ValueError(
+                "The ploughing friction coefficient must be non-negative, but reaches "
+                f"{np.min(value)}. It is the resistance asperities offer to being "
+                "sheared through, so a negative value has no physical reading."
+            )
 
     def stress_partition(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         r"""Fraction of the contact carried by sheared asperities [-].
@@ -4338,6 +4392,57 @@ class AsperityStressPartition(pp.PorePyModel):
         op.set_name("stress_partition")
         return op
 
+    def frictional_dissipation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        r"""Frictional dissipation per unit slip [Pa].
+
+        .. math::
+            D = (\mu^* - \tan\psi)\,\sigma_n,
+
+        with :math:`\mu^*` the effective friction coefficient, :math:`\tan\psi` the
+        tangent of the dilation angle, and :math:`\sigma_n` the normal stress.
+
+        This represents the portion of the shear stress that is dissipated as heat due
+        to friction, rather than being recovered as dilation. It is the difference
+        between the effective friction coefficient and the tangent of the dilation
+        angle, multiplied by the normal stress.
+
+        Positivity is what makes the composed law thermodynamically admissible, and it
+        is an algebraic identity rather than a numerical property:
+
+        .. math::
+            \mu^* - \tan\psi
+            = \frac{\mu_b (1 + \tan^2\psi)}{1 - \mu_b \tan\psi} + \mu_p,
+
+        positive term by term whenever :math:`\mu_b \tan\psi < 1` and
+        :math:`\mu_p \geq 0` --- the two conditions
+        :meth:`DilationRotatedFriction._validate_sliding_composition` and
+        :meth:`_validate_ploughing_coefficient` check. A negative value therefore means
+        the composition was assembled wrongly, not that the parameters are marginal,
+        which is what :class:`DissipationPositivityCheck` asserts on.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Cell-wise frictional dissipation per unit slip [Pa]. Negligible rather than
+            exactly zero where the fracture is not in contact:
+            :meth:`_positive_normal_traction` clips the tensile branch to its floor of
+            ``1e-15`` rather than to zero.
+
+        """
+        excess = self.friction_coefficient(subdomains) - self.tangent_dilation_angle(
+            subdomains
+        )
+        excess.set_name("dissipated_friction_coefficient")
+
+        op = (
+            excess
+            * self._positive_normal_traction(subdomains)
+            * self.characteristic_contact_traction(subdomains)
+        )
+        op.set_name("frictional_dissipation")
+        return op
+
     def _positive_normal_traction(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Positive normal traction for fractures [-].
 
@@ -4367,6 +4472,105 @@ class AsperityStressPartition(pp.PorePyModel):
         op = Scalar(-1, "sign_inverter") * t
         op.set_name("positive_normal_traction")
         return op
+
+
+class DissipationPositivityCheck(pp.PorePyModel):
+    r"""Standing check that the composed friction law dissipates non-negatively.
+
+    The frictional dissipation :math:`(\mu^* - \tan\psi)\sigma_n` is non-negative by
+    an algebraic identity, not by numerical accident; see
+    :meth:`AsperityStressPartition.frictional_dissipation`. A negative value therefore
+    means the law is composed wrongly, and this raises rather than warning, since a
+    fracture that produces energy by sliding invalidates every number in the run.
+
+    Be clear about what can and cannot trigger it. The identity is
+
+    .. math::
+        \mu^* - \tan\psi
+        = \frac{\mu_b (1 + \tan^2\psi)}{1 - \mu_b \tan\psi} + \mu_p,
+
+    and the first term alone exceeds :math:`\tan\psi` for any realistic basic friction,
+    so it is the term that carries the sign. Losing it, or negating it, is what drives
+    the dissipation negative --- through a :math:`\mu_b` set negative, which no guard
+    currently rejects, or through a change to the composition that drops it.
+
+    A mis-ordering that costs only the *ploughing* term does **not** trigger this: it
+    lowers :math:`\mu^*` while leaving it well above :math:`\tan\psi`, so the state
+    stays admissible and only the unit tests on the closed form will notice. This check
+    is not a substitute for those.
+
+    As the law stands the check cannot fire from an admissible parameter set. The clips
+    hold :math:`\tan\psi \leq \tan\psi_0` --- both :math:`1 - a_s` and :math:`d^d` only
+    reduce it, and the history is floored --- while
+    :meth:`DilationRotatedFriction._validate_sliding_composition` holds
+    :math:`\mu_b \tan\psi_0 < 1`, so the denominator stays positive and every term is
+    non-negative at every iterate. Its worth is in what it would catch, not in what it
+    catches today.
+
+    Beyond a composition assembled wrongly, that is one thing in particular: a law in
+    which :math:`\mu_b` or :math:`\psi_0` becomes state dependent. Validating at
+    construction sees only the initial state, so a pole crossed mid-run would pass it,
+    and past the pole the dissipation is negative rather than merely large. That is the
+    case where checking each converged state is worth more than checking the parameters
+    once.
+
+    It runs once per converged nonlinear solve, costing one evaluation of a
+    fracture-only operator.
+
+    Mix in alongside :class:`AsperityStressPartition`, which supplies the quantity.
+
+    """
+
+    frictional_dissipation: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method returning the frictional dissipation. Normally defined in a mixin instance
+    of :class:`AsperityStressPartition`."""
+
+    def after_nonlinear_convergence(self) -> None:
+        """Assert dissipation positivity on the state the solver converged to.
+
+        Raises:
+            ValueError: If any fracture cell dissipates negatively. See
+                :meth:`_check_dissipation_positivity`.
+
+        """
+        super().after_nonlinear_convergence()  # type: ignore[safe-super]
+        self._check_dissipation_positivity()
+
+    def _check_dissipation_positivity(self) -> None:
+        r"""Raise if any fracture cell carries a negative frictional dissipation.
+
+        Zero is admissible and is not reported: it is the frictionless limit, reached
+        when :math:`\mu_b` and :math:`\mu_p` both vanish, and a fracture that offers no
+        resistance dissipates nothing. Only a strictly negative value is a fault, which
+        is why the test is on the sign rather than on a tolerance --- the quantity is a
+        product of factors that are each non-negative by construction when the law is
+        composed correctly, so there is no rounding path to a small negative value.
+
+        Raises:
+            ValueError: If any fracture cell dissipates negatively.
+
+        """
+        fractures = self.mdg.subdomains(dim=self.nd - 1)
+        if not fractures:
+            return
+
+        dissipation = np.asarray(
+            self.equation_system.evaluate(self.frictional_dissipation(fractures))
+        )
+        negative = dissipation < 0.0
+        if not np.any(negative):
+            return
+
+        worst = int(np.argmin(dissipation))
+        raise ValueError(
+            f"The frictional dissipation (mu* - tan psi) sigma_n is negative in "
+            f"{int(np.sum(negative))} of {dissipation.size} fracture cells, reaching "
+            f"{dissipation[worst]} Pa in cell {worst}. It is non-negative for any "
+            "admissible parameter set, so this means the friction law is composed "
+            "wrongly rather than that the parameters are extreme: check that the "
+            "method resolution order reaches every layer of the composition, and that "
+            "friction_coefficient and tangent_dilation_angle are the composed ones."
+        )
 
 
 class BartonBandis(pp.PorePyModel):

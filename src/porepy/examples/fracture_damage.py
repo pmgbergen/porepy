@@ -167,6 +167,7 @@ class FractureDamageMomentumBalance(  # type: ignore[misc]
     DamageDataSaving,
     pp.constitutive_laws.FractureDamage,
     pp.constitutive_laws.AsperityStressPartition,
+    pp.constitutive_laws.DissipationPositivityCheck,
     pp.constitutive_laws.DilationRotatedFriction,
     pp.constitutive_laws.FractureDamageEvolutionCoefficients,
     TimeDependentDamageBCs,

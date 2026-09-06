@@ -756,13 +756,14 @@ class TestComposedFriction:
         residual_friction: float = 1.0,
         dilation_angle: float = PSI_0,
         friction_coefficient: float = MU_B,
+        ploughing_friction_coefficient: float = MU_P0,
     ):
         return _prepared_model(
             damages=["dilation", "friction"],
             solid_overrides={
                 "transitional_normal_traction": SIGMA_T,
                 "stress_partition_exponent": 1.5,
-                "ploughing_friction_coefficient": MU_P0,
+                "ploughing_friction_coefficient": ploughing_friction_coefficient,
                 "friction_coefficient": friction_coefficient,
                 "dilation_angle": dilation_angle,
                 "residual_dilation_damage": residual_dilation,
@@ -803,6 +804,11 @@ class TestComposedFriction:
     def _mean(model, operator) -> float:
         """Return the mean of an operator evaluated at iterate index 0."""
         return float(np.mean(model.equation_system.evaluate(operator)))
+
+    @staticmethod
+    def _min(model, operator) -> float:
+        """Return the smallest cell value of an operator at iterate index 0."""
+        return float(np.min(model.equation_system.evaluate(operator)))
 
     # -- Patton recovery, brief section 6.2 ---------------------------------------
 
@@ -893,6 +899,44 @@ class TestComposedFriction:
                 rtol=1e-12,
             )
 
+    @pytest.mark.parametrize("traction_fraction", [0.15, 0.5, 0.9])
+    @pytest.mark.parametrize("exponent", [0.0, 1.2])
+    def test_frictional_dissipation_matches_formula(
+        self, traction_fraction: float, exponent: float
+    ):
+        """``D = (mu* - tan psi) sigma_n`` against a closed form in Pa.
+
+        Stated from the traction and the history rather than by subtracting the two
+        operators the method itself composes, so the test constrains the quantity rather
+        than restating its implementation. In particular it pins the dimensional factor:
+        the traction variable is nondimensional, and the characteristic traction has to
+        be multiplied back in exactly once.
+
+        Parameters:
+            traction_fraction: Normal traction as a fraction of ``sigma_T``.
+            exponent: History as this multiple of the friction wear energy scale.
+        """
+        residual_d, residual_f = 0.6, 0.3
+        model = self._model(residual_dilation=residual_d, residual_friction=residual_f)
+        self._set_state(model, traction_fraction, exponent)
+
+        scale_ratio = _nondimensional_wear_energy_scale(
+            model, "friction"
+        ) / _nondimensional_wear_energy_scale(model, "dilation")
+
+        a_s = 1.0 - (1.0 - traction_fraction) ** 1.5
+        d_f = residual_f + (1.0 - residual_f) * np.exp(-exponent)
+        d_d = residual_d + (1.0 - residual_d) * np.exp(-exponent * scale_ratio)
+        tan_psi = (1.0 - a_s) * np.tan(PSI_0) * d_d
+        mu_star = (MU_B + tan_psi) / (1.0 - MU_B * tan_psi) + a_s * MU_P0 * d_f
+        expected = (mu_star - tan_psi) * traction_fraction * SIGMA_T
+
+        np.testing.assert_allclose(
+            self._mean(model, model.frictional_dissipation(self._fractures(model))),
+            expected,
+            rtol=1e-10,
+        )
+
     def test_dissipation_is_positive(self):
         r"""``mu* - tan psi > 0`` everywhere in the admissible parameter set.
 
@@ -911,6 +955,11 @@ class TestComposedFriction:
         It is asserted over a grid of traction and history because ``tan psi`` and
         ``mu_p`` move in opposite directions as either is varied, so a sign error in one
         term can be masked at any single point.
+
+        The assertion is on the smallest cell value rather than on the cell mean. The
+        states prescribed here are spatially uniform, so the two agree numerically; the
+        difference is in what the test guarantees, since a mean stays positive while
+        individual cells go negative.
         """
         model = self._model(residual_dilation=0.2, residual_friction=0.0)
         fractures = self._fractures(model)
@@ -918,7 +967,7 @@ class TestComposedFriction:
         for traction_fraction in (0.01, 0.2, 0.6, 1.0, 2.0):
             for exponent in (0.0, 0.5, 2.0, 10.0):
                 self._set_state(model, traction_fraction, exponent)
-                dissipation = self._mean(
+                dissipation = self._min(
                     model,
                     model.friction_coefficient(fractures)
                     - model.tangent_dilation_angle(fractures),
@@ -927,6 +976,66 @@ class TestComposedFriction:
                     f"Dissipation {dissipation} not positive at "
                     f"sigma_n/sigma_T={traction_fraction}, Lambda/Lc^f={exponent}"
                 )
+
+    # -- The standing dissipation check ------------------------------------------------
+
+    def test_check_passes_on_a_correctly_composed_model(self):
+        """The standing check is silent on an ordinary damaged, partitioned state."""
+        model = self._model(residual_dilation=0.2, residual_friction=0.0)
+        self._set_state(model, traction_fraction=0.5, exponent=2.0)
+        model.after_nonlinear_convergence()
+
+    def test_check_fires_when_the_basic_friction_term_is_lost(self):
+        """Losing the basic friction term must be caught.
+
+        ``mu* - tan psi = mu_b (1 + tan^2 psi)/(1 - mu_b tan psi) + mu_p``, and the
+        first term alone exceeds ``tan psi`` for any realistic ``mu_b``, so it is the
+        term that carries the sign. Removing it leaves ``mu* = a_s mu_p0 d^f``, which at
+        low normal traction is below ``tan psi``: a fracture that produces energy by
+        sliding, on a state where nothing else complains.
+
+        Note what this does *not* stand in for. A mis-ordering that costs only the
+        ploughing term leaves the dissipation comfortably positive -- measured, not
+        assumed -- so it is caught by the closed-form tests above rather than here.
+
+        The term is removed by shadowing ``friction_coefficient`` on the instance,
+        which reproduces the effect without building a mis-ordered class.
+        """
+        model = self._model()
+        self._set_state(model, traction_fraction=0.05)
+
+        def ploughing_only(subdomains):
+            return model.stress_partition(
+                subdomains
+            ) * model.ploughing_friction_coefficient(subdomains)
+
+        model.friction_coefficient = ploughing_only
+
+        # Guard against a vacuous test: the mutation must really drive the dissipation
+        # negative, not merely change it. Most perturbations of the composition do not.
+        assert (
+            self._min(model, model.frictional_dissipation(self._fractures(model))) < 0.0
+        )
+        with pytest.raises(ValueError, match="dissipation"):
+            model.after_nonlinear_convergence()
+
+    def test_zero_dissipation_is_admissible(self):
+        """A frictionless, non-ploughing fracture dissipates nothing, and that is fine.
+
+        ``mu* - tan psi = mu_b (1 + tan^2 psi)/(1 - mu_b tan psi) + mu_p`` vanishes when
+        both ``mu_b`` and ``mu_p`` do. The check is therefore on the sign rather than on
+        strict positivity, so that this limit is not reported as a fault.
+        """
+        model = self._model(
+            friction_coefficient=0.0, ploughing_friction_coefficient=0.0
+        )
+        self._set_state(model, traction_fraction=0.4)
+
+        fractures = self._fractures(model)
+        np.testing.assert_allclose(
+            self._mean(model, model.frictional_dissipation(fractures)), 0.0, atol=1e-12
+        )
+        model.after_nonlinear_convergence()
 
     # -- The pole ------------------------------------------------------------------
 
@@ -949,6 +1058,50 @@ class TestComposedFriction:
         self._set_state(model, traction_fraction=0.3)
         assert np.isfinite(
             self._mean(model, model.friction_coefficient(self._fractures(model)))
+        )
+
+    def test_negative_basic_friction_is_rejected(self):
+        """A basic friction coefficient below zero raises at setup.
+
+        Friction resists sliding rather than promoting it.
+        """
+        with pytest.raises(ValueError, match="basic friction coefficient"):
+            self._model(friction_coefficient=-0.5)
+
+    def test_negative_ploughing_coefficient_is_rejected(self):
+        """A ploughing coefficient below zero raises rather than being composed in.
+
+        Asperities resist being sheared through; they do not assist. The sign matters
+        beyond its own term, since it is one of the two preconditions under which
+        ``mu* - tan psi`` is positive term by term, the other being the pole above.
+        """
+        with pytest.raises(ValueError, match="ploughing friction coefficient"):
+            self._model(ploughing_friction_coefficient=-0.1)
+
+    def test_zero_ploughing_coefficient_is_accepted(self):
+        """Zero is admissible, and is the default: it leaves the ploughing term absent.
+
+        The boundary is worth pinning separately from the negative case, since a guard
+        written with the wrong comparison would reject the library default.
+
+        Asserted against the sliding law alone rather than merely against the guard not
+        firing, so that the test also states what zero *means*: the partition still
+        reduces the dilation through ``1 - a_s``, and only the ploughing term goes.
+        """
+        traction_fraction = 0.3
+        model = self._model(ploughing_friction_coefficient=0.0)
+        self._set_state(model, traction_fraction)
+
+        # Both damage states are intact here -- the residuals default to one and the
+        # history to zero -- so tan psi carries the partition and nothing else.
+        a_s = 1.0 - (1.0 - traction_fraction) ** 1.5
+        tan_psi = (1.0 - a_s) * np.tan(PSI_0)
+        expected = (MU_B + tan_psi) / (1.0 - MU_B * tan_psi)
+
+        np.testing.assert_allclose(
+            self._mean(model, model.friction_coefficient(self._fractures(model))),
+            expected,
+            rtol=1e-10,
         )
 
 
