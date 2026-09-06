@@ -4373,6 +4373,57 @@ class AsperityStressPartition(pp.PorePyModel):
         op.set_name("stress_partition")
         return op
 
+    def frictional_dissipation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        r"""Frictional dissipation per unit slip [Pa].
+
+        .. math::
+            D = (\mu^* - \tan\psi)\,\sigma_n,
+
+        with :math:`\mu^*` the effective friction coefficient, :math:`\tan\psi` the
+        tangent of the dilation angle, and :math:`\sigma_n` the normal stress.
+
+        This represents the portion of the shear stress that is dissipated as heat due
+        to friction, rather than being recovered as dilation. It is the difference
+        between the effective friction coefficient and the tangent of the dilation
+        angle, multiplied by the normal stress.
+
+        Positivity is what makes the composed law thermodynamically admissible, and it
+        is an algebraic identity rather than a numerical property:
+
+        .. math::
+            \mu^* - \tan\psi
+            = \frac{\mu_b (1 + \tan^2\psi)}{1 - \mu_b \tan\psi} + \mu_p,
+
+        positive term by term whenever :math:`\mu_b \tan\psi < 1` and
+        :math:`\mu_p \geq 0` --- the two conditions
+        :meth:`DilationRotatedFriction._validate_sliding_composition` and
+        :meth:`_validate_ploughing_coefficient` check. A non-positive value therefore
+        means the composition was assembled wrongly, not that the parameters are
+        marginal.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Cell-wise frictional dissipation per unit slip [Pa]. Negligible rather than
+            exactly zero where the fracture is not in contact:
+            :meth:`_positive_normal_traction` clips the tensile branch to its floor of
+            ``1e-15`` rather than to zero.
+
+        """
+        excess = self.friction_coefficient(subdomains) - self.tangent_dilation_angle(
+            subdomains
+        )
+        excess.set_name("dissipated_friction_coefficient")
+
+        op = (
+            excess
+            * self._positive_normal_traction(subdomains)
+            * self.characteristic_contact_traction(subdomains)
+        )
+        op.set_name("frictional_dissipation")
+        return op
+
     def _positive_normal_traction(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Positive normal traction for fractures [-].
 

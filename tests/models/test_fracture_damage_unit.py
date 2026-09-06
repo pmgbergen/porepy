@@ -899,6 +899,44 @@ class TestComposedFriction:
                 rtol=1e-12,
             )
 
+    @pytest.mark.parametrize("traction_fraction", [0.15, 0.5, 0.9])
+    @pytest.mark.parametrize("exponent", [0.0, 1.2])
+    def test_frictional_dissipation_matches_formula(
+        self, traction_fraction: float, exponent: float
+    ):
+        """``D = (mu* - tan psi) sigma_n`` against a closed form in Pa.
+
+        Stated from the traction and the history rather than by subtracting the two
+        operators the method itself composes, so the test constrains the quantity rather
+        than restating its implementation. In particular it pins the dimensional factor:
+        the traction variable is nondimensional, and the characteristic traction has to
+        be multiplied back in exactly once.
+
+        Parameters:
+            traction_fraction: Normal traction as a fraction of ``sigma_T``.
+            exponent: History as this multiple of the friction wear energy scale.
+        """
+        residual_d, residual_f = 0.6, 0.3
+        model = self._model(residual_dilation=residual_d, residual_friction=residual_f)
+        self._set_state(model, traction_fraction, exponent)
+
+        scale_ratio = _nondimensional_wear_energy_scale(
+            model, "friction"
+        ) / _nondimensional_wear_energy_scale(model, "dilation")
+
+        a_s = 1.0 - (1.0 - traction_fraction) ** 1.5
+        d_f = residual_f + (1.0 - residual_f) * np.exp(-exponent)
+        d_d = residual_d + (1.0 - residual_d) * np.exp(-exponent * scale_ratio)
+        tan_psi = (1.0 - a_s) * np.tan(PSI_0) * d_d
+        mu_star = (MU_B + tan_psi) / (1.0 - MU_B * tan_psi) + a_s * MU_P0 * d_f
+        expected = (mu_star - tan_psi) * traction_fraction * SIGMA_T
+
+        np.testing.assert_allclose(
+            self._mean(model, model.frictional_dissipation(self._fractures(model))),
+            expected,
+            rtol=1e-10,
+        )
+
     def test_dissipation_is_positive(self):
         r"""``mu* - tan psi > 0`` everywhere in the admissible parameter set.
 
