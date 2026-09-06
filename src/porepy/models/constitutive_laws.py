@@ -4277,13 +4277,48 @@ class AsperityStressPartition(pp.PorePyModel):
         Parameters:
             subdomains: List of subdomains where the coefficient is defined.
 
+        Raises:
+            ValueError: If the coefficient is negative anywhere. See
+                :meth:`_validate_ploughing_coefficient`.
+
         Returns:
             Operator for the limiting ploughing friction coefficient.
 
         """
-        return Scalar(
+        op = Scalar(
             self.solid.ploughing_friction_coefficient, "ploughing_friction_coefficient"
         )
+        self._validate_ploughing_coefficient(op)
+        return op
+
+    def _validate_ploughing_coefficient(self, coefficient: pp.ad.Operator) -> None:
+        r"""Check that the ploughing coefficient is non-negative.
+
+        Asperities resist being sheared through; they do not assist. A negative
+        :math:`\mu_p^0` would make the composed friction fall below the sliding law it
+        adds to, and at large enough magnitude would take the dissipation
+        :math:`(\mu^* - \tan\psi)\sigma_n` negative, since that identity is positive
+        term by term only while :math:`\mu_p \geq 0`.
+
+        Checked where the value is produced rather than where it is used, so that the
+        quantity validated is unambiguously the intact coefficient:
+        :class:`FractureDamage` scales this by the damage state, and reaches it through
+        ``super()``.
+
+        Parameters:
+            coefficient: The intact ploughing friction coefficient operator.
+
+        Raises:
+            ValueError: If any cell carries a negative coefficient.
+
+        """
+        value = np.asarray(self.equation_system.evaluate(coefficient))
+        if np.any(value < 0.0):
+            raise ValueError(
+                "The ploughing friction coefficient must be non-negative, but reaches "
+                f"{np.min(value)}. It is the resistance asperities offer to being "
+                "sheared through, so a negative value has no physical reading."
+            )
 
     def stress_partition(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         r"""Fraction of the contact carried by sheared asperities [-].

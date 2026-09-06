@@ -756,13 +756,14 @@ class TestComposedFriction:
         residual_friction: float = 1.0,
         dilation_angle: float = PSI_0,
         friction_coefficient: float = MU_B,
+        ploughing_friction_coefficient: float = MU_P0,
     ):
         return _prepared_model(
             damages=["dilation", "friction"],
             solid_overrides={
                 "transitional_normal_traction": SIGMA_T,
                 "stress_partition_exponent": 1.5,
-                "ploughing_friction_coefficient": MU_P0,
+                "ploughing_friction_coefficient": ploughing_friction_coefficient,
                 "friction_coefficient": friction_coefficient,
                 "dilation_angle": dilation_angle,
                 "residual_dilation_damage": residual_dilation,
@@ -959,6 +960,42 @@ class TestComposedFriction:
         self._set_state(model, traction_fraction=0.3)
         assert np.isfinite(
             self._mean(model, model.friction_coefficient(self._fractures(model)))
+        )
+
+    def test_negative_ploughing_coefficient_is_rejected(self):
+        """A ploughing coefficient below zero raises rather than being composed in.
+
+        Asperities resist being sheared through; they do not assist. The sign matters
+        beyond its own term, since it is one of the two preconditions under which
+        ``mu* - tan psi`` is positive term by term, the other being the pole above.
+        """
+        with pytest.raises(ValueError, match="ploughing friction coefficient"):
+            self._model(ploughing_friction_coefficient=-0.1)
+
+    def test_zero_ploughing_coefficient_is_accepted(self):
+        """Zero is admissible, and is the default: it leaves the ploughing term absent.
+
+        The boundary is worth pinning separately from the negative case, since a guard
+        written with the wrong comparison would reject the library default.
+
+        Asserted against the sliding law alone rather than merely against the guard not
+        firing, so that the test also states what zero *means*: the partition still
+        reduces the dilation through ``1 - a_s``, and only the ploughing term goes.
+        """
+        traction_fraction = 0.3
+        model = self._model(ploughing_friction_coefficient=0.0)
+        self._set_state(model, traction_fraction)
+
+        # Both damage states are intact here -- the residuals default to one and the
+        # history to zero -- so tan psi carries the partition and nothing else.
+        a_s = 1.0 - (1.0 - traction_fraction) ** 1.5
+        tan_psi = (1.0 - a_s) * np.tan(PSI_0)
+        expected = (MU_B + tan_psi) / (1.0 - MU_B * tan_psi)
+
+        np.testing.assert_allclose(
+            self._mean(model, model.friction_coefficient(self._fractures(model))),
+            expected,
+            rtol=1e-10,
         )
 
 
