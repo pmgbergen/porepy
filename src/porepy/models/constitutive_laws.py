@@ -4099,9 +4099,18 @@ class DilationRotatedFriction(pp.PorePyModel):
         return op
 
     def _validate_sliding_composition(self, subdomains: list[pp.Grid]) -> None:
-        r"""Check that the sliding term stays away from its pole.
+        r"""Check that the sliding term is admissible and away from its pole.
 
-        The composition is a tangent addition, so it diverges as
+        Two conditions, both on the parameters rather than on the state, and both
+        preconditions of the dissipation identity in
+        :meth:`AsperityStressPartition.frictional_dissipation`.
+
+        First, :math:`\mu_b \geq 0`. Friction resists sliding; a negative coefficient
+        would make the surfaces drive themselves apart, and since the term it enters is
+        the one that carries the sign of the dissipation, it is also the only parameter
+        that can make a correctly composed law dissipate negatively.
+
+        Second, the pole. The composition is a tangent addition, so it diverges as
         :math:`\mu_b \tan\psi \to 1`, i.e. as :math:`\phi_b + \psi \to \pi/2`. It is
         enough to check the intact angle, since the stress partition and any damage only
         reduce :math:`\tan\psi` below :math:`\tan\psi_0`, so no state reachable during a
@@ -4116,7 +4125,8 @@ class DilationRotatedFriction(pp.PorePyModel):
             subdomains: List of fracture subdomains.
 
         Raises:
-            ValueError: If the intact parameters put any cell at or beyond the pole.
+            ValueError: If the basic friction coefficient is negative anywhere, or if
+                the intact parameters put any cell at or beyond the pole.
 
         """
         # Check that the super class has a tangent dilation angle method. Otherwise,
@@ -4126,9 +4136,18 @@ class DilationRotatedFriction(pp.PorePyModel):
                 "The super class of DilationRotatedFriction must have a "
                 "tangent_dilation_angle method."
             )
-        intact_product = self.basic_friction_coefficient(
+        basic = self.basic_friction_coefficient(subdomains)
+        basic_value = np.asarray(self.equation_system.evaluate(basic))
+        if np.any(basic_value < 0.0):
+            raise ValueError(
+                "The basic friction coefficient must be non-negative, but reaches "
+                f"{np.min(basic_value)}. Friction resists sliding; a negative value "
+                "would also take the frictional dissipation below zero."
+            )
+
+        intact_product = basic * super().tangent_dilation_angle(  # type: ignore[misc]
             subdomains
-        ) * super().tangent_dilation_angle(subdomains)  # type: ignore[misc]
+        )
         value = np.asarray(self.equation_system.evaluate(intact_product))
         if np.any(value >= 1.0):
             raise ValueError(

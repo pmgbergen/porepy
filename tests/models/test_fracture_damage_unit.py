@@ -1060,6 +1060,14 @@ class TestComposedFriction:
             self._mean(model, model.friction_coefficient(self._fractures(model)))
         )
 
+    def test_negative_basic_friction_is_rejected(self):
+        """A basic friction coefficient below zero raises at setup.
+
+        Friction resists sliding rather than promoting it.
+        """
+        with pytest.raises(ValueError, match="basic friction coefficient"):
+            self._model(friction_coefficient=-0.5)
+
     def test_negative_ploughing_coefficient_is_rejected(self):
         """A ploughing coefficient below zero raises rather than being composed in.
 
