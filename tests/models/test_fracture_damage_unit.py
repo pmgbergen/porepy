@@ -804,6 +804,11 @@ class TestComposedFriction:
         """Return the mean of an operator evaluated at iterate index 0."""
         return float(np.mean(model.equation_system.evaluate(operator)))
 
+    @staticmethod
+    def _min(model, operator) -> float:
+        """Return the smallest cell value of an operator at iterate index 0."""
+        return float(np.min(model.equation_system.evaluate(operator)))
+
     # -- Patton recovery, brief section 6.2 ---------------------------------------
 
     def test_patton_recovery_at_vanishing_traction(self):
@@ -911,6 +916,11 @@ class TestComposedFriction:
         It is asserted over a grid of traction and history because ``tan psi`` and
         ``mu_p`` move in opposite directions as either is varied, so a sign error in one
         term can be masked at any single point.
+
+        The assertion is on the smallest cell value rather than on the cell mean. The
+        states prescribed here are spatially uniform, so the two agree numerically; the
+        difference is in what the test guarantees, since a mean stays positive while
+        individual cells go negative.
         """
         model = self._model(residual_dilation=0.2, residual_friction=0.0)
         fractures = self._fractures(model)
@@ -918,7 +928,7 @@ class TestComposedFriction:
         for traction_fraction in (0.01, 0.2, 0.6, 1.0, 2.0):
             for exponent in (0.0, 0.5, 2.0, 10.0):
                 self._set_state(model, traction_fraction, exponent)
-                dissipation = self._mean(
+                dissipation = self._min(
                     model,
                     model.friction_coefficient(fractures)
                     - model.tangent_dilation_angle(fractures),
