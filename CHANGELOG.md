@@ -11,6 +11,7 @@ author.
 ## Unreleased
 
 ### Changes
+PR 1770: Simplify PR template by deferring to CONTRIBUTING.md for details on code style and conventions.
 PR 1767: Bugfix in THM manufactured setup.
 PR 1732: Added support for evaluating restricted variable subsystems without evaluating
     the full Jacobian and then slicing columns.
