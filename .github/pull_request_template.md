@@ -1,4 +1,4 @@
-Contributions to PorePy are highly appreciated. Please make sure you have read [CONTRIBUTING.md](https://github.com/pmgbergen/porepy/blob/develop/CONTRIBUTING.md) before submitting. In particular, please provide a short description of the changes in [CHANGELOG.md](https://github.com/pmgbergen/porepy/blob/develop/CHANGELOG.md).
+Contributions to PorePy are highly appreciated. Please make sure you have read [CONTRIBUTING.md](https://github.com/pmgbergen/porepy/blob/develop/CONTRIBUTING.md) before submitting and that your adheres to the standards outlined there. In particular, please provide a short description of the changes in [CHANGELOG.md](https://github.com/pmgbergen/porepy/blob/develop/CHANGELOG.md).
 Please be reminded that all PRs must pass the test suite, including the extended tests if relevant (`pytest --run-skipped`), and be well documented.
 
 ## Proposed changes
