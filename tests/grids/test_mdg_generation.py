@@ -767,12 +767,7 @@ class TestDomainsAwayFromOrigin:
     @pytest.mark.parametrize("grid_type", ["cartesian", "tensor_grid"])
     @pytest.mark.parametrize("dim", [2, 3])
     def test_grid_covers_domain(self, grid_type: str, dim: int) -> None:
-        """Verify that the highest-dimensional grid fills the domain.
-
-        This guards against the grid having the right shape but the wrong size, which
-        translation alone will not reveal.
-
-        """
+        """Verify that the highest-dimensional grid fills the domain."""
         offset = self.offset(dim)
         domain, _ = self.domain_and_fractures(dim, offset)
         mdg = self.generate_mdg(grid_type, dim, offset)
