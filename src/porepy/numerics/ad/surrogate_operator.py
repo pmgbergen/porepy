@@ -128,7 +128,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.forward_mode import AdArray
+from porepy.numerics.ad.ad_array import AdArray
 
 from ._operator_states import IterativeOperator, TimeDependentOperator
 from .functions import FloatType
