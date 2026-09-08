@@ -681,14 +681,14 @@ class ArraySlicer:
     @overload
     def __matmul__(self, x: np.ndarray) -> np.ndarray: ...
     @overload
-    def __matmul__(self, x: pp.ad.AdArray) -> pp.ad.AdArray: ...
+    def __matmul__(self, x: pp.ad.AdArrayBase) -> pp.ad.AdArray: ...
     @overload
     def __matmul__(self, x: ArraySlicer) -> ArraySlicer: ...
     @overload
     def __matmul__(self, x: sps.spmatrix) -> sps.spmatrix: ...
 
     def __matmul__(
-        self, x: np.ndarray | sps.spmatrix | pp.ad.AdArray | ArraySlicer
+        self, x: np.ndarray | sps.spmatrix | pp.ad.AdArrayBase | ArraySlicer
     ) -> np.ndarray | sps.spmatrix | pp.ad.AdArray | ArraySlicer:
         # Separate handling for different types of input.
         if isinstance(x, ArraySlicer):
@@ -707,7 +707,9 @@ class ArraySlicer:
             sliced = self._slice_vector(x)
         elif isinstance(x, (sps.spmatrix, sps.sparray)):
             sliced = self._slice_matrix(x)
-        elif isinstance(x, pp.ad.AdArray):
+        elif isinstance(x, pp.ad.AdArrayBase):
+            # Slicing mixes the rows, which the diagonal representation cannot express.
+            x = x.to_full()
             val = self._slice_vector(x.val)
             jac = self._slice_matrix(x.jac)
             sliced = pp.ad.AdArray(val, jac)

@@ -67,9 +67,9 @@ def test_evaluate_variables():
     for var, known_jac in zip([single_variable, md_variable], known_jacs):
         # First evaluate the variable. This should give the iterate value.
         ad_array = var.value_and_jacobian(equation_system)
-        assert isinstance(ad_array, pp.ad.AdArray)
+        assert isinstance(ad_array, pp.ad.AdArrayBase)
         assert np.allclose(ad_array.val, 2)
-        assert np.allclose(ad_array.jac.toarray(), known_jac)
+        assert np.allclose(ad_array.full_jac.toarray(), known_jac)
 
         # Now create the variable at the previous iterate. This should also give the
         # most recent value in pp.ITERATE_SOLUTIONS, but it should not yield an AdArray.
@@ -94,11 +94,11 @@ def test_evaluate_variables():
         # subtracting the evaluated variables.
         var_increment = pp.ad.time_increment(var)
         ad_array_increment = var_increment.value_and_jacobian(equation_system)
-        assert isinstance(ad_array_increment, pp.ad.AdArray)
+        assert isinstance(ad_array_increment, pp.ad.AdArrayBase)
         assert np.allclose(
             ad_array_increment.val, ad_array.val - ad_array_prev_timestep.val
         )
-        assert np.allclose(ad_array_increment.jac.toarray(), known_jac)
+        assert np.allclose(ad_array_increment.full_jac.toarray(), known_jac)
 
 
 def test_variable_creation():
