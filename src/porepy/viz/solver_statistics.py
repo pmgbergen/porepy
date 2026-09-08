@@ -382,9 +382,7 @@ class NonlinearSolverStatistics(SolverStatistics):
         # Determine number of wasted iterations.
         # TODO: Rethink during upgrade of time integration.
         total_num_waisted_iterations = 0
-        for simulation_status, num_iterations in zip(  # TODO YZ: Remove num iterations.
-            self.simulation_status_history, self.num_iterations_history
-        ):
+        for simulation_status in self.simulation_status_history:
             if isinstance(simulation_status, TimeStepperStatusFailure):
                 for attempt in simulation_status.attempts:
                     total_num_waisted_iterations += (

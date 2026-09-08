@@ -105,7 +105,7 @@ class TimeStepper:
         accepted_index = time_manager.time_index
         attempts_data: list[TimeStepperAttemptData] = []
 
-        def rollback_time() -> None:
+        def roll_back_time() -> None:
             time_manager.time = accepted_time
             time_manager.time_index = accepted_index
 
@@ -146,7 +146,7 @@ class TimeStepper:
 
             if not success:
                 # Scheduler must compute the retry from the last accepted time.
-                rollback_time()
+                roll_back_time()
 
                 if attempt == self.max_attempts - 1:
                     return _log_and_return_time_step_data(
@@ -172,8 +172,11 @@ class TimeStepper:
                     },
                 )
             except CannotRecomputeTimeStep as exc:
-                # Necessary after a successful trial, harmless after done twice.
-                rollback_time()
+                # If success == False, roll_back_time will be called twice. First after
+                # failed "solver.solve", second if we fail to recompute the time step
+                # (here). If success == True, roll_back_time will be called once, here.
+                # Calling it twice is harmless.
+                roll_back_time()
 
                 return _log_and_return_time_step_data(
                     model,
@@ -195,6 +198,8 @@ class TimeStepper:
                     ),
                 )
             else:
+                # We neither succeeded nor terminated the loop with a failure. So we
+                # continue iterating with the adjusted dt.
                 _ = _log_and_return_time_step_data(
                     model,
                     TimeStepperStatusContinueIterating(

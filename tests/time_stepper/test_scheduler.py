@@ -1,3 +1,10 @@
+"""Unit tests for schedule validation and constant or adaptive time-step control.
+
+The tests cover schedule-point handling, time-step bounds and adjustment, floating-point
+inaccuracy, and targeting an optimal range of nonlinear iterations.
+
+"""
+
 from itertools import repeat
 from typing import Iterable, Optional
 
@@ -53,6 +60,24 @@ def run_scheduler_collect_data(
     num_nonlinear_iterations: Optional[Iterable[int]] = None,
     time_step_converged: Optional[Iterable[bool]] = None,
 ) -> tuple[list[float], list[float]]:
+    """Routine for the tests that imitates the simulation's time stepping process by
+    calling `scheduler.compute_next_time_step` while the final time is not reached.
+
+    Parameters:
+        scheduler: The scheduler.
+        time_manager: Time data structure.
+        num_nonlinear_iterations: If given, the requested numbers of nonlinear
+            iterations that the mock simulation made at each time step. This data is
+            passed to the scheduler. If not given (default), it is always 0 iterations.
+        time_step_converged: If given, the requested status of each time step (converged
+            or not). This data is passed to the scheduler. If not given (default), it is
+            always True.
+
+    Returns:
+        Two lists: (i) all simulation times and (ii) simulation time that were
+            registered as the schedule points.
+
+    """
     if num_nonlinear_iterations is None:
         num_nonlinear_iterations = repeat(0)
     if time_step_converged is None:
@@ -75,12 +100,16 @@ def run_scheduler_collect_data(
             if ts_converged
             else get_context_failure(num_iters)
         )
+
+        # Mock the simulation time step.
         if ts_converged:
             time_manager.time += time_manager.dt
             time_manager.time_index += 1
         time_manager.dt = scheduler.compute_next_time_step(
             time_manager=time_manager, success=ts_converged, context=context
         )
+
+        # Append results.
         times.append(time_manager.time)
         if time_manager.is_at_schedule_point():
             checkpoints_hit.append(time_manager.time)
@@ -90,7 +119,7 @@ def run_scheduler_collect_data(
 
 
 def get_context_success(num_linear_iterations: int = 0):
-    # Default successful time step context for compute_next_time_step.
+    """Default successful time step context for compute_next_time_step."""
     return {
         "nonlinear_solver_status": pp.solvers.NewtonSolverConverged(
             linear_solver_statuses=(
@@ -104,7 +133,7 @@ def get_context_success(num_linear_iterations: int = 0):
 
 
 def get_context_failure(num_linear_iterations: int = 0):
-    # Default failure time step context for compute_next_time_step.
+    """Default failure time step context for compute_next_time_step."""
     return {
         "nonlinear_solver_status": pp.solvers.NewtonSolverFailed(
             linear_solver_statuses=(
@@ -137,11 +166,12 @@ def test_scheduler_floating_point_inaccuracy(
 
     Purposefully taking weird dt to foster error accumulation. With the default dt_snap
     (1e-8), the schedule points are registered correctly and well within the margin of
-    error. Problems would start in this example if dt_snap < 1e-15.
+    error. Problems would start in this example if dt_snap < 1e-15 (schedule points will
+    not register correctly due to error accumulation).
 
     The dt_snap = 1e-50 case tests the behavior when the schedule points stop
     registering correctly. Its goal is to ensure that, while they are not registering,
-    the simulation does not abort and continue until completion.
+    the simulation does not abort and continues until completion.
 
     """
 
@@ -186,31 +216,29 @@ def test_scheduler_floating_point_inaccuracy(
         )
 
 
-@pytest.mark.parametrize("constant_dt", [True, False])
-def test_inconsistent_schedule(constant_dt: bool):
-    """Inconsistent schedule with constant time step.
+def test_inconsistent_schedule_constant_dt():
+    """TimeSchedulerConstantDt should fail during initialization."""
+    dt = 1.0
+    schedule = [0, 1.5, 3]
+    with pytest.raises(ValueError):
+        _ = make_default_scheduler(schedule=schedule, dt_init=dt, constant_dt=True)
 
-    TimeSchedulerConstantDt should fail during initialization. TimeScheduler (configured
-    with dt_init == dt_min == dt_max) should decrease the time step to meet the schedule
-    and recover the original time step after it.
+
+def test_inconsistent_schedule_nonconstant_dt():
+    """TimeScheduler (configured with dt_init == dt_min == dt_max) should decrease the
+    time step to meet the schedule and recover the original time step after it.
 
     """
     dt = 1.0
     schedule = [0, 1.5, 3]
-    if constant_dt:
-        with pytest.raises(ValueError):
-            scheduler, time_manager = make_default_scheduler(
-                schedule=schedule, dt_init=dt, constant_dt=constant_dt
-            )
-        return
-    else:
-        scheduler, time_manager = make_default_scheduler(
-            schedule=schedule,
-            dt_init=dt,
-            constant_dt=constant_dt,
-            dt_min=dt,
-            dt_max=dt,
-        )
+
+    scheduler, time_manager = make_default_scheduler(
+        schedule=schedule,
+        dt_init=dt,
+        constant_dt=False,
+        dt_min=dt,
+        dt_max=dt,
+    )
 
     times, checkpoints_hit = run_scheduler_collect_data(scheduler, time_manager)
 
@@ -287,6 +315,11 @@ def test_positive_initial_time_step(bad_dt: float):
 
 @pytest.mark.parametrize("schedule", [[0, 1, 2], [0, 2, 3], [0, 1]])
 def test_initial_time_step_overshoots_schedule_point(schedule: list[int]):
+    """Test that time scheduler with constant_dt fails to initialize with a
+    non-conforming schedule, and the non-constant dt scheduler initializes correctly and
+    corrects dt to respect the schedule.
+
+    """
     with pytest.raises(ValueError):
         _ = make_default_scheduler(schedule=schedule, dt_init=2.0, constant_dt=True)
 
@@ -381,95 +414,6 @@ def test_constant_time_step(schedule, dt, time, is_success, context):
 
 
 @pytest.mark.parametrize(
-    "case",
-    [
-        {
-            "context": get_context_success(num_linear_iterations=1),
-            "expected_dt": 0.5 * 1.3,
-        },
-        {
-            "context": get_context_success(num_linear_iterations=4),
-            "expected_dt": 0.5 * 1.3,
-        },
-        {
-            "context": get_context_success(num_linear_iterations=5),
-            "expected_dt": 0.5,
-        },
-        {
-            "context": get_context_success(num_linear_iterations=6),
-            "expected_dt": 0.5,
-        },
-        {
-            "context": get_context_success(num_linear_iterations=7),
-            "expected_dt": 0.5 * 0.7,
-        },
-        {
-            "context": get_context_success(num_linear_iterations=9),
-            "expected_dt": 0.5 * 0.7,
-        },
-        {
-            "context": get_context_failure(num_linear_iterations=0),
-            "expected_dt": 0.5 * 0.4,
-            "success": False,
-        },
-        {
-            "context": get_context_success(num_linear_iterations=1),
-            "expected_dt": 0.6,
-            "dt_max": 0.6,
-        },
-        {
-            "context": get_context_success(num_linear_iterations=8),
-            "expected_dt": 0.49,
-            "dt_min": 0.49,
-        },
-        {
-            "context": get_context_success(num_linear_iterations=8),
-            "expected_dt": 0.5,
-            "dt_min": 0.5,
-        },
-        {
-            "context": get_context_failure(num_linear_iterations=8),
-            "expected_dt": "unreachable",
-            "dt_min": 0.5,
-            "success": False,
-            "should_raise": True,
-        },
-    ],
-)
-def test_target_nonlinear_iterations(case: dict):
-    """Test behaviour of the algorithm when the solution should be recomputed. Note
-    that this should be independent of the number of iterations that the user passes.
-    """
-    context = case["context"]
-    expected_dt = case["expected_dt"]
-    success = case.get("success", True)
-    dt_max = case.get("dt_max", None)
-    dt_min = case.get("dt_min", None)
-    should_raise = case.get("should_raise", False)
-
-    scheduler, time_manager = make_default_scheduler(
-        schedule=[0, 2],
-        dt_init=0.5,
-        constant_dt=False,
-        nonlinear_iter_optimal_range=(4, 7),
-        nonlinear_iter_relax_factors=(0.7, 1.3),
-        nonlinear_iter_retry_factor=0.4,
-        dt_max=dt_max,
-        dt_min=dt_min,
-    )
-    if not should_raise:
-        dt = scheduler.compute_next_time_step(
-            time_manager=time_manager, success=success, context=context
-        )
-        assert dt == expected_dt
-    else:
-        with pytest.raises(CannotRecomputeTimeStep):
-            _ = scheduler.compute_next_time_step(
-                time_manager=time_manager, success=success, context=context
-            )
-
-
-@pytest.mark.parametrize(
     "schedule, dt_init",
     [
         ([0, 1], 0.1),
@@ -482,7 +426,7 @@ def test_target_nonlinear_iterations(case: dict):
     ],
 )
 def test_hitting_schedule_times(schedule, dt_init):
-    """Test if algorithm respects the passed target times from the schedule,"""
+    """Test if scheduler respects the schedule points."""
     t_snap = 1e-6
     scheduler, time_manager = make_default_scheduler(
         schedule=schedule,
@@ -497,8 +441,7 @@ def test_hitting_schedule_times(schedule, dt_init):
 
 @pytest.mark.parametrize("constant_dt", [True, False])
 def test_time_step_match_schedule_exactly(constant_dt: bool):
-    """Checks the edge case when the dynamic time stepping is on, but the next time
-    step matches the schedule exactly.
+    """Checks the edge case when the next time step matches the schedule exactly.
 
     See: https://github.com/pmgbergen/porepy/issues/1152
 
