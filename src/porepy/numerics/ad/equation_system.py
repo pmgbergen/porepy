@@ -1446,7 +1446,7 @@ class EquationSystem:
         derivative: Literal[True],
         state: np.ndarray | None = None,
         variable_indexer: pp.ad.VariableIndexer | None = None,
-    ) -> pp.ad.AdArray: ...
+    ) -> pp.ad.AdArrayBase: ...
 
     @overload
     def evaluate(
@@ -1455,7 +1455,7 @@ class EquationSystem:
         derivative: Literal[True],
         state: np.ndarray | None = None,
         variable_indexer: pp.ad.VariableIndexer | None = None,
-    ) -> list[pp.ad.AdArray]: ...
+    ) -> list[pp.ad.AdArrayBase]: ...
 
     def evaluate(
         self,
@@ -1467,9 +1467,9 @@ class EquationSystem:
         pp.number
         | np.ndarray
         | sps.spmatrix
-        | pp.ad.AdArray
+        | pp.ad.AdArrayBase
         | list[pp.number | np.ndarray | sps.spmatrix]
-        | list[pp.ad.AdArray]
+        | list[pp.ad.AdArrayBase]
     ):
         """Evaluate an operator on the current state.
 
@@ -1490,7 +1490,8 @@ class EquationSystem:
         Returns:
             The operator evaluated on the current state. If the operator is a list, a
             list of evaluations is returned. If the derivative is requested, the
-            evaluation is returned as an AdArray.
+            evaluation is returned as an Ad array, in either representation; use
+            its ``full_jac`` to get the Jacobian as a sparse matrix.
 
         """
         # EK: Ignore a typing error regarding 'no overload variant of "evaluate" matches
