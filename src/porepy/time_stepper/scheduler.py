@@ -201,8 +201,8 @@ class TimeScheduler(TimeSchedulerBase):
         }
 
         # Apply constraints. Each constraint suggests the new dt value, which may be
-        # smaller or larger than the current dt. The minimum of the suggestions
-        # is applied.
+        # smaller or larger than the current dt. The minimum of the suggestions is
+        # applied.
         # Note: If this is a start of a new interval, dt_start can be adjusted as well.
         if len(current_interval.constraints) > 0:
             suggested_dt = [

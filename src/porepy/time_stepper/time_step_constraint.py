@@ -24,7 +24,7 @@ __all__ = [
 class TimeStepConstraint(ABC):
     @abstractmethod
     def suggest_dt(self, dt: float, context: dict) -> float:
-        """The constraint suggests the maximum dt, permitted for the next time step.
+        """The constraint suggests the maximum dt permitted for the next time step.
 
         In other words, for the returned `dt_new` the permitted time step range is
         `(0, dt_new]`.
