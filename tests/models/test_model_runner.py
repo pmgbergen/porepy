@@ -98,7 +98,7 @@ def test_time_data_seeded_from_time_stepper_before_prepare_simulation():
 
     class RecordingModel(pp.SinglePhaseFlow):
         def prepare_simulation(self) -> None:
-            assert self.time_manager.schedule == schedule
+            assert np.all(self.time_manager.schedule == schedule)
             assert self.time_manager.time == schedule[0]
 
             nonlocal prepare_simulation_called
