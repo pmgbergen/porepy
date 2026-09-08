@@ -63,7 +63,7 @@ __all__ = [
 def exp(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.exp(var.val)
-        der = var._diagvec_mul_jac(val)
+        der = var.diagvec_mul_jac(val)
         return AdArray(val, der)
     else:
         return np.exp(var)
@@ -72,7 +72,7 @@ def exp(var: FloatType) -> FloatType:
 def log(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.log(var.val)
-        der = var._diagvec_mul_jac(1 / var.val)
+        der = var.diagvec_mul_jac(1 / var.val)
         return AdArray(val, der)
     else:
         return np.log(var)
@@ -114,7 +114,7 @@ def clip(var: FloatType, min_val: float, max_val: float) -> FloatType:
 def abs(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.abs(var.val)
-        jac = var._diagvec_mul_jac(np.sign(var.val))
+        jac = var.diagvec_mul_jac(np.sign(var.val))
         return AdArray(val, jac)
     else:
         return np.abs(var)
@@ -202,7 +202,7 @@ def safe_power(power: float, zero_val: float, tol: float, var: AdArray) -> AdArr
     vals[nonzero_inds] = _val[nonzero_inds] ** power
     if isinstance(var, np.ndarray):
         return vals
-    new_jac = var._diagvec_mul_jac(power * vals ** (power - 1.0))
+    new_jac = var.diagvec_mul_jac(power * vals ** (power - 1.0))
     return AdArray(vals, new_jac)
 
 
@@ -210,7 +210,7 @@ def safe_power(power: float, zero_val: float, tol: float, var: AdArray) -> AdArr
 def sin(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.sin(var.val)
-        jac = var._diagvec_mul_jac(np.cos(var.val))
+        jac = var.diagvec_mul_jac(np.cos(var.val))
         return AdArray(val, jac)
     else:
         return np.sin(var)
@@ -219,7 +219,7 @@ def sin(var: FloatType) -> FloatType:
 def cos(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.cos(var.val)
-        jac = var._diagvec_mul_jac(-np.sin(var.val))
+        jac = var.diagvec_mul_jac(-np.sin(var.val))
         return AdArray(val, jac)
     else:
         return np.cos(var)
@@ -228,7 +228,7 @@ def cos(var: FloatType) -> FloatType:
 def tan(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.tan(var.val)
-        jac = var._diagvec_mul_jac((np.cos(var.val) ** 2) ** (-1))
+        jac = var.diagvec_mul_jac((np.cos(var.val) ** 2) ** (-1))
         return AdArray(val, jac)
     else:
         return np.tan(var)
@@ -237,7 +237,7 @@ def tan(var: FloatType) -> FloatType:
 def arcsin(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.arcsin(var.val)
-        jac = var._diagvec_mul_jac((1 - var.val**2) ** (-0.5))
+        jac = var.diagvec_mul_jac((1 - var.val**2) ** (-0.5))
         return AdArray(val, jac)
     else:
         return np.arcsin(var)
@@ -246,7 +246,7 @@ def arcsin(var: FloatType) -> FloatType:
 def arccos(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.arccos(var.val)
-        jac = var._diagvec_mul_jac(-((1 - var.val**2) ** (-0.5)))
+        jac = var.diagvec_mul_jac(-((1 - var.val**2) ** (-0.5)))
         return AdArray(val, jac)
     else:
         return np.arccos(var)
@@ -255,7 +255,7 @@ def arccos(var: FloatType) -> FloatType:
 def arctan(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.arctan(var.val)
-        jac = var._diagvec_mul_jac((var.val**2 + 1) ** (-1))
+        jac = var.diagvec_mul_jac((var.val**2 + 1) ** (-1))
         return AdArray(val, jac)
     else:
         return np.arctan(var)
@@ -265,7 +265,7 @@ def arctan(var: FloatType) -> FloatType:
 def sinh(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.sinh(var.val)
-        jac = var._diagvec_mul_jac(np.cosh(var.val))
+        jac = var.diagvec_mul_jac(np.cosh(var.val))
         return AdArray(val, jac)
     else:
         return np.sinh(var)
@@ -274,7 +274,7 @@ def sinh(var: FloatType) -> FloatType:
 def cosh(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.cosh(var.val)
-        jac = var._diagvec_mul_jac(np.sinh(var.val))
+        jac = var.diagvec_mul_jac(np.sinh(var.val))
         return AdArray(val, jac)
     else:
         return np.cosh(var)
@@ -283,7 +283,7 @@ def cosh(var: FloatType) -> FloatType:
 def tanh(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.tanh(var.val)
-        jac = var._diagvec_mul_jac(np.cosh(var.val) ** (-2))
+        jac = var.diagvec_mul_jac(np.cosh(var.val) ** (-2))
         return AdArray(val, jac)
     else:
         return np.tanh(var)
@@ -292,7 +292,7 @@ def tanh(var: FloatType) -> FloatType:
 def arcsinh(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.arcsinh(var.val)
-        jac = var._diagvec_mul_jac((var.val**2 + 1) ** (-0.5))
+        jac = var.diagvec_mul_jac((var.val**2 + 1) ** (-0.5))
         return AdArray(val, jac)
     else:
         return np.arcsinh(var)
@@ -303,7 +303,7 @@ def arccosh(var: FloatType) -> FloatType:
         val = np.arccosh(var.val)
         den1 = (var.val - 1) ** (-0.5)
         den2 = (var.val + 1) ** (-0.5)
-        jac = var._diagvec_mul_jac(den1 * den2)
+        jac = var.diagvec_mul_jac(den1 * den2)
         return AdArray(val, jac)
     else:
         return np.arccosh(var)
@@ -312,7 +312,7 @@ def arccosh(var: FloatType) -> FloatType:
 def arctanh(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.arctanh(var.val)
-        jac = var._diagvec_mul_jac((1 - var.val**2) ** (-1))
+        jac = var.diagvec_mul_jac((1 - var.val**2) ** (-1))
         return AdArray(val, jac)
     else:
         return np.arctanh(var)
@@ -370,7 +370,7 @@ def heaviside_smooth(var, eps: float = 1e-3):
     """
     if isinstance(var, AdArray):
         val = 0.5 * (1 + 2 * np.pi ** (-1) * np.arctan(var.val * eps ** (-1)))
-        jac = var._diagvec_mul_jac(np.pi ** (-1) * eps * (eps**2 + var.val**2) ** (-1))
+        jac = var.diagvec_mul_jac(np.pi ** (-1) * eps * (eps**2 + var.val**2) ** (-1))
         return AdArray(val, jac)
     else:
         return 0.5 * (1 + 2 * np.pi ** (-1) * np.arctan(var * eps ** (-1)))
@@ -480,15 +480,19 @@ def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
 
     # Start from var_0, then change entries corresponding to inds.
     max_jac = jacs[0].copy()
+    other_jac = jacs[1]
 
     if isinstance(max_jac, (sps.spmatrix, sps.sparray)):
+        # Both Jacobians are in the same representation, as they belong to arrays that
+        # were combined above.
+        assert isinstance(other_jac, (sps.spmatrix, sps.sparray))
         # Enforce csr format, unless the matrix is csc, in which case we keep it.
         if not max_jac.getformat() == "csc":
             max_jac = max_jac.tocsr()
-        lines = pp.matrix_operations.slice_sparse_matrix(jacs[1].tocsr(), inds)
+        lines = pp.matrix_operations.slice_sparse_matrix(other_jac.tocsr(), inds)
         pp.matrix_operations.merge_matrices(max_jac, lines, inds, max_jac.getformat())
     else:
-        max_jac[inds] = jacs[1][inds]
+        max_jac[inds] = other_jac[inds]
 
     return AdArray(max_val, max_jac)
 
