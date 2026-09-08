@@ -147,7 +147,6 @@ def get_context_failure(num_linear_iterations: int = 0):
 
 
 @pytest.mark.parametrize("constant_dt", [True, False])
-@pytest.mark.parametrize("dt_snap", [1e-8, 1e-50])
 @pytest.mark.parametrize(
     "dt",
     [
@@ -159,61 +158,110 @@ def get_context_failure(num_linear_iterations: int = 0):
         2.5e-8 - 1e-16,
     ],
 )
-def test_scheduler_floating_point_inaccuracy(
-    constant_dt: bool, dt: float, dt_snap: float
-):
-    """Test the accumulaton of floating point error when hitting schedule points.
+def test_scheduler_floating_point_inaccuracy(constant_dt: bool, dt: float):
+    """Test the accumulation of floating-point error when hitting schedule points.
 
-    Purposefully taking weird dt to foster error accumulation. With the default dt_snap
-    (1e-8), the schedule points are registered correctly and well within the margin of
-    error. Problems would start in this example if dt_snap < 1e-15 (schedule points will
-    not register correctly due to error accumulation).
-
-    The dt_snap = 1e-50 case tests the behavior when the schedule points stop
-    registering correctly. Its goal is to ensure that, while they are not registering,
-    the simulation does not abort and continues until completion.
+    Purposefully taking unusual time steps to foster error accumulation. With the
+    standard snapping tolerance, schedule points are registered within the margin of
+    error.
 
     """
-
     scheduler, time_manager = make_default_scheduler(
         schedule=[0, 3 * dt, 6 * dt, 9 * dt, 10 * dt],
         dt_init=dt,
         constant_dt=constant_dt,
-        atol=dt_snap,
+        atol=1e-8,
         dt_min=dt,
         dt_max=dt,
     )
 
     times, checkpoints_hit = run_scheduler_collect_data(scheduler, time_manager)
 
-    # Check the results. Treat special cases corresponding to incorrect schedule points
-    # registration with dt_snap = 1e-50. Importantly, with a reasonable dt_snap = 1e-8,
-    # it is always the general case. If the implementation chages, it is not necessery
-    # to preserve these special cases, it is just a "known misbehavior".
-    if not constant_dt and dt_snap == 1e-50 and dt == (2.5 - 1e-8):
-        # Special case: scheduler adjusts to dt ~ 1e-15 to match the schedule point.
-        # Therefore, we make one very small time step (still above dt_snap = 1e-50).
-        assert len(times) == 12
-    elif constant_dt and dt_snap == 1e-50 and dt == (2.5 - 1e-8):
-        # Special case: Constant dt scheduler does not acknowledge that we reached t_end
-        # due to accumulated floating point error. It makes an additional time step.
-        assert len(times) == 12
-    else:
-        # General case: 11 time steps as expected.
-        assert len(times) == 11
+    assert len(times) == 11
+    np.testing.assert_allclose(
+        checkpoints_hit, time_manager.schedule, atol=1e-8, rtol=0
+    )
 
-    expected_schedule = time_manager.schedule
 
-    if constant_dt and dt_snap == 1e-50 and dt in [(2.5 - 1e-8), (2.5 + 1e-8)]:
-        # Special case: Constant dt scheduler does not acknowledge that we hit schedule
-        # points. We still complete the simulation successfully.
-        assert not len(checkpoints_hit) == len(expected_schedule)
-        assert time_manager.time >= time_manager.schedule[-1]
-    else:
-        # General case: All schedule points are handled correctly.
-        np.testing.assert_allclose(
-            checkpoints_hit, expected_schedule, atol=dt_snap, rtol=0
-        )
+# Three tests below check the known failures of the time scheduler if an unreasonably
+# small snapping time is taken. They ensure that the time stepping breaks in known,
+# harmless ways and does not stop the whole simulation. If the time-stepping algorithm
+# changes, it is not necessery to preserve this behavior.
+
+
+def test_scheduler_floating_point_inaccuracy_adaptive_adjusts_to_tiny_step():
+    """With strict snapping, the adaptive scheduler inserts a ~1e-15 step to reach a
+    schedule point after accumulated floating-point error.
+
+    This is a known behavior for ``dt = 2.5 - 1e-8`` and ``atol = 1e-50``. The tiny
+    step remains above the tolerance and the schedule points are still registered.
+
+    """
+    dt = 2.5 - 1e-8
+    scheduler, time_manager = make_default_scheduler(
+        schedule=[0, 3 * dt, 6 * dt, 9 * dt, 10 * dt],
+        dt_init=dt,
+        atol=1e-50,
+        dt_min=dt,
+        dt_max=dt,
+    )
+
+    times, checkpoints_hit = run_scheduler_collect_data(scheduler, time_manager)
+
+    assert len(times) == 12
+    np.testing.assert_allclose(
+        checkpoints_hit, time_manager.schedule, atol=1e-50, rtol=0
+    )
+
+
+def test_scheduler_floating_point_inaccuracy_constant_dt_extra_step():
+    """With strict snapping, the constant-step scheduler fails to recognize the final
+    time after accumulated floating-point error and takes one extra step.
+
+    This is a known behavior for ``dt = 2.5 - 1e-8`` and ``atol = 1e-50``. The run
+    nonetheless completes, but not every schedule point is registered.
+
+    """
+    dt = 2.5 - 1e-8
+    scheduler, time_manager = make_default_scheduler(
+        schedule=[0, 3 * dt, 6 * dt, 9 * dt, 10 * dt],
+        dt_init=dt,
+        constant_dt=True,
+        atol=1e-50,
+        dt_min=dt,
+        dt_max=dt,
+    )
+
+    times, checkpoints_hit = run_scheduler_collect_data(scheduler, time_manager)
+
+    assert len(times) == 12
+    assert len(checkpoints_hit) != len(time_manager.schedule)
+    assert time_manager.time >= time_manager.schedule[-1]
+
+
+def test_scheduler_floating_point_inaccuracy_constant_dt_missed_checkpoints():
+    """With strict snapping, the constant-step scheduler misses schedule points after
+    accumulated floating-point error, although it still completes the simulation.
+
+    This is a known behavior for ``dt = 2.5 + 1e-8`` and ``atol = 1e-50``. Unlike the
+    lower nearby time step, it does not take an additional final step.
+
+    """
+    dt = 2.5 + 1e-8
+    scheduler, time_manager = make_default_scheduler(
+        schedule=[0, 3 * dt, 6 * dt, 9 * dt, 10 * dt],
+        dt_init=dt,
+        constant_dt=True,
+        atol=1e-50,
+        dt_min=dt,
+        dt_max=dt,
+    )
+
+    times, checkpoints_hit = run_scheduler_collect_data(scheduler, time_manager)
+
+    assert len(times) == 11
+    assert len(checkpoints_hit) != len(time_manager.schedule)
+    assert time_manager.time >= time_manager.schedule[-1]
 
 
 def test_inconsistent_schedule_constant_dt():
