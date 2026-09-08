@@ -117,7 +117,8 @@ class TimeScheduler(TimeSchedulerBase):
     adjust dt based on simulation context. Each constraint suggests the new dt value,
     which may be smaller or larger than the current dt. The minimum of the suggestions
     is applied. If the minimum is below the interval's `dt_min`, the simulation is
-    stopped.
+    stopped. If the applied dt is above the interval's `dt_max`, it is capped and the
+    simulation proceeds.
 
     The algorithm is inspired by:
     [1] Simunek, J., Van Genuchten, M. T., & Sejna, M. (2005). The HYDRUS-1D software
@@ -342,6 +343,10 @@ class _IntervalMap:
 
     def __init__(self, intervals: list[TimeInterval], atol: float) -> None:
         self.intervals = intervals
+        # Sorted array of interval starts used for binary search. In this array, each
+        # interval's start (t_start) is decreased by atol (t_ε) to ensure that
+        # t ∈ [t_start - t_ε, t_start] snaps to the current interval and not the
+        # previous one.
         self._interval_starts = [interval.t_start - atol for interval in intervals]
         # Sanity check: they must be sorted.
         assert self._interval_starts == sorted(self._interval_starts)

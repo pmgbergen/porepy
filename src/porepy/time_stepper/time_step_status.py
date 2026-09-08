@@ -13,6 +13,7 @@ are immediate candidates for removal.
 
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
@@ -25,6 +26,8 @@ __all__ = [
     "TimeStepperStatusFailure",
     "TimeStepperStatusContinueIterating",
 ]
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -93,7 +96,10 @@ class TimeStepperStatusSuccess(TimeStepperStatus):
     def dt(self) -> float:
         """Simulation time step magnitude."""
         if len(self.attempts) == 0:
-            raise ValueError
+            logger.warning(
+                "Requested dt of TimeStepperStatus with zero attempts. Returning 0."
+            )
+            return 0
         return self.attempts[-1].dt
 
 
@@ -117,7 +123,10 @@ class TimeStepperStatusFailure(TimeStepperStatus):
     def dt(self) -> float:
         """Simulation time step magnitude."""
         if len(self.attempts) == 0:
-            raise ValueError
+            logger.warning(
+                "Requested dt of TimeStepperStatus with zero attempts. Returning 0."
+            )
+            return 0
         return self.attempts[-1].dt
 
 
