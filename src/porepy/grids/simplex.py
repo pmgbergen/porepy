@@ -406,15 +406,22 @@ class TetrahedralGrid(Grid):
         # encode them using the multi-index functionality of numpy and apply np.unique
         # on the 1D array, which is much faster. The second returned value gives the
         # index of the cells which the face belongs to.
-        fn_encoded = np.ravel_multi_index(np.sort(face_nodes, axis=0), [num_nodes] * 3)
-        unique_encoded, cell_faces = np.unique(fn_encoded, return_inverse=True)
-        face_nodes = np.vstack(np.unravel_index(unique_encoded, [num_nodes] * 3))
-
-        # The previous three lines are therefore a more efficient version of the
-        # following out-of-the-box call:
-        # face_nodes, cell_faces = np.unique(
-        #     np.sort(face_nodes, axis=0), axis=1, return_inverse=True
-        # )
+        #
+        # The encoding relies on num_nodes**3 being representable as a numpy int, which
+        # fails for large grids (roughly num_nodes above 2 million on a 64-bit system).
+        # Fall back to the direct, slower comparison of sorted columns in that
+        # case.
+        max_encodable_num_nodes = 2_000_000
+        if num_nodes < max_encodable_num_nodes:
+            fn_encoded = np.ravel_multi_index(
+                np.sort(face_nodes, axis=0), [num_nodes] * 3
+            )
+            unique_encoded, cell_faces = np.unique(fn_encoded, return_inverse=True)
+            face_nodes = np.vstack(np.unravel_index(unique_encoded, [num_nodes] * 3))
+        else:
+            face_nodes, cell_faces = np.unique(
+                np.sort(face_nodes, axis=0), axis=1, return_inverse=True
+            )
 
         # Numpy may return cell-faces as a 2d array, so we need to ravel it.
         cell_faces = cell_faces.ravel(order="F")
