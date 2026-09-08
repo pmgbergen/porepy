@@ -399,18 +399,22 @@ class TetrahedralGrid(Grid):
         sort_ind = np.squeeze(np.argsort(face_nodes, axis=0))
 
         # Now find the unique face-nodes, by comparing columns in the sorted array.
-        # Internal faces will be found twice, once  for each cell, while external faces
-        # only occur once. The second returned value gives the index of the cells which
-        # the face belongs to. Do unique on an array with sorted columns, so that faces
-        # with the same nodes but with different ordering are recognized as the same
-        # face.
+        # Internal faces will be found twice, once for each cell, while external faces
+        # only occur once. Do unique on an array with sorted columns, so that faces with
+        # the same nodes but with different ordering are recognized as the same face.
+        # Since each node triplet consists of integers within a known range, we can
+        # encode them using the multi-index functionality of numpy and apply np.unique
+        # on the 1D array, which is much faster. The second returned value gives the
+        # index of the cells which the face belongs to.
+        fn_encoded = np.ravel_multi_index(np.sort(face_nodes, axis=0), [num_nodes] * 3)
+        unique_encoded, cell_faces = np.unique(fn_encoded, return_inverse=True)
+        face_nodes = np.vstack(np.unravel_index(unique_encoded, [num_nodes] * 3))
+
+        # The previous three lines are therefore a more efficient version of the
+        # following out-of-the-box call:
         # face_nodes, cell_faces = np.unique(
         #     np.sort(face_nodes, axis=0), axis=1, return_inverse=True
         # )
-        fn_sorted = np.sort(face_nodes, axis=0)
-        fn_encoded = np.ravel_multi_index(fn_sorted, [num_nodes] * 3)
-        unique_encoded, cell_faces = np.unique(fn_encoded, return_inverse=True)
-        face_nodes = np.vstack(np.unravel_index(unique_encoded, [num_nodes] * 3))
 
         # Numpy may return cell-faces as a 2d array, so we need to ravel it.
         cell_faces = cell_faces.ravel(order="F")
