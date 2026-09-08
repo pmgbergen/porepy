@@ -253,7 +253,7 @@ def test_schedule_length_greater_than_2():
 )
 @pytest.mark.parametrize("constant_dt", [True, False])
 def test_increasing_time_in_schedule(schedule: list[int], constant_dt: bool):
-    """An error should be raised if a the schedule is not strictly increasing."""
+    """An error should be raised if the schedule is not strictly increasing."""
     with pytest.raises(ValueError):
         _ = make_default_scheduler(
             schedule=schedule, dt_init=0.5, constant_dt=constant_dt
@@ -438,7 +438,7 @@ def test_constant_time_step(schedule, dt, time, is_success, context):
 )
 def test_target_nonlinear_iterations(case: dict):
     """Test behaviour of the algorithm when the solution should be recomputed. Note
-    that this should be independent of the number of iterations that the user passes
+    that this should be independent of the number of iterations that the user passes.
     """
     context = case["context"]
     expected_dt = case["expected_dt"]
