@@ -8,9 +8,12 @@ Format: each entry is one line, `PR: Summary of the change.`
 Keep summaries to 1-2 sentences and written for a PorePy user, not just the
 author.
 
+The lists are sorted on PR numbers.
+
 ## Unreleased
 
 ### Changes
+PR 1772: SPEED: Faster construction of grid topologies on 3d simplex grids.
 PR 1770: Simplify PR template by deferring to CONTRIBUTING.md for details on code style and conventions.
 PR 1767: Bugfix in THM manufactured setup.
 PR 1766: Fix bug in generation of Cartesian grids not anchored in the origin.
