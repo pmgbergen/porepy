@@ -708,7 +708,9 @@ def test_variable_combinations(grids, variables):
                 )
                 assert np.allclose(expr.val, values)
                 # Check that the Jacobian matrix has the right number of columns
-                assert expr.jac.shape[1] == equation_system.num_dofs()
+                sz = expr.sparse_jac.shape[1]
+
+                assert sz == equation_system.num_dofs()
 
     # Next, check that mixed-dimensional variables are handled correctly.
     for var in merged_vars:
@@ -722,7 +724,9 @@ def test_variable_combinations(grids, variables):
             vals.append(values)
 
         assert np.allclose(expr.val, np.hstack([v for v in vals]))
-        assert expr.jac.shape[1] == equation_system.num_dofs()
+        # Check that the Jacobian matrix size is correct
+        sz = expr.sparse_jac.shape[1]
+        assert sz == equation_system.num_dofs()
 
     # Finally, check that the size of the Jacobian matrix is correct when combining
     # variables (this will cover both variables and mixed-dimensional variable with the
@@ -755,7 +759,8 @@ def test_variable_combinations(grids, variables):
                 eq = mv + P @ var
                 expr = eq.value_and_jacobian(equation_system)
                 # Jacobian matrix size is set according to the dof manager,
-                assert expr.jac.shape[1] == equation_system.num_dofs()
+                sz = expr.sparse_jac.shape[1]
+                assert sz == equation_system.num_dofs()
 
 
 def test_time_differentiation():
@@ -1193,3 +1198,16 @@ def test_operator_method_caching():
         assert inherited_model.method_with_list_arg([1, 2]) == 1
     assert inherited_model.method_with_list_arg([3, 4]) == 2
     assert inherited_model.method_with_list_arg([1, 2]) == 1
+
+
+@pytest.mark.parametrize("representation", ["sparse", "diagonal"])
+def test_evaluated_ad_array_as_operand(representation: str):
+    """An evaluated Ad array, as may result from nested operator functions, can be an
+    operand of an operator, in either representation."""
+    if representation == "sparse":
+        array = pp.ad.SparseJacAdArray(np.ones(2), sps.csr_matrix(np.eye(2)))
+    else:
+        array = pp.ad.initialize_diagonal_ad_arrays([np.ones(2)], [np.arange(2)], 2)[0]
+    op = pp.ad.Scalar(1.0)
+
+    assert op._parse_other(array) == [op, array]
