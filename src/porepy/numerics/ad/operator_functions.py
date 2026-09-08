@@ -23,7 +23,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.ad_array import AdArray, AdArrayBase
+from porepy.numerics.ad.ad_array import AdArray, AdArrayBase, DiagonalAdArray
 
 from .functions import FloatType
 from .operator_space import OperatorSpace
@@ -40,6 +40,54 @@ __all__ = [
 
 def _raise_no_arithmetics_with_functions_error():
     raise TypeError("Operator functions must be called before applying any operation.")
+
+
+def _diagonal_result(
+    values: np.ndarray,
+    jac: np.ndarray,
+    args: Sequence[pp.ad.DiagonalAdArray],
+) -> pp.ad.DiagonalAdArray:
+    """Assemble a DiagonalAdArray from a dense Jacobian.
+
+    This is the counterpart to the plain-AdArray case in :meth:`AbstractFunction.func`,
+    used when all arguments are DiagonalAdArrays, so that
+    :meth:`~AbstractFunction.get_jacobian` returned the derivatives as a dense 2d array
+    with one row of derivatives per argument (the primary variables). The diagonal
+    representation additionally needs zero rows for the secondary variables covered by
+    the arguments' combined structural indices; those are inserted here.
+
+    Parameters:
+        values: Values of the function, one entry per degree of freedom.
+        jac: Derivatives of the function with respect to each argument, one row per
+            argument, as returned by :meth:`~AbstractFunction.get_jacobian`.
+        args: The arguments the function was evaluated on; used for their structural
+            row/column indices and number of derivatives.
+
+    Returns:
+        A DiagonalAdArray representing the function value and derivatives.
+
+    """
+    num_derivatives = args[0].num_derivatives
+    primary_indices = [arg.row_indices for arg in args]
+    column_indices = args[0].col_indices
+
+    # The Jacobian only contains derivatives with respect to the primary variables,
+    # while the diagonal AdArray must have values and indices also for derivatives
+    # with respect to secondary variables. By assumption, these derivatives are
+    # zero, but they need to be included in the correct row in the Jacobian.
+    full_jac = np.zeros((len(column_indices), values.size))
+
+    # Identify the row of a primary variable in the full Jacobian by comparing the
+    # first row index of the rows and columns.
+    row_starts = [i[0] for i in column_indices]
+    for ri, inds in enumerate(primary_indices):
+        row_ind_in_full = row_starts.index(inds[0])
+        # Transfer the non-zero entries.
+        full_jac[row_ind_in_full] = jac[ri]
+
+    return pp.ad.DiagonalAdArray(
+        values, full_jac, np.arange(values.size), column_indices, num_derivatives
+    )
 
 
 class AbstractFunction(Operator):
@@ -195,12 +243,29 @@ class AbstractFunction(Operator):
 
         values = self.get_values(*args)
 
-        if any(isinstance(a, AdArray) for a in args):
+        if any(isinstance(a, AdArrayBase) for a in args):
             jac = self.get_jacobian(*args)
             if isinstance(values, float):
                 assert jac.shape[0] == 1, "Inconsistent Jacobian of scalar function."
                 values = np.array([values])
-            return AdArray(values, jac)
+                return AdArray(values, jac)
+            elif isinstance(jac, np.ndarray):
+                assert jac.ndim == 2, "Diagonal AdArrays should have 2d Jacobians"
+                assert jac.shape[1] == values.size, (
+                    "Inconsistent shape of values and Jacobian for diagonal AdArray"
+                )
+                # A dense 2d Jacobian is only returned by get_jacobian when all
+                # arguments are DiagonalAdArrays.
+                diagonal_args: list[DiagonalAdArray] = []
+                for a in args:
+                    if isinstance(a, DiagonalAdArray):
+                        diagonal_args.append(a)
+                assert len(diagonal_args) == len(args), (
+                    "A dense Jacobian requires all arguments to be DiagonalAdArrays"
+                )
+                return _diagonal_result(values, jac, diagonal_args)
+            else:
+                return AdArray(values, jac)
         else:
             return values
 
@@ -288,7 +353,7 @@ class DiagonalJacobianFunction(AbstractFunction):
         jacs = [
             arg.full_jac * m
             for arg, m in zip(args, self._multipliers)
-            if isinstance(arg, AdArray)
+            if isinstance(arg, AdArrayBase)
         ]
         return reduce(operator.add, jacs).tocsr()
 
@@ -340,12 +405,12 @@ class Function(AbstractFunction):
         return result.val if isinstance(result, AdArrayBase) else result
 
     def get_jacobian(self, *args: float | np.ndarray | AdArrayBase) -> sps.spmatrix:
-        assert any(isinstance(a, AdArray) for a in args), (
+        assert any(isinstance(a, AdArrayBase) for a in args), (
             "No Ad arrays passed as arguments."
         )
         result = self._func(*args)
-        assert isinstance(result, AdArray)
-        return result.jac
+        assert isinstance(result, AdArrayBase)
+        return result.full_jac
 
 
 class InterpolatedFunction(AbstractFunction):
@@ -438,7 +503,7 @@ class InterpolatedFunction(AbstractFunction):
         jacs = []
 
         for axis, arg in enumerate(args):
-            if isinstance(arg, AdArray):
+            if isinstance(arg, AdArrayBase):
                 # The trivial Jacobian of one argument gives us the correct position for
                 # the entries as ones
                 partial_jac = sps.csr_matrix(arg.full_jac, copy=True)
