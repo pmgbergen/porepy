@@ -128,7 +128,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.ad_array import AdArray
+from porepy.numerics.ad.ad_array import AdArray, AdArrayBase
 
 from ._operator_states import IterativeOperator, TimeDependentOperator
 from .functions import FloatType
@@ -245,7 +245,7 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         op.children = [child.previous_iteration(steps=steps) for child in self.children]
         return op
 
-    def func(self, *args: FloatType) -> float | np.ndarray | AdArray:
+    def func(self, *args: FloatType) -> float | np.ndarray | AdArrayBase:
         """See :meth:`~porepy.numerics.ad.operator_functions.AbstractFunction.func`.
 
         Note:
@@ -266,7 +266,7 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         # hierarchical structure between this class and AbstractFunction
         return pp.ad.AbstractFunction.func(self, *args)  # type:ignore[arg-type]
 
-    def get_values(self, *args: float | np.ndarray | AdArray) -> np.ndarray:
+    def get_values(self, *args: float | np.ndarray | AdArrayBase) -> np.ndarray:
         """Fetches the values stored for this operator at its time or iterate index.
 
         Note:
@@ -278,7 +278,7 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         """
         return np.hstack([self._fetch_data(self, g, False) for g in self.domains])
 
-    def get_jacobian(self, *args: float | np.ndarray | AdArray) -> sps.spmatrix:
+    def get_jacobian(self, *args: float | np.ndarray | AdArrayBase) -> sps.spmatrix:
         """Fetches the derivative values stored for this operator at its time or iterate
         index.
 

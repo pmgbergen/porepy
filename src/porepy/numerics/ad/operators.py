@@ -39,7 +39,7 @@ from ._operator_states import (
     _get_previous_time_or_iterate,
     _get_reference,
 )
-from .ad_array import AdArray
+from .ad_array import AdArray, AdArrayBase
 from .grid_entity import GridEntities, GridEntity
 from .operator_space import DomainType, OperatorSpace
 
@@ -116,7 +116,7 @@ class Operator:
         self._source: OperatorSpace = source
         self._target: OperatorSpace = target
 
-        self.func: Callable[..., float | np.ndarray | AdArray]
+        self.func: Callable[..., float | np.ndarray | AdArrayBase]
         """Functional representation of this operator.
 
         As of now, only instances of
