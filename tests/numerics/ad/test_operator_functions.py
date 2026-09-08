@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+import scipy.sparse as sps
 
 import porepy as pp
 from porepy.numerics.ad.equation_system import GridEntity
@@ -59,7 +60,7 @@ def test_ad_function():
     val_ad = F_var.value_and_jacobian(equation_system)
     # test values at current time step
     assert np.all(val_ad.val == 1.0)
-    assert np.all(val_ad.jac.toarray() == np.eye(mdg.num_subdomain_cells()))
+    assert np.all(val_ad.full_jac.toarray() == np.eye(mdg.num_subdomain_cells()))
 
     # vals at previous iter and zero Jacobian
     # previous iterate has the same values as the original operator, but no Jacobian
@@ -87,3 +88,25 @@ def test_ad_function():
     assert isinstance(val, np.ndarray)
     assert isinstance(val_pi, np.ndarray)
     assert isinstance(val_pt, np.ndarray)
+
+
+def test_diagonal_jacobian_function_accepts_both_representations():
+    """The approximate Jacobian of a DiagonalJacobianFunction sums the scaled Jacobians
+    of all Ad arguments, whatever their representation."""
+
+    class Sum(pp.ad.DiagonalJacobianFunction):
+        def get_values(self, *args):
+            return sum(a.val for a in args)
+
+    domain = OperatorSpace.scalar()
+    function = Sum([2.0, 3.0], "sum", source=domain)
+
+    full = pp.ad.AdArray(np.array([1.0, 2.0]), sps.csr_matrix(np.eye(2, 4)))
+    diagonal = pp.ad.initialize_diagonal_ad_arrays(
+        [np.array([3.0, 4.0])], [np.array([2, 3])], 4
+    )[0]
+
+    jac = function.get_jacobian(full, diagonal)
+
+    expected = 2.0 * full.full_jac + 3.0 * diagonal.full_jac
+    assert np.allclose(jac.toarray(), expected.toarray())
