@@ -92,29 +92,23 @@ def test_time_data_seeded_from_time_stepper_before_prepare_simulation():
     incorrectly see the SolutionStrategy.__init__ placeholder schedule [0.0, 1.0]
     instead of the real one.
 
-    TODO: Written based on discovery pattern. Consider less specific test.
     """
-    observed_schedule_sizes = []
-    observed_times = []
+    schedule = [0, 1, 2, 3]
+    prepare_simulation_called = False
 
     class RecordingModel(pp.SinglePhaseFlow):
-        def update_all_boundary_conditions(self) -> None:
-            observed_schedule_sizes.append(self.time_manager.schedule.size)
-            observed_times.append(self.time_manager.time)
-            super().update_all_boundary_conditions()
+        def prepare_simulation(self) -> None:
+            assert self.time_manager.schedule == schedule
+            assert self.time_manager.time == schedule[0]
 
-    schedule = [0, 1, 2, 3]
+            nonlocal prepare_simulation_called
+            prepare_simulation_called = True
+
     model = RecordingModel(
         {
             "times_to_export": [],
             "time_manager": pp.TimeManager(schedule=schedule, dt_init=1),
         }
     )
-    pp.ModelRunner(model)
-
-    assert observed_schedule_sizes, (
-        "update_all_boundary_conditions should be invoked during prepare_simulation."
-    )
-    assert observed_schedule_sizes[0] == len(schedule)
-    assert observed_times[0] == schedule[0]
-    assert np.array_equal(model.time_manager.schedule, schedule)
+    _ = pp.ModelRunner(model)
+    assert prepare_simulation_called
