@@ -174,8 +174,8 @@ class TimeStepper:
             except CannotRecomputeTimeStep as exc:
                 # If success == False, roll_back_time will be called twice. First after
                 # failed "solver.solve", second if we fail to recompute the time step
-                # (here). If success == True, roll_back_time will be called once, here.
-                # Calling it twice is harmless.
+                # (here). If success == True, roll_back_time will not be called anywhere
+                # else, so must be called once here. Calling it twice is harmless.
                 roll_back_time()
 
                 return _log_and_return_time_step_data(
