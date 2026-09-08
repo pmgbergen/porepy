@@ -128,7 +128,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.ad_array import AdArray, AdArrayBase
+from porepy.numerics.ad.ad_array import AdArray, AdArrayBase, DiagonalAdArray
 
 from ._operator_states import IterativeOperator, TimeDependentOperator
 from .functions import FloatType
@@ -307,9 +307,14 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         # of the block, per argument/dependency/provided derivative value.
 
         # Checking Jacobian shapes to assert they are consistent
+        # The shapes refer to the full representation, so that arguments in different
+        # representations can be compared. For a diagonal argument, the shape is known
+        # without assembling the full Jacobian.
         shapes = set()
         for arg in args:
-            if isinstance(arg, AdArray):
+            if isinstance(arg, DiagonalAdArray):
+                shapes.add((arg.val.size, arg.num_derivatives))
+            elif isinstance(arg, AdArray):
                 shapes.add(arg.jac.shape)
         assert len(shapes) <= 1, (
             "Inconsistent shapes of Jacobians of dependencies."
@@ -323,16 +328,36 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         # By assumption, there will be one argument per row per dependency.
         row_ptr = np.arange(0, num_args * num_rows + 1, num_args)
 
-        # Make sure all the Jacobians are CSR matrices before fetching the indices of
-        # the data.
-        csr_jacs = [arg.full_jac.tocsr() for arg in args if isinstance(arg, AdArray)]
-        # Stack the derivative values, then ravel them in Fortran order, so that the
-        # indices for the zeroth row comes in the first num_args places etc.
-        indices = np.vstack([jac.indices for jac in csr_jacs]).ravel("F")
-        # Do the same for the data, which is the derivative values.
-        data = np.vstack(list(derivatives)).ravel("F")
-        # Create the sparse matrix in CSR format and return it.
-        return sps.csr_matrix((data, indices, row_ptr), shape=(num_rows, num_cols))
+        all_diagonal = all(isinstance(arg, DiagonalAdArray) for arg in args)
+
+        if all_diagonal:
+            # The Jacobian matrix is in this case a numpy array of stacked derivatives.
+            # To convert this into a DiagonalAdArray, it is necessary to also provide
+            # indices and offsets of the respective derivatives, but this will have to
+            # be handled by the calling function.
+            return derivatives
+        else:
+            # Make sure all the Jacobians are CSR matrices before fetching the
+            # indices of the data. Arguments with a diagonal representation are
+            # converted to the full representation first, since this mix of
+            # representations cannot be summed directly. The full representation of a
+            # diagonal array stores its derivatives with respect to the other blocks as
+            # explicit zeros; these are dropped, from a copy, so that each row holds the
+            # single entry of the variable.
+            csr_jacs = []
+            for arg in args:
+                if isinstance(arg, AdArrayBase):
+                    jac = arg.full_jac.tocsr(copy=True)
+                    jac.eliminate_zeros()
+                    csr_jacs.append(jac)
+
+            # Stack the derivative values, then ravel them in Fortran order, so that the
+            # indices for the zeroth row comes in the first num_args places etc.
+            indices = np.vstack([jac.indices for jac in csr_jacs]).ravel("F")
+            # Do the same for the data, which is the derivative values.
+            data = derivatives.ravel("F")
+            # Create the sparse matrix in CSR format and return it.
+            return sps.csr_matrix((data, indices, row_ptr), shape=(num_rows, num_cols))
 
 
 def _check_expected_values(
