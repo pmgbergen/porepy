@@ -8,13 +8,16 @@ the functionality is thoroughly tested through the test suit for the models.
 from __future__ import annotations
 
 import operator as _operator
+from collections.abc import Mapping, Sequence
 from typing import Any, Literal, overload
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics import ad
 
+from .operator_space import DomainType
 from .operators import Operations
 
 # Maps each binary Operations member to the callable that implements it, so
@@ -55,6 +58,7 @@ class AdParser:
         Efficient use of caching has turned out to be difficult to achieve, and the
         cache is at the moment used sparingly. This will be revisited in the future.
         """
+        self._num_subdomains = len(mdg.subdomains())
 
     def clear_cache(self) -> None:
         """Clear the cache of parsed operators."""
@@ -78,7 +82,7 @@ class AdParser:
         derivative: Literal[True],
         state: np.ndarray | None,
         variable_indexer: pp.ad.VariableIndexer,
-    ) -> pp.ad.AdArray: ...
+    ) -> pp.ad.AdArrayBase: ...
 
     @overload
     def evaluate(
@@ -88,7 +92,7 @@ class AdParser:
         derivative: Literal[True],
         state: np.ndarray | None,
         variable_indexer: pp.ad.VariableIndexer,
-    ) -> list[pp.ad.AdArray]: ...
+    ) -> list[pp.ad.AdArrayBase]: ...
 
     @overload
     def evaluate(
@@ -111,9 +115,9 @@ class AdParser:
         float
         | np.ndarray
         | sps.spmatrix
-        | pp.ad.AdArray
+        | pp.ad.AdArrayBase
         | list[float | np.ndarray | sps.spmatrix]
-        | list[pp.ad.AdArray]
+        | list[pp.ad.AdArrayBase]
     ):
         """Evaluate the operator x and its derivative if requested.
 
@@ -149,10 +153,15 @@ class AdParser:
                 f"indexer size ({variable_indexer.size})."
             )
 
-        # Create an AdArray representation of the state, if the derivative is requested.
-        # If not, the state is used as is (as a numpy array).
-        ad_base = pp.ad.initAdArrays([state])[0] if derivative else state
-
+        # Map each variable in the operator tree to its representation: an AdArray if
+        # the derivative is requested, or a numpy array if not.
+        ad_base = self._initialize_variables(
+            op if isinstance(op, list) else [op],
+            state,
+            equation_system,
+            variable_indexer,
+            derivative,
+        )
         # Evaluate the operators. A single operator is treated as a list to simplify the
         # post-processing below.
         if isinstance(op, list):
@@ -205,19 +214,219 @@ class AdParser:
         else:
             return result_list[0]
 
+    def _initialize_variables(
+        self,
+        op_list: list[pp.ad.Operator],
+        state: np.ndarray,
+        equation_system: pp.EquationSystem,
+        variable_indexer: pp.ad.VariableIndexer,
+        derivative: bool = True,
+    ) -> Mapping[pp.ad.Variable, np.ndarray | pp.ad.AdArrayBase]:
+        """Represent the active variables appearing in op_list in a mixed form.
+
+        Variables that are suited for a diagonal representation (see
+        :func:`pp.ad.initialize_diagonal_ad_arrays`) receive this, more efficient,
+        representation. The remaining variables share a single, standard AdArray
+        covering the variables described by variable_indexer.
+
+        Parameters:
+            op_list: List of operators whose variables should be represented.
+            state: State vector, ordered according to variable_indexer, used to look up
+                variable values.
+            equation_system: The EquationSystem wherein the system state is defined.
+            variable_indexer: The indexer that defines the arrangement in state, and
+                thereby also the columns of the Jacobians of the returned AdArrays.
+            derivative: If True, variables are represented as (Diagonal)AdArrays, so
+                that derivatives can be tracked. If False, only the values of the
+                variables are returned, as numpy arrays.
+
+        Returns:
+            A mapping from each variable found in op_list (and its sub-tree) that is
+            covered by variable_indexer to its representation: A numpy array if
+            derivative is False, or a (Diagonal)AdArray if derivative is True.
+
+        """
+
+        def _indices_of(variable: pp.ad.Variable) -> np.ndarray | None:
+            """Indices of a variable in vectors ordered by variable_indexer, or None if
+            the variable is not covered by the indexer.
+
+            """
+            if isinstance(variable, pp.ad.MixedDimensionalVariable):
+                if any(
+                    sub_var not in variable_indexer.indices
+                    for sub_var in variable.sub_vars
+                ):
+                    return None
+                sub_indices = [
+                    variable_indexer.indices[sub_var] for sub_var in variable.sub_vars
+                ]
+                if len(sub_indices) == 0:
+                    return np.zeros(0, dtype=int)
+                return np.concatenate(sub_indices)
+            return variable_indexer.indices.get(variable)
+
+        def _indexed_variables_in_operator_tree() -> dict[pp.ad.Variable, np.ndarray]:
+            """Map the variables appearing anywhere in op_list to their indices.
+
+            Variables outside variable_indexer are left out: they are not unknowns of
+            this evaluation, and their values are fetched from the mixed-dimensional
+            grid when the operator tree is traversed.
+
+            """
+            all_operators = set(self._flatten_operator_tree(op_list))
+            indexed_variables = {}
+            for op in all_operators:
+                if not isinstance(op, pp.ad.Variable):
+                    continue
+                indices = _indices_of(op)
+                if indices is not None:
+                    indexed_variables[op] = indices
+            return indexed_variables
+
+        def _is_diagonal_representable(variable: pp.ad.Variable) -> bool:
+            """Check whether a variable is suited for a diagonal representation.
+
+            By assumption of this implementation, this requires the variable to 1) be
+            defined at the current iterate (not a previous iteration or time step, since
+            these have no derivative), 2) be defined on subdomains (not on interfaces or
+            boundary grids), 3) be defined on all subdomains, and 4) have a single
+            degree of freedom per cell.
+
+            """
+            if variable.is_previous_iterate or variable.is_previous_time:
+                return False
+            source = variable.source
+            if source.domain_type in [
+                DomainType.interfaces,
+                DomainType.boundary_grids,
+            ]:
+                # For now, we only support diagonal representations of variables defined
+                # on subdomains.
+                return False
+            domains = source.grids
+            if len(domains) < self._num_subdomains:
+                # This variable is not defined on all subdomains, so we cannot readily
+                # use a diagonal representation. This can be improved, but does not seem
+                # worth the effort at the moment.
+                return False
+            if variable.size != np.sum([sd.num_cells for sd in domains]):
+                # The variable has more than one dof per cell, so we cannot use a
+                # diagonal representation.
+                return False
+            return True
+
+        def _classify_variables() -> tuple[
+            dict[pp.ad.Variable, np.ndarray], dict[pp.ad.Variable, np.ndarray]
+        ]:
+            """Split the indexed variables into those suited for a diagonal
+            representation, and the rest."""
+            diagonal_variables = {}
+            other_variables = {}
+            for variable, indices in _indexed_variables_in_operator_tree().items():
+                if _is_diagonal_representable(variable):
+                    diagonal_variables[variable] = indices
+                else:
+                    other_variables[variable] = indices
+            return diagonal_variables, other_variables
+
+        def _variable_value_map(
+            variables: dict[pp.ad.Variable, np.ndarray],
+        ) -> dict[pp.ad.Variable, np.ndarray]:
+            """Map each variable to its value in state, without tracking derivatives.
+            This is a cheap alternative to the AdArray-based representations below, used
+            when only the value (not the Jacobian) of an operator is needed.
+
+            """
+            return {variable: state[indices] for variable, indices in variables.items()}
+
+        def _diagonal_array_map(
+            variables: dict[pp.ad.Variable, np.ndarray],
+        ) -> dict[pp.ad.Variable, pp.ad.DiagonalAdArray]:
+            """Build a DiagonalAdArray for each variable suited for this
+            representation."""
+            diagonal_states = [state[indices] for indices in variables.values()]
+            diagonal_indices = list(variables.values())
+
+            diagonal_arrays = pp.ad.initialize_diagonal_ad_arrays(
+                diagonal_states, diagonal_indices, variable_indexer.size
+            )
+            return dict(zip(variables, diagonal_arrays))
+
+        def _ordinary_array_map(
+            variables: dict[pp.ad.Variable, np.ndarray],
+        ) -> dict[pp.ad.Variable, pp.ad.AdArray]:
+            """Build a single, shared AdArray covering the variables not suited for
+            a diagonal representation.
+
+            """
+            # Stack the per-variable indices to construct the shared array below. The
+            # per-variable indices are kept to split the array again afterwards.
+            variable_indices = list(variables.values())
+            if len(variable_indices) == 0:
+                all_indices = np.array([], dtype=int)
+            else:
+                all_indices = np.hstack(variable_indices)
+
+            # Only the entries belonging to these variables are populated; the rest
+            # (covered elsewhere by the diagonal representation) are left at zero.
+            ordinary_state = np.zeros_like(state)
+            ordinary_state[all_indices] = state[all_indices]
+            ordinary_array = pp.ad.initialize_partial_ad_array(
+                ordinary_state, all_indices
+            )
+
+            # NOTE: In principle, the entries of ordinary_array belonging to the
+            # diagonally represented variables should be zero. This is not verified
+            # here, since a variable can be present both in a diagonal form (covering
+            # all subdomains) and as an atomic, single-subdomain instance that does not
+            # qualify for the diagonal representation; the latter would then show up
+            # here despite overlapping with the former.
+
+            return {
+                variable: ordinary_array[indices]
+                for variable, indices in variables.items()
+            }
+
+        diagonal_variables, other_variables = _classify_variables()
+
+        if not derivative:
+            # We don't need Ad arrays at all here. This avoids the cost of
+            # constructing (Diagonal)AdArrays for all variables in the system.
+            return _variable_value_map({**diagonal_variables, **other_variables})
+
+        array_map: dict[pp.ad.Variable, pp.ad.AdArrayBase] = {}
+        array_map.update(_diagonal_array_map(diagonal_variables))
+        array_map.update(_ordinary_array_map(other_variables))
+        return array_map
+
+    def _flatten_operator_tree(
+        self, op_list: Sequence[pp.ad.Operator]
+    ) -> list[pp.ad.Operator]:
+        # Loop over the operator tree to flatten it into a list of operators. This is
+        # used to simplify the parsing of the operators, and to enable caching of
+        # results for sub-operators.
+
+        flattened = []
+        for op in op_list:
+            flattened.extend(self._flatten_operator_tree(op.children))
+            flattened.append(op)
+        return flattened
+
     def _evaluate_single(
         self,
         op: pp.ad.Operator,
-        ad_base: np.ndarray | pp.ad.AdArray,
+        ad_base: Mapping[pp.ad.Variable, np.ndarray | pp.ad.AdArrayBase],
         equation_system: pp.EquationSystem,
         variable_indexer: pp.ad.VariableIndexer,
-    ) -> float | np.ndarray | sps.spmatrix | pp.ad.AdArray:
+    ) -> float | np.ndarray | sps.spmatrix | pp.ad.AdArrayBase:
         """Evaluate a single operator.
 
         Parameters:
             op: The operator to evaluate.
-            ad_base: The base for the automatic differentiation. This should be an
-                AdArray if the derivative is requested, and a numpy array if not.
+            ad_base: Mapping from each variable in the operator tree of op to its
+                representation, as produced by :meth:`_initialize_variables`. Values
+                are AdArrays if the derivative is requested, and numpy arrays if not.
             equation_system: The EquationSystem wherein the system state is defined.
             variable_indexer: The indexer that defines the arrangement in ad_base.
 
@@ -269,16 +478,8 @@ class AdParser:
                     ]
                     return np.concatenate(vals) if len(vals) else np.array([])
                 else:
-                    dofs_list = [
-                        variable_indexer.indices[sub_var] for sub_var in op.sub_vars
-                    ]
-                    dofs = (
-                        np.concatenate(dofs_list)
-                        if len(dofs_list)
-                        else np.zeros(0, dtype=int)
-                    )
-                    # Fetch the values from the state vector.
-                    return ad_base[dofs]
+                    # Fetch the representation built for this variable.
+                    return ad_base[op]
 
             # Atomic variables.
             elif isinstance(op, pp.ad.Variable):
@@ -293,8 +494,8 @@ class AdParser:
                     return op.parse(equation_system.mdg)
                 # Otherwise use the current time and iteration values.
                 else:
-                    return ad_base[variable_indexer.indices[op]]
-            # All other leafs like discretizations or some wrapped data.
+                    return ad_base[op]
+            # All other leaves like discretizations or some wrapped data.
             else:
                 # Mypy complains because the return type of parse is Any.
                 res = op.parse(equation_system.mdg)  # type:ignore
@@ -358,7 +559,7 @@ class AdParser:
                 assert len(child_values) == 2
 
                 if operation == Operations.matmul and isinstance(child_values[0], list):
-                    # This is a special case for dealing with pp.ad.PorjectionList.
+                    # This is a special case for dealing with pp.ad.ProjectionList.
                     if all(
                         [
                             isinstance(c, pp.matrix_operations.ArraySlicer)
@@ -379,7 +580,7 @@ class AdParser:
                         )
 
                 if isinstance(child_values[0], np.ndarray) and isinstance(
-                    child_values[1], (pp.ad.AdArray, pp.ad.ad_array.AdArray)
+                    child_values[1], pp.ad.AdArrayBase
                 ):
                     if operation == Operations.mul:
                         # In the implementation of multiplication between an AdArray and
@@ -488,20 +689,20 @@ class AdParser:
         # Finally some information on sizes
         if isinstance(results[0], (sps.spmatrix, sps.sparray)):
             msg += f"First argument is a sparse matrix of size {results[0].shape}\n"
-        elif isinstance(results[0], pp.ad.AdArray):
+        elif isinstance(results[0], pp.ad.AdArrayBase):
             msg += (
-                f"First argument is an AdArray of size {results[0].val.size} "
-                f" and Jacobian of shape  {results[0].jac.shape} \n"
+                f"First argument is an Ad array of size {results[0].val.size} "
+                f" and Jacobian of shape  {results[0].full_jac.shape} \n"
             )
         elif isinstance(results[0], np.ndarray):
             msg += f"First argument is a numpy array of size {results[0].size}\n"
 
         if isinstance(results[1], (sps.spmatrix, sps.sparray)):
             msg += f"Second argument is a sparse matrix of size {results[1].shape}\n"
-        elif isinstance(results[1], pp.ad.AdArray):
+        elif isinstance(results[1], pp.ad.AdArrayBase):
             msg += (
-                f"Second argument is an AdArray of size {results[1].val.size} "
-                f" and Jacobian of shape  {results[1].jac.shape} \n"
+                f"Second argument is an Ad array of size {results[1].val.size} "
+                f" and Jacobian of shape  {results[1].full_jac.shape} \n"
             )
         elif isinstance(results[1], np.ndarray):
             msg += f"Second argument is a numpy array of size {results[1].size}\n"
