@@ -570,9 +570,6 @@ class TestGeometry:
 
         # Count the number of cells
         num_subdomain_cells = sum([sd.num_cells for sd in subdomains])
-        num_cells_total = num_subdomain_cells + sum(
-            [intf.num_cells for intf in interfaces]
-        )
 
         # Make an equation system, which is needed for parsing of the Ad operator
         # representations of the geometry.
@@ -582,37 +579,43 @@ class TestGeometry:
         # is just a shallow wrapper around the former). Loop over dimension of the basis
         # vectors and of dimensions, construct the basis vectors and check that they
         # have the expected components.
-        for basis_dim in range(dim + 1):
-            for i in range(basis_dim):
-                # Consider both subdomains and interfaces here, since the method allows
-                # it.
-                num_cells = sum([sd.num_cells for sd in subdomains + interfaces])
-                e_i = projection_matrix_from_array_slicers(
-                    equation_system.evaluate(
-                        geometry_model.e_i(subdomains + interfaces, i=i, dim=basis_dim)
-                    ),
-                    num_cells,
-                )
-                # Expected values
-                rows = np.arange(i, num_cells_total * basis_dim, basis_dim)
-                cols = np.arange(num_cells_total)
-                data = np.ones(num_cells_total)
-                mat = sps.coo_matrix(
-                    (data, (rows, cols)),
-                    shape=(num_cells_total * basis_dim, num_cells_total),
-                )
-                assert np.allclose((mat - e_i).data, 0)
-
-                if basis_dim == dim:
-                    # the dimension of the basis vector space is not specified, the
-                    # value should be the same as for basis_dim = dim.
-                    e_None = projection_matrix_from_array_slicers(
+        # The grids passed to e_i must all be of the same type, so subdomains and
+        # interfaces are covered separately.
+        for grids in (subdomains, interfaces):
+            num_cells = sum([g.num_cells for g in grids])
+            for basis_dim in range(dim + 1):
+                for i in range(basis_dim):
+                    e_i = projection_matrix_from_array_slicers(
                         equation_system.evaluate(
-                            geometry_model.e_i(subdomains + interfaces, i=i, dim=dim)
+                            geometry_model.e_i(grids, i=i, dim=basis_dim)
                         ),
                         num_cells,
                     )
-                    assert np.allclose((e_None - e_i).data, 0)
+                    # Expected values
+                    rows = np.arange(i, num_cells * basis_dim, basis_dim)
+                    cols = np.arange(num_cells)
+                    data = np.ones(num_cells)
+                    mat = sps.coo_matrix(
+                        (data, (rows, cols)),
+                        shape=(num_cells * basis_dim, num_cells),
+                    )
+                    assert np.allclose((mat - e_i).data, 0)
+
+                    if basis_dim == dim:
+                        # the dimension of the basis vector space is not specified, the
+                        # value should be the same as for basis_dim = dim.
+                        e_None = projection_matrix_from_array_slicers(
+                            equation_system.evaluate(
+                                geometry_model.e_i(grids, i=i, dim=dim)
+                            ),
+                            num_cells,
+                        )
+                        assert np.allclose((e_None - e_i).data, 0)
+
+        # Mixing grid types is not permissible, since the resulting operator space
+        # would have no well-defined domain type.
+        with pytest.raises(ValueError):
+            geometry_model.e_i(subdomains + interfaces, i=0, dim=dim)
 
         # Next, test the methods to extract normal and tangential components. The normal
         # component is straightforward, the tangential component requires a bit of work
