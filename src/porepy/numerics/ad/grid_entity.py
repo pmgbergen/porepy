@@ -96,9 +96,14 @@ class GridEntities:
         return cls(**kwargs)
 
     @property
-    def present_entities(self) -> frozenset[GridEntity]:
-        """The grid entities that carry a nonzero number of DOFs."""
-        return frozenset(
+    def present_entities(self) -> tuple[GridEntity, ...]:
+        """The grid entities that carry a nonzero number of DOFs.
+
+        The entities are listed in the declaration order of :class:`GridEntity`, so
+        that two ``GridEntities`` with the same nonzero entities compare equal here.
+
+        """
+        return tuple(
             entity for entity in GridEntity if getattr(self, entity.value) != 0
         )
 
