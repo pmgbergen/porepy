@@ -2,10 +2,9 @@
 
 Verifies:
   1. Enum member values.
-  2. ``GridEntity`` is accessible as ``pp.ad.GridEntity``.
-  3. ``create_variables`` works with enum-keyed ``dof_info`` dicts.
-  4. ``set_equation`` works with enum-keyed ``equations_per_grid_entity`` dicts.
-  5. ``GridEntities`` is an immutable, hashable value object with one field per
+  2. ``create_variables`` works with enum-keyed ``dof_info`` dicts.
+  3. ``set_equation`` works with enum-keyed ``equations_per_grid_entity`` dicts.
+  4. ``GridEntities`` is an immutable, hashable value object with one field per
      ``GridEntity`` member, and its derived properties treat a zero count and an
      absent entity as the same thing.
 """
@@ -169,7 +168,8 @@ def test_bool_is_true_iff_some_entity_is_present(dof_info, expected):
     ],
 )
 def test_present_entities(dof_info, expected):
-    """Entities with a zero count are not present."""
+    """Entities with a zero count are not present, and the present ones are listed in
+    the declaration order of GridEntity."""
     assert dof_info.present_entities == expected
 
 
