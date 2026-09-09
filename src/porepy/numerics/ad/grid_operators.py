@@ -711,7 +711,7 @@ class MortarProjections:
 
         Returns:
             A 2-tuple ``(intf_space, sd_space)`` with the operator space for the
-            interfaces, and for the subdomains.
+            interfaces and for the subdomains.
 
         """
         intf_space = OperatorSpace.from_domains(

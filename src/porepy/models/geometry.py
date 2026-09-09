@@ -464,9 +464,9 @@ class ModelGeometry(pp.PorePyModel):
             dim: Dimension of the basis.
             domain_type: The type of domain (subdomains, interfaces, or boundary
                 grids) that *grids* represents.
+
         Returns:
-            List of pp.ad.SparseArray, each of which represents a basis
-            function.
+            List of pp.ad.SparseArray, each of which represents a basis function.
 
         """
         # Collect the basis functions for each dimension.
@@ -511,7 +511,7 @@ class ModelGeometry(pp.PorePyModel):
             i: Index of the basis function. Note: Counts from 0.
             dim: Dimension of the functions.
             domain_type: The type of domain (subdomains, interfaces, or boundary
-                grids) that *grids* represents. See :meth:`basis` for details.
+                grids) that *grids* represents.
 
         Returns:
             Ad projection that represents a basis function.
