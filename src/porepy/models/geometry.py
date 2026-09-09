@@ -399,11 +399,6 @@ class ModelGeometry(pp.PorePyModel):
             if not all(isinstance(getattr(g, attr), np.ndarray) for g in grids):
                 raise ValueError(f"Attribute {attr} is not a ndarray")
 
-            # NOTE: We do not rule out the combination of subdomains and interfaces
-            # in the same list. There should be no chance of errors here, and although
-            # such a case seems to EK at the moment to be a bit of an edge case, there
-            # is no reason to rule it out.
-
             if dim is None:
                 # Default to all dimensions
                 vals = np.hstack([getattr(g, attr).ravel("F") for g in grids])
@@ -463,7 +458,9 @@ class ModelGeometry(pp.PorePyModel):
             grids: List of grids on which the basis is defined.
             dim: Dimension of the basis.
             domain_type: The type of domain (subdomains, interfaces, or boundary
-                grids) that *grids* represents.
+                grids) that ``grids`` represents. If ``grids`` is empty, domain_type is
+                used to determine the type of the operator space. If ``grids`` is
+                non-empty, a given domain type must agree with the type of the grids.
 
         Returns:
             List of pp.ad.SparseArray, each of which represents a basis function.
@@ -511,13 +508,16 @@ class ModelGeometry(pp.PorePyModel):
             i: Index of the basis function. Note: Counts from 0.
             dim: Dimension of the functions.
             domain_type: The type of domain (subdomains, interfaces, or boundary
-                grids) that *grids* represents.
+                grids) that ``grids`` represents. If ``grids`` is empty, domain_type is
+                used to determine the type of the operator space. If ``grids`` is
+                non-empty, a given domain type must agree with the type of the grids.
 
         Returns:
             Ad projection that represents a basis function.
 
         Raises:
-            ValueError: If i is larger than dim - 1.
+            ValueError: If i is larger than dim - 1, or if *grids* mixes subdomains,
+                interfaces and/or boundary grids.
 
         """
         if dim is None:
@@ -531,26 +531,10 @@ class ModelGeometry(pp.PorePyModel):
         num_cells = sum([g.num_cells for g in grids])
         range_ind = np.arange(i, dim * num_cells, dim)
 
-        if (
-            domain_type is None
-            and len(grids) > 0
-            and not (
-                all(isinstance(g, pp.Grid) for g in grids)
-                or all(isinstance(g, pp.MortarGrid) for g in grids)
-                or all(isinstance(g, pp.BoundaryGrid) for g in grids)
-            )
-        ):
-            # The grids mix subdomains, interfaces, and/or boundary grids, as is
-            # supported by this method. Mark the operator space as unclear.
-            source: pp.ad.OperatorSpace = pp.ad.OperatorSpace.unclear()
-            target: pp.ad.OperatorSpace = pp.ad.OperatorSpace.unclear()
-        else:
-            source = pp.ad.OperatorSpace.from_domains(
-                list(grids), domain_type=domain_type
-            )
-            target = pp.ad.OperatorSpace.from_domains(
-                list(grids), {pp.ad.GridEntity.cells: dim}, domain_type=domain_type
-            )
+        source = pp.ad.OperatorSpace.from_domains(list(grids), domain_type=domain_type)
+        target = pp.ad.OperatorSpace.from_domains(
+            list(grids), {pp.ad.GridEntity.cells: dim}, domain_type=domain_type
+        )
 
         slicer = pp.ad.Projection(
             domain_indices=np.arange(num_cells),
