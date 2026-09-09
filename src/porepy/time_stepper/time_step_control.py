@@ -461,11 +461,11 @@ class Schedule:
 
 
         """
+        schedule = np.array(schedule, dtype=float)
         if len(schedule) < 2:
             raise ValueError(
                 "Schedule must have at least two points (t_start and t_end)."
             )
-        schedule = np.array(schedule, dtype=float)
 
         constraints: list[TimeStepConstraint] = []
         if not constant_dt:
