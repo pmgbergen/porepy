@@ -959,10 +959,10 @@ class _MockDiscretization:
 
         self.keyword = key
 
-    def get_row_dof_info(self, matrix_key: str = "", nd: int = 1):
+    def get_row_entities(self, matrix_key: str = "", nd: int = 1):
         return GridEntities(cells=1)
 
-    def get_col_dof_info(self, matrix_key: str = "", nd: int = 1):
+    def get_col_entities(self, matrix_key: str = "", nd: int = 1):
         return GridEntities(faces=1)
 
 
