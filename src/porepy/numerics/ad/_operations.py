@@ -115,11 +115,12 @@ class Operations(Enum):
 
         if self == Operations.matmul:
             # left @ right: target(right) must equal source(left)
-            return self._process_matmul(left, right, right_is_scalar)
+            return self._process_matmul(left, right)
         elif self == Operations.rmatmul:
-            # right @ left (dispatched as left.__rmatmul__(right)):
-            # target(left) must equal source(right)
-            return self._process_matmul(right, left, left_is_scalar)
+            # right @ left (dispatched as left.__rmatmul__(right)): the operand order
+            # of the matrix multiplication is the opposite of the argument order, thus
+            # target(left) must equal source(right).
+            return self._process_matmul(right, left)
         else:
             # Elementwise operations
             if left_is_scalar and right_is_scalar:
@@ -161,23 +162,51 @@ class Operations(Enum):
                 )
 
     def _process_matmul(
-        self, first, second, second_is_scalar: bool
+        self, left: Operator, right: Operator
     ) -> tuple[OperatorSpace, OperatorSpace]:
-        # left @ right: target(right) must equal source(left)
-        if first.source.domain_type == DomainType.unclear:
+        """Validate and infer the spaces of the matrix multiplication
+        ``left @ right``.
+        """
+        # Matrix multiplication is not defined for scalars: They have no rows and
+        # columns to contract. Elementwise multiplication should be used instead.
+        # NOTE: An operator constructed on an empty list of grids is also assigned the
+        # scalar space (see OperatorSpace.from_domains). Such an operator represents an
+        # empty, not a scalar, quantity, and contracting it with a likewise empty
+        # dimension of the other operand is vacuous rather than erroneous.
+        operands = ((left, right.target, "left"), (right, left.source, "right"))
+        for scalar_operand, contracted, role in operands:
+            if self._is_scalar(scalar_operand) and contracted.grids:
+                raise ValueError(
+                    f"Matrix multiplication is not defined for the scalar {role} "
+                    f"operand {scalar_operand!r}. Use elementwise multiplication "
+                    "instead."
+                )
+        if left.source.domain_type == DomainType.unclear:
             raise ValueError(
-                f"Cannot matrix multiply with {first!r} as the left operand: "
+                f"Cannot matrix multiply with {left!r} as the left operand: "
                 "its source is unclear."
             )
-        if not second_is_scalar and not self._spaces_compatible(
-            first.source, second.target
+        # A scalar operand that got this far is an empty quantity contracted with an
+        # empty dimension of the other operand, in which case there is nothing to
+        # check.
+        if (
+            not self._is_scalar(left)
+            and not self._is_scalar(right)
+            and not self._spaces_compatible(left.source, right.target)
         ):
             raise ValueError(
-                f"Incompatible matrix multiplication: the target of {second!r} "
-                f"({second.target}) does not match the source of {first!r} "
-                f"({first.source})."
+                f"Incompatible matrix multiplication: the target of {right!r} "
+                f"({right.target}) does not match the source of {left!r} "
+                f"({left.source})."
             )
-        return second.source, first.target
+        return right.source, left.target
+
+    def _is_scalar(self, operator: Operator) -> bool:
+        """Return True if the operator maps scalars to scalars."""
+        return (
+            operator.source.domain_type == DomainType.scalar
+            and operator.target.domain_type == DomainType.scalar
+        )
 
     def _can_broadcast(self, space: OperatorSpace) -> bool:
         """Return True if space represents exactly one DOF per grid entity.
