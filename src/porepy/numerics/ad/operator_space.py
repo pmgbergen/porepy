@@ -195,11 +195,13 @@ class OperatorSpace:
                 domain type, and an empty ``domains`` sequence will *not* be interpreted
                 as a scalar space. Needed by grid operators whose domain type is known
                 from context even if they are constructed on an empty list of grids.
-                If not given (the default), the domain type is inferred from the grid
-                types found in ``domains``.
+                If ``domains`` is non-empty, the given domain type must agree with the
+                type inferred from the grids. If not given (the default), the domain
+                type is inferred from the grid types found in ``domains``.
 
         Raises:
-            ValueError: If ``domains`` contains a mix of grid types.
+            ValueError: If ``domains`` contains a mix of grid types, or if a
+                non-empty ``domains`` is inconsistent with a given ``domain_type``.
 
         Returns:
             A new :class:`OperatorSpace`.
@@ -212,20 +214,39 @@ class OperatorSpace:
             if dof_info is None
             else GridEntities.from_mapping(dof_info)
         )
-        if domain_type is not None:
-            return cls(domain_type, tuple(domains), dof_info)
-        if len(domains) == 0:
-            return cls.scalar()
         grids = tuple(domains)
-        if all(isinstance(g, pp.Grid) for g in grids):
-            domain_type = DomainType.subdomains
-        elif all(isinstance(g, pp.MortarGrid) for g in grids):
-            domain_type = DomainType.interfaces
-        elif all(isinstance(g, pp.BoundaryGrid) for g in grids):
-            domain_type = DomainType.boundary_grids
-        else:
-            raise ValueError(
-                "All grids in `domains` must have the same type (pp.Grid, "
-                "pp.MortarGrid, or pp.BoundaryGrid)."
+        if len(grids) == 0:
+            # An empty list of grids carries no information on the domain type, so
+            # either use the type given by the caller, or fall back to a scalar space.
+            return (
+                cls.scalar() if domain_type is None else cls(domain_type, (), dof_info)
             )
-        return cls(domain_type, grids, dof_info)
+
+        inferred = cls._infer_domain_type(grids)
+        if domain_type is not None and domain_type != inferred:
+            raise ValueError(
+                f"The given domain type ({domain_type.value}) is inconsistent with "
+                f"the grids in `domains`, which represent {inferred.value}."
+            )
+        return cls(inferred, grids, dof_info)
+
+    @staticmethod
+    def _infer_domain_type(
+        grids: tuple[pp.Grid | pp.MortarGrid | pp.BoundaryGrid, ...],
+    ) -> DomainType:
+        """Infer the domain type of a non-empty tuple of grids of a uniform type.
+
+        Raises:
+            ValueError: If the grids are not all of the same type.
+
+        """
+        if all(isinstance(g, pp.Grid) for g in grids):
+            return DomainType.subdomains
+        elif all(isinstance(g, pp.MortarGrid) for g in grids):
+            return DomainType.interfaces
+        elif all(isinstance(g, pp.BoundaryGrid) for g in grids):
+            return DomainType.boundary_grids
+        raise ValueError(
+            "All grids in `domains` must have the same type (pp.Grid, "
+            "pp.MortarGrid, or pp.BoundaryGrid)."
+        )
