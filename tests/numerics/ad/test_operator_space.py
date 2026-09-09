@@ -156,6 +156,37 @@ class TestOperatorSpaceFromDomains:
         with pytest.raises(ValueError, match="same type"):
             OperatorSpace.from_domains([g1, one_mortar], {GridEntity.cells: 1})
 
+    def test_domain_type_inconsistent_with_grids_raises(
+        self, two_subdomains, one_mortar
+    ):
+        """A domain type given for a non-empty grid list must match the grids."""
+        g1, _ = two_subdomains
+        with pytest.raises(ValueError, match="inconsistent"):
+            OperatorSpace.from_domains(
+                [g1], {GridEntity.cells: 1}, domain_type=DomainType.interfaces
+            )
+        with pytest.raises(ValueError, match="inconsistent"):
+            OperatorSpace.from_domains(
+                [one_mortar], {GridEntity.cells: 1}, domain_type=DomainType.subdomains
+            )
+
+    def test_domain_type_consistent_with_grids_is_accepted(self, two_subdomains):
+        """A domain type that agrees with the grids is redundant, but permissible."""
+        g1, _ = two_subdomains
+        space = OperatorSpace.from_domains(
+            [g1], {GridEntity.cells: 1}, domain_type=DomainType.subdomains
+        )
+        assert space.domain_type == DomainType.subdomains
+
+    def test_domain_type_overrides_scalar_default_for_empty_domains(self):
+        """For an empty grid list, the domain type cannot be inferred, so the given
+        one is used instead of the scalar default."""
+        space = OperatorSpace.from_domains(
+            [], {GridEntity.cells: 1}, domain_type=DomainType.subdomains
+        )
+        assert space.domain_type == DomainType.subdomains
+        assert space.grids == ()
+
     def test_dof_info_is_normalized_not_aliased(self, two_subdomains):
         """A mapping is normalized to a GridEntities on construction, so mutating the
         original dict must not affect the stored one."""
@@ -656,6 +687,27 @@ class TestInferDomainRange:
 
         with pytest.raises(ValueError, match="matrix multiplication"):
             _ = left @ right
+
+    @pytest.mark.parametrize("scalar_on_left", [True, False])
+    def test_matmul_with_scalar_raises(self, cell_space, scalar_on_left):
+        """Matrix multiplication has no meaning for a scalar operand; elementwise
+        multiplication should be used instead."""
+        matrix = SparseArray(
+            _eye_for(cell_space, cell_space), source=cell_space, target=cell_space
+        )
+        scalar = pp.ad.Scalar(2.0)
+        with pytest.raises(ValueError, match="not defined for the scalar"):
+            _ = scalar @ matrix if scalar_on_left else matrix @ scalar
+
+    def test_elementwise_multiplication_with_scalar_is_permissible(self, cell_space):
+        """The counterpart of test_matmul_with_scalar_raises: elementwise
+        multiplication with a scalar keeps the space of the non-scalar operand."""
+        matrix = SparseArray(
+            _eye_for(cell_space, cell_space), source=cell_space, target=cell_space
+        )
+        result = pp.ad.Scalar(2.0) * matrix
+        assert result.source == cell_space
+        assert result.target == cell_space
 
     def test_matmul_with_unclear_left_source_raises(self, cell_space, face_space):
         """A left operand with unclear source cannot be used in matmul."""
