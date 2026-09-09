@@ -412,6 +412,51 @@ class TestMortarProjections:
 
     @pytest.mark.parametrize("non_matching", [True, False])
     @pytest.mark.parametrize(
+        "int_method, avg_method",
+        [
+            ("mortar_to_primary_int", "mortar_to_primary_avg"),
+            ("primary_to_mortar_int", "primary_to_mortar_avg"),
+            ("mortar_to_secondary_int", "mortar_to_secondary_avg"),
+            ("secondary_to_mortar_int", "secondary_to_mortar_avg"),
+        ],
+        ids=[
+            "mortar_to_primary",
+            "primary_to_mortar",
+            "mortar_to_secondary",
+            "secondary_to_mortar",
+        ],
+    )
+    def test_projections_are_cached(self, mdg, non_matching, int_method, avg_method):
+        """The projection matrices are constructed lazily, then stored and reused.
+
+        Across a conforming interface, the integrating and the averaging variant of a
+        direction are the same matrix, and share a single cached one; across a
+        non-conforming interface the two differ and are cached separately. Refining
+        the 1d grids makes the mortar-to-secondary mappings non-conforming, while the
+        primary side stays conforming.
+
+        Parameters:
+            non_matching: If True, the 1d subdomain grids are refined, making the
+                secondary side of the 1d interfaces non-conforming.
+
+        """
+        if non_matching:
+            for g in mdg.subdomains(dim=1):
+                g_new = pp.refinement.refine_grid_1d(g, ratio=2)
+                mdg.replace_subdomains_and_interfaces({g: g_new})
+
+        proj = pp.ad.MortarProjections(
+            subdomains=mdg.subdomains(), interfaces=mdg.interfaces(), mdg=mdg, dim=1
+        )
+        integrated = getattr(proj, int_method)()
+        # A second call returns the stored matrix rather than constructing a new one.
+        assert getattr(proj, int_method)() is integrated
+
+        shares_storage = not (non_matching and "secondary" in int_method)
+        assert (getattr(proj, avg_method)() is integrated) == shares_storage
+
+    @pytest.mark.parametrize("non_matching", [True, False])
+    @pytest.mark.parametrize(
         "subdomain_selector, interface_selector", _MORTAR_GRID_SUBSET_CASES
     )
     @pytest.mark.parametrize(
