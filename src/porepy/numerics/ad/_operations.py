@@ -124,24 +124,12 @@ class Operations(Enum):
         else:
             # Elementwise operations
             if left_is_scalar and right_is_scalar:
-                # Both operands are numerically scalar (broadcastable), but either
-                # may still carry a non-scalar, domain-bearing space (see the
-                # docstring note on `Scalar` above), e.g. a material property
-                # `Scalar` constructed with `domains=subdomains`. When that is the
-                # case, the result should inherit that domain information rather
-                # than collapsing to the plain scalar space, so that the domain
-                # provenance survives arithmetic between domain-bearing scalars.
-                left_has_domain = left.source.domain_type != DomainType.scalar
-                right_has_domain = right.source.domain_type != DomainType.scalar
-                if left_has_domain and right_has_domain:
-                    return (
-                        self._pick_source(left.source, right.source),
-                        self._pick_target(left.target, right.target),
-                    )
-                elif left_has_domain:
-                    return left.source, left.target
-                elif right_has_domain:
-                    return right.source, right.target
+                # Both operands have the plain scalar space, hence so has the result.
+                # NOTE: A `Scalar` constructed with domains, e.g. a material property
+                # on a set of subdomains, does *not* have the scalar space and is
+                # therefore not covered here. Such an operand is treated as any other
+                # domain-bearing operator in the branches below, so that its domain
+                # information survives the arithmetic.
                 return OperatorSpace.scalar(), OperatorSpace.scalar()
             elif left_is_scalar:
                 return right.source, right.target

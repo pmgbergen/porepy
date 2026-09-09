@@ -290,6 +290,25 @@ class TestScalarSpace:
         )
         assert s.source.domain_type == expected_domain_type
 
+    def test_arithmetic_between_domain_bearing_scalars(self, two_subdomains):
+        """A Scalar constructed with domains does not have the scalar space, so the
+        domain information must survive arithmetic with another such Scalar."""
+        g1, _ = two_subdomains
+        s1 = Scalar(1.0, domains=[g1])
+        s2 = Scalar(2.0, domains=[g1])
+        result = s1 + s2
+        assert result.source == s1.source
+        assert result.target == s1.target
+        assert result.source.domain_type == DomainType.subdomains
+
+    def test_arithmetic_between_plain_and_domain_bearing_scalar(self, two_subdomains):
+        """A plain Scalar broadcasts, so the domain-bearing operand's space wins."""
+        g1, _ = two_subdomains
+        domain_bearing = Scalar(1.0, domains=[g1])
+        result = Scalar(2.0) + domain_bearing
+        assert result.source == domain_bearing.source
+        assert result.target == domain_bearing.target
+
 
 class TestVariableSpace:
     def test_variable_has_subdomain_space(self, two_subdomains):
