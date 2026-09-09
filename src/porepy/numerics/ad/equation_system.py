@@ -6,7 +6,7 @@ using the AD framework.
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Any, Literal, Optional, Sequence, Union, overload
+from typing import Any, Literal, Mapping, Optional, Sequence, Union, overload
 from warnings import warn
 
 import numpy as np
@@ -16,6 +16,7 @@ from typing_extensions import TypeAlias
 import porepy as pp
 
 from . import _ad_parser
+from .grid_entity import GridEntities, GridEntity
 from .operators import MixedDimensionalVariable, Operator, Variable
 
 __all__ = ["EquationSystem"]
@@ -92,12 +93,6 @@ representing a restricted image of the equation by
 # equations and restrictions of equations, but it does not feel like a fully
 # satisfactory solution.
 
-GridEntity = Literal["cells", "faces", "nodes"]
-"""A union type representing a grid entity, either a cell, face or node.
-This is used to define the domain of a variable or an equation,
-i.e. whether it is defined on cells, faces or nodes.
-"""
-
 
 class EquationSystem:
     """Represents an equation system, modelled by AD variables and equations in AD form.
@@ -119,17 +114,6 @@ class EquationSystem:
 
     """
 
-    admissible_dof_types: tuple[
-        Literal["cells"], Literal["faces"], Literal["nodes"]
-    ] = ("cells", "faces", "nodes")
-    """A set denoting admissible types of local DOFs for variables.
-
-    - nodes: DOFs per grid node.
-    - cells: DOFs per grid cell.
-    - faces: DOFS per grid face.
-
-    """
-
     def __init__(self, mdg: pp.MixedDimensionalGrid) -> None:
         ### PUBLIC
         self.mdg: pp.MixedDimensionalGrid = mdg
@@ -142,12 +126,6 @@ class EquationSystem:
 
         Private to avoid users setting equations directly and circumventing the current
         set-method which includes information about the image space.
-
-        """
-
-        self._equation_image_size_info: dict[str, dict[GridEntity, int]] = dict()
-        """Contains for every equation name (key) the number of equations per grid
-        entity.
 
         """
 
@@ -225,8 +203,6 @@ class EquationSystem:
         for name in self._equations.keys():
             if name in equations:
                 equation = self._equations[name]
-                image_info = self._equation_image_size_info[name]
-                new_equation_system._equation_image_size_info[name] = image_info
                 new_equation_system._equations[name] = equation
 
         return new_equation_system
@@ -258,14 +234,6 @@ class EquationSystem:
             stacklevel=2,
         )
         return self.equation_indexer.equation_image_space_composition
-
-    @property
-    def equation_image_size_info(self) -> dict[str, dict["GridEntity", int]]:
-        """Dictionary containing, for every equation set in this EquationSystem,
-        the number of equations per grid entity.
-
-        """
-        return self._equation_image_size_info
 
     @property
     def variables(self) -> list[Variable]:
@@ -360,22 +328,13 @@ class EquationSystem:
             offset = 0
 
             for domain in equation.domains:
-                dofs_info = self.equation_image_size_info[name]
-                if isinstance(domain, pp.Grid):
-                    dofs_per_grid = (
-                        domain.num_cells * dofs_info.get("cells", 0)  # cells
-                        + domain.num_faces * dofs_info.get("faces", 0)  # faces
-                        + domain.num_nodes * dofs_info.get("nodes", 0)  # nodes
-                    )
-                elif isinstance(domain, pp.MortarGrid):
-                    # Mortar grid has no faces.
-                    dofs_per_grid = (
-                        domain.num_cells * dofs_info.get("cells", 0)  # cells
-                        + domain.num_nodes * dofs_info.get("nodes", 0)  # nodes
-                    )
-                else:
-                    raise ValueError(f"Unknown domain type: {domain}")
+                dofs_per_grid = pp.ad.OperatorSpace.from_domains(
+                    (domain,), equation.target.dof_info
+                ).num_dofs()
 
+                assert dofs_per_grid > 0, (
+                    f"Equation {name} has no DOFs on domain {domain}."
+                )
                 dofs = np.arange(dofs_per_grid) + offset
                 dofs_on_domains[domain] = dofs
                 offset += dofs_per_grid
@@ -436,7 +395,7 @@ class EquationSystem:
     def create_variables(
         self,
         name: str,
-        dof_info: Optional[dict[GridEntity, int]] = None,
+        dof_info: Optional[Union[GridEntities, Mapping[GridEntity, int]]] = None,
         subdomains: Optional[list[pp.Grid]] = None,
         interfaces: Optional[list[pp.MortarGrid]] = None,
         tags: Optional[dict[str, Any]] = None,
@@ -477,16 +436,11 @@ class EquationSystem:
             KeyError: If a variable with given name is already defined.
 
         """
-        # Set default value for dof_info. This is a mutable object, so we need to
-        # create a new one each time and not set the default in the signature.
-        if dof_info is None:
-            dof_info = {"cells": 1}
-
-        # Sanity check for admissible DOF types.
-        requested_type = set(dof_info.keys())
-        if not requested_type.issubset(set(self.admissible_dof_types)):
-            non_admissible = requested_type.difference(self.admissible_dof_types)
-            raise ValueError(f"Non-admissible DOF types {non_admissible} requested.")
+        # A dof_info of None defaults to one DOF per cell (see Variable.__init__),
+        # which is always admissible.
+        grid_entities = (
+            None if dof_info is None else GridEntities.from_mapping(dof_info)
+        )
 
         # Container for all grid variables.
         variables = []
@@ -533,7 +487,7 @@ class EquationSystem:
                     data[key][name] = {}
 
             # Create grid variable.
-            new_variable = Variable(name, dof_info, domain=grid, tags=tags)
+            new_variable = Variable(name, grid_entities, domain=grid, tags=tags)
 
             # Store it in the system
             variables.append(new_variable)
@@ -802,7 +756,10 @@ class EquationSystem:
         """
         for var in self._parse_variable_type(variables, ordered=False):
             pp.shift_solution_values(
-                var.name, self._get_data(var.domain), pp.TIME_STEP_SOLUTIONS, max_index
+                var.name,
+                self._get_data(var.domain),
+                pp.TIME_STEP_SOLUTIONS,
+                max_index,
             )
 
     def shift_iterate_values(
@@ -814,7 +771,10 @@ class EquationSystem:
         (unknown) time step."""
         for var in self._parse_variable_type(variables, ordered=False):
             pp.shift_solution_values(
-                var.name, self._get_data(var.domain), pp.ITERATE_SOLUTIONS, max_index
+                var.name,
+                self._get_data(var.domain),
+                pp.ITERATE_SOLUTIONS,
+                max_index,
             )
 
     def _get_data(
@@ -982,17 +942,14 @@ class EquationSystem:
     def set_equation(
         self,
         equation: Operator,
-        grids: DomainList,
-        equations_per_grid_entity: dict[GridEntity, int],
+        equations_per_grid_entity: Optional[
+            Union[GridEntities, Mapping[GridEntity, int]]
+        ] = None,
     ) -> None:
         """Sets an equation using the passed operator and uses its name as an
         identifier.
 
         If an equation already exists under that name, it is overwritten.
-
-        Information about the image space must be provided for now, such that grid-wise
-        row slicing is possible. This will hopefully be provided automatically in the
-        future.
 
         Note:
             Regarding the number of equations, this method assumes that the AD framework
@@ -1003,19 +960,20 @@ class EquationSystem:
         Parameters:
             equation: An equation in AD operator form, assuming the right-hand side is
                 zero and this instance represents the left-hand side.
-            grids: A list of subdomain *or* interface grids on which the equation is
-                defined.
             equations_per_grid_entity: a dictionary describing how many equations
-                ``equation_operator`` provides. This is a temporary work-around until
-                operators are able to provide information on their image space.
-                The dictionary must contain the number of equations per grid entity
-                (cells, faces, nodes) for the operator.
+                ``equation_operator`` provides, i.e. the number of equations per grid
+                entity (cells, faces, nodes) for the operator. If None, this is inferred
+                from the equation operator's own ``target.dof_info``. Providing it
+                explicitly is optional and kept for backwards compatibility and as an
+                extra safety net.
 
         Raises:
             ValueError: If the equation operator has a name already assigned to a
                 previously set equation.
             ValueError: If the equation is defined on both subdomains and interfaces.
             AssertionError: If the equation is defined on an unknown grid.
+            AssertionError: If ``equations_per_grid_entity`` is given explicitly and
+                does not match the equation operator's own ``target.dof_info``.
             ValueError: If indicated number of equations does not match the actual
                 number as per evaluation of operator.
 
@@ -1029,14 +987,26 @@ class EquationSystem:
                 "\n\nMake sure your equations are uniquely named."
             )
 
-        # If no grids are specified, there is nothing to do
-        if not grids:
-            # Information on the size of the equation, in terms of the grids it is
-            # defined on.
-            self._equation_image_size_info.update({name: equations_per_grid_entity})
+        # If no grids are specified, there is nothing to do. Note: equation.target is
+        # then a scalar/unclear/waived space with (necessarily) empty dof_info, so
+        # equations_per_grid_entity cannot be validated against it in this case.
+        grids = equation.target.grids
+        if len(grids) == 0:
             # Store the equation itself.
             self._equations.update({name: equation})
             return
+
+        # If provided, check that the number of equations per grid entity is consistent
+        # with the equation operator's own target.dof_info.
+        if equations_per_grid_entity is not None:
+            if equation.target.dof_info != GridEntities.from_mapping(
+                equations_per_grid_entity
+            ):
+                s = (
+                    f"equations_per_grid_entity {equations_per_grid_entity} does not "
+                    f"match the equation operator's own target.dof_info "
+                    f" {equation.target.dof_info} for equation {name}."
+                )
 
         # We require that equations are defined either on a set of subdomains, or a set
         # of interfaces. The combination of the two is mathematically possible, provided
@@ -1062,23 +1032,7 @@ class EquationSystem:
             f"Equation defined on unknown domains: {unknown_domains}"
         )
 
-        # Store the ordered equation domains. The equation may
-        # already contain domains, in which case make sure they are equal.
-        ordered_domain_indices = self.mdg.argsort_grids(grids)
-        ordered_domains = [grids[i] for i in ordered_domain_indices]
-        if equation.domains is None or len(equation.domains) == 0:
-            equation._domains = ordered_domains
-        elif equation.domains != ordered_domains:
-            raise ValueError(
-                "Attempting to register an equation on domains that do not match "
-                "equation.domains."
-            )
-
-        # If all good, we store the information:
-        # Information on the size of the equation, in terms of the grids it is defined
-        # on.
-        self._equation_image_size_info.update({name: equations_per_grid_entity})
-        # Store the equation itself.
+        # If all good, store the equation itself.
         self._equations.update({name: equation})
 
         # Invalidating equation indexer forces to recompute it next time it is accessed.
@@ -1098,10 +1052,6 @@ class EquationSystem:
         if name in self._equations:
             # Remove the equation from the storage
             equ = self._equations.pop(name)
-            # Remove the number of dofs per cell / face / node information.
-            # Note that there is no need to modify the numbering of the other equations,
-            # since this is a local (to the equation) numbering.
-            del self._equation_image_size_info[name]
             # Invalidating equation indexer.
             self._equation_indexer = None
             return equ
@@ -1112,8 +1062,9 @@ class EquationSystem:
         self,
         equation_name: str,
         new_equation: Operator,
-        grids: Optional[DomainList] = None,
-        equations_per_grid_entity: Optional[dict[GridEntity, int]] = None,
+        equations_per_grid_entity: Optional[
+            Union[GridEntities, Mapping[GridEntity, int]]
+        ] = None,
     ) -> None:
         """Updates an existing equation with a new equation operator.
 
@@ -1123,9 +1074,6 @@ class EquationSystem:
         Parameters:
             equation_name: Name of the equation to be updated.
             new_equation: New equation in AD form.
-            grids: A list of subdomain *or* interface grids on which the equation is
-                defined. The default value is None, and in that case, the grids of the
-                previous equation are used.
             equations_per_grid_entity: a dictionary describing how many equations
                 ``equation_operator`` provides. This is a temporary work-around until
                 operators are able to provide information on their image space. The
@@ -1134,20 +1082,13 @@ class EquationSystem:
                 case, the equations_per_grid_entity of the previous equation are used.
 
         """
-        if grids is None:
-            grids = self._equations[equation_name].domains  # type: ignore[assignment]
-            assert grids is not None, (
-                "Domains must be initialized in equation_system.set_equations."
-            )
-
         if equations_per_grid_entity is None:
-            equations_per_grid_entity = self._equation_image_size_info[equation_name]
+            equations_per_grid_entity = self._equations[equation_name].target.dof_info
 
         self.remove_equation(equation_name)
         new_equation.set_name(equation_name)
         self.set_equation(
             equation=new_equation,
-            grids=grids,
             equations_per_grid_entity=equations_per_grid_entity,
         )
 

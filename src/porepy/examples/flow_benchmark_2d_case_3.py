@@ -82,7 +82,7 @@ class Permeability(DimensionDependentPermeability):
 
         """
         if len(subdomains) == 0:
-            return pp.wrap_as_dense_ad_array(1, size=0)
+            return pp.wrap_as_dense_ad_array(1, size=0, grids=[])
         permeabilities = []
         for sd in subdomains:
             permeabilities.append(
@@ -91,7 +91,9 @@ class Permeability(DimensionDependentPermeability):
                     "m^2",
                 )
             )
-        permeability = pp.wrap_as_dense_ad_array(np.concatenate(permeabilities))
+        permeability = pp.wrap_as_dense_ad_array(
+            np.concatenate(permeabilities), grids=subdomains
+        )
         return self.isotropic_second_order_tensor(subdomains, permeability)
 
     def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
@@ -105,7 +107,7 @@ class Permeability(DimensionDependentPermeability):
 
         """
         if len(interfaces) == 0:
-            return pp.wrap_as_dense_ad_array(1, size=0)
+            return pp.wrap_as_dense_ad_array(1, size=0, grids=[])
         permeabilities = []
         for intf in interfaces:
             # Get hold of the fracture subdomain.
@@ -133,7 +135,7 @@ class Permeability(DimensionDependentPermeability):
                 self.units.convert_units(val * np.ones(intf.num_cells), "m^2")
             )
         return pp.wrap_as_dense_ad_array(
-            np.hstack(permeabilities), name="normal_permeability"
+            np.hstack(permeabilities), name="normal_permeability", grids=interfaces
         )
 
 

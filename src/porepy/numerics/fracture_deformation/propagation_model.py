@@ -21,7 +21,6 @@ WARNING: This should be considered experimental code and should be used with
 from __future__ import annotations
 
 import abc
-from typing import Literal
 
 import numpy as np
 import scipy.sparse as sps
@@ -78,7 +77,7 @@ class FracturePropagation(abc.ABC):
         domain: pp.Grid | pp.MortarGrid,
         d: dict,
         var: str,
-        dofs: dict[Literal["cells", "faces", "nodes"], int],
+        dofs: pp.ad.GridEntities,
     ) -> np.ndarray:
         """Initialize a new variable field with the right size for a new variable.
 
@@ -90,8 +89,8 @@ class FracturePropagation(abc.ABC):
             d: Data dictionary. Should contain a field cell_index_map (an sps.spmatrix)
                 which maps from old to new cell indices.
             var: Name of variable.
-            dofs: Dictionary with number of DOFs per cell (or face/node). In practice,
-                use the standard way of defining variables.
+            dofs: Number of DOFs per cell (or face/node). In practice, use the standard
+                way of defining variables.
 
         Returns:
             vals: np.ndarray
@@ -99,7 +98,7 @@ class FracturePropagation(abc.ABC):
 
         """
         # Number of cell dofs for this variable
-        cell_dof = dofs.get("cells")
+        cell_dof = dofs.cells
 
         # Number of new variables is given by the size of the cell map.
         cell_map: sps.spmatrix = d["cell_index_map"]
@@ -168,15 +167,13 @@ class FracturePropagation(abc.ABC):
             # Only cell-based dofs have been considered so far.
             # It should not be difficult to handle other types of variables,
             # but the need has not been there.
-            dofs = var.dof_info
-            face_dof: int = dofs.get("faces", 0)
-            node_dof: int = dofs.get("nodes", 0)
-            if face_dof != 0 or node_dof != 0:
+            dofs = var.source.dof_info
+            if dofs.faces != 0 or dofs.nodes != 0:
                 raise NotImplementedError(
                     "Have only implemented variable mapping for face dofs"
                 )
 
-            cell_dof: int = dofs["cells"]
+            cell_dof: int = dofs.cells
 
             # Map old solution
             mapping = sps.kron(cell_map, sps.eye(cell_dof))
@@ -237,8 +234,8 @@ class FracturePropagation(abc.ABC):
             # grid, second populate newly formed cells.
 
             # Mapping of old variables.
-            dofs = var.dof_info
-            cell_dof = dofs["cells"]
+            dofs = var.source.dof_info
+            cell_dof = dofs.cells
             mapping = sps.kron(cell_map, sps.eye(cell_dof))
             x_new[self.equation_system.dofs_of([var])] = (
                 mapping * data["old_solution"][var]

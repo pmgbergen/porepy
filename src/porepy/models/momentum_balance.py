@@ -74,10 +74,8 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         interfaces = self.mdg.interfaces(dim=self.nd - 1, codim=1)
         matrix_eq = self.momentum_balance_equation(matrix_subdomains)
         intf_eq = self.interface_force_balance_equation(interfaces)
-        self.equation_system.set_equation(
-            matrix_eq, matrix_subdomains, {"cells": self.nd}
-        )
-        self.equation_system.set_equation(intf_eq, interfaces, {"cells": self.nd})
+        self.equation_system.set_equation(matrix_eq)
+        self.equation_system.set_equation(intf_eq)
 
     def momentum_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Momentum balance equation in the matrix.
@@ -236,9 +234,7 @@ class AngularMomentumEquation(pp.PorePyModel):
         matrix_subdomains = self.mdg.subdomains(dim=self.nd)
 
         angular_momentum = self.angular_momentum_equation(matrix_subdomains)
-        self.equation_system.set_equation(
-            angular_momentum, matrix_subdomains, {"cells": self.rotation_dimension()}
-        )
+        self.equation_system.set_equation(angular_momentum)
 
     def angular_momentum_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Define the equation for angular momentum balance.
@@ -284,9 +280,14 @@ class AngularMomentumEquation(pp.PorePyModel):
 
         """
         num_cells = sum(sd.num_cells for sd in subdomains)
+        space = pp.ad.OperatorSpace.from_domains(
+            subdomains, {pp.ad.GridEntity.cells: self.rotation_dimension()}
+        )
         return pp.ad.DenseArray(
             np.zeros(num_cells * self.rotation_dimension()),
             "zero angular momentum source",
+            source=space,
+            target=space,
         )
 
 
@@ -324,7 +325,7 @@ class SolidMassEquation(pp.PorePyModel):
 
         solid_mass = self.solid_mass_equation(matrix_subdomains)
 
-        self.equation_system.set_equation(solid_mass, matrix_subdomains, {"cells": 1})
+        self.equation_system.set_equation(solid_mass)
 
     def solid_mass_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Define the solid mass conservation equation and add it to the EquationSystem.
@@ -366,7 +367,13 @@ class SolidMassEquation(pp.PorePyModel):
 
         """
         num_cells = sum(sd.num_cells for sd in subdomains)
-        return pp.ad.DenseArray(np.zeros(num_cells), "zero solid mass source")
+        space = pp.ad.OperatorSpace.from_domains(subdomains)
+        return pp.ad.DenseArray(
+            np.zeros(num_cells),
+            "zero solid mass source",
+            source=space,
+            target=space,
+        )
 
 
 class ConstitutiveLawsMomentumBalance(
@@ -414,13 +421,13 @@ class VariablesMomentumBalance(VariableMixin):
         super().create_variables()
 
         self.equation_system.create_variables(
-            dof_info={"cells": self.nd},
+            dof_info={pp.ad.GridEntity.cells: self.nd},
             name=self.displacement_variable,
             subdomains=self.mdg.subdomains(dim=self.nd),
             tags={"si_units": "m"},
         )
         self.equation_system.create_variables(
-            dof_info={"cells": self.nd},
+            dof_info={pp.ad.GridEntity.cells: self.nd},
             name=self.interface_displacement_variable,
             interfaces=self.mdg.interfaces(dim=self.nd - 1, codim=1),
             tags={"si_units": "m"},
@@ -448,7 +455,7 @@ class VariablesMomentumBalance(VariableMixin):
         ):
             domains = cast(Sequence[pp.BoundaryGrid], domains)
             return self.create_boundary_operator(
-                name=self.displacement_variable, domains=domains
+                name=self.displacement_variable, domains=domains, dim=self.nd
             )
         # Check that the subdomains are grids
         if not all(isinstance(grid, pp.Grid) for grid in domains):
@@ -531,13 +538,12 @@ class VariablesThreeFieldMomentumBalance(pp.PorePyModel):
         matrix_subdomains = self.mdg.subdomains(dim=self.nd)
 
         self.equation_system.create_variables(
-            dof_info={"cells": self.rotation_dimension()},
+            dof_info={pp.ad.GridEntity.cells: self.rotation_dimension()},
             name=self.rotation_stress_variable,
             subdomains=matrix_subdomains,
             tags={"si_units": "Pa"},
         )
         self.equation_system.create_variables(
-            dof_info={"cells": 1},
             name=self.total_pressure_variable,
             subdomains=matrix_subdomains,
             tags={"si_units": "Pa"},
@@ -561,7 +567,7 @@ class VariablesThreeFieldMomentumBalance(pp.PorePyModel):
         """
         if len(domains) == 0:
             return pp.wrap_as_dense_ad_array(
-                0, size=0, name="empty_" + self.rotation_stress_variable
+                0, size=0, name="empty_" + self.rotation_stress_variable, grids=domains
             )
         # There should be no boundary condition for the rotation_stress variable.
         if any(isinstance(grid, pp.BoundaryGrid) for grid in domains):
@@ -590,7 +596,7 @@ class VariablesThreeFieldMomentumBalance(pp.PorePyModel):
         """
         if len(domains) == 0:
             return pp.wrap_as_dense_ad_array(
-                0, size=0, name="empty_" + self.total_pressure_variable
+                0, size=0, name="empty_" + self.total_pressure_variable, grids=domains
             )
         # There should be no boundary condition for the total_pressure variable.
         if any(isinstance(grid, pp.BoundaryGrid) for grid in domains):

@@ -16,9 +16,11 @@ from . import (
     forward_mode,
     functions,
     get_set_values,
+    grid_entity,
     grid_operators,
     indexers,
     operator_functions,
+    operator_space,
     operators,
     surrogate_operator,
     time_derivatives,
@@ -29,17 +31,21 @@ from .equation_system import *
 from .forward_mode import *
 from .functions import *
 from .get_set_values import *
+from .grid_entity import *
 from .grid_operators import *
 from .indexers import *
 from .operator_functions import *
+from .operator_space import *
 from .operators import *
 from .surrogate_operator import *
 from .time_derivatives import *
 
+__all__.extend(grid_entity.__all__)
 __all__.extend(ad_utils.__all__)
 __all__.extend(get_set_values.__all__)
 __all__.extend(operators.__all__)
 __all__.extend(operator_functions.__all__)
+__all__.extend(operator_space.__all__)
 __all__.extend(discretizations.__all__)
 __all__.extend(functions.__all__)
 __all__.extend(forward_mode.__all__)

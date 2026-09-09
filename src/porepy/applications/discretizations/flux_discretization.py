@@ -17,6 +17,10 @@ class FluxDiscretization:
     fourier_keyword: str
     """Keyword for the Fourier (energy) problem."""
 
+    nd: int
+    """Ambient dimension of the problem. Normally set by a mixin instance of
+    :class:`~porepy.models.geometry.ModelGeometry`."""
+
     def darcy_flux_discretization(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.MpfaAd | pp.ad.TpfaAd:
@@ -31,9 +35,9 @@ class FluxDiscretization:
         """
         scheme = self.params.get("darcy_flux_discretization", "mpfa")
         if scheme.lower() == "mpfa":
-            return pp.ad.MpfaAd(self.darcy_keyword, subdomains)
+            return pp.ad.MpfaAd(self.darcy_keyword, subdomains, nd=self.nd)
         elif scheme.lower() == "tpfa":
-            return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
+            return pp.ad.TpfaAd(self.darcy_keyword, subdomains, nd=self.nd)
         else:
             msg = f"{scheme} is not a valid Darcy flux discretization scheme. "
             msg += "Use either 'tpfa' or 'mpfa'."
@@ -53,9 +57,9 @@ class FluxDiscretization:
         """
         scheme = self.params.get("fourier_flux_discretization", "mpfa")
         if scheme.lower() == "mpfa":
-            return pp.ad.MpfaAd(self.fourier_keyword, subdomains)
+            return pp.ad.MpfaAd(self.fourier_keyword, subdomains, nd=self.nd)
         elif scheme.lower() == "tpfa":
-            return pp.ad.TpfaAd(self.fourier_keyword, subdomains)
+            return pp.ad.TpfaAd(self.fourier_keyword, subdomains, nd=self.nd)
         else:
             msg = f"{scheme} is not a valid Fourier flux discretization scheme. "
             msg += "Use either 'tpfa' or 'mpfa'."

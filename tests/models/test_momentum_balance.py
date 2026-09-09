@@ -455,8 +455,9 @@ def verify_elastoplastic_deformation(
 
     # Traction on the fracture.
     open_cells = u_p[fracture_ind] > 1e-10
+    scalar_to_nd = pp.ad.sum_projection_list(model.basis([fracture], dim=nd))
     traction = model.equation_system.evaluate(
-        model.characteristic_contact_traction([fracture])
+        (scalar_to_nd @ model.characteristic_contact_traction([fracture]))
         * model.contact_traction([fracture])
     )
     # Rotate to global coordinates.
