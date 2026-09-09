@@ -347,8 +347,8 @@ class Tpsa(Discretization):
         else:
             raise NotImplementedError("Tpsa is only implemented for 2d and 3d grids.")
 
-    def get_row_dof_info(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
-        """Return row DOF info for the named Tpsa matrix.
+    def get_row_entities(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
+        """Return the grid entities occupying the rows of the named Tpsa matrix.
 
         Parameters:
             matrix_key: Attribute-name fragment identifying the matrix
@@ -359,7 +359,8 @@ class Tpsa(Discretization):
             ValueError: If the matrix_key is not recognized by this discretization.
 
         Returns:
-            A :class:`~porepy.numerics.ad.GridEntities` with the DOFs per entity.
+            A :class:`~porepy.numerics.ad.GridEntities` with the number of matrix
+            rows per entity.
 
         """
         nrot = 3 if nd == 3 else 1
@@ -394,8 +395,8 @@ class Tpsa(Discretization):
             f"Unrecognized matrix key '{matrix_key}' for Tpsa discretization."
         )
 
-    def get_col_dof_info(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
-        """Return column DOF info for the named Tpsa matrix.
+    def get_col_entities(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
+        """Return the grid entities occupying the columns of the named Tpsa matrix.
 
         Parameters:
             matrix_key: Attribute-name fragment identifying the matrix

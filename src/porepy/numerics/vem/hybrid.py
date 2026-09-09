@@ -49,14 +49,16 @@ class HybridDualVEM:
         """
         return g.num_faces
 
-    def get_row_dof_info(self, matrix_key: str = "", nd: int = 1) -> GridEntities:
-        """Placeholder method. This functionality is not supported for HybridDualVEM."""
-        raise NotImplementedError("HybridDualVEM does not provide row DOF information.")
-
-    def get_col_dof_info(self, matrix_key: str = "", nd: int = 1) -> GridEntities:
+    def get_row_entities(self, matrix_key: str = "", nd: int = 1) -> GridEntities:
         """Placeholder method. This functionality is not supported for HybridDualVEM."""
         raise NotImplementedError(
-            "HybridDualVEM does not provide column DOF information."
+            "HybridDualVEM does not provide row entity information."
+        )
+
+    def get_col_entities(self, matrix_key: str = "", nd: int = 1) -> GridEntities:
+        """Placeholder method. This functionality is not supported for HybridDualVEM."""
+        raise NotImplementedError(
+            "HybridDualVEM does not provide column entity information."
         )
 
     def matrix_rhs(self, g, data):

@@ -367,12 +367,12 @@ class MergedOperator(operators.Operator):
 
         op_source = operators.OperatorSpace.from_domains(
             domain_list,
-            discr.get_col_dof_info(discretization_matrix_key, nd=nd),
+            discr.get_col_entities(discretization_matrix_key, nd=nd),
             domain_type=domain_type,
         )
         op_target = operators.OperatorSpace.from_domains(
             domain_list,
-            discr.get_row_dof_info(discretization_matrix_key, nd=nd),
+            discr.get_row_entities(discretization_matrix_key, nd=nd),
             domain_type=domain_type,
         )
 
