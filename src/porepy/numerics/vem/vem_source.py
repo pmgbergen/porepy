@@ -46,18 +46,18 @@ class DualScalarSource(Discretization):
         """
         return sd.num_faces + sd.num_cells
 
-    def get_row_dof_info(self, matrix_key: str = "", nd: int = 1) -> GridEntities:
+    def get_row_entities(self, matrix_key: str = "", nd: int = 1) -> GridEntities:
         """Placeholder method. This functionality is not supported for
         DualScalarSource."""
         raise NotImplementedError(
-            "DualScalarSource does not provide row DOF information."
+            "DualScalarSource does not provide row entity information."
         )
 
-    def get_col_dof_info(self, matrix_key: str = "", nd: int = 1) -> GridEntities:
+    def get_col_entities(self, matrix_key: str = "", nd: int = 1) -> GridEntities:
         """Placeholder method. This functionality is not supported for
         DualScalarSource."""
         raise NotImplementedError(
-            "DualScalarSource does not provide column DOF information."
+            "DualScalarSource does not provide column entity information."
         )
 
     def assemble_matrix_rhs(

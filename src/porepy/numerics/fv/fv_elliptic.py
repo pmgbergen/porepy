@@ -64,8 +64,8 @@ class FVElliptic(Discretization):
         """
         return sd.num_cells
 
-    def get_row_dof_info(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
-        """Return row DOF info for the named FVElliptic matrix.
+    def get_row_entities(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
+        """Return the grid entities occupying the rows of the named matrix.
 
         Parameters:
             matrix_key: Attribute-name fragment (e.g. ``"flux"``).
@@ -75,7 +75,8 @@ class FVElliptic(Discretization):
             ValueError: If the matrix_key is not recognized by this discretization.
 
         Returns:
-            A :class:`~porepy.numerics.ad.GridEntities` with the DOFs per entity.
+            A :class:`~porepy.numerics.ad.GridEntities` with the number of matrix
+            rows per entity.
 
         """
 
@@ -93,8 +94,8 @@ class FVElliptic(Discretization):
             f"Unrecognized matrix key '{matrix_key}' for FVElliptic discretization."
         )
 
-    def get_col_dof_info(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
-        """Return column DOF info for the named FVElliptic matrix.
+    def get_col_entities(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
+        """Return the grid entities occupying the columns of the named matrix.
 
         Parameters:
             matrix_key: Attribute-name fragment (e.g. ``"flux"``).
