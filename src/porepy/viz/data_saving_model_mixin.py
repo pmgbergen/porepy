@@ -419,6 +419,41 @@ class ResidualExporting:
         return data
 
 
+class ReferenceStateExporting:
+    """"""
+
+    if TYPE_CHECKING:
+        equation_system: pp.EquationSystem
+
+    def data_to_export(self) -> list[DataInput]:
+        """Return data to be exported, including reference states and perturbations.
+
+        Returns:
+            List containing all (grid, name, values) tuples.
+
+        """
+        data = super().data_to_export()  # type: ignore[misc]
+
+        # Add reference states and perturbations for variables.
+        for var in self.equation_system.variables:
+            sd = var.domain
+            iter_values = self.equation_system.get_variable_values(
+                variables=[var], iterate_index=0
+            )
+            # TODO: Remove try-except block, once reference states
+            # are fully integrated.
+            try:
+                ref_values = self.equation_system.get_variable_values(
+                    variables=[var], reference=True
+                )
+            except Exception as e:
+                ref_values = np.zeros_like(iter_values)
+            perturbation_values = iter_values - ref_values
+            data.append((sd, var.name + "_reference", ref_values))
+            data.append((sd, var.name + "_perturbation", perturbation_values))
+        return data
+
+
 class FractureDeformationExporting(pp.PorePyModel):
     """Class for exporting fracture-specific quantities.
 

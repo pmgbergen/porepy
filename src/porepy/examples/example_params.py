@@ -88,6 +88,24 @@ model_params = {
     # Contact mechanics
     "traction_estimate_p_mean": 5.0,
     "adaptive_indicator_scaling": 1,  # Scale the indicator adaptively for robustness.
+    # Initialization parameters for time-dependent models (pseudo time-stepping).
+    "initialization": {
+        "steady_state_convergence_criteria": {
+            "inc": pp.solvers.IncrementBasedAbsoluteCriterion(
+                tol=1e-10, metric=pp.EuclideanMetric()
+            )
+        },
+        "steady_state_divergence_criteria": {
+            "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=50),
+            "inc_nan": pp.solvers.IncrementBasedNanCriterion(),
+            "inc_max": pp.solvers.IncrementBasedAbsoluteDivergenceCriterion(
+                tol=1e14, metric=pp.EuclideanMetric()
+            ),
+        },
+        "pseudo_dt_init": 1000 * pp.YEAR,
+        "pseudo_dt_max": 100000 * pp.YEAR,
+        "update_reference": False,
+    },
 }
 
 solver_params = {

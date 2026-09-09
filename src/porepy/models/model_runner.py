@@ -8,13 +8,19 @@ from abc import ABC
 from dataclasses import dataclass
 from typing import Optional, cast
 
+import numpy as np
+
 import porepy as pp
 from porepy.models.solution_strategy import SolutionStrategy
+from porepy.numerics.solvers.convergence_check import (
+    ConvergenceCriteria,
+    DivergenceCriteria,
+)
 from porepy.time_stepper.time_step_status import (
     TimeStepperStatusFailure,
     TimeStepperStatusSuccess,
 )
-from porepy.time_stepper.time_stepper import TimeStepper
+from porepy.time_stepper.time_stepper import PseudoTimeStepper, TimeStepper
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
@@ -319,6 +325,114 @@ class ModelRunner:
         """Formats a progressbar postfix string with dt."""
         return f"Δt={self.model.time_manager.dt:.1e}"
 
+    def initialize(self) -> ModelRunnerStatus:
+        """Initializes the model for a time-dependent simulation.
+
+        Uses pseudo time-stepping to reach steady state. Mimics the structure of
+        _run_time_dependent.
+
+        Raises:
+            ValueError: If model is not time-dependent.
+            RuntimeError: If initialization fails.
+
+        Returns:
+            ModelRunnerStatusSuccess: If initialization converged.
+
+        """
+        # Sanity check.
+        if not self._is_time_dependent:
+            raise ValueError("Initialization for steady-state mode is not supported.")
+
+        # Create initialization stepper with convergence criteria.
+        init_params = InitializationParameters.from_dict(self.params["initialization"])
+        pseudo_time_stepper = PseudoTimeStepper(
+            time_manager=self.model.time_manager,
+            convergence_criteria=init_params.convergence_criteria,
+            divergence_criteria=init_params.divergence_criteria,
+        )
+
+        # Cache current time manager.
+        cached_schedule = self.model.time_manager.schedule
+        cached_dt = self.model.time_manager.dt
+        cached_dt_min_max = self.model.time_manager.dt_min_max
+        cached_constant_dt = self.model.time_manager.is_constant
+        cached_iters = self.model.time_manager._iters
+
+        # Setup pseudo time manager for initialization.
+        self.model.time_manager.schedule = np.array(
+            [
+                self.model.time_manager.time_init,
+                self.model.time_manager.time_final + init_params.pseudo_dt_max,
+            ]
+        )
+        self.model.time_manager.dt = init_params.pseudo_dt_init
+        self.model.time_manager.dt_min_max = (
+            self.model.time_manager.dt_min_max[0],
+            init_params.pseudo_dt_max,
+        )
+        self.model.time_manager.is_constant = False
+
+        # Run initialization with pseudo time stepper.
+        with logging_redirect_tqdm([logging.root]):
+            # Run pseudo time stepping until convergence is reached.
+            is_initialized = False
+            while not is_initialized:
+                # Reset exporter to overwrite previous time step data.
+                # TODO: Revisit when revisiting exporter...
+                self.model.exporter._time_step_counter = 0
+
+                # Update the progressbar before the time step.
+                self.time_progressbar.set_postfix_str(self._progressbar_postfix())
+
+                # Perform pseudo time step.
+                time_step_status, convergence_status, divergence_status = (
+                    pseudo_time_stepper.perform_pseudo_time_step(
+                        self.model, self.solver
+                    )
+                )
+
+                # Handle mode-specific post-initialization (for now without hook).
+                if init_params.update_reference:
+                    self.model.update_reference_solution()
+
+                # Update the progressbar after the time step.
+                if isinstance(time_step_status, TimeStepperStatusSuccess):
+                    self.time_progressbar.update(n=time_step_status.dt)
+
+                # Abort simulation if time step was stopped.
+                if isinstance(time_step_status, TimeStepperStatusFailure):
+                    logger.error(f"Initialization failed: {time_step_status.reason}")
+                    status = ModelRunnerStatusFailure(reason=time_step_status.reason)
+                    raise RuntimeError(status)
+
+                # Abort simulation if divergence was detected.
+                if divergence_status.is_failed():
+                    reason = "Initialization failed: divergence detected."
+                    logger.error(reason)
+                    status = ModelRunnerStatusFailure(reason=reason)
+                    raise RuntimeError(status)
+
+                # Update initialization status.
+                is_initialized = (
+                    isinstance(time_step_status, TimeStepperStatusSuccess)
+                    and convergence_status.is_converged()
+                )
+
+        # Conclude the initialization status.
+        logger.info(
+            "Initialization converged after %d iterations",
+            pseudo_time_stepper.pseudo_steps,
+        )
+
+        # Restore time manager state.
+        self.model.time_manager.schedule = cached_schedule
+        self.model.time_manager.dt = cached_dt
+        self.model.time_manager.dt_min_max = cached_dt_min_max
+        self.model.time_manager.is_constant = cached_constant_dt
+        self.model.time_manager._iters = cached_iters
+
+        return ModelRunnerStatusSuccess()
+
 
 def _extract_nonlinear_solver_from_params(
     nonlinear_solver: Optional[pp.solvers.NonlinearSolverBase],
@@ -362,3 +476,70 @@ def _extract_nonlinear_solver_from_params(
         )
     else:
         return nonlinear_solver
+
+
+@dataclass
+class InitializationParameters:
+    """Dataclass to hold initialization parameters."""
+
+    convergence_criteria: ConvergenceCriteria
+    divergence_criteria: DivergenceCriteria
+    pseudo_dt_init: float
+    pseudo_dt_max: float
+    update_reference: bool = False
+
+    @classmethod
+    def from_dict(cls, config: dict) -> InitializationParameters:
+        """Create an InitializationParameters instance from a dictionary.
+
+        Parameters:
+            config: A dictionary containing initialization parameters.
+            - "steady_state_convergence_criteria": ConvergenceCriteria
+            - "steady_state_divergence_criteria": DivergenceCriteria
+            - "pseudo_dt_init": float
+            - "pseudo_dt_max": float
+            - "update_reference": bool
+
+        Returns:
+            An instance of InitializationParameters with the specified or
+            default values.
+
+        """
+        default_config = {
+            "steady_state_convergence_criteria": ConvergenceCriteria(
+                {
+                    "inc": pp.solvers.IncrementBasedAbsoluteCriterion(
+                        tol=1e-10, metric=pp.EuclideanMetric()
+                    )
+                }
+            ),
+            "steady_state_divergence_criteria": DivergenceCriteria(
+                {
+                    "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=50),
+                    "inc_nan": pp.solvers.IncrementBasedNanCriterion(),
+                    "inc_max": pp.solvers.IncrementBasedAbsoluteDivergenceCriterion(
+                        tol=1e14, metric=pp.EuclideanMetric()
+                    ),
+                }
+            ),
+            "pseudo_dt_init": 1000 * pp.YEAR,
+            "pseudo_dt_max": 100000 * pp.YEAR,
+            "update_reference": False,
+        }
+        return cls(
+            convergence_criteria=config.get(
+                "steady_state_convergence_criteria",
+                default_config["steady_state_convergence_criteria"],
+            ),
+            divergence_criteria=config.get(
+                "steady_state_divergence_criteria",
+                default_config["steady_state_divergence_criteria"],
+            ),
+            pseudo_dt_init=config.get(
+                "pseudo_dt_init", default_config["pseudo_dt_init"]
+            ),
+            pseudo_dt_max=config.get("pseudo_dt_max", default_config["pseudo_dt_max"]),
+            update_reference=config.get(
+                "update_reference", default_config["update_reference"]
+            ),
+        )

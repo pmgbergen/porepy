@@ -693,6 +693,20 @@ class SolutionStrategy(pp.PorePyModel):
             values=solution, time_step_index=0, additive=False
         )
 
+    def update_reference_solution(self) -> None:
+        """Shifts the current solution and data to the reference solution."""
+
+        for key in ["subdomains", "interfaces", "boundaries"]:
+            for _, data in getattr(self.mdg, key)(return_data=True):
+                if pp.TIME_STEP_SOLUTIONS not in data:
+                    continue
+                for name in data[pp.TIME_STEP_SOLUTIONS].keys():
+                    pp.shift_solution_values(
+                        name=name,
+                        data=data,
+                        location=pp.REFERENCE_SOLUTIONS,
+                    )
+
     def revert_trial_time_step_solution(self) -> None:
         """Revert the solution to the previous time step solution.
 
