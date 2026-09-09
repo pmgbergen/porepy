@@ -55,7 +55,7 @@ class TestCopyOperatorTree:
         b_val = np.arange(3)
         self.b = pp.ad.DenseArray(b_val, source=space, target=space)
 
-        # The combined operator, and two copies
+        # The combined operator and two copies.
         self.c = self.a + self.b
         self.c_copy = copy.copy(self.c)
         self.c_deepcopy = copy.deepcopy(self.c)
@@ -79,7 +79,7 @@ class TestCopyOperatorTree:
 
         # The operator version of scalars and dense arrays calculates the hash based on
         # the value of the underlying object, hence the comparison operator for
-        # pp.ad.Operator should evaluate for True for both the copy and the deepcopy.
+        # pp.ad.Operator should evaluate to True for both the copy and the deepcopy.
         # The id of the underlying object should be the same for the copy, but different
         # for the deepcopy.
         for c1, c2 in zip(self.c.children, self.c_copy.children):

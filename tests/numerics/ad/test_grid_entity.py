@@ -58,7 +58,7 @@ def simple_mdg():
 
 
 class TestCreateVariables:
-    """Test that create_variables works with enum-keyed dof_info dicts and return
+    """Test that create_variables works with enum-keyed dof_info dicts and returns
     variables of the expected size.
     """
 

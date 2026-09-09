@@ -267,7 +267,7 @@ def uniquify_discretization_list(
             cls_obj_map[cls] = discr._discr
             cls_key_covered.append(key)
 
-            # Add new discretization with associated list of grids. Conversoin to list
+            # Add new discretization with associated list of grids. Conversion to list
             # creates a copy, which avoids assigning additional grids to this
             # discretization (if not copy, this may happen if the key-discr combination
             # is encountered a second time and the code enters the if part of this
