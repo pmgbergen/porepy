@@ -12,7 +12,10 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 import porepy as pp
-from porepy.time_stepper.time_step_constraint import TimeStepConstraint
+from porepy.time_stepper.time_step_constraint import (
+    TargetNonlinearIterations,
+    TimeStepConstraint,
+)
 
 __all__ = [
     "TimeManager",
@@ -44,8 +47,10 @@ class TimeManager:
     Parameters:
         schedule: Array of time points which the simulation must pass exactly within
             tolerance. The first and the last entries correspond to the start and the
-            end simulation times, respectively.
-        dt_init: Initial time step.
+            end simulation times, respectively. Alternatively, the schedule data
+            structure, used to define a more refined schedule.
+        dt_init: Initial time step. Must be passed if the `schedule` is an array.
+            Ignored otherwise.
         constant_dt: If True, constant time stepping is requested. Otherwise, the
             scheduler can adjust dt.
         dt_min_max: Smallest and largest allowed time step.
@@ -64,34 +69,13 @@ class TimeManager:
         rtol: Deprecated, does nothing.
         atol: Snapping time. If the time difference is below it, treats two time points
             as equal.
-        advanced_schedule: A more advanced way to define the simulation schedule. See
-            :class:`pp.time_stepper.TimeScheduler` for details. If None (default), the
-            old way of defining the schedule with array is used. Otherwise, it is
-            prioritized over the old schedule.
 
     """
 
-    @classmethod
-    def with_advanced_schedule(cls, schedule: Schedule) -> Self:
-        """A factory method to consistently initialize the TimeManager with the advanced
-        schedule.
-
-        """
-        if len(schedule.intervals) == 0:
-            raise ValueError("Need at least a single time interval.")
-        schedule_array = [interval.t_start for interval in schedule.intervals]
-        schedule_array.append(schedule.t_end)
-        return cls(
-            schedule=schedule_array,
-            dt_init=schedule.intervals[0].dt_start,
-            constant_dt=False,
-            advanced_schedule=schedule,
-        )
-
     def __init__(
         self,
-        schedule: ArrayLike,
-        dt_init: pp.number,
+        schedule: ArrayLike | Schedule,
+        dt_init: Optional[pp.number] = None,
         constant_dt: bool = False,
         dt_min_max: Optional[tuple[pp.number, pp.number]] = None,
         iter_max: Optional[int] = None,
@@ -101,7 +85,6 @@ class TimeManager:
         recomp_max: Optional[int] = None,
         rtol: Optional[float] = None,
         atol: float = 1e-16,
-        advanced_schedule: Optional[Schedule] = None,
     ) -> None:
         if iter_max is not None:
             warn(
@@ -135,47 +118,62 @@ class TimeManager:
         as equal.
 
         """
-        self.advanced_schedule: Schedule | None = advanced_schedule
-        """A more advanced way to define the simulation schedule. See
-        :class:`pp.time_stepper.TimeScheduler` for details. If None (default), the old
-        way of defining the schedule with array is used. Otherwise, is prioritized over
-        the old schedule.
+
+        self.advanced_schedule: Schedule
+        """A simulation schedule defined by its intervals and the end time. See
+        :class:`pp.time_stepper.TimeScheduler` for details on how it is used.
 
         """
-        self.schedule = np.array(schedule, dtype=float)
-        """Array of time points which the simulation must pass exactly within atol. The
-        first and the last entries correspond to the start and the end simulation times,
-        respectively.
+        if isinstance(schedule, Schedule):
+            self.advanced_schedule = schedule
+        else:
+            if dt_init is None:
+                raise ValueError(
+                    "Passing the schedule as an array requires to pass dt_init."
+                )
 
-        """
-        if len(self.schedule) < 2:
-            raise ValueError("Schedule must have at least two points: start and end.")
-        self.time_init = float(self.schedule[0])
-        """Initial simulation time."""
-        self.time_final = float(self.schedule[-1])
-        """Simulation end time."""
-        self.dt_init = float(dt_init)
-        """Initial time step."""
-        self.dt_min_max = dt_min_max
-        """Smallest and largest allowed time step."""
-        self.iter_optimal_range = iter_optimal_range
-        """Optimal range of nonlinear solver iterations. Passed to
-        :class:`pp.time_stepper.TimeScheduler`.
+            if dt_min_max is None:
+                dt_min = dt_max = None
+            else:
+                dt_min, dt_max = dt_min_max
+            self.advanced_schedule = Schedule.assemble_default(
+                schedule=schedule,
+                dt_init=dt_init,
+                constant_dt=constant_dt,
+                dt_min=dt_min,
+                dt_max=dt_max,
+                iter_optimal_range=iter_optimal_range,
+                iter_relax_factors=iter_relax_factors,
+                recomp_factor=recomp_factor,
+            )
 
-        """
-        self.iter_relax_factors = iter_relax_factors
-        """Factors of how to decrease / increase dt if the nonlinear
-        solver iterations are higher / lower than the optimal range. Passed to
-        :class:`pp.time_stepper.TimeScheduler`.
+        if len(self.advanced_schedule.intervals) < 1:
+            raise ValueError("Schedule must have at least one interval.")
 
-        """
-        self.recomp_factor = float(recomp_factor)
-        """Factor used to reduce the time step after a failed nonlinear solve. Passed
-        to :class:`pp.time_stepper.TimeScheduler`.
+        # Extracting legacy properties from the advanced schedule.
+        if dt_init is None:
+            dt_init = self.advanced_schedule.intervals[0].dt_start
+        if dt_min_max is None:
+            dt_min_max = (
+                min(interval.dt_min for interval in self.advanced_schedule.intervals),
+                max(interval.dt_max for interval in self.advanced_schedule.intervals),
+            )
 
-        """
-        self.is_constant = constant_dt
-        """Whether constant time stepping is requested."""
+        # The properties below are accessed through read-only getters and should not be
+        # modified.
+        self._schedule = np.array(
+            [interval.t_start for interval in self.advanced_schedule.intervals]
+            + [self.advanced_schedule.t_end],
+            dtype=float,
+        )
+        self._time_init = float(self._schedule[0])
+        self._time_final = float(self._schedule[-1])
+        self._dt_init = float(dt_init)
+        self._dt_min_max = dt_min_max
+        self._iter_optimal_range = iter_optimal_range
+        self._iter_relax_factors = iter_relax_factors
+        self._recomp_factor = recomp_factor
+        self._is_constant = constant_dt
 
         self.time = float(self.time_init)
         """Current simulation time, seconds. If accessed from within the PorePy model
@@ -210,6 +208,66 @@ class TimeManager:
         duplication are NOT guaranteed.
 
         """
+
+    @property
+    def schedule(self) -> np.ndarray:
+        """Array of time points which the simulation must pass exactly within atol. The
+        first and the last entries correspond to the start and the end simulation times,
+        respectively.
+
+        """
+        return self._schedule
+
+    @property
+    def time_init(self) -> float:
+        """Initial simulation time."""
+        return self._time_init
+
+    @property
+    def time_final(self) -> float:
+        """Simulation end time."""
+        return self._time_final
+
+    @property
+    def dt_init(self) -> float:
+        """Initial time step."""
+        return self._dt_init
+
+    @property
+    def dt_min_max(self) -> tuple[pp.number, pp.number]:
+        """Smallest and largest allowed time step."""
+        return self._dt_min_max
+
+    @property
+    def iter_optimal_range(self) -> tuple[int, int]:
+        """Optimal range of nonlinear solver iterations. Passed to
+        :class:`pp.time_stepper.TimeScheduler`.
+
+        """
+        return self._iter_optimal_range
+
+    @property
+    def iter_relax_factors(self) -> tuple[float, float]:
+        """Factors of how to decrease / increase dt if the nonlinear solver iterations
+        are higher / lower than the optimal range. Passed to
+        :class:`pp.time_stepper.TimeScheduler`.
+
+        """
+        return self._iter_relax_factors
+
+    @property
+    def recomp_factor(self) -> float:
+        """Factor used to reduce the time step after a failed nonlinear solve. Passed
+        to :class:`pp.time_stepper.TimeScheduler`. Passed to
+        :class:`pp.time_stepper.TimeScheduler`.
+
+        """
+        return self._recomp_factor
+
+    @property
+    def is_constant(self) -> bool:
+        """Whether constant time stepping is requested."""
+        return self._is_constant
 
     def __repr__(self) -> str:
         s = "Time-stepping control object with attributes:\n"
@@ -372,3 +430,64 @@ class Schedule:
     """Simulation's time intervals."""
     t_end: float
     """Simulation end time, seconds."""
+
+    @staticmethod
+    def assemble_default(
+        schedule: ArrayLike,
+        dt_init: pp.number,
+        constant_dt: bool = False,
+        dt_min: Optional[pp.number] = None,
+        dt_max: Optional[pp.number] = None,
+        iter_optimal_range: tuple[int, int] = (4, 7),
+        iter_relax_factors: tuple[float, float] = (0.7, 1.3),
+        recomp_factor: float = 0.5,
+    ) -> Schedule:
+        """Convenience factory that constructs the schedule based on the parameters.
+
+        Parameters:
+            schedule: Array of schedule points. Must include at least two points: start
+                and end.
+            dt_init: Initial time step.
+            constant_dt: If False, initializes TargetNonlinearIterations constraint for
+                all intervals. If True, does not initialize any constraints.
+            dt_min: Minimal dt for all the intervals.
+            dt_max: Maximum dt for all the intervals.
+            iter_optimal_range: Target range of nonlinear iterations. Ignored if
+                `constant_dt == True`.
+            iter_relax_factors: Decrease and increase factors for
+                TargetNonlinearIterations. Ignored if `constant_dt == True`.
+            recomp_factor: Decrease factor for failed solve attempts in
+                TargetNonlinearIterations. Ignored if `constant_dt == True`.
+
+
+        """
+        if len(schedule) < 2:
+            raise ValueError(
+                "Schedule must have at least two points (t_start and t_end)."
+            )
+        schedule = np.array(schedule, dtype=float)
+
+        constraints: list[TimeStepConstraint] = []
+        if not constant_dt:
+            constraints.append(
+                TargetNonlinearIterations(
+                    iter_min=iter_optimal_range[0],
+                    iter_max=iter_optimal_range[1],
+                    decrease_factor=iter_relax_factors[0],
+                    increase_factor=iter_relax_factors[1],
+                    retry_factor=recomp_factor,
+                )
+            )
+        return Schedule(
+            intervals=[
+                TimeInterval.create(
+                    t_start=t_start,
+                    dt_start=dt_init,
+                    constraints=constraints,
+                    dt_min=dt_min,
+                    dt_max=dt_max,
+                )
+                for t_start in schedule[:-1]
+            ],
+            t_end=schedule[-1],
+        )

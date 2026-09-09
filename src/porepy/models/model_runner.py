@@ -10,6 +10,7 @@ from typing import Optional, cast
 
 import porepy as pp
 from porepy.models.solution_strategy import SolutionStrategy
+from porepy.time_stepper.scheduler import assemble_default_time_scheduler
 from porepy.time_stepper.time_step_status import (
     TimeStepperStatusFailure,
     TimeStepperStatusSuccess,
@@ -175,8 +176,11 @@ class ModelRunner:
         """Model instance passed at instantiation."""
 
         if time_stepper is None:
-            time_stepper = TimeStepper.with_time_manager(
-                time_manager=model.time_manager, max_attempts=10
+            time_stepper = TimeStepper(
+                scheduler=assemble_default_time_scheduler(
+                    time_manager=model.time_manager
+                ),
+                max_attempts=10,
             )
         self.time_stepper: TimeStepper = time_stepper
         """Responsible for the time stepping logic. Used only in time-dependent

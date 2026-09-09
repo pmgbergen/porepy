@@ -16,6 +16,7 @@ from porepy.models.model_runner import ModelRunner, ModelRunnerStatusFailure
 from porepy.models.protocol import PorePyModel
 from porepy.numerics.ad.indexers import EquationOnDomain
 from porepy.numerics.ad.operators import Variable
+from porepy.time_stepper.scheduler import assemble_default_time_scheduler
 from porepy.time_stepper.time_step_control import Schedule, TimeInterval, TimeManager
 from porepy.time_stepper.time_stepper import TimeStepper
 from porepy.viz.solver_statistics import SolverStatisticsFactory
@@ -198,7 +199,9 @@ def test_model_delegate_methods_called(
         raise ValueError
 
     # Initialize the real TimeStepper and the MockModel.
-    time_stepper = TimeStepper.with_time_manager(model.time_manager)
+    time_stepper = TimeStepper(
+        scheduler=assemble_default_time_scheduler(time_manager=model.time_manager)
+    )
 
     # Do the time step.
     time_stepper.perform_time_step(model=model, solver=solver)
@@ -482,8 +485,9 @@ def test_model_time_step_control(params: dict):
         },
     )
 
-    time_stepper = pp.time_stepper.TimeStepper.with_time_manager(
-        model.time_manager, max_attempts=4
+    time_stepper = TimeStepper(
+        scheduler=assemble_default_time_scheduler(time_manager=model.time_manager),
+        max_attempts=4,
     )
 
     nonlinear_solver = DynamicNewtonSolver(
@@ -513,7 +517,7 @@ def test_model_time_step_control(params: dict):
 
 
 def test_advanced_scheduler():
-    time_manager = TimeManager.with_advanced_schedule(
+    time_manager = TimeManager(
         schedule=Schedule(
             intervals=[
                 TimeInterval.create(
@@ -633,7 +637,9 @@ def test_solve_convergence_time_dependent_statistics(statistics_path: Path):
     model = MockModel(statistics_path=statistics_path)
     solver = default_newton_solver(iter_converge=2)
     model.time_manager = TimeManager(schedule=[0, 1], dt_init=0.5, constant_dt=True)
-    time_stepper = TimeStepper.with_time_manager(model.time_manager)
+    time_stepper = TimeStepper(
+        scheduler=assemble_default_time_scheduler(time_manager=model.time_manager)
+    )
 
     # Define the reference solver statistics, for two time steps.
     reference_data = {
@@ -732,8 +738,9 @@ def test_solve_failure_time_dependent_statistics(statistics_path: Path):
     model.time_manager = TimeManager(
         schedule=[0, 1], dt_init=1, constant_dt=False, dt_min_max=(0.5, 1)
     )
-    time_stepper = TimeStepper.with_time_manager(model.time_manager)
-
+    time_stepper = TimeStepper(
+        scheduler=assemble_default_time_scheduler(time_manager=model.time_manager)
+    )
     # It will attempt to make a time step twice here, with dt=1 and dt=0.5. Both will
     # fail after two unsuccessful nonlinear iterations.
     status = time_stepper.perform_time_step(model=model, solver=solver)
