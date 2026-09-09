@@ -218,7 +218,7 @@ class Operations(Enum):
     def _pick_target(self, a: OperatorSpace, b: OperatorSpace) -> OperatorSpace:
         """Pick the target space.
 
-        It assumed that the caller has already verified that the two spaces are
+        It is assumed that the caller has already verified that the two spaces are
         compatible.
         """
         # When one operand is a cellwise-scalar broadcast the result should carry the
@@ -233,7 +233,7 @@ class Operations(Enum):
     def _pick_source(self, a: OperatorSpace, b: OperatorSpace) -> OperatorSpace:
         """Pick the source space.
 
-        It assumed that the caller has already verified that the two spaces are
+        It is assumed that the caller has already verified that the two spaces are
         compatible.
         """
         if a.domain_type == DomainType.unclear or b.domain_type == DomainType.unclear:

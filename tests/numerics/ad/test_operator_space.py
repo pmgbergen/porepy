@@ -145,7 +145,7 @@ class TestOperatorSpaceFromDomains:
         assert space.grids == (g1, g2)
         assert space.dof_info == GridEntities(cells=1)
 
-    def test_interfaces(self, one_mortar):
+    def test_interface(self, one_mortar):
         space = OperatorSpace.from_domains([one_mortar], {GridEntity.cells: 2})
         assert space.domain_type == DomainType.interfaces
         assert space.grids == (one_mortar,)

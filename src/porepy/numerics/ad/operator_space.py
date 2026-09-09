@@ -35,7 +35,7 @@ class DomainType(Enum):
     unclear = "unclear"
     """Used for composits formed by operators with different domains."""
     waived = "waived"
-    """Used to explicitly waive the domain/range check for an operator.  This should
+    """Used to explicitly waive the domain/range check for an operator. This should
     only be used in special cases that would require a more complex domain/range check
     than the current implementation can handle.
     """
