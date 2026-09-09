@@ -112,12 +112,12 @@ class DualElliptic(Discretization):
         """
         return sd.num_cells + sd.num_faces
 
-    def get_row_dof_info(self, matrix_key: str = "", nd: int = 1) -> GridEntities:
+    def get_row_entities(self, matrix_key: str = "", nd: int = 1) -> GridEntities:
         # Though the method is present in the base class, it is not expected to be used
         # by the dual elliptic methods. Return empty.
         return pp.ad.GridEntities()
 
-    def get_col_dof_info(self, matrix_key: str = "", nd: int = 1) -> GridEntities:
+    def get_col_entities(self, matrix_key: str = "", nd: int = 1) -> GridEntities:
         # Though the method is present in the base class, it is not expected to be used
         # by the dual elliptic methods. Return empty.
         return pp.ad.GridEntities()
