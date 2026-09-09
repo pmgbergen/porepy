@@ -476,10 +476,10 @@ class TestTimeDependentDenseArraySpaces:
 
 class TestMergedOperatorSpaces:
     """Tests that MergedOperator inherits source/range from the
-    underlying discretization's get_row/col_dof_info methods."""
+    underlying discretization's get_row/col_entities methods."""
 
     def test_custom_dof_info_gives_space(self, two_subdomains):
-        """A discretization that overrides get_row/col_dof_info populates spaces."""
+        """A discretization that overrides get_row/col_entities populates spaces."""
 
         class MockDiscretization(Discretization):
             def __init__(self):
@@ -495,10 +495,10 @@ class TestMergedOperatorSpaces:
             def assemble_matrix_rhs(self, sd, data):
                 pass
 
-            def get_row_dof_info(self, matrix_key: str = "", nd: int = 1):
+            def get_row_entities(self, matrix_key: str = "", nd: int = 1):
                 return GridEntities(cells=1)
 
-            def get_col_dof_info(self, matrix_key: str = "", nd: int = 1):
+            def get_col_entities(self, matrix_key: str = "", nd: int = 1):
                 return GridEntities(faces=1)
 
         g1, g2 = two_subdomains

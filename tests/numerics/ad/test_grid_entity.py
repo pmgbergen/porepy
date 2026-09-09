@@ -163,12 +163,12 @@ def test_bool_is_true_iff_some_entity_is_present(dof_info, expected):
 @pytest.mark.parametrize(
     "dof_info, expected",
     [
-        (GridEntities(), frozenset()),
-        (GridEntities(cells=1), frozenset({GridEntity.cells})),
-        (GridEntities(cells=0, faces=2), frozenset({GridEntity.faces})),
+        (GridEntities(), ()),
+        (GridEntities(cells=1), (GridEntity.cells,)),
+        (GridEntities(cells=0, faces=2), (GridEntity.faces,)),
         (
             GridEntities(cells=1, faces=2, nodes=3),
-            frozenset({GridEntity.cells, GridEntity.faces, GridEntity.nodes}),
+            (GridEntity.cells, GridEntity.faces, GridEntity.nodes),
         ),
     ],
 )
