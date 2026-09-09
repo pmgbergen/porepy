@@ -158,13 +158,21 @@ class CourantTimeStepConstraint(TimeStepConstraint):
         if not isinstance(model, pp.SolutionStrategy):
             raise ValueError("CourantTimeStepConstraint requires 'model' in context.")
 
+        if len(model.fluid.phases) != 1 or len(model.fluid.components) != 1:
+            raise NotImplementedError(
+                "CourantTimeStepConstraint is not thought-through for multicomponent "
+                "fluids. Ensure its implementation is correct before using it."
+            )
+
         dt = float("inf")
         for subdomain in model.mdg.subdomains():
             domains = [subdomain]
-            mobility = model.advection_weight_mass_balance(domains)  # type:ignore[attr-defined]
-            discr = model.mobility_discretization(domains)  # type:ignore[attr-defined]
-            v_op = model.darcy_flux(domains) * (discr.upwind() @ mobility)
+            v_op = model.darcy_flux(domains)
             v = np.max(abs(model.equation_system.evaluate(v_op)))
+            # As darcy_flux docstring suggests, its unit is [m^2 / s], because it is not
+            # scaled by the mobility term. Dividing it by the fluid viscosity ensures
+            # the right unit for a single-phase problem.
+            v /= model.fluid.components[0].viscosity
 
             if v < self.atol:
                 # Velocity is zero in this subdomain, not applying constraint.
