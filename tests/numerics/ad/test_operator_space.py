@@ -121,7 +121,7 @@ class TestOperatorSpaceScalar:
         assert s.grids == ()
         assert s.dof_info == GridEntities()
 
-    def test_scalar_is_singleton_value(self):
+    def test_scalars_are_equal(self):
         """Two calls to scalar() return equal (but not necessarily identical)
         objects."""
         assert OperatorSpace.scalar() == OperatorSpace.scalar()
@@ -364,7 +364,7 @@ class TestArraySpace:
         "array_cls, make_data",
         [
             (DenseArray, _ones_for),
-            (SparseArray, lambda space: sps.eye(space.num_dofs(), format="csr")),
+            (SparseArray, lambda space: _eye_for(space, space)),
         ],
         ids=["dense", "sparse"],
     )
