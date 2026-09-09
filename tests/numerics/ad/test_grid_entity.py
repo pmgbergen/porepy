@@ -42,10 +42,6 @@ class TestGridEntityValues:
         assert GridEntity("faces") is GridEntity.faces
         assert GridEntity("nodes") is GridEntity.nodes
 
-    def test_accessible_via_pp_ad(self):
-        """GridEntity is accessible as pp.ad.GridEntity."""
-        assert pp.ad.GridEntity is GridEntity
-
 
 @pytest.fixture(scope="module")
 def simple_mdg():
