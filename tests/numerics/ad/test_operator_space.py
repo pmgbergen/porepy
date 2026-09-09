@@ -252,10 +252,14 @@ class TestOperatorProperties:
         assert op_explicit_none.target == space
 
     def test_set_source_target_in_init(self, two_subdomains):
-        space = OperatorSpace.from_domains([two_subdomains[0]], {GridEntity.cells: 1})
-        op = Operator(name="test", source=space, target=space)
-        assert op.source == space
-        assert op.target == space
+        """An operator that is not a self-mapping keeps its source and target
+        apart."""
+        source = OperatorSpace.from_domains([two_subdomains[0]], {GridEntity.cells: 1})
+        target = OperatorSpace.from_domains([two_subdomains[1]], {GridEntity.faces: 2})
+        op = Operator(name="test", source=source, target=target)
+        assert op.source == source
+        assert op.target == target
+        assert op.source != op.target
 
 
 class TestScalarSpace:
