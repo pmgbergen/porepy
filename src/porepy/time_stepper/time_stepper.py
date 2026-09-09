@@ -51,30 +51,6 @@ class TimeStepper:
 
     """
 
-    @classmethod
-    def with_time_manager(
-        cls, time_manager: pp.TimeManager, max_attempts: int = 10
-    ) -> Self:
-        """Convenience initializer. Initializes scheduler based on the `time_manager`.
-
-        Parameters:
-            time_manager: Simulation's time data structure.
-            max_attempts: Limit of attempts to make a single time step.
-
-        """
-        scheduler: TimeSchedulerBase
-        if time_manager.advanced_schedule is not None:
-            scheduler = pp.time_stepper.TimeScheduler(
-                time_manager=time_manager,
-                schedule=time_manager.advanced_schedule,
-                t_snap=time_manager.atol,
-            )
-        else:
-            scheduler = pp.time_stepper.assemble_default_time_scheduler(
-                time_manager=time_manager
-            )
-        return cls(scheduler=scheduler, max_attempts=max_attempts)
-
     def __init__(self, scheduler: TimeSchedulerBase, max_attempts: int = 10) -> None:
         self.scheduler = scheduler
         """Class that adjusts dt to match the schedule and constraints."""
@@ -117,13 +93,11 @@ class TimeStepper:
             time_manager.time_index = accepted_index + 1
 
             # Logging time step start.
-            log_message = (
+            logger.info(
                 f"Time step #{time_manager.time_index}: dt={time_manager.dt:.2e}, time="
-                f"{accepted_time:.2e} of {time_manager.schedule[-1]:.2e}"
+                f"{accepted_time:.2e} of {time_manager.schedule[-1]:.2e}, attempt="
+                f"{attempt + 1} / {self.max_attempts}"
             )
-            if attempt > 0:
-                log_message += f", attempt={attempt + 1} / {self.max_attempts}"
-            logger.info(log_message)
 
             # Execute trial time step.
             model.before_time_step()

@@ -256,74 +256,22 @@ class TimeScheduler(TimeSchedulerBase):
         )
 
 
-def assemble_default_time_scheduler(
-    time_manager: pp.TimeManager, constraints: Optional[list[TimeStepConstraint]] = None
-) -> TimeSchedulerBase:
+def assemble_default_time_scheduler(time_manager: pp.TimeManager) -> TimeSchedulerBase:
     """Convenience factory function that constructs the time scheduler based on the
-    parameters specified by the `time_manager`. Additional `constraints` can be passed.
-
-    If `dt_min` and `dt_max` are not specified by the `time_manager`, defaults to 3
-    orders of magnitude difference from `dt_init`.
+    parameters specified by the `time_manager`.
 
     """
-    if constraints is None:
-        constraints = []
-
-    # Unpacking time_manager.
-    dt_init = time_manager.dt_init
-    iter_min, iter_max = time_manager.iter_optimal_range
-    decrease_factor, increase_factor = time_manager.iter_relax_factors
-    nonlinear_iter_retry_factor = time_manager.recomp_factor
-
-    if len(time_manager.schedule) < 2:
-        raise ValueError("Schedule must have at least two points (t_start and t_end).")
-    schedule = np.array(time_manager.schedule, dtype=float)
-
-    # Initialize dt_min and dt_max if not given.
-    if time_manager.dt_min_max is None:
-        dt_min = dt_max = None
-    else:
-        dt_min, dt_max = time_manager.dt_min_max
-    if dt_min is None:
-        dt_min = float(dt_init) * 1e-3
-    if dt_max is None:
-        dt_max = float(dt_init) * 1e3
-
     if not time_manager.is_constant:
-        # Avoid repeating constraint of target nonlinear iterations.
-        assert not any(isinstance(c, TargetNonlinearIterations) for c in constraints)
-        constraints.append(
-            TargetNonlinearIterations(
-                iter_min=iter_min,
-                iter_max=iter_max,
-                increase_factor=increase_factor,
-                decrease_factor=decrease_factor,
-                retry_factor=nonlinear_iter_retry_factor,
-            )
-        )
         return TimeScheduler(
             time_manager=time_manager,
-            schedule=Schedule(
-                intervals=[
-                    TimeInterval.create(
-                        t_start=t_start,
-                        dt_start=dt_init,
-                        constraints=constraints,
-                        dt_min=dt_min,
-                        dt_max=dt_max,
-                    )
-                    for t_start in schedule[:-1]
-                ],
-                t_end=schedule[-1],
-            ),
+            schedule=time_manager.advanced_schedule,
             t_snap=time_manager.atol,
         )
     else:
-        dt_min = dt_max = dt_init
         return TimeSchedulerConstantDt(
             time_manager=time_manager,
-            schedule=schedule,
-            dt=dt_init,
+            schedule=time_manager.schedule,
+            dt=time_manager.dt_init,
             t_snap=time_manager.atol,
         )
 

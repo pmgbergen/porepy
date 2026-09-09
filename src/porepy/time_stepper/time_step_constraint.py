@@ -138,6 +138,9 @@ class CourantTimeStepConstraint(TimeStepConstraint):
 
     Expects "model" (:class:`pp.PorePyModel`) in context.
 
+    Developer note: This is experimental and was not tested in practical simulations.
+    Use with causion.
+
     Parameters:
         target_cfl: Target dimensionless value.
         atol: Velocity tolerance, below treated as zero.
@@ -157,9 +160,12 @@ class CourantTimeStepConstraint(TimeStepConstraint):
 
         dt = float("inf")
         for subdomain in model.mdg.subdomains():
-            # TODO: Mobility is not included, unit of darcy_flux is [m^2 / s].
-            v = abs(model.equation_system.evaluate(model.darcy_flux([subdomain])))
-            v = np.max(v)
+            domains = [subdomain]
+            mobility = model.advection_weight_mass_balance(domains)  # type:ignore[attr-defined]
+            discr = model.mobility_discretization(domains)  # type:ignore[attr-defined]
+            v_op = model.darcy_flux(domains) * (discr.upwind() @ mobility)
+            v = np.max(abs(model.equation_system.evaluate(v_op)))
+
             if v < self.atol:
                 # Velocity is zero in this subdomain, not applying constraint.
                 continue
