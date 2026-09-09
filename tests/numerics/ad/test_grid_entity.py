@@ -47,8 +47,8 @@ class TestGridEntityValues:
         assert pp.ad.GridEntity is GridEntity
 
 
-@pytest.fixture
-def simple_mdg(scope="module"):
+@pytest.fixture(scope="module")
+def simple_mdg():
     """Return a minimal MixedDimensionalGrid with two subdomains."""
     mdg = pp.MixedDimensionalGrid()
     g1 = pp.CartGrid([2, 2])
@@ -123,7 +123,7 @@ class TestGridEntitiesConstruction:
         ],
         ids=["empty", "single", "double"],
     )
-    def test_from_mapping_normalizes_dict(self, dof_info, expected):
+    def test_from_mapping(self, dof_info, expected):
         assert GridEntities.from_mapping(dof_info) == expected
 
     def test_from_mapping_grid_entities_returned_unchanged(self):
