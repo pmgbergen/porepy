@@ -126,7 +126,7 @@ class TimeManager:
         """
         if isinstance(schedule, Schedule):
             self.advanced_schedule = schedule
-        else:
+        elif isinstance(schedule, (list, tuple, np.ndarray)):
             if dt_init is None:
                 raise ValueError(
                     "Passing the schedule as an array requires to pass dt_init."
@@ -146,6 +146,8 @@ class TimeManager:
                 iter_relax_factors=iter_relax_factors,
                 recomp_factor=recomp_factor,
             )
+        else:
+            raise ValueError(f"Unsupported schedule format: {type(schedule)}")
 
         if len(self.advanced_schedule.intervals) < 1:
             raise ValueError("Schedule must have at least one interval.")

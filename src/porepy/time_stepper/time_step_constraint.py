@@ -139,7 +139,8 @@ class CourantTimeStepConstraint(TimeStepConstraint):
     Expects "model" (:class:`pp.PorePyModel`) in context.
 
     Developer note: This is experimental and was not tested in practical simulations.
-    Use with caution.
+    Use with caution. Among other potential issues, the current implementation assumes
+    constant viscosity.
 
     Parameters:
         target_cfl: Target dimensionless value.
