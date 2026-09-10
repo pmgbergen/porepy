@@ -2128,6 +2128,7 @@ def cached_method(func: Callable) -> Callable:
         The decorated function.
 
     """
+    return func
 
     @wraps(func)
     def wrapper(self, *args, **kwargs) -> Any:
