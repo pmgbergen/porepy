@@ -178,6 +178,14 @@ class Grid:
 
         """
 
+        self.parent_node_ind: np.ndarray = np.arange(self.num_nodes)
+        """Index of parent the node in the parent grid for grids that have refined
+        sub-grids or are sub-grids of larger grids.
+
+        Defaults to a mapping to its own index with ``shape=(num_nodes,)``.
+
+        """
+
         self.global_point_ind: np.ndarray = np.arange(self.num_nodes)
         """An array with ``shape=(num_nodes,)`` containing indices of each point,
         assigned during processing of mixed-dimensional grids created by gmsh.
@@ -187,6 +195,17 @@ class Grid:
         Could potentially be used to identify such geometrically equal points at a
         later stage, but there is no guarantee that this will work.
 
+        """
+
+        self.parent_node_global_ind: np.ndarray = (
+            self.global_point_ind.copy()
+        )
+        """Global point indices from the parent grid.
+
+        For a grid without a parent, every node corresponds to its own global point index.
+        For a refined grid, nodes introduced by refinement are assigned ``-1``.
+
+        The array has ``shape=(num_nodes,)``.
         """
 
         self._physical_name_index: int = -1

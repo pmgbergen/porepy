@@ -86,6 +86,9 @@ def refine_grid_1d(g: pp.Grid, ratio: int = 2) -> pp.Grid:
     # Implementation note: The main part of the function is the construction of the new
     # cell-face relation. Since the grid is 1d, nodes and faces are equivalent, and
     # notation used mostly refers to nodes instead of faces.
+    
+    # Save the parent grid for later use in the refinement.
+    parent_grid = g
 
     # Cell-node relation. Enforce csc format to make sure we use the right data.
     cell_nodes = g.cell_nodes().tocsc()
@@ -218,13 +221,45 @@ def refine_grid_1d(g: pp.Grid, ratio: int = 2) -> pp.Grid:
         )
     )
     # Construct grid, compute geometry, done.
-    g = Grid(1, x, face_nodes, cell_faces, "Refined 1d grid")
-    g.compute_geometry()
+    refined_grid = Grid(1, x, face_nodes, cell_faces, "Refined 1d grid")
+    refined_grid.compute_geometry()
 
     # Keep the original fracture number.
-    g.frac_num = frac_num
+    refined_grid.frac_num = frac_num
 
-    return g
+    # Map cells in the refined grids to the parent cells.
+    refined_grid.parent_cell_ind = np.repeat(
+        np.arange(parent_grid.num_cells), ratio
+    )
+
+    # Map node indices from the new to the old grid.
+    # The inserted nodes are not present in the old grid, so they are assigned -1.
+    new_2_old_nodes = -np.ones(num_new_nodes, dtype=int)
+    for old_node, new_node in old_2_new_nodes.items():
+        new_2_old_nodes[new_node] = old_node
+
+    # Keep the mapping from new to old nodes.
+    refined_grid.parent_node_ind = new_2_old_nodes
+
+    # Map refined nodes to global point indices in the parent grid.
+    parent_node_global_ind = -np.ones(
+        refined_grid.num_nodes,
+        dtype=int,
+    )
+
+    inherited_nodes = new_2_old_nodes >= 0
+
+    parent_node_global_ind[inherited_nodes] = (
+        parent_grid.global_point_ind[
+            new_2_old_nodes[inherited_nodes]
+        ]
+    )
+
+    refined_grid.parent_node_global_ind = (
+        parent_node_global_ind
+    )
+
+    return refined_grid
 
 
 def refine_triangle_grid(g: pp.TriangleGrid) -> tuple[pp.TriangleGrid, np.ndarray]:
