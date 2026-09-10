@@ -85,6 +85,11 @@ class Mpsa(Discretization):
         self.bound_stress_matrix_key = "bound_stress"
         """Keyword used to identify the discretization matrix for the boundary
         conditions for stress. Defaults to 'bound_stress'."""
+        self.subface_stress_matrix_key = "subface_stress"
+        """Keyword used to identify the discretization matrix for the subface stress."""
+        self.subface_bound_stress_matrix_key = "subface_bound_stress"
+        """Keyword used to identify the discretization matrix for the boundary conditions
+        for subface stress. """
         self.bound_displacement_cell_matrix_key = "bound_displacement_cell"
         """Keyword used to identify the discretization matrix for the cell center
         displacement contribution to boundary displacement reconstrution. Defaults to
@@ -435,6 +440,55 @@ class Mpsa(Discretization):
                 bound_displacement_face_glob
             )
 
+        # Optionally compute and store the additional subface stress matrices.
+        store_subface_stress = parameter_dictionary.get(
+            "store_subface_stress", False
+        )
+        if store_subface_stress:
+            self.discretize_subfaces(sd, data)
+
+
+    def discretize_subfaces(self, sd: pp.Grid, data: dict) -> None:
+        """Discretize and store MPSA stress operators on subfaces.
+
+        This does not modify the existing full-face discretization matrices.
+        """
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+
+        constit = parameter_dictionary["fourth_order_tensor"]
+        bound = parameter_dictionary["bc"]
+        eta = parameter_dictionary.get("mpsa_eta", None)
+        inverter = parameter_dictionary.get("inverter", "numba")
+
+        if sd.dim == 1:
+            raise NotImplementedError(
+                "Subface MPSA stress is not defined for dimension 1."
+            )
+
+        (
+            _,
+            _,
+            _,
+            _,
+            subface_stress,
+            subface_bound_stress,
+        ) = self._stress_discretization(
+            sd,
+            constit,
+            bound,
+            eta=eta,
+            inverter=inverter,
+            return_subface_stress=True,
+        )
+
+        matrix_dictionary[self.subface_stress_matrix_key] = (
+            subface_stress
+        )
+        matrix_dictionary[self.subface_bound_stress_matrix_key] = (
+            subface_bound_stress
+        )
+
     def update_discretization(self, sd: pp.Grid, data: dict) -> None:
         """Update discretization.
 
@@ -559,7 +613,23 @@ class Mpsa(Discretization):
         hf_disp: bool = False,
         hf_eta: Optional[float] = None,
         reconstruct_on_internal_faces: bool = False,
-    ) -> tuple[sps.spmatrix, sps.spmatrix, sps.spmatrix, sps.spmatrix]:
+        return_subface_stress: bool = False,
+    ) -> (
+        tuple[
+            sps.spmatrix, 
+            sps.spmatrix, 
+            sps.spmatrix, 
+            sps.spmatrix,
+        ]
+        | tuple[
+            sps.spmatrix,
+            sps.spmatrix, 
+            sps.spmatrix, 
+            sps.spmatrix, 
+            sps.spmatrix, 
+            sps.spmatrix,
+        ]
+    ):
         """
         Actual implementation of the MPSA W-method. To calculate the MPSA
         discretization on a grid, either call this method, or, to respect the
@@ -649,6 +719,10 @@ class Mpsa(Discretization):
 
                 Matrix for boundary condition contribution to face displacement
                 reconstruction.
+
+            If ``return_subface_stress`` is ``True``, the method will return two additional
+            matrices: subface stress discretization matrix and subface boundary condition
+            discretization matrix.
 
         """
         # Implementational note on boundary conditions: In Porepy we have defined nodes,
@@ -773,6 +847,10 @@ class Mpsa(Discretization):
         # Discretization of boundary values
         bound_stress = hook_igrad @ rhs_bound
 
+        # Keep the matrices before subfaces are mapped to faces.
+        subface_stress = stress
+        subface_bound_stress = bound_stress
+
         if not subface_rhs:
             bound_stress = hf2f @ bound_stress @ hf2f.T
             stress = hf2f @ stress
@@ -806,6 +884,17 @@ class Mpsa(Discretization):
         # hf_cell @ u_cell_centers + hf_bound @ u_bound_condition
         if not subface_rhs:
             hf_bound @= hf2f.T
+
+        if return_subface_stress:
+            return (
+                stress,
+                bound_stress,
+                hf_cell,
+                hf_bound,
+                subface_stress,
+                subface_bound_stress,
+            )
+
         return stress, bound_stress, hf_cell, hf_bound
 
     def _create_inverse_gradient_matrix(
