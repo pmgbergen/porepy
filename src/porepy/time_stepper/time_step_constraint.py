@@ -139,7 +139,7 @@ class CourantTimeStepConstraint(TimeStepConstraint):
     Expects "model" (:class:`pp.PorePyModel`) in context.
 
     Developer note: This is experimental and was not tested in practical simulations.
-    Use with causion.
+    Use with caution.
 
     Parameters:
         target_cfl: Target dimensionless value.
@@ -160,7 +160,7 @@ class CourantTimeStepConstraint(TimeStepConstraint):
 
         if len(model.fluid.phases) != 1 or len(model.fluid.components) != 1:
             raise NotImplementedError(
-                "CourantTimeStepConstraint is not thought-through for multicomponent "
+                "CourantTimeStepConstraint is not thought through for multicomponent "
                 "fluids. Ensure its implementation is correct before using it."
             )
 
