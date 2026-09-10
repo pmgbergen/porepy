@@ -217,6 +217,82 @@ class SubdomainProjections:
             mat = sps.csc_matrix((self._tot_num_faces * self.dim, 0))
         return pp.ad.SparseArray(mat, name="FaceProlongation")
 
+
+    def face_to_subface(
+        self,
+        subdomains: list[pp.Grid],
+    ) -> SparseArray:
+        """Map vector-valued full-face data to subfaces.
+
+        Parameters:
+            subdomains:
+                Subdomains having the full-face quantities.
+
+        Returns:
+            AD sparse operator with shape
+
+            ``(dim * total_num_subfaces, dim * total_num_faces)``.
+        """
+        from porepy.numerics.fv import _fvutils
+
+        matrices = []
+
+        for sd in subdomains:
+            subfaces_to_faces = _fvutils.map_hf_2_f(
+                nd=self.dim,
+                sd=sd,
+            )
+            matrices.append(subfaces_to_faces.T)
+
+        if len(matrices) == 0:
+            matrix = sps.csr_matrix((0, 0))
+        else:
+            matrix = sps.block_diag(matrices, format="csr")
+
+        return SparseArray(
+            matrix,
+            name="FaceToSubface",
+        )
+    
+
+    def subface_to_face(
+        self,
+        subdomains: list[pp.Grid],
+    ) -> SparseArray:
+        """Sum vector-valued subface forces to full faces.
+
+        Parameters:
+            subdomains:
+                Subdomains having the subface forces.
+
+        Returns:
+            AD sparse operator with shape
+
+            ``(dim * total_num_faces, dim * total_num_subfaces)``.
+        """
+        from porepy.numerics.fv import _fvutils
+
+        matrices = []
+
+        for sd in subdomains:
+            matrices.append(
+                _fvutils.map_hf_2_f(
+                    nd=self.dim,
+                    sd=sd,
+                )
+            )
+
+        if len(matrices) == 0:
+            matrix = sps.csr_matrix((0, 0))
+        else:
+            matrix = sps.block_diag(matrices, format="csr")
+
+        return SparseArray(
+            matrix,
+            name="SubfaceToFace",
+        )
+
+
     def __repr__(self) -> str:
         s = (
             f"Restriction and prolongation operators for {self._num_grids}"
@@ -471,6 +547,135 @@ class MortarProjections:
         else:
             self._primary_to_mortar_int = mat
         return mat
+
+    def primary_subface_to_mortar_int(
+        self,
+        primary_subdomains: Sequence[pp.Grid],
+    ) -> SparseArray:
+        """Map integrated primary-subface quantities to mortar cells.
+
+        Parameters:
+            primary_subdomains:
+                Primary grids having the subface quantities.
+
+        Returns:
+            AD sparse array mapping vector-valued primary-subface quantities
+            to mortar-cell quantities.
+        """
+        from porepy.numerics.fv import _fvutils
+
+        primary_subdomains = list(primary_subdomains)
+
+        topologies = {
+            sd: _fvutils.SubcellTopology(sd)
+            for sd in primary_subdomains
+        }
+
+        num_primary_subfaces = sum(
+            topology.num_subfno_unique
+            for topology in topologies.values()
+        )
+
+        if len(self._interfaces) == 0:
+            scalar_matrix = sps.csr_matrix(
+                (0, num_primary_subfaces)
+            )
+            vector_matrix = sps.kron(
+                scalar_matrix,
+                sps.eye(self.dim),
+                format="csr",
+            )
+            return SparseArray(
+                vector_matrix,
+                name="PrimarySubfaceToMortarInt",
+            )
+
+        if len(primary_subdomains) == 0:
+            raise ValueError(
+                "Primary subdomains cannot be empty when interfaces "
+                "are present."
+            )
+
+        block_rows = []
+
+        for interface in self._interfaces:
+            primary, secondary = (
+                self._mdg.interface_to_subdomain_pair(interface)
+            )
+
+            if primary not in primary_subdomains:
+                raise ValueError(
+                    "The primary grid connecting interface must be"
+                    "included in primary_subdomains."
+                )
+
+            local_projection = _fvutils.map_subfaces_to_mortar(
+                primary=primary,
+                secondary=secondary,
+                interface=interface,
+            )
+
+            row_blocks = []
+
+            for candidate_primary in primary_subdomains:
+                if candidate_primary is primary:
+                    row_blocks.append(local_projection)
+                else:
+                    row_blocks.append(
+                        sps.csr_matrix(
+                            (
+                                interface.num_cells,
+                                topologies[
+                                    candidate_primary
+                                ].num_subfno_unique,
+                            )
+                        )
+                    )
+
+            block_rows.append(row_blocks)
+
+        scalar_matrix = sps.bmat(
+            block_rows,
+            format="csr",
+        )
+
+        vector_matrix = sps.kron(
+            scalar_matrix,
+            sps.eye(self.dim),
+            format="csr",
+        )
+
+        return SparseArray(
+            vector_matrix,
+            name="PrimarySubfaceToMortarInt",
+        )
+        
+
+    def mortar_to_primary_subface_avg(
+        self,
+        primary_subdomains: Sequence[pp.Grid],
+    ) -> SparseArray:
+        """Map mortar cell quantities to primary matrix subfaces.
+
+        This is simply the reverse of the conforming primary-subface-to-mortar
+        mapping. This means that mortar cells and primary subfaces must 
+        be in one-to-one correspondence.
+
+        Parameters:
+            primary_subdomains:
+                Primary grids with subfaces.
+
+        Returns:
+            AD sparse operator mapping vector-valued mortar-cell
+            quantities to vector-valued primary-subface quantities.
+        """
+        projection = self.primary_subface_to_mortar_int(
+            primary_subdomains
+        )
+        result = projection.transpose()
+        result.set_name("MortarToPrimarySubfaceAvg")
+        return result
+
 
     def primary_to_mortar_avg(self) -> SparseArray:
         """Construct a matrix that projects from primary grids to mortar grids for
