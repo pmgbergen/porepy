@@ -658,6 +658,184 @@ def map_hf_2_f(fno=None, subfno=None, nd=None, sd=None):
     return hf2f
 
 
+def map_subfaces_to_mortar(
+    primary: pp.Grid,
+    secondary: pp.Grid,
+    interface: pp.MortarGrid,
+) -> sps.csr_matrix:
+    """Map primary-grid subface quantities to fine mortar cells.
+
+    The implementation currently assumes a two-dimensional primary grid,
+    a one-dimensional secondary grid and refinement by a factor of two.
+
+    Parameters:
+        primary:
+            Matrix grid containing the split fracture faces.
+        secondary:
+            Refined fracture grid. It must provide ``parent_node_ind`` and
+            ``parent_node_global_ind``.
+        interface:
+            Mortar grid connecting ``primary`` and ``secondary``.
+
+    Returns:
+        Sparse matrix with shape
+        ``(interface.num_cells, num_primary_subfaces)``.
+    """
+
+    if primary.dim != 2:
+        raise NotImplementedError(
+            "Subface-to-mortar mapping is currently implemented "
+            "only for two-dimensional primary grids."
+        )
+
+    if secondary.dim != 1:
+        raise NotImplementedError(
+            "The secondary grid must be one-dimensional."
+        )
+
+    if interface.dim != secondary.dim:
+        raise ValueError(
+            "The interface and secondary grid must have the same dimension."
+        )
+
+    if not hasattr(secondary, "parent_node_ind"):
+        raise ValueError(
+            "The refined secondary grid must define parent_node_ind."
+        )
+
+    if not hasattr(secondary, "parent_node_global_ind"):
+        raise ValueError(
+            "The refined secondary grid must define "
+            "parent_node_global_ind."
+        )
+
+    topology = SubcellTopology(primary)
+
+    # This projection is used to map matrix full faces to fine 
+    # interface cells. 
+    primary_to_mortar = (
+        interface.primary_to_mortar_int().tocsr()
+    )
+    # This projection is used to map fine fracture cells to fine 
+    # interface cells. 
+    secondary_to_mortar = (
+        interface.secondary_to_mortar_int().tocsr()
+    )
+
+    secondary_cell_nodes = secondary.cell_nodes().tocsc()
+
+    primary_subface_global_nodes = primary.global_point_ind[
+        topology.nno_unique
+    ]
+
+    mortar_to_subface = np.full(
+        interface.num_cells,
+        -1,
+        dtype=int,
+    )
+
+    for mortar_cell in range(interface.num_cells):
+        # Get the primary full face corresponding to one fine mortar
+        # cell.
+        start = primary_to_mortar.indptr[mortar_cell]
+        end = primary_to_mortar.indptr[mortar_cell + 1]
+
+        primary_faces = primary_to_mortar.indices[start:end]
+        primary_values = primary_to_mortar.data[start:end]
+        primary_faces = primary_faces[primary_values != 0]
+
+        if primary_faces.size != 1:
+            raise ValueError(
+                "Each fine interface cell must correspond to one"
+                "matrix face."
+            )
+
+        primary_face = primary_faces[0]
+
+        # Get the secondary fine face corresponding to one fine mortar
+        # cell.
+        start = secondary_to_mortar.indptr[mortar_cell]
+        end = secondary_to_mortar.indptr[mortar_cell + 1]
+
+        secondary_cells = secondary_to_mortar.indices[start:end]
+        secondary_values = secondary_to_mortar.data[start:end]
+        secondary_cells = secondary_cells[
+            secondary_values != 0
+        ]
+
+        if secondary_cells.size != 1:
+            raise ValueError(
+                "Each fine interface cell must correspond to one "
+                "fine secondary cell."
+            )
+
+        secondary_cell = secondary_cells[0]
+
+        # Nodes of the fine secondary cell.
+        start = secondary_cell_nodes.indptr[secondary_cell]
+        end = secondary_cell_nodes.indptr[secondary_cell + 1]
+        fine_nodes = secondary_cell_nodes.indices[start:end]
+
+        # For refinement ratio 2, one node of each fine cell
+        # is from the parent fracture grid.
+        inherited_fine_nodes = fine_nodes[
+            secondary.parent_node_ind[fine_nodes] >= 0
+        ]
+
+        if inherited_fine_nodes.size != 1:
+            raise ValueError(
+                "Each fine secondary cell must have one node"
+                "inherited from its parent grid."
+            )
+
+        inherited_fine_node = inherited_fine_nodes[0]
+
+        global_node = secondary.parent_node_global_ind[
+            inherited_fine_node
+        ]
+
+        if global_node < 0:
+            raise ValueError(
+                "The fine node has no parent global index."
+            )
+
+        # A primary subface is identified by the primary full face 
+        # and the global node.
+        candidate_positions = np.where(
+            (topology.fno_unique == primary_face)
+            & (
+                primary_subface_global_nodes
+                == global_node
+            )
+        )[0]
+
+        if candidate_positions.size != 1:
+            raise ValueError(
+                "The primary face and the global point must can identify "
+                "exactly one primary subface."
+            )
+
+        mortar_to_subface[mortar_cell] = (
+            topology.subfno_unique[
+                candidate_positions[0]
+            ]
+        )
+
+    return sps.coo_matrix(
+        (
+            np.ones(interface.num_cells),
+            (
+                np.arange(interface.num_cells),
+                mortar_to_subface,
+            ),
+        ),
+        shape=(
+            interface.num_cells,
+            topology.num_subfno_unique,
+        ),
+    ).tocsr()
+
+
 def cell_vector_to_subcell(nd, sub_cell_index, cell_index):
     """
     Create mapping from sub-cells to cells for scalar problems.
