@@ -345,6 +345,7 @@ class ReferenceOperator:
         if isinstance(self, ReferenceOperator) and self.is_reference:
             return self
         # TODO copy or deepcopy? Is this enough for every operator class?
+        # TODO: Is copying a good idea since it also copies the operator id?
         op = copy.copy(self)
         # Delete the cached key, so that this must be regenerated for the new operator,
         # which is different from the original one.

@@ -5026,6 +5026,7 @@ class PoroMechanicsPorosity(pp.PorePyModel):
         # The consistency is based on perturbation. If the variable is used directly,
         # results will not match if the reference state is not zero, see
         # :func:`test_without_fracture` in test_poromechanics.py.
+        # TODO: Is this correct?
         variable = cast(
             Callable[[list[pp.Grid]], pp.ad.Operator], getattr(self, variable_name)
         )
