@@ -146,6 +146,8 @@ class MpsaAd(Discretization):
 
         self.stress: Callable[[], pp.ad.MergedOperator]
         self.bound_stress: Callable[[], pp.ad.MergedOperator]
+        self.subface_stress: Callable[[], pp.ad.MergedOperator]
+        self.subface_bound_stress: Callable[[], pp.ad.MergedOperator]
         self.bound_displacement_cell: Callable[[], pp.ad.MergedOperator]
         self.bound_displacement_face: Callable[[], pp.ad.MergedOperator]
 
