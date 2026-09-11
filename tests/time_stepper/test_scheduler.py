@@ -179,7 +179,7 @@ def test_scheduler_floating_point_inaccuracy(constant_dt: bool, dt: float):
 
     assert len(times) == 11
     np.testing.assert_allclose(
-        checkpoints_hit, time_manager.schedule, atol=1e-8, rtol=0
+        checkpoints_hit, time_manager.schedule.get_array(), atol=1e-8, rtol=0
     )
 
 
@@ -210,7 +210,7 @@ def test_scheduler_floating_point_inaccuracy_adaptive_adjusts_to_tiny_step():
 
     assert len(times) == 12
     np.testing.assert_allclose(
-        checkpoints_hit, time_manager.schedule, atol=1e-50, rtol=0
+        checkpoints_hit, time_manager.schedule.get_array(), atol=1e-50, rtol=0
     )
 
 
@@ -235,8 +235,8 @@ def test_scheduler_floating_point_inaccuracy_constant_dt_extra_step():
     times, checkpoints_hit = run_scheduler_collect_data(scheduler, time_manager)
 
     assert len(times) == 12
-    assert len(checkpoints_hit) != len(time_manager.schedule)
-    assert time_manager.time >= time_manager.schedule[-1]
+    assert len(checkpoints_hit) != len(time_manager.schedule.get_array())
+    assert time_manager.time >= time_manager.schedule.t_end
 
 
 def test_scheduler_floating_point_inaccuracy_constant_dt_missed_checkpoints():
@@ -260,8 +260,8 @@ def test_scheduler_floating_point_inaccuracy_constant_dt_missed_checkpoints():
     times, checkpoints_hit = run_scheduler_collect_data(scheduler, time_manager)
 
     assert len(times) == 11
-    assert len(checkpoints_hit) != len(time_manager.schedule)
-    assert time_manager.time >= time_manager.schedule[-1]
+    assert len(checkpoints_hit) != len(time_manager.schedule.get_array())
+    assert time_manager.time >= time_manager.schedule.t_end
 
 
 def test_inconsistent_schedule_constant_dt():
@@ -291,7 +291,7 @@ def test_inconsistent_schedule_nonconstant_dt():
     times, checkpoints_hit = run_scheduler_collect_data(scheduler, time_manager)
 
     np.testing.assert_allclose(times, [0, 1, 1.5, 2.5, 3])
-    np.testing.assert_allclose(checkpoints_hit, time_manager.schedule)
+    np.testing.assert_allclose(checkpoints_hit, time_manager.schedule.get_array())
 
 
 def test_schedule_length_greater_than_2():
@@ -313,7 +313,7 @@ def test_schedule_length_greater_than_2():
         time_manager = pp.TimeManager(schedule=[0, 1], dt_init=0.5, constant_dt=True)
         with pytest.raises(ValueError):
             _ = TimeSchedulerConstantDt(
-                time_manager=time_manager, schedule=schedule, dt=0.5
+                time_manager=time_manager, schedule_array=schedule, dt=0.5
             )
 
     # Construct TimeScheduler manually.
@@ -377,7 +377,7 @@ def test_initial_time_step_overshoots_schedule_point(schedule: list[int]):
 
     times, checkpoints_hit = run_scheduler_collect_data(scheduler, time_manager)
 
-    np.testing.assert_allclose(checkpoints_hit, time_manager.schedule)
+    np.testing.assert_allclose(checkpoints_hit, time_manager.schedule.get_array())
     np.testing.assert_allclose(times, checkpoints_hit)
 
 
@@ -446,7 +446,7 @@ def test_constant_time_step(schedule, dt, time, is_success, context):
     input."""
     time_manager = pp.TimeManager(schedule=schedule, dt_init=dt, constant_dt=True)
     scheduler = TimeSchedulerConstantDt(
-        time_manager=time_manager, schedule=schedule, dt=dt
+        time_manager=time_manager, schedule_array=schedule, dt=dt
     )
     time_manager.time = time
     if is_success:
@@ -499,5 +499,5 @@ def test_time_step_match_schedule_exactly(constant_dt: bool):
     )
 
     times, checkpoint_hits = run_scheduler_collect_data(scheduler, time_manager)
-    np.testing.assert_array_equal(checkpoint_hits, time_manager.schedule)
+    np.testing.assert_array_equal(checkpoint_hits, time_manager.schedule.get_array())
     np.testing.assert_array_equal(times, checkpoint_hits)

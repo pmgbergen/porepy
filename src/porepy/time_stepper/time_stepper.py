@@ -95,7 +95,7 @@ class TimeStepper:
             # Logging time step start.
             logger.info(
                 f"Time step #{time_manager.time_index}: dt={time_manager.dt:.2e}, time="
-                f"{accepted_time:.2e} of {time_manager.schedule[-1]:.2e}, attempt="
+                f"{accepted_time:.2e} of {time_manager.schedule.t_end:.2e}, attempt="
                 f"{attempt + 1} / {self.max_attempts}"
             )
 

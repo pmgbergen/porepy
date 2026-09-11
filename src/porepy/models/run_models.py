@@ -167,10 +167,11 @@ def _run_iterative_model(model, params: dict) -> None:
             # modified time step size to the initial time step size.
             expected_time_steps: int = int(
                 np.round(
-                    (model.time_manager.schedule[-1] - model.time_manager.schedule[0])
+                    (model.time_manager.time_final - model.time_manager.time_init)
                     / initial_time_step
                 )
             )
+
             time_progressbar = progressbar_class(
                 range(expected_time_steps),
                 desc="Time loop",
