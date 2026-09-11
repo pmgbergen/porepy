@@ -485,6 +485,29 @@ else:
 
             """
 
+
+        def internal_boundary_subface_normal_to_outwards(
+            self,
+            subdomains: list[pp.Grid],
+            *,
+            dim: int,
+        ) -> pp.ad.Operator:
+            """The operator for flipping subface forces to point outwards 
+            on internal boundaries.
+
+            Parameters:
+                subdomains:
+                    A list of primary matrix subdomains having the subface 
+                    quantities.
+                dim:
+                    Number of vector components per subface.
+
+            Returns:
+                AD sparse operator for subfaces with sign correction.
+
+            """
+        
+
         def outwards_internal_boundary_normals(
             self,
             interfaces: list[pp.MortarGrid],

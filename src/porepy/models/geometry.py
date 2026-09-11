@@ -782,6 +782,72 @@ class ModelGeometry(pp.PorePyModel):
         sign_flipper.set_name("Flip_normal_vectors")
         return sign_flipper
 
+    def internal_boundary_subface_normal_to_outwards(
+        self,
+        subdomains: list[pp.Grid],
+        *,
+        dim: int,
+    ) -> pp.ad.Operator:
+        """The operator for flipping matrix-subface forces to point outwards 
+        on internal boundaries.
+
+        Parameters:
+            subdomains:
+                A list of primary matrix subdomains having the subface 
+                quantities.
+            dim:
+                Number of vector components per subface.
+
+        Returns:
+            AD sparse operator for subfaces with sign correction.
+        """
+        from porepy.numerics.fv import _fvutils
+
+        if len(subdomains) == 0:
+            sign_flipper = pp.ad.SparseArray(
+                sps.csr_matrix((0, 0))
+            )
+        else:
+            matrices = []
+
+            for sd in subdomains:
+                fracture_faces = np.where(
+                    sd.tags["fracture_faces"]
+                )[0]
+                face_switcher = (
+                    pp.grid_utils.switch_sign_if_inwards_normal(
+                        sd,
+                        dim,
+                        fracture_faces,
+                    )
+                )
+
+                topology = _fvutils.SubcellTopology(sd)
+                subface_face_dofs = (
+                    pp.array_operations.expand_indices_nd(
+                        topology.fno_unique,
+                        dim,
+                    )
+                )
+
+                subface_signs = face_switcher.diagonal()[
+                    subface_face_dofs
+                ]
+                subface_switcher = sps.diags(
+                    subface_signs,
+                    format="dia",
+                )
+                matrices.append(subface_switcher)
+
+            sign_flipper = pp.ad.SparseArray(
+                pp.matrix_operations.sparse_dia_from_sparse_blocks(
+                    matrices
+                )
+            )
+
+        sign_flipper.set_name("Flip_subface_normal_vectors")
+        return sign_flipper
+
     @pp.ad.cached_method
     def outwards_internal_boundary_normals(
         self,
