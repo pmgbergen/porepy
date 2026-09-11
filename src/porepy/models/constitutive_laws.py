@@ -3050,6 +3050,96 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
         stress.set_name("mechanical_stress")
         return stress
 
+    def subface_mechanical_stress(
+        self,
+        domains: list[pp.Grid],
+    ) -> pp.ad.Operator:
+        """Linear elastic mechanical force on matrix subfaces.
+
+        The returned force is ordered by unique matrix subfaces. The current
+        external face boundary values are copied to their corresponding
+        subfaces where eta=0 in MPSA, while interface displacement values are 
+        projected from mortar cells to matrix internal boundary subfaces. Mortar
+        cells and matrix internal boundary subfaces should conform to each other.
+
+        Parameters:
+            domains:
+                Co-dimension-zero subdomains.
+
+        Returns:
+            AD operator representing integrated mechanical force on matrix
+            subfaces.
+
+        """
+        if len(domains) == 0:
+            return pp.ad.DenseArray(np.zeros(0))
+
+        for sd in domains:
+            if sd.dim != self.nd:
+                raise ValueError(
+                    "Subdomain must be of co-dimension 0."
+                )
+
+        discr = self.stress_discretization(domains)
+
+        if not isinstance(discr, pp.ad.MpsaAd):
+            raise NotImplementedError(
+                "Subface mechanical stress is currently available "
+                "only for the MPSA discretization."
+            )
+
+        interfaces = self.subdomains_to_interfaces(domains, [1])
+
+        # The current external boundary values are ordered by full faces.
+        face_boundary_operator = (
+            self.combine_boundary_operators_mechanical_stress(
+                domains
+            )
+        )
+
+        subdomain_projection = pp.ad.SubdomainProjections(
+            domains,
+            self.nd,
+        )
+        mortar_projection = pp.ad.MortarProjections(
+            self.mdg,
+            domains,
+            interfaces,
+            dim=self.nd,
+        )
+
+        # Copy existing full-face external BC values to the corresponding
+        # unique matrix subfaces.
+        # Note: this is only valid for eta=0, and the continuity point of the subface is
+        # the full-face center.
+        external_subface_boundary = (
+            subdomain_projection.face_to_subface(domains)
+            @ face_boundary_operator
+        )
+
+        # Map fine mortar displacement directly to the matrix internal boundary subfaces.
+        interface_subface_boundary = (
+            mortar_projection.mortar_to_primary_subface_avg(
+                domains
+            )
+            @ self.interface_displacement(interfaces)
+        )
+
+        subface_boundary_operator = (
+            external_subface_boundary
+            + interface_subface_boundary
+        )
+
+        stress = (
+            discr.subface_stress()
+            @ self.displacement(domains)
+            + discr.subface_bound_stress()
+            @ subface_boundary_operator
+        )
+
+        stress.set_name("subface_mechanical_stress")
+        return stress
+
     def combine_boundary_operators_mechanical_stress(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
