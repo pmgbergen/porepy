@@ -121,9 +121,8 @@ class TimeManager:
 
         if isinstance(schedule, Schedule):
             if dt_init is not None:
-                warn(
-                    "dt_init argument is ignored if Schedule object is passed.",
-                    stacklevel=2,
+                raise ValueError(
+                    "dt_init argument is ignored if Schedule object is passed."
                 )
         elif isinstance(schedule, (list, tuple, np.ndarray)):
             if dt_init is None:
