@@ -421,7 +421,7 @@ class ConvergenceAnalysis:
         for lvl in range(self.levels):
             factor = factors[lvl]
             time_manager = pp.TimeManager(
-                schedule=init_time_manager.schedule,
+                schedule=init_time_manager.schedule.get_array(),
                 dt_init=init_time_manager.dt_init * factor,
                 constant_dt=True,
             )
