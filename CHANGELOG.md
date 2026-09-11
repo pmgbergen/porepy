@@ -29,3 +29,6 @@ PR 1748: Refactor time-step control with interval-based scheduling and extensibl
 
 Changes to the front end (user-facing code: multiphysics models, solvers, grids, and
 similar) that require users to update their own code when upgrading.
+
+PR 1748: `time_manager.schedule` is not an array anymore, it's an object. Preserve the
+    old behavior by replacing it with `time_manager.schedule.get_array()`.

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Self
+from typing import Optional
 from warnings import warn
 
 import numpy as np
@@ -119,13 +119,12 @@ class TimeManager:
 
         """
 
-        self.advanced_schedule: Schedule
-        """A simulation schedule defined by its intervals and the end time. See
-        :class:`pp.time_stepper.TimeScheduler` for details on how it is used.
-
-        """
         if isinstance(schedule, Schedule):
-            self.advanced_schedule = schedule
+            if dt_init is not None:
+                warn(
+                    "dt_init argument is ignored if Schedule object is passed.",
+                    stacklevel=2,
+                )
         elif isinstance(schedule, (list, tuple, np.ndarray)):
             if dt_init is None:
                 raise ValueError(
@@ -136,7 +135,7 @@ class TimeManager:
                 dt_min = dt_max = None
             else:
                 dt_min, dt_max = dt_min_max
-            self.advanced_schedule = Schedule.assemble_default(
+            schedule = Schedule.assemble_default(
                 schedule=schedule,
                 dt_init=dt_init,
                 constant_dt=constant_dt,
@@ -148,30 +147,21 @@ class TimeManager:
             )
         else:
             raise ValueError(f"Unsupported schedule format: {type(schedule)}")
+        self.schedule: Schedule = schedule
+        """A simulation schedule defined by its intervals and the end time. See
+        :class:`pp.time_stepper.TimeScheduler` for details on how it is used.
 
-        if len(self.advanced_schedule.intervals) < 1:
+        Migration notice: Previously, this attribute was a numpy array. To fix errors in
+        the runscripts and preserve the old behavior, replace time_manager.schedule with
+        time_manager.schedule.get_array().
+
+        """
+
+        if len(self.schedule.intervals) < 1:
             raise ValueError("Schedule must have at least one interval.")
 
-        # Extracting legacy properties from the advanced schedule.
-        if dt_init is None:
-            dt_init = self.advanced_schedule.intervals[0].dt_start
-        if dt_min_max is None:
-            dt_min_max = (
-                min(interval.dt_min for interval in self.advanced_schedule.intervals),
-                max(interval.dt_max for interval in self.advanced_schedule.intervals),
-            )
-
-        # The properties below are accessed through read-only getters and should not be
-        # modified.
-        self._schedule = np.array(
-            [interval.t_start for interval in self.advanced_schedule.intervals]
-            + [self.advanced_schedule.t_end],
-            dtype=float,
-        )
-        self._time_init = float(self._schedule[0])
-        self._time_final = float(self._schedule[-1])
-        self._dt_init = float(dt_init)
-        self._dt_min_max = dt_min_max
+        # Legacy properties. Accessed through read-only getters and should not be
+        # modified, since it does not affect anything.
         self._iter_optimal_range = iter_optimal_range
         self._iter_relax_factors = iter_relax_factors
         self._recomp_factor = recomp_factor
@@ -212,33 +202,27 @@ class TimeManager:
         """
 
     @property
-    def schedule(self) -> np.ndarray:
-        """Array of time points which the simulation must pass exactly within atol. The
-        first and the last entries correspond to the start and the end simulation times,
-        respectively.
-
-        """
-        return self._schedule
-
-    @property
     def time_init(self) -> float:
         """Initial simulation time."""
-        return self._time_init
+        return self.schedule.intervals[0].t_start
 
     @property
     def time_final(self) -> float:
         """Simulation end time."""
-        return self._time_final
+        return self.schedule.t_end
 
     @property
     def dt_init(self) -> float:
         """Initial time step."""
-        return self._dt_init
+        return self.schedule.intervals[0].dt_start
 
     @property
-    def dt_min_max(self) -> tuple[pp.number, pp.number]:
+    def dt_min_max(self) -> tuple[float, float]:
         """Smallest and largest allowed time step."""
-        return self._dt_min_max
+        return (
+            min(interval.dt_min for interval in self.schedule.intervals),
+            max(interval.dt_max for interval in self.schedule.intervals),
+        )
 
     @property
     def iter_optimal_range(self) -> tuple[int, int]:
@@ -290,7 +274,7 @@ class TimeManager:
 
     def is_at_schedule_point(self) -> bool:
         """Check whether the time manager is hitting any schedule point."""
-        return bool(np.any(abs(self.schedule - self.time) < self.atol))
+        return bool(np.any(abs(self.schedule.get_array() - self.time) < self.atol))
 
     def final_time_reached(self) -> bool:
         """Check whether the time manager has reached the end of the schedule.
@@ -432,6 +416,11 @@ class Schedule:
     """Simulation's time intervals."""
     t_end: float
     """Simulation end time, seconds."""
+
+    def get_array(self) -> np.ndarray:
+        """Returns schedule points as a numpy array, including the simulation start and
+        end time."""
+        return np.array([i.t_start for i in self.intervals] + [self.t_end], dtype=float)
 
     @staticmethod
     def assemble_default(

@@ -251,7 +251,7 @@ class ModelRunner:
 
             # NOTE: If tqdm is not installed, this returns a DummyProgressBar instance.
             self.time_progressbar = progressbar_class(
-                total=self.model.time_manager.schedule[-1],
+                total=self.model.time_manager.schedule.t_end,
                 desc="Time loop",
                 position=0,
                 dynamic_ncols=True,

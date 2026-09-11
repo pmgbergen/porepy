@@ -67,9 +67,9 @@ class TimeSchedulerConstantDt(TimeSchedulerBase):
     Parameters:
         time_manager: The simulation time data structure. Used in constructor for
             validation.
-        schedule: Array of time points, which the simulation time must match exactly
-            within tolerance defined by `t_snap`. Must contain at least two points:
-            start and end time.
+        schedule_array: Array of time points, which the simulation time must match
+            exactly within tolerance defined by `t_snap`. Must contain at least two
+            points: start and end time.
         dt: Constant time step.
         t_snap: Snapping time. Time difference below it is treated as zero.
 
@@ -78,12 +78,12 @@ class TimeSchedulerConstantDt(TimeSchedulerBase):
     def __init__(
         self,
         time_manager: pp.TimeManager,
-        schedule: Iterable[pp.number],
+        schedule_array: Iterable[pp.number],
         dt: float,
         t_snap: float = 1e-8,
     ) -> None:
-        self.schedule = np.array(schedule, dtype=float)
-        if len(self.schedule) < 2:
+        self.schedule_array = np.array(schedule_array, dtype=float)
+        if len(self.schedule_array) < 2:
             raise ValueError("Schedule must have at least two points: start and end.")
         assert t_snap > 0
         self.dt = float(dt)
@@ -96,7 +96,7 @@ class TimeSchedulerConstantDt(TimeSchedulerBase):
         self.t_snap: float = t_snap
         """Snapping time. Time differences below it are treated as zero."""
         _validate_schedule_constant_dt(
-            schedule=self.schedule, dt=self.dt, atol=self.t_snap
+            schedule_array=self.schedule_array, dt=self.dt, atol=self.t_snap
         )
 
     def compute_next_time_step(
@@ -155,9 +155,7 @@ class TimeScheduler(TimeSchedulerBase):
         """Snapping time. Time differences below it are treated as zero."""
         self.schedule = schedule
         """Simulation schedule."""
-        _validate_schedule_non_constant_dt(
-            intervals=schedule.intervals, t_end=schedule.t_end, atol=self.t_snap
-        )
+        _validate_schedule_non_constant_dt(schedule=schedule, atol=self.t_snap)
         self.interval_map = _IntervalMap(schedule.intervals, atol=self.t_snap)
         """A data structure that returns the current and next intervals for any
         simulation time.
@@ -264,13 +262,13 @@ def assemble_default_time_scheduler(time_manager: pp.TimeManager) -> TimeSchedul
     if not time_manager.is_constant:
         return TimeScheduler(
             time_manager=time_manager,
-            schedule=time_manager.advanced_schedule,
+            schedule=time_manager.schedule,
             t_snap=time_manager.atol,
         )
     else:
         return TimeSchedulerConstantDt(
             time_manager=time_manager,
-            schedule=time_manager.schedule,
+            schedule_array=time_manager.schedule.get_array(),
             dt=time_manager.dt_init,
             t_snap=time_manager.atol,
         )
@@ -334,25 +332,23 @@ def _log_schedule_interval_start(t_start: float, t_end: float, name: str = "") -
 
 
 def _validate_schedule_constant_dt(
-    schedule: np.ndarray, dt: float, atol: float
+    schedule_array: np.ndarray, dt: float, atol: float
 ) -> None:
-    time_from_start = schedule - schedule[0]
+    time_from_start = schedule_array - schedule_array[0]
     nearest_num_steps = np.rint(time_from_start / dt)
-    nearest_constant_dt_times = schedule[0] + nearest_num_steps * dt
+    nearest_constant_dt_times = schedule_array[0] + nearest_num_steps * dt
 
-    if np.any(abs(schedule - nearest_constant_dt_times) > atol):
+    if np.any(abs(schedule_array - nearest_constant_dt_times) > atol):
         raise ValueError(
             "Mismatch between the time step and scheduled time. Make sure the two are "
             "compatible, or consider adjusting the tolerance."
         )
 
-    _validate_schedule_common(schedule=schedule, atol=atol)
+    _validate_schedule_common(schedule_array=schedule_array, atol=atol)
 
 
-def _validate_schedule_non_constant_dt(
-    intervals: list[TimeInterval], t_end: float, atol: float
-) -> None:
-    for interval in intervals:
+def _validate_schedule_non_constant_dt(schedule: Schedule, atol: float) -> None:
+    for interval in schedule.intervals:
         if interval.dt_start < atol:
             raise ValueError(
                 f"The new interval's initial step size ({interval.dt_start:.1e}) is "
@@ -365,13 +361,12 @@ def _validate_schedule_non_constant_dt(
                 f"{interval.dt_max:.1e}]."
             )
 
-    schedule = np.array([interval.t_start for interval in intervals] + [t_end])
-    _validate_schedule_common(schedule=schedule, atol=atol)
+    _validate_schedule_common(schedule_array=schedule.get_array(), atol=atol)
 
 
-def _validate_schedule_common(schedule: np.ndarray, atol: float) -> None:
-    increments = np.ediff1d(schedule)
+def _validate_schedule_common(schedule_array: np.ndarray, atol: float) -> None:
+    increments = np.ediff1d(schedule_array)
     if not np.all(increments > atol):
         raise ValueError(
-            f"Time schedule points must be strictly increasing, {schedule}."
+            f"Time schedule points must be strictly increasing, {schedule_array}."
         )

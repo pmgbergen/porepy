@@ -65,8 +65,9 @@ class DataSavingMixin(pp.PorePyModel):
             if collected_data is not None:
                 self.results.append(collected_data)
         else:
-            t = self.time_manager.time  # current time
-            scheduled = self.time_manager.schedule[1:]  # scheduled times except t_init
+            t = self.time_manager.time  # Current time.
+            # Scheduled times except t_init.
+            scheduled = self.time_manager.schedule.get_array()[1:]
             if any(np.isclose(t, scheduled)):
                 collected_data = self.collect_data()
                 if collected_data is not None:
