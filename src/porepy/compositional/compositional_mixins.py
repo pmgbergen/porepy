@@ -3920,7 +3920,7 @@ class PointWellModel:
 
     def injection_and_production_rates(self,well_type:str):
         """Define injection and production rates for wells.
-        unit: m3/s
+        unit: 1/s
         Parameters:
             well_type: A string indicating the type of well ("injection" or "production").
 

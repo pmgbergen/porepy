@@ -5,6 +5,7 @@ The following is covered:
 - Test that only the specified exported times are exported.
 - Test that the physical times are exported, and that there is a match between the
   specified schedule and all exported files.
+- Test reconstruction of cell-centered Darcy fluxes from face fluxes.
 - Test the compute_slip_tendency static method for a variety of cases, including edge
   cases such as zero normal traction, positive normal traction, and custom tolerances.
 
@@ -22,7 +23,10 @@ from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
 from porepy.models.momentum_balance import MomentumBalance
-from porepy.viz.data_saving_model_mixin import FractureDeformationExporting
+from porepy.viz.data_saving_model_mixin import (
+    ExportingCellDarcyFlux,
+    FractureDeformationExporting,
+)
 
 
 class DataSavingModelMixinModel(SquareDomainOrthogonalFractures, MomentumBalance):
@@ -142,6 +146,49 @@ def test_exported_times_consistency_with_files(times_to_export, expected_times):
 
     # Compare unique timesteps with times.json.
     assert np.allclose(sorted(timesteps), times_data["time"])
+
+
+@pytest.mark.parametrize(
+    "shape, expected_flux",
+    [
+        ([3], [2.0]),
+        ([2, 3], [2.0, -3.0]),
+        ([2, 2, 3], [2.0, -3.0, 4.0]),
+    ],
+)
+def test_interpolate_darcy_flux(shape, expected_flux):
+    """Recover a constant cell flux and its magnitude from exact face fluxes."""
+    domain = pp.CartGrid(shape)
+    domain.compute_geometry()
+
+    mdg = pp.MixedDimensionalGrid()
+    mdg.add_subdomains(domain)
+
+    expected_flux = np.asarray(expected_flux)
+    face_fluxes = expected_flux @ domain.face_normals[: domain.dim]
+
+    class FaceFlux:
+        def value(self, equation_system):
+            return face_fluxes
+
+    class Model(ExportingCellDarcyFlux):
+        equation_system = object()
+
+        def __init__(self):
+            self.mdg = mdg
+
+        def darcy_flux(self, subdomains):
+            assert subdomains == mdg.subdomains()
+            return FaceFlux()
+
+    returned_domain, cell_fluxes, flux_magnitude = Model().interpolate_darcy_flux()
+
+    expected_cell_fluxes = np.tile(expected_flux[:, None], domain.num_cells)
+    assert returned_domain is domain
+    assert cell_fluxes.shape == (domain.dim, domain.num_cells)
+    assert flux_magnitude.shape == (domain.num_cells,)
+    assert np.allclose(cell_fluxes, expected_cell_fluxes)
+    assert np.allclose(flux_magnitude, np.linalg.norm(expected_flux))
 
 
 class TestComputeSlipTendency:

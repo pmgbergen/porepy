@@ -683,16 +683,63 @@ class ExportingCellDarcyFlux:
 
             cell_fluxes[:, cell] = q_cell
 
-        return domain, cell_fluxes
+        
+        darcy_flux_magnitude = np.linalg.norm(cell_fluxes, axis=0)
+
+        return domain, cell_fluxes, darcy_flux_magnitude
+
+
+
+    def Damkohler_number(self):
+        """Compute the Damkohler number for each cell in the highest-dimensional subdomain.
+
+        The Damkohler number is defined as the ratio of the reaction rate to the
+        transport rate. It is a dimensionless number that characterizes the relative
+        importance of reaction and transport processes in a system.
+
+        Returns:
+            damkohler_number: An array of Damkohler numbers for each cell in the
+                  highest-dimensional subdomain.
+
+        """
+        domain, cell_fluxes, darcy_flux_magnitude = self.interpolate_darcy_flux()
+        dim = domain.dim
+
+        # Compute characteristic length scale for each cell (e.g., cell diameter).
+        cell_diameters = np.power(domain.cell_volumes, 1 / dim)
+
+        porosity = self.evaluate_and_scale([domain], "porosity", "-")
+
+
+
+        if hasattr(self, "reactions"):
+            # If reactions are defined, use them to compute the reaction rate.
+            assert len(self.reactions) == 1
+            for reaction in self.reactions:
+                k_0 = self.rate_constant(reaction)
+                # Compute Damkohler number: Da = (reaction_rate * characteristic_length) / (darcy_velocity)
+                damkohler_number = (k_0 * cell_diameters * porosity) / darcy_flux_magnitude
+                return damkohler_number
+        else:
+            # If no reactions are defined, use a default value.
+            return np.zeros(domain.num_cells)
+
+
+
+
+
+
+
+
+
 
     def data_to_export(self) -> list[DataInput]:
         data = super().data_to_export()
         # sds=self.mdg.subdomains(dim=self.nd)
         sds = self.mdg.subdomains()
 
-        domain, darcy_flux = self.interpolate_darcy_flux()
-
-        darcy_flux_magnitude = np.linalg.norm(darcy_flux, axis=0)
+        domain, darcy_flux, darcy_flux_magnitude = self.interpolate_darcy_flux()
+        damkohler_number = self.Damkohler_number()
 
         if domain.dim == 3:
             vertical_flux = darcy_flux[2, :]
@@ -726,5 +773,14 @@ class ExportingCellDarcyFlux:
                         vertical_flux,
                     )
                 )
+
+                data.append(
+                    (
+                        subdomain,
+                        "damkohler_number",
+                        damkohler_number,
+                    )
+                )
+
 
         return data
