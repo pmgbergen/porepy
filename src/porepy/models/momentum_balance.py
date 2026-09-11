@@ -43,6 +43,15 @@ class MomentumBalanceEquations(pp.BalanceEquation):
     physical laws governing the stress.
 
     """
+    subface_stress: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Mechanical force on unique matrix subfaces.
+
+    Provided by a suitable constitutive-law mixin. The output ordering is
+    vector components within each unique matrix subface.
+
+    """
+    use_subface_contact_force: Callable[[], bool]
+    """Whether matrix-interface force balance uses matrix subface forces."""
     fracture_stress: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
     """Stress on the fracture faces. Provided by a suitable mixin class that specifies
     the physical laws governing the stress, see for instance
@@ -93,10 +102,25 @@ class MomentumBalanceEquations(pp.BalanceEquation):
 
         """
         accumulation = self.inertia(subdomains)
+
+        if self.use_subface_contact_force():
+            subdomain_projection = pp.ad.SubdomainProjections(
+                subdomains,
+                self.nd,
+            )
+
+            face_stress = (
+                subdomain_projection.subface_to_face(subdomains)
+                @ self.subface_stress(subdomains)
+            )
+        else:
+            face_stress = self.stress(subdomains)
+
         # By the convention of positive tensile stress, the balance equation is
         # acceleration - stress = body_force. The balance_equation method will *add* the
         # surface term (stress), so we need to multiply by -1.
-        stress = pp.ad.Scalar(-1) * self.stress(subdomains)
+        # stress = pp.ad.Scalar(-1) * self.stress(subdomains)
+        stress = pp.ad.Scalar(-1) * face_stress
         body_force = self.body_force(subdomains)
 
         equation = self.balance_equation(
@@ -154,7 +178,37 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         mortar_projection = pp.ad.MortarProjections(
             self.mdg, subdomains, interfaces, self.nd
         )
-        proj = pp.ad.SubdomainProjections(subdomains, self.nd)
+        # proj = pp.ad.SubdomainProjections(subdomains, self.nd)
+
+        if self.use_subface_contact_force():
+            contact_from_primary_mortar = (
+                mortar_projection.primary_subface_to_mortar_int(
+                    matrix_subdomains
+                )
+                @ self.internal_boundary_subface_normal_to_outwards(
+                    matrix_subdomains,
+                    dim=self.nd,
+                )
+                @ self.subface_stress(matrix_subdomains)
+            )
+        else:
+            # Original full-face path. This remains the default.
+            subdomain_projection = pp.ad.SubdomainProjections(
+                subdomains,
+                self.nd,
+            )
+
+            contact_from_primary_mortar = (
+                mortar_projection.primary_to_mortar_int()
+                @ subdomain_projection.face_prolongation(
+                    matrix_subdomains
+                )
+                @ self.internal_boundary_normal_to_outwards(
+                    matrix_subdomains,
+                    dim=self.nd,
+                )
+                @ self.stress(matrix_subdomains)
+            )
 
         # Contact traction from primary grid and mortar displacements (via primary
         # grid). Spelled out for clarity:
@@ -164,12 +218,12 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         #   2) The stress is prolonged from the matrix subdomains to all subdomains seen
         #      by the mortar grid (that is, the matrix and the fracture).
         #   3) The stress is projected to the mortar grid.
-        contact_from_primary_mortar = (
-            mortar_projection.primary_to_mortar_int()
-            @ proj.face_prolongation(matrix_subdomains)
-            @ self.internal_boundary_normal_to_outwards(matrix_subdomains, dim=self.nd)
-            @ self.stress(matrix_subdomains)
-        )
+        # contact_from_primary_mortar = (
+        #     mortar_projection.primary_to_mortar_int()
+        #     @ proj.face_prolongation(matrix_subdomains)
+        #     @ self.internal_boundary_normal_to_outwards(matrix_subdomains, dim=self.nd)
+        #     @ self.stress(matrix_subdomains)
+        # )
         # Traction from the actual contact force.
         traction_from_secondary = self.fracture_stress(interfaces)
         # The force balance equation. Note that the force from the fracture is a
@@ -389,6 +443,23 @@ class ConstitutiveLawsMomentumBalance(
         """
         # Method from constitutive library's LinearElasticRock.
         return self.mechanical_stress(domains)
+
+    def subface_stress(
+        self,
+        subdomains: list[pp.Grid],
+    ) -> pp.ad.Operator:
+        """Subface stress operator.
+
+        Parameters:
+            subdomains:
+                subdomains: List of subdomains where the subface stress
+                is defined.
+
+        Returns:
+            Operator for the subface stress.
+
+        """
+        return self.subface_mechanical_stress(subdomains)
 
 
 class VariablesMomentumBalance(VariableMixin):
@@ -665,19 +736,88 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
 
         """
 
+    def use_subface_contact_force(self) -> bool:
+        """Whether MPSA subface forces is used.
+
+        Returns:
+            False by default for the original full-face path.
+
+        """
+        return False
+
+    def subface_continuity_point_eta(
+        self,
+        sd: pp.Grid,
+    ) -> np.ndarray:
+        """Set eta=1/3 on matrix subfaces and on matrix internal boundary 
+        subfaces. Set eta=0 on external boundary of the matrix.
+        
+        """
+        from porepy.numerics.fv import _fvutils
+
+        topology = _fvutils.SubcellTopology(sd)
+
+        eta = np.full(
+            topology.num_subfno_unique,
+            _fvutils.determine_eta(sd),
+        )
+
+        external_faces = np.where(
+            sd.tags["domain_boundary_faces"]
+        )[0]
+        external_subfaces = np.isin(
+            topology.fno_unique,
+            external_faces,
+        )
+        eta[external_subfaces] = 0.0
+
+        fracture_faces = np.where(
+            sd.tags["fracture_faces"]
+        )[0]
+        fracture_subfaces = np.isin(
+            topology.fno_unique,
+            fracture_faces,
+        )
+        eta[fracture_subfaces] = 1.0 / 3.0
+
+        return eta
+
     def update_discretization_parameters(self) -> None:
         """Updates the stiffness tensor and BC type for the mechanics problem."""
 
         super().update_discretization_parameters()
+        # for sd, data in self.mdg.subdomains(return_data=True):
+        #     if sd.dim == self.nd:
+        #         pp.initialize_data(
+        #             data,
+        #             self.stress_keyword,
+        #             {
+        #                 "bc": self.bc_type_mechanics(sd),
+        #                 "fourth_order_tensor": self.stiffness_tensor(sd),
+        #                 "store_subface_stress": (
+        #                     self.use_subface_contact_force()
+        #                 ),
+        #             },
+        #         )
         for sd, data in self.mdg.subdomains(return_data=True):
             if sd.dim == self.nd:
+                parameters = {
+                    "bc": self.bc_type_mechanics(sd),
+                    "fourth_order_tensor": self.stiffness_tensor(sd),
+                    "store_subface_stress": (
+                        self.use_subface_contact_force()
+                    ),
+                }
+
+                if self.use_subface_contact_force():
+                    parameters["mpsa_eta"] = (
+                        self.subface_continuity_point_eta(sd)
+                    )
+
                 pp.initialize_data(
                     data,
                     self.stress_keyword,
-                    {
-                        "bc": self.bc_type_mechanics(sd),
-                        "fourth_order_tensor": self.stiffness_tensor(sd),
-                    },
+                    parameters,
                 )
 
     def _is_nonlinear_problem(self) -> bool:
