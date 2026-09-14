@@ -1,0 +1,102 @@
+# Trigger downstream repos' integration test workflows against a specific
+# porepy ref/SHA, so a breaking change is caught before (or immediately after)
+# it lands on develop, instead of waiting for the next nightly cron.
+#
+# On push to develop: resolves the merged commit's originating PR (if any) via
+# the GitHub API and dispatches each repo listed in downstream-repos.json,
+# passing that PR number along so the downstream repo can comment back on it.
+#
+# On a porepy pull request (opened/synchronize/reopened): the PR is already
+# known, so no API resolution is needed. Dispatches against the PR's head SHA
+# (immutable per dispatch, unlike the branch name, which can move under a
+# force-push) so a superseded run can't silently report on stale code.
+#
+# The downstream workflows are fire-and-forget: this workflow does not wait
+# for their result, it only triggers them.
+name: Trigger downstream integration tests
+
+on:
+  push:
+    branches:
+      - develop
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+
+concurrency:
+  group: downstream-dispatch-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  resolve-pr:
+    name: Resolve dispatch target
+    runs-on: ubuntu-latest
+    outputs:
+      pr_number: ${{ steps.resolve.outputs.pr_number }}
+      sha: ${{ steps.resolve.outputs.sha }}
+      ref: ${{ steps.resolve.outputs.ref }}
+      trigger_event: ${{ steps.resolve.outputs.trigger_event }}
+      repos: ${{ steps.load-repos.outputs.repos }}
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Resolve PR number, SHA and ref to dispatch
+        id: resolve
+        env:
+          GH_TOKEN: ${{ secrets.DOWNSTREAM_DISPATCH_PAT }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # The PR is already known; no commit->PR lookup needed. Use the
+            # head SHA (not the merge commit github.sha) so a dispatch always
+            # targets immutable, exactly-what's-under-review code.
+            pr_number="${{ github.event.pull_request.number }}"
+            sha="${{ github.event.pull_request.head.sha }}"
+            ref="$sha"
+            echo "Dispatching for PR #$pr_number at $sha" >> "$GITHUB_STEP_SUMMARY"
+          else
+            pr_number=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" --jq '.[0].number // empty')
+            sha="${{ github.sha }}"
+            ref="develop"
+            if [ -z "$pr_number" ]; then
+              echo "No associated PR found for $sha (direct push?)." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "Resolved originating PR: #$pr_number" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
+          echo "pr_number=$pr_number" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "trigger_event=${{ github.event_name }}" >> "$GITHUB_OUTPUT"
+
+      - name: Load downstream repo list
+        id: load-repos
+        run: |
+          repos=$(jq -c '.repos' .github/downstream-repos.json)
+          echo "repos=$repos" >> "$GITHUB_OUTPUT"
+
+  dispatch:
+    name: Dispatch ${{ matrix.repo.name }}
+    needs: resolve-pr
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        repo: ${{ fromJson(needs.resolve-pr.outputs.repos) }}
+    steps:
+      - name: Trigger downstream workflow
+        env:
+          GH_TOKEN: ${{ secrets.DOWNSTREAM_DISPATCH_PAT }}
+        run: |
+          gh workflow run "${{ matrix.repo.workflow_file }}" \
+            --repo "${{ matrix.repo.owner }}/${{ matrix.repo.repo }}" \
+            --ref "${{ matrix.repo.ref }}" \
+            -f porepy_ref=${{ needs.resolve-pr.outputs.ref }} \
+            -f porepy_sha=${{ needs.resolve-pr.outputs.sha }} \
+            -f porepy_pr_number="${{ needs.resolve-pr.outputs.pr_number }}" \
+            -f trigger_event=${{ needs.resolve-pr.outputs.trigger_event }}

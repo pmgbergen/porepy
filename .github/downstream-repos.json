@@ -1,0 +1,9 @@
+{
+  "_comment": ["This file dictates which repositories downstream from PorePy should their test suite on PRs and pushes to PorePy develop. For more information on the test run see the workflow_file in the repository"],
+  "repos": [
+    { "name": "mpxa", "owner": "pmgbergen", "repo": "mpxa",
+      "workflow_file": "porepy-integration-test.yml", "ref": "main" },
+    { "name": "pp_solvers", "owner": "pmgbergen", "repo": "porepy-iterative-solvers",
+      "workflow_file": "porepy-integration-test.yml", "ref": "develop" }
+  ]
+}
