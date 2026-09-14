@@ -582,3 +582,96 @@ def geometry_information(
     n_faces = sum([sd.num_faces for sd in mdg.subdomains()]) * dim
     n_mortar_cells = sum([intf.num_cells for intf in mdg.interfaces()]) * dim
     return n_cells, n_faces, n_mortar_cells
+
+
+def test_primary_subface_to_mortar_int(tmp_path):
+    """Verify size, entries and vector ordering of the projection.
+    
+    The tested case only has one primary subdomain and one interface. 
+
+    Therefore, the global vector projection must equal the vector extension of
+    the local scalar subface-to-mortar projection.
+    """
+    fracture = pp.LineFracture(
+        np.array(
+            [
+                [0.25, 0.75],
+                [0.5, 0.5],
+            ]
+        )
+    )
+    network = pp.create_fracture_network(
+        fractures=[fracture],
+        domain=pp.domains.unit_cube_domain(dimension=2),
+    )
+
+    mdg = pp.create_mdg(
+        grid_type="simplex",
+        meshing_args={"cell_size": 0.25},
+        fracture_network=network,
+        file_name=tmp_path / "gmsh_frac_file",
+    )
+
+    primary = mdg.subdomains(dim=2)[0]
+    coarse_secondary = mdg.subdomains(dim=1)[0]
+    coarse_interface = mdg.interfaces(dim=1)[0]
+
+    fine_secondary = pp.refinement.refine_grid_1d(
+        coarse_secondary,
+        ratio=2,
+    )
+    fine_side_grids = {
+        side: fine_secondary.copy()
+        for side in coarse_interface.side_grids
+    }
+
+    mdg.replace_subdomains_and_interfaces(
+        sd_map={coarse_secondary: fine_secondary},
+        interface_map={coarse_interface: fine_side_grids},
+    )
+
+    secondary = mdg.subdomains(dim=1)[0]
+    interface = mdg.interfaces(dim=1)[0]
+    dim = primary.dim
+
+    from porepy.numerics.fv import _fvutils
+    scalar_projection = _fvutils.map_subfaces_to_mortar(
+        primary=primary,
+        secondary=secondary,
+        interface=interface,
+    )
+
+    projections = pp.ad.MortarProjections(
+        mdg=mdg,
+        subdomains=mdg.subdomains(),
+        interfaces=[interface],
+        dim=dim,
+    )
+
+    vector_operator = (
+        projections.primary_subface_to_mortar_int([primary])
+    )
+    vector_matrix = vector_operator.parse(mdg).tocsr()
+
+    topology = _fvutils.SubcellTopology(primary)
+
+    # Check that the shape of the vector projection is correct.
+    assert vector_matrix.shape == (
+        dim * interface.num_cells,
+        dim * topology.num_subfno_unique,
+    )
+
+    # The expected matrix for the vector projection according to
+    # PorePy's ordering. For one primary subdomain and one interface,
+    # the global vector projection must equal the vector extension
+    # of the local scalar subface-to-mortar projection.
+    expected_matrix = sps.kron(
+        scalar_projection,
+        sps.eye(dim),
+        format="csr",
+    )
+
+    assert _compare_matrices(
+        vector_matrix,
+        expected_matrix,
+    )
