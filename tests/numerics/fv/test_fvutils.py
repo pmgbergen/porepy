@@ -375,3 +375,122 @@ def test_adjust_eta_length_mixed_nodes_per_face():
     #   f0 (triangle) occupies slots 0-2  -> eta values [0, 1, 2]
     #   f2 (quad)     occupies slots 6-9  -> eta values [6, 7, 8, 9]
     assert np.array_equal(loc_eta, np.array([0.0, 1.0, 2.0, 6.0, 7.0, 8.0, 9.0]))
+
+def test_map_subfaces_to_mortar():
+    """Check whether the matrix subfaces are mapped to the fine interface cells.
+    
+    """
+    fracture = pp.LineFracture(
+        np.array(
+            [
+                [0.25, 0.75],
+                [0.5, 0.5],
+            ]
+        )
+    )
+    network = pp.create_fracture_network(
+        fractures=[fracture],
+        domain=pp.domains.unit_cube_domain(dimension=2),
+    )
+
+    mdg = pp.create_mdg(
+        grid_type="simplex",
+        meshing_args={"cell_size": 0.25},
+        fracture_network=network,
+    )
+
+    primary = mdg.subdomains(dim=2)[0]
+    coarse_secondary = mdg.subdomains(dim=1)[0]
+    coarse_interface = mdg.interfaces(dim=1)[0]
+
+    fine_secondary = pp.refinement.refine_grid_1d(
+        coarse_secondary,
+        ratio=2,
+    )
+    fine_side_grids = {
+        side: fine_secondary.copy()
+        for side in coarse_interface.side_grids
+    }
+
+    mdg.replace_subdomains_and_interfaces(
+        sd_map={coarse_secondary: fine_secondary},
+        interface_map={coarse_interface: fine_side_grids},
+    )
+
+    secondary = mdg.subdomains(dim=1)[0]
+    interface = mdg.interfaces(dim=1)[0]
+
+    actual = _fvutils.map_subfaces_to_mortar(
+        primary=primary,
+        secondary=secondary,
+        interface=interface,
+    )
+
+    topology = _fvutils.SubcellTopology(primary)
+    primary_to_mortar = interface.primary_to_mortar_int().tocsr()
+
+    expected = np.zeros(
+        (
+            interface.num_cells,
+            topology.num_subfno_unique,
+        )
+    )
+
+    for mortar_cell in range(interface.num_cells):
+        start = primary_to_mortar.indptr[mortar_cell]
+        end = primary_to_mortar.indptr[mortar_cell + 1]
+
+        nonzero = primary_to_mortar.data[start:end] != 0
+        primary_faces = primary_to_mortar.indices[start:end][nonzero]
+
+        assert primary_faces.size == 1
+        primary_face = primary_faces[0]
+
+        positions = np.flatnonzero(
+            topology.fno_unique == primary_face
+        )
+        candidate_subfaces = topology.subfno_unique[positions]
+        candidate_nodes = topology.nno_unique[positions]
+
+        assert candidate_subfaces.size == 2
+
+        # In 2D, a subface is the segment from the full-face center to
+        # one of its nodes.
+        subface_centers = 0.5 * (
+            primary.face_centers[:, primary_face, np.newaxis]
+            + primary.nodes[:, candidate_nodes]
+        )
+
+        # The correct subface center coincides with the interface-cell center.
+        distances = np.linalg.norm(
+            subface_centers
+            - interface.cell_centers[:, mortar_cell, np.newaxis],
+            axis=0,
+        )
+        matching = np.flatnonzero(
+            np.isclose(
+                distances,
+                0.0,
+                atol=1e-10,
+                rtol=0.0,
+            )
+        )
+
+        assert matching.size == 1
+
+        expected_subface = candidate_subfaces[matching[0]]
+        expected[mortar_cell, expected_subface] = 1.0
+
+    # Check that the returned matrix has the correct shape.
+    assert actual.shape == (
+        interface.num_cells,
+        topology.num_subfno_unique,
+    )
+
+    # Check the returned projection matrix by comparing it to
+    # the expected matrix.
+    np.testing.assert_array_equal(
+        actual.toarray(),
+        expected,
+    )
+
