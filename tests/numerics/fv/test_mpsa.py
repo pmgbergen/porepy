@@ -1321,3 +1321,89 @@ class TestMpsaReproduceKnownValues:
         # Compare computed and known values
         assert np.allclose(u, known_u)
         assert np.allclose(flux, known_flux)
+
+def test_subface_stress_matrices():
+    """Check whether subface matrices recover full-face matrices.
+    
+    """
+    sd = pp.StructuredTriangleGrid([1, 1])
+    sd.compute_geometry()
+
+    stiffness = pp.FourthOrderTensor(
+        mu=np.ones(sd.num_cells),
+        lmbda=np.ones(sd.num_cells),
+    )
+
+    boundary_faces = sd.get_all_boundary_faces()
+    dirichlet_faces = boundary_faces[
+        np.isclose(sd.face_centers[0, boundary_faces], 0.0)
+    ]
+    neumann_faces = np.setdiff1d(
+        boundary_faces,
+        dirichlet_faces,
+    )
+
+    boundary_condition = pp.BoundaryConditionVectorial(
+        sd,
+        dirichlet_faces,
+        "dir",
+    )
+
+    assert np.all(
+        boundary_condition.is_dir[:, dirichlet_faces]
+    )
+    assert np.all(
+        boundary_condition.is_neu[:, neumann_faces]
+    )
+
+    data = pp.initialize_data(
+        {},
+        keyword,
+        specified_parameters={
+            "fourth_order_tensor": stiffness,
+            "bc": boundary_condition,
+            "inverter": "python",
+            "store_subface_stress": True,
+        },
+    )
+
+    discr.discretize(sd, data)
+
+    matrices = data[pp.DISCRETIZATION_MATRICES][keyword]
+    topology = _fvutils.SubcellTopology(sd)
+    subface_to_face = _fvutils.map_hf_2_f(sd=sd)
+
+    stress = matrices[discr.stress_matrix_key]
+    bound_stress = matrices[discr.bound_stress_matrix_key]
+    subface_stress = matrices[
+        discr.subface_stress_matrix_key
+    ]
+    subface_bound_stress = matrices[
+        discr.subface_bound_stress_matrix_key
+    ]
+
+    assert subface_stress.shape == (
+        sd.dim * topology.num_subfno_unique,
+        sd.dim * sd.num_cells,
+    )
+    assert subface_bound_stress.shape == (
+        sd.dim * topology.num_subfno_unique,
+        sd.dim * topology.num_subfno_unique,
+    )
+
+    assert np.allclose(
+        (
+            stress
+            - subface_to_face @ subface_stress
+        ).toarray(),
+        0,
+    )
+    assert np.allclose(
+        (
+            bound_stress
+            - subface_to_face
+            @ subface_bound_stress
+            @ subface_to_face.T
+        ).toarray(),
+        0,
+    )
