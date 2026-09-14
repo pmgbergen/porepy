@@ -25,6 +25,7 @@ import pytest
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.fv import _fvutils
 import porepy.applications.md_grids.model_geometries
 import porepy.models.geometry
 from porepy.applications.test_utils import models
@@ -418,6 +419,85 @@ class TestGeometry:
                 )
             # Update offset, needed to test for multiple subdomains.
             offset += sd.num_faces * dim
+
+    @pytest.mark.parametrize("num_fracs", [0, 1, 2, 3])
+    def test_internal_boundary_subface_normal_to_outwards(
+        self,
+        geometry_class: type[pp.ModelGeometry],
+        num_fracs: int,
+    ) -> None:
+        """Check the orientation operator for matrix subfaces at interfaces.
+        
+        """
+        geometry_model = self.geometries[geometry_class, num_fracs]
+        dim = geometry_model.nd
+
+        subdomains = [
+            sd
+            for sd in geometry_model.interfaces_to_subdomains(
+                geometry_model.mdg.interfaces()
+            )
+            if sd.dim == dim
+        ]
+
+        operator = (
+             geometry_model.internal_boundary_subface_normal_to_outwards(
+                subdomains,
+                dim=dim,
+            )
+        )
+
+        equation_system = pp.EquationSystem(geometry_model.mdg)
+        actual = equation_system.evaluate(operator)
+
+        expected_subface_signs = []
+
+        for sd in subdomains:
+            topology = _fvutils.SubcellTopology(sd)
+
+            scalar_signs = np.zeros(topology.num_subfno_unique)
+
+            fracture_faces = np.where(sd.tags["fracture_faces"])[0]
+            is_fracture_subface = np.isin(
+                topology.fno_unique,
+                fracture_faces,
+            )
+
+            face_signs = np.asarray(
+                sd.cell_faces.sum(axis=1)
+            ).ravel()
+
+            scalar_signs[
+                topology.subfno_unique[is_fracture_subface]
+            ] = face_signs[
+                topology.fno_unique[is_fracture_subface]
+            ]
+
+            # PorePy's vector ordering:
+            expected_subface_signs.append(
+                np.repeat(scalar_signs, dim)
+            )
+
+        if len(expected_subface_signs) == 0:
+            expected_diagonal = np.empty(0)
+        else:
+            expected_diagonal = np.concatenate(
+                expected_subface_signs
+            )
+
+        expected = sps.diags(
+            expected_diagonal,
+            format="csr",
+        )
+
+        assert actual.shape == (
+            expected_diagonal.size,
+            expected_diagonal.size,
+        )
+        assert np.allclose(
+            (actual - expected).toarray(),
+            0,
+        )
 
     @pytest.mark.parametrize("num_fracs", [0, 1, 2, 3])
     def test_outwards_normals(
