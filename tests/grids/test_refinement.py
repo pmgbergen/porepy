@@ -511,3 +511,58 @@ class TestGridFactory:
                 # Since there are no true fractures in the network (only constraints)
                 # there should be no lower-dimensional grids
                 assert len(mdg.subdomains(dim=dim)) == 0
+
+def test_refine_1d_grid_parent_ind():
+    # Check that the the global parent indices of the refined grid 
+    # are correct.
+    fracture = pp.LineFracture(
+        np.array(
+            [
+                [0.25, 0.75],
+                [0.5, 0.5],
+            ]
+        )
+    )
+    network = pp.create_fracture_network(
+        fractures=[fracture],
+        domain=pp.domains.unit_cube_domain(dimension=2),
+    )
+    mdg = pp.create_mdg(
+        grid_type="simplex",
+        meshing_args={
+            "cell_size_fracture": 0.25,
+            "cell_size_boundary": 0.25,
+            "cell_size_min": 0.1,
+        },
+        fracture_network=network,
+    )
+
+    coarse = mdg.subdomains(dim=1)[0]
+    fine = refinement.refine_grid_1d(coarse, ratio=2)
+
+    # Every coarse fracture cell is split into two fine cells.
+    assert fine.num_cells == 2 * coarse.num_cells
+    assert np.array_equal(
+        fine.parent_cell_ind,
+        np.repeat(np.arange(coarse.num_cells), 2),
+    )
+
+    # Every fine fracture cell contains only one node inherited from the
+    # coarse fracture, with the corresponding parent global-point index.
+    cell_nodes = fine.cell_nodes().tocsc()
+
+    for cell in range(fine.num_cells):
+        nodes = cell_nodes.indices[
+            cell_nodes.indptr[cell] : cell_nodes.indptr[cell + 1]
+        ]
+        inherited = nodes[fine.parent_node_ind[nodes] >= 0]
+
+        assert inherited.size == 1
+
+        inherited_node = inherited[0]
+        parent_node = fine.parent_node_ind[inherited_node]
+
+        assert (
+            fine.parent_node_global_ind[inherited_node]
+            == coarse.global_point_ind[parent_node]
+        )
