@@ -156,12 +156,10 @@ class TimeScheduler(TimeSchedulerBase):
         self.schedule = schedule
         """Simulation schedule."""
         _validate_schedule_non_constant_dt(schedule=schedule, atol=self.t_snap)
-        self.interval_map = _IntervalMap(schedule.intervals, atol=self.t_snap)
-        """A data structure that returns the current and next intervals for any
-        simulation time.
-    
-        """
-        current_interval, next_interval = self.interval_map.get(time=time_manager.time)
+
+        current_interval, next_interval = self.schedule.get_current_next_intervals(
+            time=time_manager.time
+        )
         time_manager.dt = self._adjust_dt_min_max_schedule(
             time=time_manager.time,
             dt=time_manager.dt,
@@ -176,7 +174,9 @@ class TimeScheduler(TimeSchedulerBase):
         if time_manager.final_time_reached():
             return time_manager.dt
 
-        current_interval, next_interval = self.interval_map.get(time=time_manager.time)
+        current_interval, next_interval = self.schedule.get_current_next_intervals(
+            time=time_manager.time
+        )
         dt = time_manager.dt
         t_end = self.schedule.t_end
         next_checkpoint = t_end if next_interval is None else next_interval.t_start
@@ -272,54 +272,6 @@ def assemble_default_time_scheduler(time_manager: pp.TimeManager) -> TimeSchedul
             dt=time_manager.dt_init,
             t_snap=time_manager.atol,
         )
-
-
-class _IntervalMap:
-    """An auxiliary data structure used by TimeScheduler. For any simulation time,
-    returns the time interval it belongs to, and the next interval.
-
-    Implementation note: does binary search over a sorted array of interval starts with
-    O(log n) time complexity for n intervals.
-
-    Parameters:
-        intervals: List of intervals. The last interval is `[t_last, ∞)`.
-        atol: Snapping time. Time differences below it are treated as zero.
-
-    """
-
-    def __init__(self, intervals: list[TimeInterval], atol: float) -> None:
-        self.intervals = intervals
-        # Sorted array of interval starts used for binary search. In this array, each
-        # interval's start (t_start) is decreased by atol (t_ε) to ensure that
-        # t ∈ [t_start - t_ε, t_start] snaps to the current interval and not the
-        # previous one.
-        self._interval_starts = [interval.t_start - atol for interval in intervals]
-        # Sanity check: they must be sorted.
-        assert self._interval_starts == sorted(self._interval_starts)
-
-    def get(self, time: float) -> tuple[TimeInterval, TimeInterval | None]:
-        """Get the interval that corresponds to the requested time.
-
-        Raises:
-            ValueError: If the requested time is below the first interval's start time.
-
-        Returns:
-            Tuple of two intervals: Current (the one `time` belongs to) and next. If the
-                current interval is the last one, next is `None`.
-
-        """
-        # Do the binary search. Off by one to match the array index (bisect_right
-        # returns 0 if we are below minimum).
-        i = bisect_right(self._interval_starts, time) - 1
-        if i < 0:
-            raise ValueError(
-                "The requested time is below the first interval's start time."
-            )
-        elif i >= len(self.intervals):
-            raise ValueError("This should never happen.")
-        current_interval = self.intervals[i]
-        next_interval = self.intervals[i + 1] if i < (len(self.intervals) - 1) else None
-        return current_interval, next_interval
 
 
 def _log_schedule_interval_start(t_start: float, t_end: float, name: str = "") -> None:
