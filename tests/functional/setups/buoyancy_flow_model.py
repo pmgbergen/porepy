@@ -24,7 +24,8 @@ import numpy as np
 import porepy as pp
 from porepy.models.abstract_equations import LocalElimination
 from porepy.models.compositional_flow import (
-    CompositionalFractionalFlowTemplate as FlowTemplate,
+    CompositionalFlowTemplate,
+    CompositionalFractionalFlowTemplate,
 )
 
 # Constants for fluid phase densities (kg/m^3)
@@ -55,35 +56,61 @@ class Geometry(pp.PorePyModel):
     """
 
     @abstractmethod
-    def dirichlet_facets(self, sd: pp.Grid | pp.BoundaryGrid) -> tuple[np.ndarray]:
+    def dirichlet_facets(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
         """Return Dirichlet facet indices."""
         pass
 
-    @staticmethod
-    def harvest_sphere_members(xc: np.ndarray, rc: float, x: np.ndarray) -> np.ndarray:
-        """
-        Select points inside a sphere defined by center and radius.
+    def _dirichlet_anchor_facet(
+        self, sd: pp.Grid | pp.BoundaryGrid, axis: int
+    ) -> np.ndarray:
+        """Single pressure-anchor facet on the domain's maximum-``axis`` plane.
 
-        Args:
-            xc (np.ndarray): Coordinates of the sphere center.
-            rc (float): Radius of the sphere.
-            x (np.ndarray): Array of points to test.
+        A pure coordinate bounding box on the face centers selects the facets lying on
+        that plane -- which, unlike PorePy's ``domain_boundary_sides``, also captures
+        fracture-tip boundary facets -- and the one nearest the plane center is
+        returned.
+
+        The opening is deliberately kept to a single facet: this incompressible
+        fractional-flow system needs a pressure anchor, but any larger open Dirichlet
+        boundary lets buoyancy drive mass across it and pollutes the conservation
+        checks.
+
+        Parameters:
+            sd: A subdomain grid or its boundary grid.
+            axis: Coordinate axis (0=x, 1=y, 2=z) whose maximum defines the plane.
 
         Returns:
-            np.ndarray: Boolean mask array indicating points inside the sphere.
+            The index of the anchor facet (empty if the subdomain has no facet on the
+            plane, e.g. a fracture not reaching the boundary).
+
         """
-        dx = x - xc
-        r = np.linalg.norm(dx, axis=1)
-        return np.where(r < rc, True, False)
+        if isinstance(sd, pp.Grid):
+            coords = sd.face_centers
+        elif isinstance(sd, pp.BoundaryGrid):
+            coords = sd.cell_centers
+        else:
+            raise ValueError("Type not expected.")
+
+        bounding_box = self._domain.bounding_box
+        on_plane = np.where(
+            np.isclose(coords[axis], bounding_box[("xmax", "ymax", "zmax")[axis]])
+        )[0]
+        if on_plane.size <= 1:
+            return on_plane
+        # Of the plane facets, pick the one closest to the plane center. The transverse
+        # axes are exactly those below the (last) maximum axis.
+        dist2 = np.zeros(on_plane.size)
+        for a in range(axis):
+            center = 0.5 * (
+                bounding_box[("xmin", "ymin", "zmin")[a]]
+                + bounding_box[("xmax", "ymax", "zmax")[a]]
+            )
+            dist2 += (coords[a, on_plane] - center) ** 2
+        return on_plane[[int(np.argmin(dist2))]]
 
 
 class ModelGeometry2D(Geometry):
     """2D Cartesian domain."""
-
-    _sphere_radius: float = 1.0
-    _sphere_center: np.ndarray = np.array(
-        [2.5, 5.0, 0.0]
-    )  # renamed from _sphere_centre
 
     def set_domain(self) -> None:
         """Set square domain."""
@@ -101,54 +128,25 @@ class ModelGeometry2D(Geometry):
         return mesh_args
 
     def dirichlet_facets(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
-        if isinstance(sd, pp.Grid):
-            face_centers = sd.face_centers.T
-        elif isinstance(sd, pp.BoundaryGrid):
-            face_centers = sd.cell_centers.T
-        else:
-            raise ValueError("Type not expected.")
-
-        boundary_faces = self.domain_boundary_sides(sd)
-        bf_indices = boundary_faces.all_bf
-
-        def find_facets(center: np.ndarray) -> np.ndarray:
-            logical = Geometry.harvest_sphere_members(
-                center, self._sphere_radius, face_centers[bf_indices]
-            )
-            return bf_indices[logical]
-
-        return find_facets(self._sphere_center)
+        """Single pressure-anchor facet at the center of the ``ymax`` edge."""
+        return self._dirichlet_anchor_facet(sd, axis=1)
 
 
 class ModelMDGeometry2D(ModelGeometry2D):
-    """2D mixed-dimensional domain."""
+    """2D mixed-dimensional domain: [0, 2]^2 (2x2), two fractures crossing at (1, 1)."""
+
+    def set_domain(self) -> None:
+        length = self.units.convert_units(2.0, "m")
+        self._domain = pp.Domain({"xmax": length, "ymax": length})
 
     def set_fractures(self) -> None:
-        points = np.array(
-            [
-                [1.0, 2.0],
-                [4.0, 2.0],
-                [1.0, 2.0],
-                [1.0, 4.0],
-                [4.0, 2.0],
-                [4.0, 4.0],
-                [2.0, 1.0],
-                [2.0, 4.0],
-                [3.0, 1.0],
-                [3.0, 4.0],
-            ]
-        ).T
-        fracs = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]).T
+        points = np.array([[1.0, 0.0], [1.0, 2.0], [0.0, 1.0], [2.0, 1.0]]).T
+        fracs = np.array([[0, 1], [2, 3]]).T
         self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
 
 
 class ModelGeometry3D(Geometry):
     """3D Cartesian domain."""
-
-    _sphere_radius: float = 1.0
-    _sphere_center: np.ndarray = np.array(
-        [2.5, 2.5, 5.0]
-    )  # renamed from _sphere_centre
 
     def set_domain(self) -> None:
         """Set a 3D cubic domain."""
@@ -171,52 +169,22 @@ class ModelGeometry3D(Geometry):
         return mesh_args
 
     def dirichlet_facets(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
-        if isinstance(sd, pp.Grid):
-            face_centers = sd.face_centers.T
-        elif isinstance(sd, pp.BoundaryGrid):
-            face_centers = sd.cell_centers.T
-        else:
-            raise ValueError("Type not expected.")
-
-        boundary_faces = self.domain_boundary_sides(sd)
-        bf_indices = boundary_faces.all_bf
-
-        def find_facets(center: np.ndarray) -> np.ndarray:
-            logical = Geometry.harvest_sphere_members(
-                center, self._sphere_radius, face_centers[bf_indices]
-            )
-            return bf_indices[logical]
-
-        return find_facets(self._sphere_center)
+        """Single pressure-anchor facet at the center of the ``zmax`` face."""
+        return self._dirichlet_anchor_facet(sd, axis=2)
 
 
 class ModelMDGeometry3D(ModelGeometry3D):
-    """3D mixed-dimensional domain."""
+    """3D mixed-dimensional domain: three planes crossing at (1, 1, 1)."""
+
+    def set_domain(self) -> None:
+        length = self.units.convert_units(2.0, "m")
+        self._domain = pp.Domain({"xmax": length, "ymax": length, "zmax": length})
 
     def set_fractures(self) -> None:
-        kind_1_square_u = np.array([1.0, 1.0, 4.0, 4.0])
-        kind_1_square_v = np.array([1.0, 4.0, 4.0, 1.0])
-
-        kind_2_square_u = np.array([2.0, 2.0, 4.0, 4.0])
-        kind_2_square_v = np.array([2.0, 4.0, 4.0, 2.0])
-
-        # normal along z from z = 2.0
-        f1 = np.vstack([kind_1_square_u, kind_1_square_v, np.full(4, 2.0)])
-
-        # normal along y from y = 1.0
-        f2 = np.vstack([kind_1_square_u, np.full(4, 1.0), kind_1_square_v])
-
-        # normal along y from y = 4.0
-        f3 = np.vstack([kind_1_square_u, np.full(4, 4.0), kind_1_square_v])
-
-        # normal along y from y = 3.0
-        f4 = np.vstack([kind_1_square_u, np.full(4, 3.0), kind_1_square_v])
-
-        # normal along x from x = 2.0
-        f5 = np.vstack([np.full(4, 2.0), kind_2_square_u, kind_2_square_v])
-
-        disjoint_set = [f1, f2, f3, f4, f5]
-        self._fractures = [pp.PlaneFracture(p) for p in disjoint_set]
+        fx = np.vstack([[1.0, 1.0, 1.0, 1.0], [0, 2, 2, 0], [0, 0, 2, 2]])
+        fy = np.vstack([[0, 2, 2, 0], [1.0, 1.0, 1.0, 1.0], [0, 0, 2, 2]])
+        fz = np.vstack([[0, 2, 2, 0], [0, 0, 2, 2], [1.0, 1.0, 1.0, 1.0]])
+        self._fractures = [pp.PlaneFracture(f) for f in (fx, fy, fz)]
 
 
 class BaseEOS(pp.compositional.EquationOfState):
@@ -356,17 +324,20 @@ class GasEOS(BaseEOS):
 
 
 class BoundaryConditions(pp.PorePyModel):
-    """Boundary conditions."""
+    """Closed (all-Neumann, no-flow) external boundary.
 
-    get_inlet_outlet_sides: Callable[
-        [pp.Grid | pp.BoundaryGrid], tuple[np.ndarray, np.ndarray]
-    ]
+    A closed domain makes total mass and energy exact invariants, which is what the
+    conservation checks rely on. The resulting singular pressure mode is handled by
+    :class:`NullMeanPressureSolve`.
+    """
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        return pp.BoundaryCondition(sd, self.dirichlet_facets(sd), "dir")
+        """All-Neumann: zero conductive heat flux across the external boundary."""
+        return pp.BoundaryCondition(sd)
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        return pp.BoundaryCondition(sd, self.dirichlet_facets(sd), "dir")
+        """All-Neumann: no-flow across the external boundary."""
+        return pp.BoundaryCondition(sd)
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         p_top = 10.0e6 * to_Mega
@@ -382,6 +353,193 @@ class BoundaryConditions(pp.PorePyModel):
         self, component: pp.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
         return np.zeros(boundary_grid.num_cells)
+
+
+class NullMeanPressureSolve(pp.PorePyModel):
+    """Gauge fixing for the closed (all-Neumann) problem.
+
+    The closed domain leaves pressure defined up to a constant. The gauge
+    ``Sum(dp_matrix) = 0`` is enforced by a bordered solve in
+    :class:`NullMeanPressureLinearSolver`; this mixin provides the DOFs that
+    span the kernel. A single matrix row suffices: the fracture pressures are
+    pinned to the matrix through the interface Darcy coupling.
+    """
+
+    def null_mean_pressure_dofs(self) -> np.ndarray:
+        """Global DOF indices of the matrix pressure."""
+        es = self.equation_system
+        matrix = self.mdg.subdomains(dim=self.nd)
+        return np.asarray(es.dofs_of([es.md_variable("pressure", matrix)]), dtype=int)
+
+
+class SchurEliminationDirectSolver(pp.solvers.LinearSolverBase):
+    """Direct solver that Schur-eliminates the local secondary block.
+
+    The elimination equations are cell-local, so ``A_ss`` is block diagonal and cheap
+    to invert. The solver reduces ``S = A_pp - A_ps inv(A_ss) A_sp``, solves the
+    primary system via :meth:`_solve_primary` (overridable) and back-substitutes.
+    """
+
+    def initialize_with_model(self, model: pp.PorePyModel) -> None:
+        self._model = model
+
+    def _solve_primary(self, S, rhs: np.ndarray, prim_cols: np.ndarray) -> np.ndarray:
+        """Direct solve of the reduced primary system; ``prim_cols`` are the global DOF
+        indices of the primary columns (for subclasses that need reduced numbering)."""
+        from scipy.sparse.linalg import spsolve
+
+        return np.atleast_1d(np.asarray(spsolve(S.tocsc(), rhs), dtype=float))
+
+    def solve_linear_system(
+        self, linear_system: pp.solvers.LinearSystem
+    ) -> tuple[np.ndarray, pp.solvers.LinearSolverStatus]:
+        """Schur-reduce the local secondary block, solve the reduced primary system,
+        back-substitute; returns the full increment ``dx``."""
+        import time
+
+        t_0 = time.time()
+        A, b = linear_system.matrix, linear_system.rhs
+        assert A is not None, "Cannot solve a linear system whose matrix was released."
+        A = A.tocsr()
+        b = np.asarray(b, dtype=float)
+        n = A.shape[0]
+        model = self._model
+        es = model.equation_system
+
+        eliminations = getattr(model, "_LocalElimination__local_eliminations", {})
+        if not eliminations:
+            dx = self._solve_primary(A, b, np.arange(n))
+            return dx, pp.solvers.LinearSolverStatusSuccess(
+                solve_time=time.time() - t_0
+            )
+
+        # Partition into primary/secondary rows (equations) and columns (variables).
+        # Rows and columns are collected in paired per-elimination order (each
+        # equation block next to its own variable's dofs); each closure is
+        # ``var - func = 0``, so paired ordering makes A_ss the identity, while
+        # independent sorting would scramble it into a permutation.
+        sec_rows = np.concatenate(
+            [es.assembled_equation_indices[name] for name in eliminations]
+        )
+        sec_cols = np.concatenate(
+            [es.dofs_of([var]) for var, *_ in eliminations.values()]
+        )
+        prim_rows = np.setdiff1d(np.arange(n), sec_rows, assume_unique=True)
+        prim_cols = np.setdiff1d(np.arange(n), sec_cols, assume_unique=True)
+
+        A_pp = A[prim_rows][:, prim_cols]
+        A_ps = A[prim_rows][:, sec_cols]
+        A_sp = A[sec_rows][:, prim_cols]
+        A_ss = A[sec_rows][:, sec_cols].tocsr()
+        b_p, b_s = b[prim_rows], b[sec_rows]
+
+        # With primary-only dependencies A_ss is the identity, so the block inversion
+        # and every inv_ss product can be skipped. The check is O(nnz).
+        m = A_ss.shape[0]
+        if A_ss.count_nonzero() == m and np.all(A_ss.diagonal() == 1.0):
+            S = (A_pp - A_ps @ A_sp).tocsr()
+            rhs = b_p - A_ps @ b_s
+            dx_p = self._solve_primary(S, rhs, prim_cols)
+            dx_s = b_s - A_sp @ dx_p
+        else:
+            # General local block: permuted block-diagonal inverse (the equation system
+            # caches the permutation).
+            inv_ss = es.default_schur_complement_inverter(A_ss)
+            S = (A_pp - A_ps @ inv_ss @ A_sp).tocsr()
+            rhs = b_p - A_ps @ (inv_ss @ b_s)
+            dx_p = self._solve_primary(S, rhs, prim_cols)
+            dx_s = inv_ss @ (b_s - A_sp @ dx_p)
+
+        dx = np.zeros(n)
+        dx[prim_cols] = dx_p
+        dx[sec_cols] = dx_s
+        return dx, pp.solvers.LinearSolverStatusSuccess(solve_time=time.time() - t_0)
+
+
+class NullMeanPressureLinearSolver(SchurEliminationDirectSolver):
+    """Schur-eliminating solver with the null-mean pressure gauge: the primary
+    system is solved in bordered form with one constraint row summing the matrix
+    pressure DOFs, and the Lagrange multiplier is discarded.
+    """
+
+    def _solve_primary(self, S, rhs: np.ndarray, prim_cols: np.ndarray) -> np.ndarray:
+        from scipy.sparse import bmat, csr_matrix
+        from scipy.sparse.linalg import spsolve
+
+        # Pressure DOFs in the reduced numbering: rank among the sorted primary columns.
+        p_dofs = self._model.null_mean_pressure_dofs()
+        red = np.searchsorted(prim_cols, p_dofs)
+        assert np.all(prim_cols[red] == p_dofs), (
+            "pressure DOFs are not part of the primary block"
+        )
+
+        n = S.shape[0]
+        C = csr_matrix(
+            (np.ones(red.size), (np.zeros(red.size, dtype=int), red)), shape=(1, n)
+        )
+        M = bmat([[S, C.T], [C, None]], format="csc")
+        rhs_b = np.concatenate([np.asarray(rhs, dtype=float), np.zeros(1)])
+        x = np.atleast_1d(np.asarray(spsolve(M, rhs_b), dtype=float))
+        return x[:n]  # drop the Lagrange multiplier
+
+
+class NullSpaceCriterion(pp.solvers.ConvergenceCriterion):
+    """Converge the null-mean-pressure residual r_nm = |Σ_c r_c| · Δt / V.
+
+    r_c is the per-cell mass-balance residual (a rate) and Σ_c projects onto the
+    constant mode -- the pressure null space of the closed Neumann problem, which the
+    gauge-fixed solve cannot reduce. The Δt converts the rate into the per-step mass
+    change the conservation checks accumulate; V (total volume) normalizes. Once Newton
+    stagnates r_nm freezes, so the criterion stops objecting and defers to the test's
+    assertion.
+    """
+
+    #: Consecutive checks with relative residual change below this count as frozen.
+    _stagnation_rtol: float = 1.0e-3
+    _stagnation_checks: int = 3
+
+    def __init__(self, model: pp.PorePyModel, tol: float) -> None:
+        self._model = model
+        self.tol = tol
+        self._history: list[float] = []
+        self._total_volume: float | None = None
+
+    def reset(self) -> None:
+        self._history = []
+
+    def check(
+        self, residual: np.ndarray, **kwargs
+    ) -> tuple[pp.solvers.ConvergenceStatus, float]:
+        model = self._model
+        rows = model.equation_system.assembled_equation_indices["mass_balance_equation"]
+        if self._total_volume is None:
+            # The geometry is fixed, so the normalization volume is computed once.
+            self._total_volume = sum(
+                np.sum(
+                    model.equation_system.evaluate(
+                        model.volume_integral(pp.ad.Scalar(1), [sd], dim=1)
+                    )
+                )
+                for sd in model.mdg.subdomains()
+            )
+        total_volume = self._total_volume
+        null_mean_res = float(
+            abs(np.sum(np.asarray(residual, dtype=float)[rows]))
+            * model.time_manager.dt
+            / total_volume
+        )
+        self._history.append(null_mean_res)
+        if null_mean_res <= self.tol:
+            return pp.solvers.ConvergenceStatus.CONVERGED, null_mean_res
+        # Stagnation escape: the null-mean-pressure residual has frozen (quadratic
+        # basin) and cannot improve.
+        recent = self._history[-self._stagnation_checks :]
+        if len(recent) == self._stagnation_checks and all(
+            abs(a - b) <= self._stagnation_rtol * max(abs(b), 1e-300)
+            for a, b in zip(recent[:-1], recent[1:])
+        ):
+            return pp.solvers.ConvergenceStatus.CONVERGED, null_mean_res
+        return pp.solvers.ConvergenceStatus.CONTINUE_ITERATING, null_mean_res
 
 
 class SecondaryEquations(LocalElimination):
@@ -456,18 +614,324 @@ class SecondaryEquations(LocalElimination):
         )
 
 
-class BaseFlowModel(
-    FlowTemplate,
-):
+class _MemoizedSurrogateFactory(pp.ad.SurrogateFactory):
+    """SurrogateFactory returning one shared operator per domain set.
+
+    A phase property (density, enthalpy, ...) referenced many times then appears as a
+    single AD subtree instead of a rebuilt one. Bit-exact: values live in the data and
+    are re-read at parse time, so the shared operator always reflects the current state.
+    """
+
+    def __call__(self, domains):
+        cache = self.__dict__.setdefault("_op_cache", {})
+        key = tuple(domains)
+        if key not in cache:
+            cache[key] = super().__call__(domains)
+        return cache[key]
+
+
+class FullIterateCacheMixin(pp.PorePyModel):
+    """Memoize the full-iterate state fetch during the after-iteration update.
+
+    Reusable across the buoyancy test models (see :meth:`update_derived_quantities`).
+    """
+
+    def update_derived_quantities(self) -> None:
+        """Install (once) a memoized full-iterate fetch, then update.
+
+        The per-grid flashes in the update each re-fetch the full system state,
+        which is quadratic in the number of subdomains. The primaries do not
+        change during one update, so a single cached fetch serves all of them.
+        """
+        self._install_full_iterate_cache()
+        super().update_derived_quantities()
+
+    def _install_full_iterate_cache(self) -> None:
+        """Memoize the full-iterate fetch until the next variable-value write.
+
+        Writes bump a generation counter that invalidates the cache; all other
+        fetches pass through. Installs once per equation system and returns a
+        fresh copy per call.
+        """
+        es = self.equation_system
+        if getattr(es, "_full_iterate_cache", None) is not None:
+            return
+        cache: dict = {"gen": 0, "cached_gen": -1, "value": None}
+        es._full_iterate_cache = cache
+        _get, _set, _shift = (
+            es.get_variable_values,
+            es.set_variable_values,
+            es.shift_iterate_values,
+        )
+
+        def get_variable_values(
+            variables=None, time_step_index=None, iterate_index=None, reference=False
+        ):
+            if (
+                variables is None
+                and time_step_index is None
+                and iterate_index == 0
+                and not reference
+            ):
+                if cache["cached_gen"] != cache["gen"]:
+                    cache["value"] = _get(iterate_index=0)
+                    cache["cached_gen"] = cache["gen"]
+                return cache["value"].copy()
+            return _get(
+                variables=variables,
+                time_step_index=time_step_index,
+                iterate_index=iterate_index,
+                reference=reference,
+            )
+
+        def set_variable_values(*args, **kwargs):
+            cache["gen"] += 1
+            return _set(*args, **kwargs)
+
+        def shift_iterate_values(*args, **kwargs):
+            cache["gen"] += 1
+            return _shift(*args, **kwargs)
+
+        es.get_variable_values = get_variable_values  # type: ignore[method-assign]
+        es.set_variable_values = set_variable_values  # type: ignore[method-assign]
+        es.shift_iterate_values = shift_iterate_values  # type: ignore[method-assign]
+
+
+class BaseFlowModel(FullIterateCacheMixin):
+    """Template-agnostic flow behaviour; the flow template is attached by the concrete
+    ``BuoyancyFlowModel*`` classes (see :func:`buoyancy_flow_model`), one statically
+    declared per ``fractional_flow`` template."""
+
+    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
+        """Newton update with a projected iterate (a saturation chop).
+
+        Projecting the overall fractions onto [0, 1] keeps saturations and mobilities
+        physical without clipping inside the residual, so the Jacobian stays exact.
+        """
+        self.equation_system.shift_iterate_values(max_index=len(self.iterate_indices))
+        self.equation_system.set_variable_values(
+            values=nonlinear_increment, additive=True, iterate_index=0
+        )
+        self._project_overall_fractions()
+        self.update_derived_quantities()
+
+    def _project_overall_fractions(self) -> None:
+        """Clamp the independent overall fractions to [0, 1]."""
+        es = self.equation_system
+        for var in es.variables:
+            if not var.name.startswith("z_"):
+                continue
+            vals = es.get_variable_values([var], iterate_index=0)
+            clipped = np.clip(vals, 0.0, 1.0)
+            if np.any(clipped != vals):
+                es.set_variable_values(clipped, [var], iterate_index=0)
+
     def __init__(self, params: dict):
         """Initialize flow model."""
         super().__init__(params)
         self.expected_order_loss = params.get("expected_order_loss", 10)
 
+    # ------------------------------------------------------------------ conservation
+    # checks
+    @staticmethod
+    def conservation_order(loss: float) -> float:
+        """Decades by which a normalized loss sits below one (1e-4 -> 4). Monotone
+        by construction: no ``abs``, so a large imbalance cannot pass as high order.
+        """
+        if loss <= 0.0:
+            return np.inf  # exact conservation
+        return -np.floor(np.log10(loss))
+
+    def assert_conserved(self, name: str, loss: float) -> None:
+        """Assert the normalized conservation ``loss`` meets ``expected_order_loss``."""
+        order = self.conservation_order(loss)
+        assert order >= self.expected_order_loss, (
+            f"{name} not conserved: normalized loss {loss:.6e} -> order {order:.0f}, "
+            f"required order >= {self.expected_order_loss} "
+            f"(i.e. loss below {10.0**-(self.expected_order_loss):.0e})"
+        )
+
+    def assert_buoyancy_reciprocal(self) -> None:
+        """Component buoyancy fluxes only redistribute mass, so summed over all
+        components they must cancel (checked relative to the flux magnitude).
+        """
+        sds = self.mdg.subdomains()
+        vals = [
+            np.asarray(
+                self.equation_system.evaluate(self.component_buoyancy(c, sds)), float
+            )
+            for c in self.fluid.components
+        ]
+        residual = float(np.max(np.abs(sum(vals))))
+        scale = max((float(np.max(np.abs(v))) for v in vals), default=0.0)
+        tol = 1.0e-8 * max(scale, 1.0)
+        assert residual <= tol, (
+            "component buoyancy fluxes are not reciprocal: max|sum_c b_c| = "
+            f"{residual:.6e} "
+            f"> {tol:.3e} (individual flux scale {scale:.3e})"
+        )
+
+    def ic_saturations(self, sd: pp.Grid) -> dict[str, np.ndarray]:
+        """Initial saturation per non-reference phase; implemented per phase count."""
+        raise NotImplementedError
+
+    def assert_saturations_evolved(self, min_change: float = 1.0e-3) -> None:
+        """The saturations must have moved away from the initial state; otherwise
+        the conservation checks pass vacuously.
+        """
+        per_phase: dict[str, float] = {}
+        for sd in self.mdg.subdomains():
+            ic = self.ic_saturations(sd)
+            for phase in self.fluid.phases:
+                if phase.name not in ic:
+                    continue
+                cur = np.asarray(
+                    self.equation_system.evaluate(phase.saturation([sd])), float
+                )
+                change = float(np.max(np.abs(cur - np.asarray(ic[phase.name], float))))
+                per_phase[phase.name] = max(per_phase.get(phase.name, 0.0), change)
+        max_change = max(per_phase.values(), default=0.0)
+        assert max_change > min_change, (
+            f"saturations did not evolve away from the initial state: max |s - s_ic| = "
+            f"{max_change:.3e} <= {min_change:.0e} (per phase: "
+            f"{ {k: f'{v:.2e}' for k, v in per_phase.items()} }). The buoyancy driver "
+            "is inert, "
+            f"so the conservation checks are vacuous."
+        )
+
+    def assert_external_bcs_are_neumann(self) -> None:
+        """All external boundary facets must be Neumann: an open facet would turn
+        the conservation checks into throughput measurements.
+        """
+        for sd in self.mdg.subdomains():
+            external = sd.tags["domain_boundary_faces"]
+            if not np.any(external):
+                continue
+            for name, bc in (
+                ("darcy_flux", self.bc_type_darcy_flux(sd)),
+                ("fourier_flux", self.bc_type_fourier_flux(sd)),
+            ):
+                n_open = int(np.count_nonzero(np.asarray(bc.is_dir)[external]))
+                assert n_open == 0, (
+                    f"bc_type_{name} on subdomain dim={sd.dim}: {n_open} external "
+                    "boundary facets "
+                    "are Dirichlet, but the conservation checks require a CLOSED "
+                    "(all-Neumann) "
+                    f"domain"
+                )
+
+    def assert_initial_pressure_is_null_mean(self, tol: float = 1.0e-10) -> None:
+        """The initial matrix pressure must satisfy the null-mean gauge."""
+        for sd in self.mdg.subdomains(dim=self.nd):
+            mean = float(np.mean(self.ic_values_pressure(sd)))
+            assert abs(mean) <= tol, (
+                f"initial matrix pressure is not null-mean (mean = {mean:.3e} > "
+                f"{tol:.0e}); it must "
+                f"match the Sum(p_matrix) = 0 gauge fixed by NullMeanPressureSolve"
+            )
+
+    def conservation_integrals(self) -> dict[str, tuple[float, float]]:
+        """``{quantity: (reference, numerical)}`` volume integrals; implemented
+        per phase count."""
+        raise NotImplementedError
+
+    def null_mean_pressure_residual(self) -> float:
+        """The dt-scaled, volume-normalized summed-mass residual -- the residual's
+        component along the pressure null space: what the conservation checks accumulate
+        per accepted step.
+        """
+        eq = self.equation_system.equations["mass_balance_equation"]
+        r = np.asarray(self.equation_system.evaluate(eq), dtype=float)
+        total_volume = sum(
+            np.sum(
+                self.equation_system.evaluate(
+                    self.volume_integral(pp.ad.Scalar(1), [sd], dim=1)
+                )
+            )
+            for sd in self.mdg.subdomains()
+        )
+        return float(abs(np.sum(r)) * self.time_manager.dt / total_volume)
+
+    def assert_pressure_null_mean_converged(self) -> None:
+        """The converged matrix pressure must have a null mean (the gauge)."""
+        matrix = self.mdg.subdomains(dim=self.nd)
+        p = np.concatenate(
+            [
+                np.asarray(self.equation_system.evaluate(self.pressure([sd])), float)
+                for sd in matrix
+            ]
+        )
+        mean = float(abs(np.mean(p)))
+        tol = float(self.params["residual_tolerance"])
+        assert mean <= tol, (
+            "converged matrix pressure is not null-mean: |mean(p_matrix)| = "
+            f"{mean:.6e} > "
+            f"tol = {tol:.1e}; the gauge constraint is not holding the pressure level"
+        )
+
+    def assert_null_space_residual_converged(self) -> None:
+        """The null-mean-pressure residual of the converged state must be within the
+        per-step conservation budget; if not, the convergence criteria need
+        :class:`NullSpaceCriterion`.
+        """
+        null_mean_res = self.null_mean_pressure_residual()
+        # The per-step conservation budget (what the conservation assertions need of
+        # each accepted state); falls back to the Newton tolerance if not provided.
+        tol = float(
+            self.params.get(
+                "null_mean_res_tolerance", self.params["residual_tolerance"]
+            )
+        )
+        assert null_mean_res <= tol, (
+            f"null-mean-pressure residual of the converged state: {null_mean_res:.6e} "
+            f"> tol = {tol:.1e}; add NullSpaceCriterion to the convergence criteria."
+        )
+
+    def assert_reference_matches_state(self, tol: float | None = None) -> None:
+        """At t=0 the hand-built reference must match the numerical state to
+        rounding error; otherwise the conservation checks would measure a broken
+        reference instead of the discretization.
+        """
+        if tol is None:
+            tol = 4.0 * np.finfo(float).eps
+        for name, (ref, num) in self.conservation_integrals().items():
+            mismatch = abs(ref - num)
+            assert mismatch <= tol * max(abs(ref), 1.0), (
+                f"{name}: t=0 reference does not match the initial state: "
+                f"|ref - num| = {mismatch:.6e} (ref {ref:.16e}, num {num:.16e})."
+            )
+
+    def prepare_simulation(self) -> None:
+        """Validate the closed-domain premise and the reference before the run."""
+        super().prepare_simulation()
+        self.assert_external_bcs_are_neumann()
+        self.assert_initial_pressure_is_null_mean()
+        self.assert_reference_matches_state()
+
+    def after_simulation(self) -> None:
+        """Conservation only means something if the phases actually moved."""
+        super().after_simulation()
+        self.assert_saturations_evolved()
+
+    def assign_thermodynamic_properties_to_phases(self) -> None:
+        """Memoize each phase-property surrogate so it is a single shared subtree."""
+        super().assign_thermodynamic_properties_to_phases()
+        for phase in self.fluid.phases:
+            for attr in vars(phase).values():
+                if isinstance(attr, pp.ad.SurrogateFactory):
+                    attr.__class__ = _MemoizedSurrogateFactory
+
+    @pp.ad.cached_method
     def relative_permeability(
         self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
-        """kr = saturation."""
+        """kr = saturation.
+
+        Cached so every reference to a phase's relative permeability (mobility,
+        fractional
+        mobility and buoyancy terms all pull it in) shares one operator subtree, keeping
+        the AD graph a DAG instead of duplicating the saturation subtree per use.
+        """
         return phase.saturation(domains)
 
     def set_equations(self):
@@ -485,8 +949,16 @@ class BaseFlowModel(
         self.update_buoyancy_driven_fluxes()
         self.rediscretize()
 
+    @pp.ad.cached_method
     def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        """Gravity magnitude field."""
+        """Gravity magnitude field.
+
+        Cached so the (constant) gravity array is built once per subdomain set and
+        shared
+        by every consumer (Darcy vector source and each phase-pair buoyancy flux)
+        instead
+        of allocating an identical dense array per reference.
+        """
         g_constant = pp.GRAVITY_ACCELERATION
         val = self.units.convert_units(g_constant, "m*s^-2") * to_Mega
         size = np.sum([g.num_cells for g in subdomains]).astype(int)
@@ -524,13 +996,14 @@ def gas_saturation_2N(
 
     nc = len(thermodynamic_dependencies[0])
     vals = (z_CH4 * rho_w) / (z_CH4 * rho_w + rho_g - z_CH4 * rho_g)
-    vals = np.clip(vals, 1.0e-16, 1.0)
 
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
     diffs[2, :] = (rho_w * rho_g) / (
         (z_CH4 * (rho_w - rho_g) + rho_g) * (z_CH4 * (rho_w - rho_g) + rho_g)
     )
+    # Exact, smooth relation: value and derivative stay unclipped so Newton sees an
+    # exact Jacobian (clipping one but not the other degrades convergence to linear).
     return vals, diffs
 
 
@@ -637,8 +1110,9 @@ class InitialConditions2N(pp.PorePyModel):
         return (z_v * rho_w) / (z_v * rho_w + rho_g - z_v * rho_g)
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
-        p_init = 10.0e6 * to_Mega
-        return np.ones(sd.num_cells) * p_init
+        """Null-mean initial pressure (identically zero), matching the gauge of
+        :class:`NullMeanPressureSolve`."""
+        return np.zeros(sd.num_cells)
 
     def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
         ic_s = self.ic_values_saturation(sd)
@@ -649,12 +1123,11 @@ class InitialConditions2N(pp.PorePyModel):
     def ic_values_overall_fraction(
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
-        xc = sd.cell_centers.T
-        z = (
-            np.where((xc[:, 1] >= 1.0) & (xc[:, 1] <= 2.0), 0.5, 0.0)
-            + np.where((xc[:, 1] >= 3.0) & (xc[:, 1] <= 4.0), 0.5, 0.0)
-            + np.where((xc[:, 0] >= 1.0) & (xc[:, 0] <= 2.0), 0.5, 0.0)
-            + np.where((xc[:, 0] >= 3.0) & (xc[:, 0] <= 4.0), 0.5, 0.0)
+        # Horizontally layered initial condition: the composition depends only on
+        # the vertical coordinate.
+        vert = sd.cell_centers[self.nd - 1]
+        z = np.where((vert >= 1.0) & (vert <= 2.0), 0.5, 0.0) + np.where(
+            (vert >= 3.0) & (vert <= 4.0), 0.5, 0.0
         )
         if component.name == "H2O":
             return (1 - z) * np.ones(sd.num_cells)
@@ -667,18 +1140,39 @@ class FlowModel2N(
 ):
     def after_nonlinear_convergence(self) -> None:
         """Post-convergence diagnostics."""
+        # Measure the gauge and the null-mean-pressure residual before super() shifts
+        # the time-step solutions; afterwards the accumulation term is zero.
+        self.assert_pressure_null_mean_converged()
+        self.assert_null_space_residual_converged()
         super().after_nonlinear_convergence()
 
+        # Buoyancy flux reciprocity (summed over ALL components, relative to the flux
+        # scale).
+        self.assert_buoyancy_reciprocal()
+        for name, (ref, num) in self.conservation_integrals().items():
+            self.assert_conserved(name, abs(ref - num))
+        # Every CONVERGED state must have genuinely redistributed the phases:
+        # conservation of
+        # a state frozen at the initial condition would be vacuous.
+        self.assert_saturations_evolved()
+
+    def conservation_integrals(self) -> dict[str, tuple[float, float]]:
+        """``{quantity: (reference, numerical)}`` volume integrals, normalized by total
+        volume.
+
+        The REFERENCE is rebuilt from the initial condition every call (the EOS is
+        constant-property, so it is a genuine time-invariant); the NUMERICAL one is the
+        current
+        state.  Evaluated through one code path so the very same expressions can be
+        checked for
+        exact agreement at t=0 (:meth:`BaseFlowModel.assert_reference_matches_state`) --
+        if they
+        disagree there, the "loss" reported later is a broken reference, not a
+        conservation defect.
+        """
         subdomains = self.mdg.subdomains()
         phases = list(self.fluid.phases)
         components = list(self.fluid.components)
-
-        # Buoyancy flux reciprocity
-        buoy_ops = [
-            self.component_buoyancy(comp, subdomains) for comp in components[:2]
-        ]
-        buoy_vals = [self.equation_system.evaluate(op) for op in buoy_ops]
-        assert np.all(np.isclose(sum(buoy_vals), 0.0))
 
         # Total volume
         total_volume = sum(
@@ -733,29 +1227,19 @@ class FlowModel2N(
             cur_energy = cur_rho * self.enthalpy([sd]) - self.pressure([sd])
             num_energy += norm_vol_int(cur_energy, sd)
 
-        # Loss metrics
-        def order(loss: float) -> float:
-            return np.inf if loss <= 0.0 else abs(np.floor(np.log10(loss)))
+        return {
+            "total mass": (ref_rho, num_rho),
+            f"component mass ({components[1].name})": (ref_rho_z, num_rho_z),
+            "energy": (ref_energy, num_energy),
+        }
 
-        mass_loss = abs(ref_rho - num_rho)
-        z_mass_loss = abs(ref_rho_z - num_rho_z)
-        energy_loss = abs(ref_energy - num_energy)
-
-        assert order(mass_loss) >= self.expected_order_loss
-        assert order(z_mass_loss) >= self.expected_order_loss
-        assert order(energy_loss) >= self.expected_order_loss
+    def ic_saturations(self, sd: pp.Grid) -> dict[str, np.ndarray]:
+        """Initial gas saturation; the liquid (reference) phase follows by unity."""
+        return {list(self.fluid.phases)[1].name: self.ic_values_saturation(sd)}
 
 
-class BuoyancyFlowModel2N(
-    FluidMixture2N,
-    InitialConditions2N,
-    BoundaryConditions,
-    SecondaryEquations2N,
-    FlowModel2N,
-):
-    """Complete 2N buoyancy model."""
-
-    pass
+# The concrete 2N/3N buoyancy models are assembled by :func:`buoyancy_flow_model` at the
+# end of this module, so the flow template can be selected via ``fractional_flow``.
 
 
 # constitutive description for N=3
@@ -791,7 +1275,6 @@ def oil_saturation_3N(
         + z_C5H12 * rho_g * rho_w
         + z_CH4 * rho_o * rho_w
     )
-    vals = np.clip(vals, 1.0e-16, 1.0)
 
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
@@ -817,6 +1300,8 @@ def oil_saturation_3N(
         )
         ** 2
     )
+    # Exact, smooth relation: value and derivative stay unclipped so Newton sees an
+    # exact Jacobian (clipping one but not the other degrades convergence to linear).
     return vals, diffs
 
 
@@ -833,7 +1318,6 @@ def gas_saturation_3N(
         + z_C5H12 * rho_g * rho_w
         + z_CH4 * rho_o * rho_w
     )
-    vals = np.clip(vals, 1.0e-16, 1.0)
 
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
@@ -859,6 +1343,8 @@ def gas_saturation_3N(
         + z_C5H12 * rho_g * rho_w
         + z_CH4 * rho_o * rho_w
     )
+    # Exact, smooth relation: value and derivative stay unclipped so Newton sees an
+    # exact Jacobian (clipping one but not the other degrades convergence to linear).
     return vals, diffs
 
 
@@ -1063,22 +1549,29 @@ class InitialConditions3N(pp.PorePyModel):
         return sg_val
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
-        p_init = 10.0e6 * to_Mega
-        return np.ones(sd.num_cells) * p_init
+        """Null-mean initial pressure (identically zero), matching the gauge of
+        :class:`NullMeanPressureSolve`."""
+        return np.zeros(sd.num_cells)
 
     def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
-        h = 1.0
-        return np.ones(sd.num_cells) * h
+        # Mass-weighted mixture specific enthalpy, consistent with the initial
+        # saturations: h = (Σ s_i ρ_i h_i) / (Σ s_i ρ_i). A constant value would be
+        # inconsistent with the initial phase distribution and spoils energy
+        # conservation.
+        s_o = self.ic_values_saturation_oil(sd)
+        s_g = self.ic_values_saturation_gas(sd)
+        s_w = 1.0 - s_o - s_g
+        ic_rho = s_w * rho_w + s_o * rho_o + s_g * rho_g
+        return (s_w * h_w * rho_w + s_o * h_o * rho_o + s_g * h_g * rho_g) / ic_rho
 
     def ic_values_overall_fraction(
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
-        xc = sd.cell_centers.T
-        z = (
-            np.where((xc[:, 1] >= 1.0) & (xc[:, 1] <= 2.0), 1 / 6.0, 0.0)
-            + np.where((xc[:, 1] >= 3.0) & (xc[:, 1] <= 4.0), 1 / 6.0, 0.0)
-            + np.where((xc[:, 0] >= 1.0) & (xc[:, 0] <= 2.0), 1 / 6.0, 0.0)
-            + np.where((xc[:, 0] >= 3.0) & (xc[:, 0] <= 4.0), 1 / 6.0, 0.0)
+        # Horizontally layered initial condition: the composition depends only on
+        # the vertical coordinate.
+        vert = sd.cell_centers[self.nd - 1]
+        z = np.where((vert >= 1.0) & (vert <= 2.0), 1 / 6.0, 0.0) + np.where(
+            (vert >= 3.0) & (vert <= 4.0), 1 / 6.0, 0.0
         )
         return z * np.ones(sd.num_cells)
 
@@ -1088,21 +1581,27 @@ class FlowModel3N(
 ):
     def after_nonlinear_convergence(self) -> None:
         """Post-convergence diagnostics."""
+        # Measure the gauge and the null-mean-pressure residual before super() shifts
+        # the time-step solutions; afterwards the accumulation term is zero.
+        self.assert_pressure_null_mean_converged()
+        self.assert_null_space_residual_converged()
         super().after_nonlinear_convergence()
 
+        # Buoyancy flux reciprocity (summed over ALL components, relative to the flux
+        # scale).
+        self.assert_buoyancy_reciprocal()
+        for name, (ref, num) in self.conservation_integrals().items():
+            self.assert_conserved(name, abs(ref - num))
+        # Every CONVERGED state must have genuinely redistributed the phases:
+        # conservation of
+        # a state frozen at the initial condition would be vacuous.
+        self.assert_saturations_evolved()
+
+    def conservation_integrals(self) -> dict[str, tuple[float, float]]:
+        """``{quantity: (reference, numerical)}`` volume integrals; see the 2N
+        counterpart."""
         phases = list(self.fluid.phases)  # water, oil, gas
         components = list(self.fluid.components)  # H2O (ref), C5H12, CH4
-
-        # Buoyancy flux reciprocity (sum over components zero)
-        flux_buoyancy_c0 = self.component_buoyancy(components[0], self.mdg.subdomains())
-        flux_buoyancy_c1 = self.component_buoyancy(components[1], self.mdg.subdomains())
-        flux_buoyancy_c2 = self.component_buoyancy(components[2], self.mdg.subdomains())
-
-        b_c0 = self.equation_system.evaluate(flux_buoyancy_c0)
-        b_c1 = self.equation_system.evaluate(flux_buoyancy_c1)
-        b_c2 = self.equation_system.evaluate(flux_buoyancy_c2)
-        buoyancy_fluxes_are_reciprocal_Q = np.all(np.isclose(b_c0 + b_c1 + b_c2, 0.0))
-        assert buoyancy_fluxes_are_reciprocal_Q
 
         # Total volume for normalization
         total_volume = 0.0
@@ -1231,31 +1730,119 @@ class FlowModel3N(
                 / total_volume
             )
 
-        # Loss metrics (orders)
-        total_mass_loss = abs(ref_rho_integral - num_rho_integral)
-        c1_mass_loss = abs(ref_rho_c1_integral - num_rho_c1_integral)
-        c2_mass_loss = abs(ref_rho_c2_integral - num_rho_c2_integral)
-        energy_loss = abs(ref_energy_integral - num_energy_integral)
+        return {
+            "total mass": (ref_rho_integral, num_rho_integral),
+            f"component mass ({components[1].name})": (
+                ref_rho_c1_integral,
+                num_rho_c1_integral,
+            ),
+            f"component mass ({components[2].name})": (
+                ref_rho_c2_integral,
+                num_rho_c2_integral,
+            ),
+            "energy": (ref_energy_integral, num_energy_integral),
+        }
 
-        order_total_mass = abs(np.floor(np.log10(total_mass_loss)))
-        order_c1_mass = abs(np.floor(np.log10(c1_mass_loss)))
-        order_c2_mass = abs(np.floor(np.log10(c2_mass_loss)))
-        order_energy = abs(np.floor(np.log10(energy_loss)))
-
-        # Assertions
-        assert order_total_mass >= self.expected_order_loss
-        assert order_c1_mass >= self.expected_order_loss
-        assert order_c2_mass >= self.expected_order_loss
-        assert order_energy >= self.expected_order_loss
+    def ic_saturations(self, sd: pp.Grid) -> dict[str, np.ndarray]:
+        """Initial oil and gas saturations; water (reference) follows by unity."""
+        phases = list(self.fluid.phases)  # water, oil, gas
+        return {
+            phases[1].name: self.ic_values_saturation_oil(sd),
+            phases[2].name: self.ic_values_saturation_gas(sd),
+        }
 
 
-class BuoyancyFlowModel3N(
+# Statically-declared buoyancy models: one concrete class per (phase count, template)
+# combination, so the MRO of each configuration is explicit and fixed at import time.
+# In every class the parts are ordered fluid -> IC -> BC -> gauge -> secondary ->
+# FlowModel*N -> template, so ``FlowModel*N`` -> ``BaseFlowModel`` (whose
+# ``set_equations`` registers the buoyancy discretization parameters) precedes the
+# template's equation setters in the MRO.
+#
+# NullMeanPressureSolve contributes null_mean_pressure_dofs, consumed by
+# NullMeanPressureLinearSolver (which must be passed to the NewtonSolver): the closed
+# all-Neumann domain leaves a singular constant-pressure mode that the default direct
+# solver cannot handle.
+
+
+class BuoyancyFlowModelFF2N(
+    FluidMixture2N,
+    InitialConditions2N,
+    BoundaryConditions,
+    NullMeanPressureSolve,
+    SecondaryEquations2N,
+    FlowModel2N,
+    CompositionalFractionalFlowTemplate,
+):
+    """Two-phase buoyancy model on the fractional-flow template.
+
+    Requires ``params['fractional_flow'] = True``: the flag (read by
+    ``is_fractional_flow``) and the template must agree.
+    """
+
+
+class BuoyancyFlowModelCF2N(
+    FluidMixture2N,
+    InitialConditions2N,
+    BoundaryConditions,
+    NullMeanPressureSolve,
+    SecondaryEquations2N,
+    FlowModel2N,
+    CompositionalFlowTemplate,
+):
+    """Two-phase buoyancy model on the standard compositional-flow template.
+
+    Requires ``params['fractional_flow'] = False``: the flag (read by
+    ``is_fractional_flow``) and the template must agree.
+    """
+
+
+class BuoyancyFlowModelFF3N(
     FluidMixture3N,
     InitialConditions3N,
     BoundaryConditions,
+    NullMeanPressureSolve,
     SecondaryEquations3N,
     FlowModel3N,
+    CompositionalFractionalFlowTemplate,
 ):
-    """Complete 3N buoyancy model."""
+    """Three-phase buoyancy model on the fractional-flow template.
 
-    pass
+    Requires ``params['fractional_flow'] = True``: the flag (read by
+    ``is_fractional_flow``) and the template must agree.
+    """
+
+
+class BuoyancyFlowModelCF3N(
+    FluidMixture3N,
+    InitialConditions3N,
+    BoundaryConditions,
+    NullMeanPressureSolve,
+    SecondaryEquations3N,
+    FlowModel3N,
+    CompositionalFlowTemplate,
+):
+    """Three-phase buoyancy model on the standard compositional-flow template.
+
+    Requires ``params['fractional_flow'] = False``: the flag (read by
+    ``is_fractional_flow``) and the template must agree.
+    """
+
+
+_BUOYANCY_MODELS: dict[tuple[int, bool], type] = {
+    (2, True): BuoyancyFlowModelFF2N,
+    (2, False): BuoyancyFlowModelCF2N,
+    (3, True): BuoyancyFlowModelFF3N,
+    (3, False): BuoyancyFlowModelCF3N,
+}
+
+
+def buoyancy_flow_model(n_phases: int, fractional_flow: bool = True) -> type:
+    """Return the statically-declared N-phase buoyancy model for the requested template.
+
+    ``fractional_flow=True`` selects the ``CompositionalFractionalFlowTemplate``
+    variant,
+    ``False`` the ``CompositionalFlowTemplate`` one.  The caller must set the matching
+    ``params['fractional_flow']`` flag on the model.
+    """
+    return _BUOYANCY_MODELS[(n_phases, fractional_flow)]

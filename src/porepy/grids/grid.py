@@ -1089,6 +1089,13 @@ class Grid:
         if self.num_faces == 0:
             return np.zeros((2, 0))
 
+        # Pure topology, but called on every upwind re-discretization. Cache keyed
+        # on the cell_faces object, so a replaced cell_faces invalidates it. The
+        # array is shared across callers, hence returned read-only.
+        cached = self.__dict__.get("_cell_faces_as_dense_cache")
+        if cached is not None and cached[0] is self.cell_faces:
+            return cached[1]
+
         # Find the non-zero elements in the cell-face relation.
         fi, ci, sgn = sps.find(self.cell_faces)
 
@@ -1103,6 +1110,8 @@ class Grid:
         cf_dense[0, fi[pos]] = ci[pos]
         cf_dense[1, fi[neg]] = ci[neg]
 
+        cf_dense.setflags(write=False)
+        self.__dict__["_cell_faces_as_dense_cache"] = (self.cell_faces, cf_dense)
         return cf_dense
 
     def cell_connection_map(self) -> sps.csr_matrix:
