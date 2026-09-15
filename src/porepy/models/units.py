@@ -133,7 +133,7 @@ class Units:
         self,
         value: NumericalType,
         units: str,
-        to_si: Optional[bool] = False,
+        to_si: bool = False,
     ) -> NumericalType:
         """Convert value between SI and user specified units.
 
