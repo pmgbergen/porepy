@@ -540,6 +540,23 @@ else:
 
             """
 
+        def mechanical_aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+            """Mechanical aperture [m].
+
+            The mechanical aperture is the geometric distance between the two fracture
+            surfaces, measured relative to the reference state. It is distinct from the
+            hydraulic aperture, which additionally includes the residual aperture, see
+            :meth:`aperture`.
+
+            Parameters:
+                subdomains: List of fracture subdomains.
+
+            Returns:
+                Ad operator representing the mechanical aperture for each cell in each
+                subdomain.
+
+            """
+
         def isotropic_second_order_tensor(
             self, subdomains: list[pp.Grid], permeability: pp.ad.Operator
         ) -> pp.ad.Operator:

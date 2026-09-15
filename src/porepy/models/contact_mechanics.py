@@ -20,9 +20,6 @@ from porepy.models.abstract_equations import VariableMixin
 class ContactMechanicsEquations(pp.BalanceEquation):
     """Class for contact mechanics equations governing fracture deformation."""
 
-    nd: int
-    """Ambient dimension of the problem."""
-
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact traction variable. Normally defined in a mixin instance of
     :class:`~porepy.models.contact_mechanics.ContactTractionVariable`.
@@ -109,9 +106,12 @@ class ContactMechanicsEquations(pp.BalanceEquation):
 
         # Variables
         nd_vec_to_normal = self.normal_component(subdomains)
-        # The normal component of the contact traction and the displacement jump.
+        # The normal component of the contact traction.
         t_n: pp.ad.Operator = nd_vec_to_normal @ self.contact_traction(subdomains)
-        u_n: pp.ad.Operator = nd_vec_to_normal @ self.displacement_jump(subdomains)
+        # The mechanical aperture, i.e. the distance between the fracture surfaces. The
+        # non-penetration condition is expressed as the aperture being bounded below by
+        # the fracture gap.
+        a_mech: pp.ad.Operator = self.mechanical_aperture(subdomains)
 
         # Maximum function
         num_cells: int = sum([sd.num_cells for sd in subdomains])
@@ -122,7 +122,7 @@ class ContactMechanicsEquations(pp.BalanceEquation):
         equation: pp.ad.Operator = t_n + max_function(
             pp.ad.Scalar(-1.0) * t_n
             - self.contact_mechanics_numerical_constant(subdomains)
-            * (u_n - self.fracture_gap(subdomains)),
+            * (a_mech - self.fracture_gap(subdomains)),
             zeros_frac,
         )
         equation.set_name("normal_fracture_deformation_equation")
@@ -251,6 +251,7 @@ class ConstitutiveLawsContactMechanics(
     constitutive_laws.CoulombFrictionBound,
     constitutive_laws.DisplacementJump,
     constitutive_laws.DimensionReduction,
+    constitutive_laws.MechanicalAperture,
     constitutive_laws.ElasticModuli,
     constitutive_laws.CharacteristicTractionFromDisplacement,
     constitutive_laws.ElasticTangentialFractureDeformation,

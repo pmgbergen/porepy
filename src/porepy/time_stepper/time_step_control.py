@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from bisect import bisect_right
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -404,17 +405,34 @@ class TimeInterval:
         )
 
 
-@dataclass
 class Schedule:
     """A data structure that combines the list of intervals, and the whole simulation's
     end time.
 
+    TODO YZ
+
     """
 
-    intervals: list[TimeInterval]
-    """Simulation's time intervals."""
-    t_end: float
-    """Simulation end time, seconds."""
+    def __init__(
+        self, intervals: list[TimeInterval], t_end: float, t_snap: float = 1e-8
+    ) -> None:
+        self.intervals: list[TimeInterval] = intervals
+        """Simulation's time intervals."""
+        self.t_end: float = t_end
+        """Simulation end time, seconds."""
+        self.t_snap = t_snap
+        """TODO YZ"""
+
+        self._interval_map = _IntervalMap(intervals, atol=t_snap)
+        """A data structure that returns the current and next intervals for any
+        simulation time.
+    
+        """
+
+    def get_current_next_intervals(
+        self, time: float
+    ) -> tuple[TimeInterval, TimeInterval | None]:
+        return self._interval_map.get(time=time)
 
     def get_array(self) -> np.ndarray:
         """Returns schedule points as a numpy array, including the simulation start and
@@ -481,3 +499,51 @@ class Schedule:
             ],
             t_end=schedule[-1],
         )
+
+
+class _IntervalMap:
+    """An auxiliary data structure used by TimeScheduler. For any simulation time,
+    returns the time interval it belongs to, and the next interval.
+
+    Implementation note: does binary search over a sorted array of interval starts with
+    O(log n) time complexity for n intervals.
+
+    Parameters:
+        intervals: List of intervals. The last interval is `[t_last, ∞)`.
+        atol: Snapping time. Time differences below it are treated as zero.
+
+    """
+
+    def __init__(self, intervals: list[TimeInterval], atol: float) -> None:
+        self.intervals = intervals
+        # Sorted array of interval starts used for binary search. In this array, each
+        # interval's start (t_start) is decreased by atol (t_ε) to ensure that
+        # t ∈ [t_start - t_ε, t_start] snaps to the current interval and not the
+        # previous one.
+        self._interval_starts = [interval.t_start - atol for interval in intervals]
+        # Sanity check: they must be sorted.
+        assert self._interval_starts == sorted(self._interval_starts)
+
+    def get(self, time: float) -> tuple[TimeInterval, TimeInterval | None]:
+        """Get the interval that corresponds to the requested time.
+
+        Raises:
+            ValueError: If the requested time is below the first interval's start time.
+
+        Returns:
+            Tuple of two intervals: Current (the one `time` belongs to) and next. If the
+                current interval is the last one, next is `None`.
+
+        """
+        # Do the binary search. Off by one to match the array index (bisect_right
+        # returns 0 if we are below minimum).
+        i = bisect_right(self._interval_starts, time) - 1
+        if i < 0:
+            raise ValueError(
+                "The requested time is below the first interval's start time."
+            )
+        elif i >= len(self.intervals):
+            raise ValueError("This should never happen.")
+        current_interval = self.intervals[i]
+        next_interval = self.intervals[i + 1] if i < (len(self.intervals) - 1) else None
+        return current_interval, next_interval

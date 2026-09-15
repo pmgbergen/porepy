@@ -139,6 +139,75 @@ class DisplacementJump(pp.PorePyModel):
         return u_p
 
 
+class MechanicalAperture(pp.PorePyModel):
+    r"""Mechanical aperture of fractures, i.e. the geometric distance between the two
+    fracture surfaces.
+
+    The mechanical aperture is measured relative to the reference (natural) state,
+
+    .. math::
+        a_{mech} = a_{mech, 0} + [u - u_0]_n,
+
+    where :math:`a_{mech, 0}` is the aperture in the reference state and
+    :math:`[u - u_0]_n` is the normal component of the displacement jump relative to the
+    reference state. Consequently, substituting the reference state :math:`u = u_0`
+    yields the reference aperture :math:`a_{mech, 0}`, as is required for consistency
+    with reference parameters which are measured in the reference state.
+
+    The mechanical aperture is a geometric quantity, and is distinct from the hydraulic
+    aperture :math:`a_{hydr} = a_{res} + a_{mech}`, see
+    :meth:`DisplacementJumpAperture.hydraulic_aperture`, which includes the residual
+    aperture used to fit the cubic law to experimental data.
+
+    """
+
+    def reference_mechanical_aperture(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        r"""Mechanical aperture in the reference state :math:`a_{mech, 0}` [m].
+
+        This is a parameter known a priori, e.g. from in-situ measurements. It is
+        bounded below by the reference fracture gap :math:`g_0`, see
+        :meth:`FractureGap.reference_fracture_gap`, with equality corresponding to a
+        fracture which is closed in the reference state.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Cell-wise reference mechanical aperture.
+
+        """
+        return Scalar(0.0, "reference_mechanical_aperture")
+
+    def mechanical_aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Mechanical aperture [m].
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Cell-wise mechanical aperture, see class documentation for the definition.
+
+        Raises:
+            ValueError: If the subdomains are not fractures, i.e. do not have dimension
+                ``nd - 1``.
+
+        """
+        if not all([sd.dim == self.nd - 1 for sd in subdomains]):
+            raise ValueError("Mechanical aperture only defined on fractures.")
+
+        # The jump is taken relative to the reference state, so that the aperture equals
+        # the reference aperture whenever the displacement is in the reference state.
+        normal_jump = (
+            self.normal_component(subdomains)
+            @ self.displacement_jump(subdomains).perturbation_from_reference()
+        )
+        aperture = self.reference_mechanical_aperture(subdomains) + normal_jump
+        aperture.set_name("mechanical_aperture")
+        return aperture
+
+
 class DimensionReduction(pp.PorePyModel):
     """Apertures and specific volumes."""
 
@@ -304,8 +373,41 @@ class DimensionReduction(pp.PorePyModel):
         return specific_volume
 
 
-class DisplacementJumpAperture(DimensionReduction):
+class DisplacementJumpAperture(DimensionReduction, MechanicalAperture):
     """Fracture aperture from displacement jump."""
+
+    def hydraulic_aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        r"""Hydraulic aperture of fractures [m].
+
+        The hydraulic aperture is the sum of the residual aperture and the mechanical
+        aperture,
+
+        .. math::
+            a_{hydr} = a_{res} + a_{mech},
+
+        where the residual aperture is a lab-defined quantity used to fit the cubic law
+        to experimental data, see :meth:`residual_aperture`, and the mechanical aperture
+        is the geometric distance between the fracture surfaces, see
+        :meth:`MechanicalAperture.mechanical_aperture`.
+
+        The mechanical aperture is bounded below by zero. This is not guaranteed in a
+        non-converged state, where negative values may give significant trouble in
+        quantities depending on the aperture. A safeguard is therefore included,
+        bounding the hydraulic aperture below by the residual aperture.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Cell-wise hydraulic aperture.
+
+        """
+        f_max = Function(pp.ad.maximum, "maximum_function")
+        a_res = self.residual_aperture(subdomains)
+        a_mech = self.mechanical_aperture(subdomains)
+        aperture = a_res + f_max(a_mech, Scalar(0.0, "zero"))
+        aperture.set_name("hydraulic_aperture")
+        return aperture
 
     def residual_aperture(self, subdomains: list[pp.Grid]) -> Scalar:
         """Residual aperture [m].
@@ -332,7 +434,7 @@ class DisplacementJumpAperture(DimensionReduction):
         The aperture computation depends on the dimension of the subdomain. For the
         matrix, the aperture is one. For intersections, the aperture is given by the
         average of the apertures of the adjacent fractures. For fractures, the aperture
-        equals displacement jump plus residual aperture.
+        is the hydraulic aperture, see :meth:`hydraulic_aperture`.
 
         Parameters:
             subdomains: List of subdomain grids.
@@ -366,20 +468,9 @@ class DisplacementJumpAperture(DimensionReduction):
             if len(subdomains_of_dim) == 0:
                 continue
             if dim == self.nd - 1:
-                # Fractures. Get displacement jump
-                normal_jump = self.normal_component(
-                    subdomains_of_dim
-                ) @ self.displacement_jump(subdomains_of_dim)
-                # The jump should be bounded below by gap function. This is not
-                # guaranteed in the non-converged state. As this (especially
-                # non-positive values) may give significant trouble in the aperture.
-                # Insert safeguard by taking maximum of the jump and a residual
-                # aperture.
-                f_max = Function(pp.ad.maximum, "maximum_function")
-
-                a_ref = self.residual_aperture(subdomains_of_dim)
-                apertures_of_dim = f_max(normal_jump + a_ref, a_ref)
-                apertures_of_dim.set_name("aperture_maximum_function")
+                # Fractures. The aperture entering the flow problem is the hydraulic
+                # aperture, i.e. residual plus mechanical aperture.
+                apertures_of_dim = self.hydraulic_aperture(subdomains_of_dim)
                 apertures = (
                     apertures
                     + projection.cell_prolongation(subdomains_of_dim) @ apertures_of_dim
@@ -3479,10 +3570,15 @@ class ConstitutiveLawsTpsaPoromechanics(pp.PorePyModel):
         alpha = self.biot_coefficient(subdomains)
         lmbda = self.second_lame_parameter(subdomains)
 
+        # As in the Mpsa formulation, the contribution is measured relative to the
+        # reference configuration, so that the porosity equals the reference porosity
+        # when the primary variables are in the reference state.
         coeff = (
             alpha
             / lmbda
-            * (self.total_pressure(subdomains) + alpha * self.pressure(subdomains))
+            * (
+                self.total_pressure(subdomains) + alpha * self.pressure(subdomains)
+            ).perturbation_from_reference()
         )
 
         coeff.set_name("displacement_divergence Tpsa formulation")
@@ -3550,12 +3646,15 @@ class PressureStress(LinearElasticMechanicalStress):
         # have only one.
         discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
         # The stress is simply found by the scalar_gradient operator, multiplied with
-        # the pressure perturbation. The reference pressure is only defined on
-        # sd_primary, thus there is no need for a subdomain projection.
-        stress: pp.ad.Operator = (
-            discr.scalar_gradient(self.darcy_keyword)
-            @ self.pressure(subdomains).perturbation_from_reference()
-        )
+        # the pressure. Note that the pressure enters in absolute terms, not as a
+        # perturbation from the reference state: The total stress is
+        # sigma = sigma_0 + C : eps(u - u_0) - alpha (p - p_0) I, and since the zero
+        # state (u = 0, p = 0) is by definition stress free, the reference stress is
+        # sigma_0 = C : eps(u_0) - alpha p_0 I. Substituting sigma_0 and exploiting
+        # linearity, the reference contributions cancel.
+        stress: pp.ad.Operator = discr.scalar_gradient(
+            self.darcy_keyword
+        ) @ self.pressure(subdomains)
         stress.set_name("pressure_stress")
         return stress
 
@@ -3701,10 +3800,12 @@ class ThermoPressureStress(PressureStress):
                 raise ValueError("Subdomains must be of dimension nd.")
 
         discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
-        stress: pp.ad.Operator = (
-            discr.scalar_gradient(self.enthalpy_keyword)
-            @ self.temperature(subdomains).perturbation_from_reference()
-        )
+        # As for the pressure stress, the temperature enters in absolute terms, not as a
+        # perturbation from the reference state. See :meth:`PressureStress.
+        # pressure_stress` for the underlying argument.
+        stress: pp.ad.Operator = discr.scalar_gradient(
+            self.enthalpy_keyword
+        ) @ self.temperature(subdomains)
         stress.set_name("thermal_stress")
         return stress
 
@@ -4933,7 +5034,12 @@ class PoroMechanicsPorosity(pp.PorePyModel):
         # (in the form of a double dot product) is already included in the
         # discretization of the displacement divergence. Therefore, no additional
         # scaling is needed here.
-        div_u_contribution = self.displacement_divergence(subdomains)
+        # The contribution is measured relative to the reference configuration, i.e. it
+        # is alpha : grad(u - u_0). This ensures that the porosity equals the reference
+        # porosity when the primary variables are in the reference state.
+        div_u_contribution = self.displacement_divergence(
+            subdomains
+        ).perturbation_from_reference()
         div_u_contribution.set_name("Porosity change from displacement")
         return div_u_contribution
 
