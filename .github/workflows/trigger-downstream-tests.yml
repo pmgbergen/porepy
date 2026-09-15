@@ -13,6 +13,71 @@
 #
 # The downstream workflows are fire-and-forget: this workflow does not wait
 # for their result, it only triggers them.
+#
+# --- How this fits together (read this if you only know GitHub Actions
+#     superficially) ---
+#
+# This is the "porepy side" of a 3-repo design: this file only *dispatches*
+# work to mpxa and pp_solvers (porepy-iterative-solvers); it never runs their
+# tests itself. The actual test run happens in each downstream repo's own
+# `porepy-integration-test.yml` workflow (see .github/downstream-repos.json
+# for the list of repos/workflow files it targets). The full design rationale
+# (why a PAT instead of a GitHub App, why workflow_dispatch instead of
+# repository_dispatch, why comment-back instead of opening issues, etc.) is
+# written up in `.claude/downstream_testing.md` at the repo root — read that
+# first if something here seems arbitrary.
+#
+# Walking through a run, in order:
+#   1. `on:` below decides *when* this workflow fires: a push to `develop`
+#      (post-merge), or specific pull_request activity (pre-merge). Docs:
+#      https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows
+#   2. `concurrency:` makes sure that if the same PR gets a new commit before
+#      the previous dispatch finished, the previous run for *this* job (the
+#      dispatcher) is cancelled rather than piling up. Note this only cancels
+#      the dispatcher run in porepy — it does not reach into the downstream
+#      repos to cancel an already-dispatched run there. Docs:
+#      https://docs.github.com/en/actions/using-jobs/using-concurrency
+#   3. Job `resolve-pr` figures out three things and exposes them as job
+#      `outputs` (the only way one job can hand data to another job in the
+#      same workflow — steps within a job can just share files/env, but
+#      cross-job communication must go through `outputs`): which SHA/ref to
+#      test, which porepy PR number (if any) to comment on later, and the
+#      list of downstream repos to notify (parsed from downstream-repos.json
+#      with `jq`, then reused as-is by the next job's matrix — the file is
+#      the single place you edit to add/remove a downstream repo).
+#   4. Job `dispatch` runs once per entry in that repo list, in parallel
+#      (`strategy: matrix`), and fires a `gh workflow run` REST call at each
+#      downstream repo's `porepy-integration-test.yml`, passing the resolved
+#      values in as `workflow_dispatch` inputs. Docs:
+#      https://cli.github.com/manual/gh_workflow_run
+#      https://docs.github.com/en/actions/using-workflows/manually-running-a-workflow
+#
+# Debugging / extending:
+#   - Everything here is fire-and-forget: a green run of *this* workflow only
+#     means the dispatch call succeeded, not that the downstream tests
+#     passed. To see the actual test result, go to the downstream repo's
+#     "Actions" tab and find the run of `porepy-integration-test.yml` with a
+#     matching porepy SHA (visible in that run's logs/summary).
+#   - If a dispatch never shows up downstream: check this workflow's own run
+#     log first (Actions tab in porepy) — a failed `gh workflow run` call
+#     (e.g. bad PAT, PAT missing `actions:write` on the target repo, wrong
+#     `workflow_file`/`ref` in downstream-repos.json) fails loudly here.
+#   - If the *comment on the porepy PR* never appears: that logic lives in
+#     the downstream repos' workflows, not here — see the "Debugging" note
+#     at the top of mpxa's and pp_solvers' `porepy-integration-test.yml`.
+#   - The `${{ secrets.DOWNSTREAM_DISPATCH_PAT }}` used throughout is an
+#     org-level secret (a fine-grained PAT), not the default
+#     `GITHUB_TOKEN` — it's required because dispatching a workflow in
+#     *another* repo and commenting on *this* repo's PR from *another*
+#     repo's workflow are both cross-repo writes that the default,
+#     repo-scoped token cannot do.
+#   - To test this workflow itself without waiting for a real push/PR, you
+#     can temporarily add a `workflow_dispatch:` trigger and re-run it
+#     manually from the Actions tab, or just open a throwaway PR.
+#   - To add a 4th downstream repo: add one entry to
+#     `.github/downstream-repos.json` and add a `porepy-integration-test.yml`
+#     to that repo following the same input contract as mpxa's/pp_solvers'
+#     — no changes needed to this file.
 name: Trigger downstream integration tests
 
 on:
@@ -28,6 +93,12 @@ on:
       - 'docs/**'
       - '**/*.md'
 
+# Runs sharing the same `group` value are serialized; GitHub Actions
+# cancels/queues rather than running them side by side. Grouping by PR number
+# (falling back to the ref for plain pushes, which don't have a PR number)
+# means a force-push to a PR cancels that PR's in-flight dispatcher run
+# instead of racing it. `cancel-in-progress` is only true for pull_request
+# events — a push to develop should never be cancelled by a later push.
 concurrency:
   group: downstream-dispatch-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -77,9 +148,17 @@ jobs:
       - name: Load downstream repo list
         id: load-repos
         run: |
+          # Re-exposed as a job output (a plain string) because outputs can
+          # only carry text between jobs; the `dispatch` job below parses it
+          # back into a list with `fromJson` to drive its matrix.
           repos=$(jq -c '.repos' .github/downstream-repos.json)
           echo "repos=$repos" >> "$GITHUB_OUTPUT"
 
+  # `strategy: matrix` fans this job out into one run per entry in `repo`
+  # (currently mpxa and pp_solvers), all in parallel, each with its own log
+  # and green/red status in the Actions UI. `fail-fast: false` means one
+  # repo's dispatch failing does not cancel the other's. Docs:
+  # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs
   dispatch:
     name: Dispatch ${{ matrix.repo.name }}
     needs: resolve-pr

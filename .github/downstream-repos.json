@@ -1,5 +1,10 @@
 {
-  "_comment": ["This file dictates which repositories downstream from PorePy should their test suite on PRs and pushes to PorePy develop. For more information on the test run see the workflow_file in the repository"],
+  "_comment": [
+    "JSON has no native comment syntax, so this array is the documentation; it is inert data, read by nothing (the workflow below only reads '.repos').",
+    "This file lists the repositories downstream of porepy that get their test suite run against a porepy PR (pre-merge) or a new develop commit (post-merge). It is consumed by .github/workflows/trigger-downstream-tests.yml, which reads it with `jq` and fans out one dispatch per entry via a matrix job -- see that file's header comment for the full flow and for debugging pointers.",
+    "Fields per entry: 'name' is a short label used only for the job name shown in the Actions UI. 'owner'/'repo' identify the downstream GitHub repository. 'workflow_file' is the filename (not path) of the workflow_dispatch-triggered workflow in that repo's .github/workflows/ that actually runs the tests -- see that file in the downstream repo for what happens during the run and how it reports failures back. 'ref' is the branch in the downstream repo that the dispatch runs against; it must be a branch on which 'workflow_file' already exists, since `gh workflow run --ref` looks up the workflow definition on that ref.",
+    "To add a repo: append an entry here, and add a workflow_file to that repo following the same input contract (porepy_ref, porepy_sha, porepy_pr_number, trigger_event) as the existing entries' workflows. No changes are needed to the dispatcher workflow itself."
+  ],
   "repos": [
     { "name": "mpxa", "owner": "pmgbergen", "repo": "mpxa",
       "workflow_file": "porepy-integration-test.yml", "ref": "main" },
