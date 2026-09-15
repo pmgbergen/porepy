@@ -817,3 +817,82 @@ def test_2d_multiple_fractures_same_point_meshing() -> None:
     case = MULTIPLE_FRACTURES_SAME_POINT_2D_CASES
     with pytest.raises(NotImplementedError):
         _generate_mesh_make_assertions(case, _expected_meshing_intersections(case))
+
+
+# MARK: Tests for well meshing in the presence of meshing constraints -----
+
+
+def _mesh_with_constraints(
+    fractures: list[pp.PlaneFracture],
+    wells: list[pp.Well],
+    constraints: np.ndarray,
+) -> pp.MixedDimensionalGrid:
+    """Set up a 3d domain with the given fractures (some of which may be meshing
+    constraints) and mesh a well network into it.
+    """
+    domain = pp.Domain(
+        {
+            "xmin": -5.0,
+            "xmax": 5.0,
+            "ymin": -5.0,
+            "ymax": 5.0,
+            "zmin": -5.0,
+            "zmax": 5.0,
+        }
+    )
+    fracture_network = pp.create_fracture_network(fractures, domain=domain)
+    mdg = pp.create_mdg(
+        "simplex",
+        {"cell_size": 5.0},
+        fracture_network=fracture_network,
+        constraints=constraints,
+    )
+    well_network = WellNetwork3d(wells, domain)
+    return well_network.mesh(fracture_network, mdg, {"cell_size": 5.0})
+
+
+def test_well_crossing_only_a_constraint() -> None:
+    """A well crossing a meshing constraint (and no real fracture) should mesh without
+    error, and no well-fracture interface should be created since the constraint has no
+    corresponding subdomain in the mdg.
+
+    """
+    fracture = _make_fracture_horizontal_at_z(0, 0.0, half_size=5.0)
+    well = _make_well_3d(0, [(0.0, 0.0, -4.0), (0.0, 0.0, 4.0)])
+
+    mdg = _mesh_with_constraints([fracture], [well], constraints=np.array([0]))
+
+    # No fractures, no fracture-well intersection subdomain.
+    assert len(mdg.subdomains(dim=2)) == 0
+    assert len(mdg.subdomains(dim=0)) == 0
+    assert not any({intf.codim == 2} for intf in mdg.interfaces())
+
+
+def test_well_crossing_constraint_and_fracture() -> None:
+    """A well crossing both a meshing constraint and a real fracture should create a
+    well-fracture interface with the real fracture.
+
+    """
+    # The constraint is listed (and thus indexed) before the real fracture, so a bug
+    # that conflates fracture-list position with mdg-subdomain position would either
+    # crash or connect the well to the wrong (constraint) plane.
+    constraint = _make_fracture_horizontal_at_z(0, 0.0, half_size=5.0)
+    fracture = _make_fracture_horizontal_at_z(1, -2.0, half_size=5.0)
+    well = _make_well_3d(0, [(0.0, 0.0, -4.0), (0.0, 0.0, 4.0)])
+
+    mdg = _mesh_with_constraints(
+        [constraint, fracture], [well], constraints=np.array([0])
+    )
+
+    # One fracture.
+    assert len(mdg.subdomains(dim=2)) == 1
+    real_fracture_subdomain = mdg.subdomains(dim=2)[0]
+    assert real_fracture_subdomain.frac_num == 1
+    # A single well-fracture intersection subdomain.
+    assert len(mdg.subdomains(dim=0)) == 1
+
+    well_fracture_interfaces = [intf for intf in mdg.interfaces() if intf.codim == 2]
+    assert len(well_fracture_interfaces) == 1
+    sd_pair = mdg.interface_to_subdomain_pair(well_fracture_interfaces[0])
+    fracture_side = [sd for sd in sd_pair if sd.dim == 2][0]
+    assert fracture_side.frac_num == 1

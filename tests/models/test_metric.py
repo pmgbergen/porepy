@@ -262,13 +262,12 @@ def test_equation_based_metric_with_restricted_indexer(
 def test_variable_based_metric_with_restricted_indexer(
     orthogonal_2d_model: pp.PorePyModel, metric_class: type
 ):
-    """Metric must compute residual only for the given variables."""
+    """Metric must compute solution norm only for the given variables."""
     # Get the first 3 variables an assemble residual only for them. They are:
     # [contact traction on grid 1; contact traction on grid 2; pressure on grid 0].
     variables = list(orthogonal_2d_model.equation_system.variables)[:3]
-    residual = orthogonal_2d_model.equation_system.assemble(
-        evaluate_jacobian=False, variables=variables
-    )
+    solution = orthogonal_2d_model.equation_system.evaluate(variables)
+    solution = np.concatenate(solution)
 
     # Assemble and evaluate the metric.
     metric = metric_class(
@@ -283,7 +282,7 @@ def test_variable_based_metric_with_restricted_indexer(
             ),
         ],
     )
-    norms = metric(residual)
+    norms = metric(solution)
 
     # It will be only 2 norms: for contact traction (on both grids) and pressure.
     assert len(norms) == 2

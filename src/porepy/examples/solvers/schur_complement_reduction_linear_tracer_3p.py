@@ -31,11 +31,9 @@ def run_example():
         schedule=[0, T_end],
         dt_init=dt_init,
         dt_min_max=dt_min_max,
-        iter_max=max_iterations,
         iter_optimal_range=(2, 10),
         iter_relax_factors=(0.8, 1.2),
         recomp_factor=0.8,
-        recomp_max=5,
     )
 
     params = {

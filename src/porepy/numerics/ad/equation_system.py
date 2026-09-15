@@ -1406,6 +1406,10 @@ class EquationSystem:
         # Standardize and validate input, order it according to the equation_indexer.
         equations_on_domains = self._parse_equations(equations=equations, ordered=True)
 
+        equation_indexer, variable_indexer = self._construct_assembled_matrix_indexers(
+            equations=equations, variables=variables
+        )
+
         # Distinguish equations where restriction is required by comparing requested
         # domains with domains of definition of the equation.
         equation_name_to_domains: dict[str, list[pp.GridLike]] = {}
@@ -1440,6 +1444,7 @@ class EquationSystem:
             list(equations_rows.keys()),
             derivative=evaluate_jacobian,
             state=state,
+            variable_indexer=variable_indexer,
         )
 
         for row, value in zip(equations_rows.values(), values):
@@ -1471,24 +1476,6 @@ class EquationSystem:
 
         if not evaluate_jacobian:
             return -rhs_cat
-
-        equation_indexer, variable_indexer = self._construct_assembled_matrix_indexers(
-            equations=equations, variables=variables
-        )
-
-        # Slice out the columns belonging to the requested subsets of variables and
-        # grid-related column blocks by using the transposed projection to respective
-        # subspace.
-        if variables is not None:
-            # Respect the ordering of the input list of variables.
-            variables_ = self._parse_variable_type(variables=variables, ordered=True)
-            col_proj = [self.variable_indexer.indices[var] for var in variables_]
-            column_projection = (
-                np.concatenate(col_proj)
-                if len(col_proj) > 0
-                else np.empty(0, dtype=int)
-            )
-            A = A[:, column_projection]
 
         # Multiply rhs by -1 to move to the rhs.
         return pp.solvers.LinearSystem(
@@ -1544,44 +1531,18 @@ class EquationSystem:
     def evaluate(
         self,
         operator: pp.ad.Operator,
+        derivative: Literal[False] | None = False,
+        state: np.ndarray | None = None,
+        variable_indexer: pp.ad.VariableIndexer | None = None,
     ) -> pp.number | np.ndarray | sps.spmatrix: ...
 
     @overload
     def evaluate(
         self,
         operator: list[pp.ad.Operator],
-    ) -> list[pp.number | np.ndarray | sps.spmatrix]: ...
-
-    @overload
-    def evaluate(
-        self,
-        operator: pp.ad.Operator,
-        derivative: None,
-        state: np.ndarray | None,
-    ) -> pp.number | np.ndarray | sps.spmatrix: ...
-
-    @overload
-    def evaluate(
-        self,
-        operator: list[pp.ad.Operator],
-        derivative: None,
-        state: np.ndarray | None,
-    ) -> list[pp.number | np.ndarray | sps.spmatrix]: ...
-
-    @overload
-    def evaluate(
-        self,
-        operator: pp.ad.Operator,
-        derivative: Literal[False] = False,
-        state: Optional[np.ndarray] = None,
-    ) -> pp.number | np.ndarray | sps.spmatrix: ...
-
-    @overload
-    def evaluate(
-        self,
-        operator: list[pp.ad.Operator],
-        derivative: Literal[False] = False,
-        state: Optional[np.ndarray] = None,
+        derivative: Literal[False] | None = False,
+        state: np.ndarray | None = None,
+        variable_indexer: pp.ad.VariableIndexer | None = None,
     ) -> list[pp.number | np.ndarray | sps.spmatrix]: ...
 
     @overload
@@ -1589,7 +1550,8 @@ class EquationSystem:
         self,
         operator: pp.ad.Operator,
         derivative: Literal[True],
-        state: np.ndarray | None,
+        state: np.ndarray | None = None,
+        variable_indexer: pp.ad.VariableIndexer | None = None,
     ) -> pp.ad.AdArray: ...
 
     @overload
@@ -1597,7 +1559,8 @@ class EquationSystem:
         self,
         operator: list[pp.ad.Operator],
         derivative: Literal[True],
-        state: np.ndarray | None,
+        state: np.ndarray | None = None,
+        variable_indexer: pp.ad.VariableIndexer | None = None,
     ) -> list[pp.ad.AdArray]: ...
 
     def evaluate(
@@ -1605,6 +1568,7 @@ class EquationSystem:
         operator: pp.ad.Operator | list[pp.ad.Operator],
         derivative: Optional[bool] = False,
         state: Optional[np.ndarray] = None,
+        variable_indexer: Optional[pp.ad.VariableIndexer] = None,
     ) -> (
         pp.number
         | np.ndarray
@@ -1621,6 +1585,13 @@ class EquationSystem:
                 False.
             state: State vector to evaluate the operator on. By default, the current
                 state is used.
+            variable_indexer: The indexer that defines the arrangement in a vector of
+                active variables. If both variable_indexer and state are provided, the
+                state must conform to the variable indexer. I.e., if we want to evaluate
+                the operator only with respect to the pressure variable and provide
+                custom state, we need to pass the restricted variable_indexer (with only
+                pressure) and the restricted state array (with only pressure values). By
+                default, the global indexer defined by the equation_system is used.
 
         Returns:
             The operator evaluated on the current state. If the operator is a list, a
@@ -1631,8 +1602,10 @@ class EquationSystem:
         # EK: Ignore a typing error regarding 'no overload variant of "evaluate" matches
         # the argument types' since the overloads are correctly defined. I have no idea
         # why this error occurs.
+        if variable_indexer is None:
+            variable_indexer = self.variable_indexer
         return self._ad_parser.evaluate(  # type: ignore[call-overload]
-            operator, self, derivative, state
+            operator, self, derivative, state, variable_indexer=variable_indexer
         )
 
     ### Special methods ----------------------------------------------------------------

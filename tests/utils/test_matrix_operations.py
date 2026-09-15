@@ -1004,11 +1004,29 @@ def test_invert_permuted_block_diag_mat_on_mdg(mdg: pp.MixedDimensionalGrid):
     secondaryEqList = ["eq_s_f_1", "eq_s_f_2"]
     secondaryVarList = ["sf1", "sf2"]
 
+    # ``pf`` occurs in the selected equations, but is not part of the selected
+    # variable block. Consequently, assembly reads its value from the iterate
+    # data rather than from ``state``. Populate that data explicitly for every
+    # interface.
+    for interface, data in mdg.interfaces(return_data=True):
+        pp.set_solution_values(
+            name="pf",
+            values=np.zeros(interface.num_cells),
+            data=data,
+            iterate_index=0,
+        )
+
+    # Access the secondary variables size, needed to mock the secondary state.
+    secondary_indexer = equation_system.variable_indexer.construct_restricted_indexer(
+        equation_system.get_variables(secondaryVarList)
+    )
+    secondary_variables_size = secondary_indexer.size
+
     # Extract the secondary block matrix.
     secondary_linear_system = equation_system.assemble(
         equations=secondaryEqList,
         variables=secondaryVarList,
-        state=np.zeros(equation_system.num_dofs()),
+        state=np.zeros(secondary_variables_size),
     )
     A_ss = secondary_linear_system.matrix
     assert A_ss is not None

@@ -466,7 +466,7 @@ class TerzaghiUtils(VerificationUtils):
         )  # [-]
 
         nondim_t = np.asarray(
-            [self.nondim_time(t) for t in self.time_manager.schedule[1:]]
+            [self.nondim_time(t) for t in self.time_manager.schedule.get_array()[1:]]
         )  # scaled [s]
         numerical_consolidation = np.asarray(
             [result.approx_consolidation_degree for result in self.results]

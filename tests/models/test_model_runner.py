@@ -79,3 +79,36 @@ def test_failed_nonlinear_solve_dynamic_time_step():
     assert num_times_visited_before_nonlinear_iteration == 2, (
         "Should do exactly 2 attempts."
     )
+
+
+def test_time_data_seeded_from_time_stepper_before_prepare_simulation():
+    """Test that model.time_data reflects the real schedule from the time_stepper
+    already during prepare_simulation(), not just after the first time step.
+
+    ModelRunner.__init__ must resolve the passed-in time_stepper and seed
+    model.time_data from its scheduler *before* calling prepare_simulation(). Otherwise,
+    anything invoked during prepare_simulation() that depends on self.time_data.schedule
+    (e.g. time-dependent boundary conditions defined per schedule point) would
+    incorrectly see the SolutionStrategy.__init__ placeholder schedule [0.0, 1.0]
+    instead of the real one.
+
+    """
+    schedule = [0, 1, 2, 3]
+    prepare_simulation_called = False
+
+    class RecordingModel(pp.SinglePhaseFlow):
+        def prepare_simulation(self) -> None:
+            assert np.all(self.time_manager.schedule.get_array() == schedule)
+            assert self.time_manager.time == schedule[0]
+
+            nonlocal prepare_simulation_called
+            prepare_simulation_called = True
+
+    model = RecordingModel(
+        {
+            "times_to_export": [],
+            "time_manager": pp.TimeManager(schedule=schedule, dt_init=1),
+        }
+    )
+    _ = pp.ModelRunner(model)
+    assert prepare_simulation_called

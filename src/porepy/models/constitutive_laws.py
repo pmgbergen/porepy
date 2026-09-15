@@ -3153,7 +3153,7 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
         return pp.ad.MpsaAd(self.stress_keyword, subdomains)
 
 
-class ThreeFieldLinearElasticMechanicalStress:
+class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
     """Constitutive laws related to the three-field formulation of a linear elastic
     medium.
 
@@ -3187,17 +3187,6 @@ class ThreeFieldLinearElasticMechanicalStress:
     """The stiffness tensor, defined on a subdomain."""
     rotation_dimension: Callable[[], Literal[1, 3]]
     """The dimension of the rotation variable. Either 1 (2D) or 3 (3D)."""
-    nd: int
-    """The ambient dimension."""
-    mdg: pp.MixedDimensionalGrid
-    """The mixed-dimensional grid."""
-    subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
-    """Method that maps subdomains to their interfaces."""
-    interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
-    """Method that maps interfaces to their subdomains."""
-    create_boundary_operator: Callable[[str, Sequence[pp.BoundaryGrid]], pp.ad.Operator]
-    """Method that creates a boundary operator given a keyword and a list of
-    boundary grids."""
 
     def mechanical_stress(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Linear elastic mechanical stress [Pa] as defined in the three-field
@@ -3434,7 +3423,7 @@ class ThreeFieldLinearElasticMechanicalStress:
         return pp.ad.DenseArray(np.hstack(lmbda), name="second_lame_parameter")
 
 
-class ConstitutiveLawsTpsaPoromechanics:
+class ConstitutiveLawsTpsaPoromechanics(pp.PorePyModel):
     """Mixin class containing constitutive laws for Tpsa discretization of
     poromechanics.
 
@@ -4286,7 +4275,7 @@ class ElasticTangentialFractureDeformation(pp.PorePyModel):
         return u_t
 
 
-class FractureDamageEvolutionCoefficients:
+class FractureDamageEvolutionCoefficients(pp.PorePyModel):
     r"""Fracture damage coefficients according to Gao et al. (2024). These are used for
     computing the history variables according to
 
@@ -4322,9 +4311,6 @@ class FractureDamageEvolutionCoefficients:
 
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method returning the fracture contact traction."""
-
-    normal_component: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Method returning the normal component of a vector on the fracture."""
 
     solid: FractureDamageSolidConstants
     """SolidConstants with damage parameters."""

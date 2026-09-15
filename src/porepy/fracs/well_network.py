@@ -116,10 +116,15 @@ class WellNetwork3d:
             gmsh.initialize()
 
         # Process well-fracture intersections. This will also generate a gmsh
-        # representation of fractures and wells.
+        # representation of fractures and wells. Implementation note: Pass the full
+        # fracture list, including meshing constraints: gmsh_interface.fragment() relies
+        # on each fracture's position in the list matching its ``index`` attribute, so
+        # the list cannot be filtered ahead of this call.
         intersections, wells, _ = self.compute_well_fracture_intersections(
             fracture_network.fractures, fracture_network.nd
         )
+        intersections = _remove_constraint_only_intersection_points(intersections, mdg)
+
         # Generate a mesh for the well network and transfer the generated subdomains and
         # interfaces to the mixed-dimensional grid.
         well_mdg = _generate_well_mesh(intersections, wells, mesh_args)
@@ -344,6 +349,35 @@ def _wells_to_gmsh(wells: list[Well]) -> list[GmshLine]:
 
 
 # MARK: Processing of fracture-well intersection information ---
+
+
+def _remove_constraint_only_intersection_points(
+    intersections: list[WellFractureIntersection], mdg: pp.MixedDimensionalGrid
+) -> list[WellFractureIntersection]:
+    """Meshing constraints are not represented as subdomains in the mdg, and a
+    well should be unaffected by crossing one. Drop constraint indices from the
+    computed intersections, and discard intersection points that touched only
+    constraints (as opposed to kink points, which have an empty fracture_index
+    from the start and must be kept).
+
+    Parameters:
+        intersections: List of well-fracture intersections, possibly including
+            well-constraint cases.
+        mdg: Mixed-dimensional grid containing the fracture subdomains.
+
+    Returns:
+        List of well-fracture intersections with constraint indices removed.
+    """
+    real_frac_nums = {sd.frac_num for sd in mdg.subdomains(dim=mdg.dim_max() - 1)}
+    filtered_intersections = []
+    for isect in intersections:
+        real_frac_inds = [fi for fi in isect.fracture_index if fi in real_frac_nums]
+        if len(isect.fracture_index) > 0 and len(real_frac_inds) == 0:
+            continue
+        if real_frac_inds != isect.fracture_index:
+            isect = isect._replace(fracture_index=real_frac_inds)
+        filtered_intersections.append(isect)
+    return filtered_intersections
 
 
 def _intersections_from_points(
@@ -629,7 +663,7 @@ def _add_well_fracture_interfaces(
         )
         sds_1d = set(mdg.subdomains(dim=1))
         for fi in frac_inds:
-            g_frac = mdg.subdomains(dim=2)[fi]
+            g_frac = frac_num_to_subdomain[fi]
             sds_1d = sds_1d.intersection(
                 mdg.neighboring_subdomains(g_frac, only_lower=True)
             )
@@ -656,8 +690,18 @@ def _add_well_fracture_interfaces(
         [g.cell_centers[:, 0] for g in well_mdg.subdomains(dim=0)]
     ).T
 
+    # Map from the PorePy fracture index (which reflects the position of the fracture in
+    # the full fracture list passed to the fracture network) to the corresponding
+    # subdomain in the mdg. This is needed since the two need not be enumerated in the
+    # same order (for instance, a fracture may be a meshing constraint and not
+    # represented as a subdomain in the mdg).
+    frac_num_to_subdomain = {
+        sd.frac_num: sd for sd in mdg.subdomains(dim=mdg.dim_max() - 1)
+    }
+
     for isect in intersections:
-        if len(isect.fracture_index) == 0:
+        frac_inds = isect.fracture_index
+        if len(frac_inds) == 0:
             # This is a kink in the well. Continue.
             continue
 
@@ -670,10 +714,8 @@ def _add_well_fracture_interfaces(
 
         # Identify the subdomain from the fracture mdg that is closest to the
         # intersection point. This is either a fracture subdomain or an intersection.
-        frac_inds = isect.fracture_index
         if len(frac_inds) == 1:
-            g_high = mdg.subdomains(dim=mdg.dim_max() - 1)[frac_inds[0]]
-            assert g_high.frac_num == frac_inds[0]
+            g_high = frac_num_to_subdomain[frac_inds[0]]
         else:
             # We do not yet support well-fracture intersections at fracture intersection
             # points. If we get to this point and the domain is 2d, we know that this is

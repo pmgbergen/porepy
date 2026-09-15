@@ -7,6 +7,7 @@ the functionality is thoroughly tested through the test suit for the models.
 
 from __future__ import annotations
 
+import operator as _operator
 from typing import Any, Literal, overload
 
 import numpy as np
@@ -15,6 +16,23 @@ import scipy.sparse as sps
 import porepy as pp
 
 from .operators import Operations
+
+# Maps each binary Operations member to the callable that implements it, so
+# _evaluate_single can dispatch directly instead of building and eval()-ing a source
+# string per node (the latter is costly when repeated many times in a large operator
+# tree).
+_BINARY_OP = {
+    Operations.add: _operator.add,
+    Operations.sub: _operator.sub,
+    Operations.mul: _operator.mul,
+    Operations.rmul: _operator.mul,
+    Operations.div: _operator.truediv,
+    Operations.rdiv: _operator.truediv,
+    Operations.pow: _operator.pow,
+    Operations.rpow: _operator.pow,
+    Operations.matmul: _operator.matmul,
+    Operations.rmatmul: _operator.matmul,
+}
 
 
 class AdParser:
@@ -49,6 +67,7 @@ class AdParser:
         equation_system: pp.ad.EquationSystem,
         derivative: Literal[False],
         state: np.ndarray | None,
+        variable_indexer: pp.ad.VariableIndexer,
     ) -> float | np.ndarray | sps.spmatrix: ...
 
     @overload
@@ -58,6 +77,7 @@ class AdParser:
         equation_system: pp.ad.EquationSystem,
         derivative: Literal[True],
         state: np.ndarray | None,
+        variable_indexer: pp.ad.VariableIndexer,
     ) -> pp.ad.AdArray: ...
 
     @overload
@@ -67,6 +87,7 @@ class AdParser:
         equation_system: pp.ad.EquationSystem,
         derivative: Literal[True],
         state: np.ndarray | None,
+        variable_indexer: pp.ad.VariableIndexer,
     ) -> list[pp.ad.AdArray]: ...
 
     @overload
@@ -76,6 +97,7 @@ class AdParser:
         equation_system: pp.ad.EquationSystem,
         derivative: Literal[False],
         state: np.ndarray | None,
+        variable_indexer: pp.ad.VariableIndexer,
     ) -> list[float | np.ndarray | sps.spmatrix]: ...
 
     def evaluate(
@@ -84,6 +106,7 @@ class AdParser:
         equation_system: pp.ad.EquationSystem,
         derivative: bool,
         state: np.ndarray | None,
+        variable_indexer: pp.ad.VariableIndexer,
     ) -> (
         float
         | np.ndarray
@@ -103,16 +126,28 @@ class AdParser:
             equation_system: The EquationSystem wherein the system state is defined.
             state: The state of the system. If not provided, the state is taken from the
                 variable values provided by equation_system.
+            variable_indexer: The indexer that defines the arrangement in a vector of
+                active variables. If both variable_indexer and state are provided, the
+                state must conform to the variable indexer. I.e., if we want to evaluate
+                the operator only with respect to the pressure variable and provide
+                custom state, we need to pass the restricted variable_indexer (with only
+                pressure) and the restricted state array (with only pressure values).
 
         Returns:
             The value, or value and Jacobian combined in an AdArray, of the operator op,
                 or a list of values, or AdArrays if op is a list.
 
         """
-
         # Get the state of the system, if not provided.
         if state is None:
-            state = equation_system.get_variable_values(iterate_index=0)
+            state = equation_system.get_variable_values(
+                iterate_index=0, variables=list(variable_indexer.indices)
+            )
+        elif state.size != variable_indexer.size:
+            raise ValueError(
+                f"Passed state shape ({state.size}) does not conform to the variable "
+                f"indexer size ({variable_indexer.size})."
+            )
 
         # Create an AdArray representation of the state, if the derivative is requested.
         # If not, the state is used as is (as a numpy array).
@@ -122,10 +157,13 @@ class AdParser:
         # post-processing below.
         if isinstance(op, list):
             result_list = [
-                self._evaluate_single(o, ad_base, equation_system) for o in op
+                self._evaluate_single(o, ad_base, equation_system, variable_indexer)
+                for o in op
             ]
         else:
-            result_list = [self._evaluate_single(op, ad_base, equation_system)]
+            result_list = [
+                self._evaluate_single(op, ad_base, equation_system, variable_indexer)
+            ]
 
         # If the derivative is requested, the results should be AdArrays. Enforce this.
         if derivative:
@@ -137,7 +175,7 @@ class AdParser:
                 if isinstance(res, np.ndarray) and len(res.shape) == 1:
                     # Convert numpy arrays to AdArrays and update result_list.
                     result_list[index] = pp.ad.AdArray(
-                        res, sps.csr_matrix((res.shape[0], equation_system.num_dofs()))
+                        res, sps.csr_matrix((res.shape[0], variable_indexer.size))
                     )
                 elif isinstance(res, (sps.spmatrix, sps.sparray, np.ndarray)):
                     # This will cover numpy arrays of higher dimensions (> 1) and sparse
@@ -172,6 +210,7 @@ class AdParser:
         op: pp.ad.Operator,
         ad_base: np.ndarray | pp.ad.AdArray,
         equation_system: pp.EquationSystem,
+        variable_indexer: pp.ad.VariableIndexer,
     ) -> float | np.ndarray | sps.spmatrix | pp.ad.AdArray:
         """Evaluate a single operator.
 
@@ -180,6 +219,7 @@ class AdParser:
             ad_base: The base for the automatic differentiation. This should be an
                 AdArray if the derivative is requested, and a numpy array if not.
             equation_system: The EquationSystem wherein the system state is defined.
+            variable_indexer: The indexer that defines the arrangement in ad_base.
 
         Returns:
             A numpy array or an AdArray representation of the operator op, depending on
@@ -197,32 +237,63 @@ class AdParser:
         #    them according to the operator.
         if op.is_leaf():
             if isinstance(op, pp.ad.MixedDimensionalVariable):
-                if op.is_previous_iterate or op.is_previous_time or op.is_reference:
-                    # Empty vector like the global vector of unknowns for prev time/iter
-                    # insert the values at the right dofs and slice.
-                    vals = np.empty_like(
-                        ad_base.val if isinstance(ad_base, pp.ad.AdArray) else ad_base
-                    )
-                    # List of indices for sub variables.
-                    dofs = []
-                    for sub_var in op.sub_vars:
-                        sub_dofs = equation_system.dofs_of([sub_var])
-                        vals[sub_dofs] = sub_var.parse(equation_system.mdg)
-                        dofs.append(sub_dofs)
+                # Check if the MDVariable is not active (not present in ad_base).
+                not_active_variable = False
+                num_not_in_indexer = sum(
+                    sub_var not in variable_indexer.indices for sub_var in op.sub_vars
+                )
+                if num_not_in_indexer > 0:
+                    not_active_variable = num_not_in_indexer == len(op.sub_vars)
+                    # It is in principly possible to evaluate variable which is active
+                    # on some domains and disabled on others, but we do not need this
+                    # yet, so it is not implemented. If we ever need it, the change
+                    # should be localized by restructuring the loops in this function.
+                    if not not_active_variable:
+                        raise NotImplementedError(
+                            "Evaluating MDVariables partially disabled on some domains "
+                            "is not supported yet."
+                        )
 
-                    return vals[np.hstack(dofs, dtype=int)] if dofs else np.array([])
+                if (
+                    op.is_previous_iterate
+                    or op.is_previous_time
+                    or op.is_reference
+                    or not_active_variable
+                ):
+                    # This relies on an assumption, that the domains within a single
+                    # MDVariable are ordered according to the MDG. If this assumption is
+                    # broken, this will not be the failure point, because it will fail
+                    # much earlier.
+                    vals = [
+                        sub_var.parse(equation_system.mdg) for sub_var in op.sub_vars
+                    ]
+                    return np.concatenate(vals) if len(vals) else np.array([])
                 else:
+                    dofs_list = [
+                        variable_indexer.indices[sub_var] for sub_var in op.sub_vars
+                    ]
+                    dofs = (
+                        np.concatenate(dofs_list)
+                        if len(dofs_list)
+                        else np.zeros(0, dtype=int)
+                    )
                     # Fetch the values from the state vector.
-                    return ad_base[equation_system.dofs_of([op])]
+                    return ad_base[dofs]
 
             # Atomic variables.
             elif isinstance(op, pp.ad.Variable):
+                not_active_variable = op not in variable_indexer.indices
                 # If a variable represents a previous iteration or time, parse values.
-                if op.is_previous_iterate or op.is_previous_time or op.is_reference:
+                if (
+                    op.is_previous_iterate
+                    or op.is_previous_time
+                    or op.is_reference
+                    or not_active_variable
+                ):
                     return op.parse(equation_system.mdg)
                 # Otherwise use the current time and iteration values.
                 else:
-                    return ad_base[equation_system.dofs_of([op])]
+                    return ad_base[variable_indexer.indices[op]]
             # All other leafs like discretizations or some wrapped data.
             else:
                 # Mypy complains because the return type of parse is Any.
@@ -239,7 +310,7 @@ class AdParser:
         # This is not a leaf, but a composite operator. Parse the children and combine
         # them according to the operator.
         child_values = [
-            self._evaluate_single(child, ad_base, equation_system)
+            self._evaluate_single(child, ad_base, equation_system, variable_indexer)
             for child in op.children
         ]
 
@@ -260,8 +331,7 @@ class AdParser:
                     child_values = child_values[::-1]
                     flipped = True
                 try:
-                    symbol = Operations.to_symbol(operation)
-                    res = eval(f"child_values[0] {symbol} child_values[1]")
+                    res = _BINARY_OP[operation](child_values[0], child_values[1])
 
                 except ValueError as exc:
                     msg = self._get_error_message(
@@ -344,8 +414,7 @@ class AdParser:
                         )
                         raise ValueError(msg) from exc
                 try:
-                    symbol = Operations.to_symbol(operation)
-                    res = eval(f"child_values[0] {symbol} child_values[1]")
+                    res = _BINARY_OP[operation](child_values[0], child_values[1])
                     return res
                 except ValueError as exc:
                     msg = self._get_error_message(

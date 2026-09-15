@@ -86,8 +86,6 @@ def _run_buoyancy_model(
         schedule=[0.0, tf],
         dt_init=dt,
         constant_dt=True,
-        iter_max=50,
-        print_info=True,
     )
     model_params = {
         # True: total mobility in the Darcy tensor (fractional flow); False:

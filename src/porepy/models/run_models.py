@@ -138,8 +138,8 @@ def _run_iterative_model(model, params: dict) -> None:
     # for everything ``tqdm`` related.
     def time_step() -> None:
         model.propagation_index = 0
-        model.time_manager.increase_time()
-        model.time_manager.increase_time_index()
+        model.time_manager.time += model.time_manager.dt
+        model.time_manager.time_index += 1
         logger.info(
             f"\nTime step {model.time_manager.time_index} at time"
             + f" {model.time_manager.time:.1e} of"
@@ -167,10 +167,11 @@ def _run_iterative_model(model, params: dict) -> None:
             # modified time step size to the initial time step size.
             expected_time_steps: int = int(
                 np.round(
-                    (model.time_manager.schedule[-1] - model.time_manager.schedule[0])
+                    (model.time_manager.time_final - model.time_manager.time_init)
                     / initial_time_step
                 )
             )
+
             time_progressbar = progressbar_class(
                 range(expected_time_steps),
                 desc="Time loop",

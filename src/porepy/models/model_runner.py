@@ -10,6 +10,7 @@ from typing import Optional, cast
 
 import porepy as pp
 from porepy.models.solution_strategy import SolutionStrategy
+from porepy.time_stepper.scheduler import assemble_default_time_scheduler
 from porepy.time_stepper.time_step_status import (
     TimeStepperStatusFailure,
     TimeStepperStatusSuccess,
@@ -174,16 +175,22 @@ class ModelRunner:
         self.model = model
         """Model instance passed at instantiation."""
 
-        # Construct the default if not provided. This time stepper is constructed even
-        # for a stationary problem, but used only for time-dependent problems.
         if time_stepper is None:
-            time_stepper = TimeStepper(time_manager=model.time_manager)
+            time_stepper = TimeStepper(
+                scheduler=assemble_default_time_scheduler(
+                    time_manager=model.time_manager
+                ),
+                max_attempts=10,
+            )
         self.time_stepper: TimeStepper = time_stepper
-        """Responsible for the time stepping logic."""
+        """Responsible for the time stepping logic. Used only in time-dependent
+        simulations."""
 
         if self.params.get("prepare_simulation", True):
             self.model.prepare_simulation()
 
+        # Some models (e.g. contact mechanics) determine nonlinearity from the mixed-
+        # dimensional grid, which is only available after prepare_simulation.
         self._is_nonlinear = self.model._is_nonlinear_problem()
         """Flag indicating whether the problem is nonlinear, set at initialization."""
 
@@ -244,7 +251,7 @@ class ModelRunner:
 
             # NOTE: If tqdm is not installed, this returns a DummyProgressBar instance.
             self.time_progressbar = progressbar_class(
-                total=self.model.time_manager.schedule[-1],
+                total=self.model.time_manager.schedule.t_end,
                 desc="Time loop",
                 position=0,
                 dynamic_ncols=True,
@@ -344,10 +351,12 @@ def _extract_nonlinear_solver_from_params(
     """
     solver_from_params = params.get("nonlinear_solver", None)
     if solver_from_params is not None and nonlinear_solver is None:
-        logger.warning(
+        warnings.warn(
             "You should pass the nonlinear solver directly to the ModelRunner: use "
             "ModelRunner(nonlinear_solver=...). Passing it through params will be "
-            "deprecated."
+            "deprecated.",
+            category=FutureWarning,
+            stacklevel=3,
         )
         return cast(type[pp.solvers.NewtonSolver], solver_from_params)(params)
     if solver_from_params is not None and nonlinear_solver is not None:
