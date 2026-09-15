@@ -149,7 +149,7 @@ class FracturedReservoirGeometry(SubsurfaceCuboidDomain):
             fractures.append(pp.PlaneFracture(diagonal_pts, index=i + 1))
 
         self._fractures = fractures
-        self._fractures = []
+        # self._fractures = []
 
     def set_wells(self) -> None:
         """Set a single vertical well penetrating the horizontal fracture.
@@ -167,8 +167,8 @@ class FracturedReservoirGeometry(SubsurfaceCuboidDomain):
             np.array([[cx, cx], [cy, cy], [0.0, z_bottom]]),
             tags={"well_name": "observation_well"},
         )
-        # self._wells = [well]
-        self._wells = []
+        self._wells = [well]
+        # self._wells = []
 
     def well_meshing_arguments(self) -> dict:
         *_, dz = self.domain_sizes()
@@ -180,14 +180,14 @@ class FracturedReservoirGeometry(SubsurfaceCuboidDomain):
 
 
 class ThmFracturedReservoir(  # type: ignore[misc]
-    # pp.constitutive_laws.GravityForce,
-    # pp.constitutive_laws.CubicLawPermeability,
-    # HydrostaticBoundaryPressureValues,
-    # ThermalGradientBoundaryTemperatureValues,
-    # BoundaryConditionsMechanicsNeumann,
-    # LithostaticBoundaryStressValues,
-    # InitialConditionHydrostaticPressureValues,
-    # InitialConditionThermalGradientTemperatureValues,
+    pp.constitutive_laws.GravityForce,
+    pp.constitutive_laws.CubicLawPermeability,
+    HydrostaticBoundaryPressureValues,
+    ThermalGradientBoundaryTemperatureValues,
+    BoundaryConditionsMechanicsNeumann,
+    LithostaticBoundaryStressValues,
+    InitialConditionHydrostaticPressureValues,
+    InitialConditionThermalGradientTemperatureValues,
     FracturedReservoirGeometry,
     pp.models.solution_strategy.ContactIndicators,
     pp.Thermoporomechanics,
