@@ -811,20 +811,21 @@ class Grid:
         cells = cf_csr.indices[cf_csr.indptr[:-1]]
         cf_orient = cf_csr.data[cf_csr.indptr[:-1]]
 
+        # mypy is not happy when we pass axis=0 in numpy.vecdot(). We therefore define a
+        # helper function instead of littering the code with type ignores.
+        def dot(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+            return np.vecdot(a, b, axis=0)  # type: ignore[call-overload]
+
         # We compute the relative orientation by taking the dot product between the
         # vector from cell to face center, and the computed normal.
-        dotprods = np.vecdot(
-            (self.face_centers - self.cell_centers[:, cells]), face_normals, axis=0
-        )
+        dotprods = dot((self.face_centers - self.cell_centers[:, cells]), face_normals)
 
         # We flip the normal if the sign of the dot product does not correspond to the
         # orientation in cell_faces. The normals are then saved as an attribute.
         self.face_normals = face_normals * (np.sign(dotprods) * cf_orient)
 
         # The face area is given by the norm of the face normal.
-        self.face_areas = np.sqrt(
-            np.vecdot(self.face_normals, self.face_normals, axis=0)
-        )
+        self.face_areas = np.sqrt(dot(self.face_normals, self.face_normals))
 
         # Finally, the volume of cell K can be computed by using the divergence theorem:
         # 3|K| = int_K 3 dx = int_K div(x) dx = sum_F int_F n dot x ds
@@ -832,9 +833,7 @@ class Grid:
         # linear and each face is planar, we evaluate it exactly using the midpoint
         # rule, i.e. in the face center.
         self.cell_volumes = (
-            np.vecdot(self.face_centers, self.face_normals, axis=0)
-            @ self.cell_faces
-            / 3
+            dot(self.face_centers, self.face_normals) @ self.cell_faces / 3
         )
 
     def cell_nodes(self) -> sps.csc_matrix:
