@@ -836,6 +836,10 @@ class Grid:
             dot(self.face_centers, self.face_normals) @ self.cell_faces / 3
         )
 
+        # Sanity check
+        if not np.all(self.cell_volumes > -1e-12):
+            raise ValueError("Some tetrahedra have negative volume")
+
     def cell_nodes(self) -> sps.csc_matrix:
         """Obtain mapping between cells and nodes.
 
