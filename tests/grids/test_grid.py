@@ -471,6 +471,27 @@ def test_compute_geometry_cart_2d(grid, expected_geometry):
     assert np.allclose(grid.cell_centers, known_cell_center)
 
 
+# ----- Test consistency between compute_geometry functions ----- #
+
+
+def test_compute_geometry_3d_simplices_consistency():
+    pts = np.random.rand(3, 10)
+    g_simplicial = pp.TetrahedralGrid(pts)
+    g_polyhedral = g_simplicial.copy()
+
+    g_simplicial._compute_geometry_3d_simplices()
+    g_polyhedral._compute_geometry_3d()
+
+    for attr in [
+        "face_centers",
+        "cell_centers",
+        "face_normals",
+        "face_areas",
+        "cell_volumes",
+    ]:
+        assert np.allclose(getattr(g_simplicial, attr), getattr(g_polyhedral, attr))
+
+
 # ----- Test compute_geometry for various challenging grids ----- #
 
 # This grid should trigger is_oriented = False, and compute_geometry should fall
