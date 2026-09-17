@@ -451,7 +451,7 @@ class TestMortarProjections:
         integrated = getattr(proj, int_method)()
         # A second call returns the stored matrix rather than constructing a new one.
         assert getattr(proj, int_method)() is integrated
-
+    # Separate "secondary" methods iff non_matching. Negate to get shared.
         shares_storage = not (non_matching and "secondary" in int_method)
         assert (getattr(proj, avg_method)() is integrated) == shares_storage
 
