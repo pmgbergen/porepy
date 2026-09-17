@@ -668,15 +668,6 @@ class TestBoundaryProjection:
     def subset_projection(self, mdg, subset, proj_dim):
         return pp.ad.BoundaryProjection(mdg, subset, proj_dim)
 
-        assert s2b.source.domain_type == pp.ad.DomainType.subdomains
-        assert s2b.source.grids == tuple(subdomains)
-        assert s2b.source.dof_info == pp.ad.GridEntities(faces=proj_dim)
-        assert s2b.target.domain_type == pp.ad.DomainType.boundary_grids
-        assert s2b.target.grids == tuple(mdg.boundaries())
-        assert s2b.target.dof_info == pp.ad.GridEntities(cells=proj_dim)
-        assert b2s.source == s2b.target
-        assert b2s.target == s2b.source
-
     @pytest.mark.parametrize(
         "sd_index, expected_sum_factor",
         [(0, 8), (1, 2), (2, 2), (3, 0)],
@@ -697,12 +688,28 @@ class TestBoundaryProjection:
         block = subdomain_to_boundary[:, starts[sd_index] : starts[sd_index + 1]]
         assert np.sum(block) == expected_sum_factor * proj_dim
 
-    def test_boundary_to_subdomain_is_transpose(self, mdg, projection):
+    def test_boundary_to_subdomain_is_transpose(
+        self, mdg, subdomains, proj_dim, projection
+    ):
         """subdomain_to_boundary and boundary_to_subdomain are transposes of each
-        other, for the full list of subdomains."""
-        subdomain_to_boundary = projection.subdomain_to_boundary.parse(mdg)
-        boundary_to_subdomain = projection.boundary_to_subdomain.parse(mdg)
+        other, for the full list of subdomains -- both as parsed matrices, and as
+        OperatorSpaces (each one's source/target matching the other's target/source).
+        """
+        s2b = projection.subdomain_to_boundary
+        b2s = projection.boundary_to_subdomain
+
+        subdomain_to_boundary = s2b.parse(mdg)
+        boundary_to_subdomain = b2s.parse(mdg)
         assert np.allclose((subdomain_to_boundary - boundary_to_subdomain.T).data, 0)
+
+        assert s2b.source.domain_type == pp.ad.DomainType.subdomains
+        assert s2b.source.grids == tuple(subdomains)
+        assert s2b.source.dof_info == pp.ad.GridEntities(faces=proj_dim)
+        assert s2b.target.domain_type == pp.ad.DomainType.boundary_grids
+        assert s2b.target.grids == tuple(mdg.boundaries())
+        assert s2b.target.dof_info == pp.ad.GridEntities(cells=proj_dim)
+        assert b2s.source == s2b.target
+        assert b2s.target == s2b.source
 
     def test_subset_of_grids_shape(self, mdg, subset, proj_dim, subset_projection):
         """Restricting BoundaryProjection to a subset of subdomains gives a
@@ -737,7 +744,8 @@ class TestBoundaryProjection:
         per-subdomain contributions as the full-grid-list case, for the subdomains
         that remain (cf. test_per_subdomain_contribution).
         """
-        subdomain_to_boundary = subset_projection.subdomain_to_boundary.parse(mdg)
+        s2b_op = subset_projection.subdomain_to_boundary
+        subdomain_to_boundary = s2b_op.parse(mdg)
         starts = np.cumsum(np.hstack((0, [sd.num_faces * proj_dim for sd in subset])))
         block = subdomain_to_boundary[:, starts[sd_index] : starts[sd_index + 1]]
         assert np.sum(block) == expected_sum_factor * proj_dim
@@ -824,10 +832,8 @@ def test_divergence(mdg: pp.MixedDimensionalGrid, dim: int):
     do than comparing against the expected matrices, unless one wants to add more
     integration-type tests e.g. evaluating combinations with other ad entities.
 
-    Also checks that source/target report DomainType.subdomains with one DOF per face
-    in the source and per cell in the target (matching the *constructed* dim, which -
-    note - is left at its default of 1 below regardless of the ``dim`` parameter; see
-    the dof_info assertion).
+    Also checks that source/target report DomainType.subdomains with ``dim`` DOFs per
+    face in the source and per cell in the target.
 
     """
     # The operator should work on any subset of mdg.subdomains.
@@ -848,8 +854,8 @@ def test_divergence(mdg: pp.MixedDimensionalGrid, dim: int):
     assert op.source.domain_type == pp.ad.DomainType.subdomains
     assert op.target.domain_type == pp.ad.DomainType.subdomains
     assert op.source.grids == tuple(subdomains) == op.target.grids
-    assert op.source.dof_info == pp.ad.GridEntities(faces=1)
-    assert op.target.dof_info == pp.ad.GridEntities(cells=1)
+    assert op.source.dof_info == pp.ad.GridEntities(faces=dim)
+    assert op.target.dof_info == pp.ad.GridEntities(cells=dim)
 
     # Divergence also gets a typed-but-empty space (not None) on an empty subdomain
     # list.
