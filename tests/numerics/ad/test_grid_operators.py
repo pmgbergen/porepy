@@ -17,6 +17,8 @@ Covers, in order (see the ``# MARK:`` comments below for navigation):
 
 """
 
+from typing import Literal
+
 import numpy as np
 import pytest
 import scipy.sparse as sps
@@ -44,11 +46,24 @@ _SUBDOMAIN_PROJECTION_CASES = [
 ]
 
 
-def _known_subdomain_projection_matrix(subdomains, target_grids, proj_dim, entity):
-    """The known 0/1 restriction matrix mapping ``entity`` DOFs of the full
-    ``subdomains`` list onto the concatenated ``entity`` DOFs of ``target_grids``, in
-    the order given by ``target_grids``. The corresponding prolongation matrix is this
-    matrix's transpose.
+def _known_subdomain_projection_matrix(
+    subdomains: list[pp.Grid],
+    target_grids: list[pp.Grid],
+    proj_dim: int,
+    entity: Literal["cells", "faces"],
+) -> sps.csr_matrix:
+    """Construct the known restriction/prolongation matrix between the full
+    subdomains`` list and the concatenated ``target_grids`` list, for the given
+    ``entity`` and ``proj_dim``.
+
+    Parameters:
+        subdomains: List of grids to project from/to.
+        target_grids: List of grids to project to/from.
+        proj_dim: Number of DOFs per cell/face.
+        entity: "cells" or "faces".
+
+    Returns:
+        Sparse matrix.
     """
     is_cell = entity == "cells"
     counts = np.array([sd.num_cells if is_cell else sd.num_faces for sd in subdomains])
@@ -79,9 +94,9 @@ class TestSubdomainProjections:
     ``pp.ad.SubdomainProjections``.
 
     Covers three scenarios (one per test method below): projecting to/from an empty
-    grid list, a single grid, and a combined list of two grids. Each scenario is
-    checked both for numerical correctness of the projection matrix (except the
-    empty-list one, which only has a well-defined shape).
+    grid list, a single grid, and a combined list of two grids. For each scenario we
+    check the shape of the projection matrix, and compare it to a known matrix assembled
+    independently of the implementation under test.
 
     """
 
@@ -170,10 +185,14 @@ class TestSubdomainProjections:
 
 # MARK: Mortar<->primary/secondary subdomain projections ---------------------------
 
-#: (method_name, pair, kind, is_to_mortar) for each of the eight mortar<->primary/
-#: secondary projection directions tested in TestMortarProjections.test_projection.
-#: ``pair`` is "primary" or "secondary" (the higher- or lower-dimensional neighbor of
-#: an interface); ``kind`` is "int" or "avg" (integration or averaging variant).
+# (method_name, pair, kind, is_to_mortar) for each of the eight mortar<->primary/
+# secondary projection directions tested in TestMortarProjections.test_projection.
+# - method_name: the name of the SubdomainProjections method to call.
+# - pair: "primary" or "secondary" (the higher- or lower-dimensional neighbor of an
+# interface).
+# - kind: "int" or "avg" (integration or averaging variant).
+# - is_to_mortar: True if the projection is from a subdomain to the mortar, False
+#   otherwise.
 _MORTAR_PROJECTION_CASES = [
     pytest.param(
         "mortar_to_primary_int", "primary", "int", False, id="mortar_to_primary_int"
@@ -451,7 +470,7 @@ class TestMortarProjections:
         integrated = getattr(proj, int_method)()
         # A second call returns the stored matrix rather than constructing a new one.
         assert getattr(proj, int_method)() is integrated
-    # Separate "secondary" methods iff non_matching. Negate to get shared.
+        # Separate "secondary" methods iff non_matching. Negate to get shared.
         shares_storage = not (non_matching and "secondary" in int_method)
         assert (getattr(proj, avg_method)() is integrated) == shares_storage
 
@@ -525,7 +544,10 @@ class TestBoundaryProjection:
 
     Covers, in order: the shape of the full-subdomain-list projection; the
     per-subdomain contribution to that projection (which boundary faces each
-    subdomain touches); and restricting the projection to a subset of subdomains.
+    subdomain touches); that subdomain_to_boundary and boundary_to_subdomain are
+    transposes of each other; and restricting the projection to a subset of
+    subdomains (shape and per-subdomain contribution, mirroring the full-list
+    checks).
 
     """
 
@@ -544,17 +566,18 @@ class TestBoundaryProjection:
     def projection(self, mdg, subdomains, proj_dim):
         return pp.ad.BoundaryProjection(mdg, subdomains, proj_dim)
 
-    def test_shape(self, mdg, proj_dim, projection):
-        """subdomain_to_boundary/boundary_to_subdomain have the size implied by the
-        subdomain/boundary DOF counts.
+    @pytest.fixture
+    def subset(self, subdomains):
+        """A subset of two subdomains (the 2d grid and one of the 1d fractures),
+        used to test restricting BoundaryProjection to fewer than all subdomains.
         """
-        _, num_faces, _ = geometry_information(mdg, proj_dim)
-        num_cells = sum(bg.num_cells for bg in mdg.boundaries()) * proj_dim
+        g_0 = [sd for sd in subdomains if sd.dim == 2][0]
+        g_1 = [sd for sd in subdomains if sd.dim == 1][0]
+        return [g_0, g_1]
 
-        s2b = projection.subdomain_to_boundary
-        b2s = projection.boundary_to_subdomain
-        assert s2b.parse(mdg).shape == (num_cells, num_faces)
-        assert b2s.parse(mdg).shape == (num_faces, num_cells)
+    @pytest.fixture
+    def subset_projection(self, mdg, subset, proj_dim):
+        return pp.ad.BoundaryProjection(mdg, subset, proj_dim)
 
     @pytest.mark.parametrize(
         "sd_index, expected_sum_factor",
@@ -576,36 +599,50 @@ class TestBoundaryProjection:
         block = subdomain_to_boundary[:, starts[sd_index] : starts[sd_index + 1]]
         assert np.sum(block) == expected_sum_factor * proj_dim
 
-    def test_subset_of_grids(self, mdg, proj_dim):
-        """Restricting BoundaryProjection to a subset of subdomains gives the same
-        per-subdomain contributions as the full-grid-list case (for the subdomains
-        that remain), a size consistent with that subset, and a subdomain_to_boundary
-        consistent with its reverse.
+    def test_boundary_to_subdomain_is_transpose(self, mdg, projection):
+        """subdomain_to_boundary and boundary_to_subdomain are transposes of each
+        other, for the full list of subdomains."""
+        subdomain_to_boundary = projection.subdomain_to_boundary.parse(mdg)
+        boundary_to_subdomain = projection.boundary_to_subdomain.parse(mdg)
+        assert np.allclose((subdomain_to_boundary - boundary_to_subdomain.T).data, 0)
+
+    def test_subset_of_grids_shape(self, mdg, subset, proj_dim, subset_projection):
+        """Restricting BoundaryProjection to a subset of subdomains gives a
+        subdomain_to_boundary/boundary_to_subdomain shape consistent with that
+        subset.
         """
-        mdg.compute_geometry()
-        g_0 = mdg.subdomains(dim=2)[0]
-        g_1 = mdg.subdomains(dim=1)[0]
-        subset = [g_0, g_1]
-        projection = pp.ad.grid_operators.BoundaryProjection(mdg, subset, proj_dim)
-        s2b_op = projection.subdomain_to_boundary
-        num_faces = proj_dim * (g_0.num_faces + g_1.num_faces)
+        num_faces = proj_dim * sum(sd.num_faces for sd in subset)
         num_cells = proj_dim * sum(
             mdg.subdomain_to_boundary_grid(sd).num_cells for sd in subset
         )
-        subdomain_to_boundary = s2b_op.parse(mdg)
-        boundary_to_subdomain = projection.boundary_to_subdomain.parse(mdg)
+        subdomain_to_boundary = subset_projection.subdomain_to_boundary.parse(mdg)
+        boundary_to_subdomain = subset_projection.boundary_to_subdomain.parse(mdg)
 
         assert subdomain_to_boundary.shape == (num_cells, num_faces)
         assert boundary_to_subdomain.shape == (num_faces, num_cells)
 
-        ind0 = 0
-        ind1 = g_0.num_faces * proj_dim
-        assert np.sum(subdomain_to_boundary[:, ind0:ind1]) == 8 * proj_dim
-        ind0 = ind1
-        ind1 += g_1.num_faces * proj_dim
-        assert np.sum(subdomain_to_boundary[:, ind0:ind1]) == 2 * proj_dim
-
-        assert np.allclose((subdomain_to_boundary - boundary_to_subdomain.T).data, 0)
+    @pytest.mark.parametrize(
+        "sd_index, expected_sum_factor",
+        [(0, 8), (1, 2)],
+        ids=["top_dim", "fracture_1"],
+    )
+    def test_subset_of_grids_per_subdomain_contribution(
+        self,
+        mdg,
+        subset,
+        proj_dim,
+        subset_projection,
+        sd_index,
+        expected_sum_factor,
+    ):
+        """Restricting BoundaryProjection to a subset of subdomains gives the same
+        per-subdomain contributions as the full-grid-list case, for the subdomains
+        that remain (cf. test_per_subdomain_contribution).
+        """
+        subdomain_to_boundary = subset_projection.subdomain_to_boundary.parse(mdg)
+        starts = np.cumsum(np.hstack((0, [sd.num_faces * proj_dim for sd in subset])))
+        block = subdomain_to_boundary[:, starts[sd_index] : starts[sd_index + 1]]
+        assert np.sum(block) == expected_sum_factor * proj_dim
 
 
 # MARK: Trace and Divergence operators ----------------------------------------------
@@ -635,7 +672,7 @@ def test_trace(mdg: pp.MixedDimensionalGrid):
 
     # Compare to operator class.
     op = pp.ad.Trace(subdomains)
-    _compare_matrices(op.trace, sps.bmat([[m] for m in traces]))
+    assert _compare_matrices(op.trace, sps.bmat([[m] for m in traces]))
 
     # As of the writing of this test, Trace is not implemented for vector values. If it
     # is ever extended, the test should be extended accordingly (e.g. parametrized with
@@ -669,9 +706,9 @@ def test_divergence(mdg: pp.MixedDimensionalGrid, dim: int):
         divergences.append(local_block)
 
     # Compare to operators parsed value.
-    op = pp.ad.Divergence(subdomains)
+    op = pp.ad.Divergence(subdomains, dim=dim)
     val = op.parse(mdg)
-    _compare_matrices(val, sps.block_diag(divergences))
+    assert _compare_matrices(val, sps.block_diag(divergences))
 
 
 def _compare_matrices(m1, m2):
