@@ -287,7 +287,7 @@ class TimeDependentMechanicalBCsDirNorthSouth(BoundaryConditionsMechanicsDirNort
         else:
             frac_val = 0
         values[1, domain_sides.north] = frac_val
-        if self.time_manager.time > 1e-5:
+        if not self.time_manager.is_at_initial_time():
             return values.ravel("F") + super().bc_values_displacement(bg)
         else:
             return values.ravel("F")
@@ -356,8 +356,8 @@ class BoundaryConditionsMechanicsNeumann:
                 raise ValueError(
                     f"Anchor mask shape {mask.shape} incompatible with nd={self.nd}."
                 )
-            bc.is_dir[:, face] = mask
-            bc.is_neu[:, face] = ~mask  # Negate for Neumann
+            bc.is_dir[:, np.atleast_1d(face)] = mask[:, None]
+            bc.is_neu[:, np.atleast_1d(face)] = ~mask[:, None]  # Negate for Neumann
         return bc
 
     def _anchor_dirichlet_component_masks(self) -> list[np.ndarray]:
@@ -505,6 +505,8 @@ class LithostaticBoundaryStressValues(GravityMagnitude):
 
     """
 
+    nd: int
+    """Number of spatial dimensions."""
     params: dict
     """Model parameters."""
     depth: Callable[[np.ndarray], np.ndarray]
@@ -531,7 +533,7 @@ class LithostaticBoundaryStressValues(GravityMagnitude):
 
         """
         datum_lithostatic_stress = self.params.get(
-            "datum_lithostatic_stress", np.zeros(3)
+            "datum_lithostatic_stress", np.zeros(self.nd)
         )
         return self.units.convert_units(datum_lithostatic_stress, units="Pa")
 
@@ -544,7 +546,7 @@ class LithostaticBoundaryStressValues(GravityMagnitude):
             Default is an array of ones.
 
         """
-        return self.params.get("lithostatic_stress_multipliers", np.ones(3))
+        return self.params.get("lithostatic_stress_multipliers", np.ones(self.nd))
 
     def bc_values_stress(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Stress values.
@@ -558,9 +560,9 @@ class LithostaticBoundaryStressValues(GravityMagnitude):
 
         """
         # Initialize array for stress values.
-        values = np.zeros((3, boundary_grid.num_cells))
+        values = np.zeros((self.nd, boundary_grid.num_cells))
         # Assume zero initial stress state.
-        if self.time_manager.time < 1e-5:
+        if self.time_manager.is_at_initial_time():
             return values.ravel("F")
 
         gravity = self.gravity_force_magnitude("bulk")
@@ -636,9 +638,7 @@ class HydrostaticPressureValues(GravityMagnitude):
 
         """
         gravity = self.gravity_force_magnitude("fluid")
-        pressure = gravity * depth + self.units.convert_units(
-            self.hydrostatic_pressure_offset, units="Pa"
-        )
+        pressure = gravity * depth + self.hydrostatic_pressure_offset
         return pressure
 
 

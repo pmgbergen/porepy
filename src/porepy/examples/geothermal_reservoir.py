@@ -88,7 +88,7 @@ class WellBoundaryConditions(pp.PorePyModel):
             values[inds] = self.units.convert_units(
                 self.get_well_value(
                     self.well_protocols(well_tag, "pressures"),
-                    self.time_manager.schedule,
+                    self.time_manager.schedule.get_array(),
                     self.time_manager.time,
                 ),
                 "Pa",
@@ -115,7 +115,7 @@ class WellBoundaryConditions(pp.PorePyModel):
             values[inds] = self.units.convert_units(
                 self.get_well_value(
                     self.well_protocols(well_tag, "temperatures"),
-                    self.time_manager.schedule,
+                    self.time_manager.schedule.get_array(),
                     self.time_manager.time,
                 ),
                 "K",
@@ -164,7 +164,7 @@ class WellBoundaryConditions(pp.PorePyModel):
         Returns:
             Array of protocol values, one entry per scheduled time point.
         """
-        num_times = self.time_manager.schedule.size
+        num_times = self.time_manager.schedule.get_array().size
         raw = self.params.get(f"{well_tag}_{variable}", 0.0)
         if isinstance(raw, (int, float)):
             return np.full(num_times, float(raw))
@@ -207,7 +207,7 @@ class NeumannWellBCsFirstTimeInterval(pp.PorePyModel):
         """
         if (
             self.is_well_grid(sd)
-            and self.time_manager.time <= self.time_manager.schedule[1]
+            and self.time_manager.time <= self.time_manager.schedule.get_array()[1]
         ):
             # Before start of injection, impose Neumann BCs on well grids. A zero-flux
             # condition is imposed by default when no BC values are specified. The <=
@@ -232,7 +232,7 @@ class NeumannWellBCsFirstTimeInterval(pp.PorePyModel):
         """
         if (
             self.is_well_grid(sd)
-            and self.time_manager.time <= self.time_manager.schedule[1]
+            and self.time_manager.time <= self.time_manager.schedule.get_array()[1]
         ):
             # Before start of injection, impose Neumann BCs on well grids. A zero-flux
             # condition is imposed by default when no BC values are specified. The <=

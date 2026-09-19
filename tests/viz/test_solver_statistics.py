@@ -10,6 +10,7 @@ from deepdiff import DeepDiff
 import porepy as pp
 from porepy.numerics.solvers import ConvergenceInfoHistory
 from porepy.time_stepper.time_step_status import (
+    TimeStepperAttemptData,
     TimeStepperStatusContinueIterating,
     TimeStepperStatusFailure,
     TimeStepperStatusSuccess,
@@ -48,7 +49,7 @@ def nonlinear_solver_status(
 ) -> pp.solvers.NonlinearSolverStatus:
     """Create a nonlinear solver status for the tests."""
     if status == "converged":
-        return pp.solvers.NonlinearSolverStatusConverged(
+        return pp.solvers.NewtonSolverConverged(
             linear_solver_statuses=[
                 pp.solvers.LinearSolverStatusSuccess(solve_time=0.0)
             ]
@@ -57,7 +58,7 @@ def nonlinear_solver_status(
             divergence_statuses=pp.solvers.ConvergenceStatusCollection(),
         )
     elif status == "failed":
-        return pp.solvers.NonlinearSolverStatusFailed(
+        return pp.solvers.NewtonSolverFailed(
             linear_solver_statuses=[pp.solvers.LinearSolverStatusFailure(reason="")]
             * 2,
             convergence_statuses=pp.solvers.ConvergenceStatusCollection(),
@@ -72,18 +73,26 @@ def time_stepper_status(
 ):
     """Create a time-stepper status equivalent to an old convergence status."""
     if status == "converged":
-        solver_status = nonlinear_solver_status(status)
-        assert isinstance(solver_status, pp.solvers.NonlinearSolverStatusConverged)
         return TimeStepperStatusSuccess(
-            time=1.0, dt=0.5, nonlinear_solver_status=solver_status
+            time=1.0,
+            attempts=[
+                TimeStepperAttemptData(
+                    dt=0.5, nonlinear_solve_status=nonlinear_solver_status(status)
+                )
+            ],
         )
     elif status == "continue_iterating":
         return TimeStepperStatusContinueIterating(
-            attempt=0, nonlinear_solver_status=nonlinear_solver_status("failed")
+            attempts=[],
         )
     elif status == "failed":
         return TimeStepperStatusFailure(
-            nonlinear_solver_status=nonlinear_solver_status("failed"),
+            time=1.0,
+            attempts=[
+                TimeStepperAttemptData(
+                    dt=0.5, nonlinear_solve_status=nonlinear_solver_status("failed")
+                )
+            ],
             reason="Nonlinear solver failed.",
         )
     else:
@@ -143,8 +152,7 @@ def reference_nonlinear_solver_statistics_dict() -> dict:
         {
             # NonlinearSolverStatistics data for first outer iteration
             "num_iterations": 2,
-            "solver_status": None,
-            "solver_status_history": [],
+            "solver_status": "successful",
             "simulation_status": "failed",
             "convergence_status": {
                 "crit1": [
@@ -166,8 +174,7 @@ def reference_nonlinear_solver_statistics_dict() -> dict:
         {
             # NonlinearSolverStatistics data for second outer iteration
             "num_iterations": 1,
-            "solver_status": None,
-            "solver_status_history": [],
+            "solver_status": "successful",
             "simulation_status": "successful",
             "convergence_status": {
                 "crit1": ["converged"],
@@ -272,21 +279,13 @@ def test_solver_statistics_initialization():
     assert stats.path is None
     assert stats.num_cells == {}
     assert stats.num_domains == {}
-    assert stats.simulation_status == TimeStepperStatusContinueIterating(
-        attempt=-1,
-        nonlinear_solver_status=pp.solvers.NonlinearSolverStatusConverged(
-            linear_solver_statuses=[],
-            convergence_statuses=pp.solvers.ConvergenceStatusCollection(),
-            divergence_statuses=pp.solvers.ConvergenceStatusCollection(),
-        ),
-    )
+    assert stats.simulation_status == TimeStepperStatusContinueIterating(attempts=[])
     assert stats.simulation_status_history == []
-    assert stats.solver_status == pp.solvers.NonlinearSolverStatusConverged(
+    assert stats.solver_status == pp.solvers.NewtonSolverConverged(
         linear_solver_statuses=[],
         convergence_statuses=pp.solvers.ConvergenceStatusCollection(),
         divergence_statuses=pp.solvers.ConvergenceStatusCollection(),
     )
-    assert stats.solver_status_history == []
     assert stats.custom_data == {}
 
 
@@ -303,7 +302,6 @@ def test_solver_statistic_attributes():
     assert hasattr(model.nonlinear_solver_statistics, "simulation_status")
     assert hasattr(model.nonlinear_solver_statistics, "simulation_status_history")
     assert hasattr(model.nonlinear_solver_statistics, "solver_status")
-    assert hasattr(model.nonlinear_solver_statistics, "solver_status_history")
     assert hasattr(model.nonlinear_solver_statistics, "custom_data")
 
     # Check that SolverStatistics has not path for storing.
@@ -628,6 +626,9 @@ def test_solver_statistics_save_in_model(path, exists):
     model = DummyModel(params)
     model.prepare_simulation()
 
+    # Save the solver statistics explicitly.
+    model.save_statistics()
+
     # Check whether file was saved and has correct suffix.
     if exists:
         assert model.nonlinear_solver_statistics.path.exists()
@@ -676,7 +677,6 @@ def test_nonlinear_solver_statistics_attributes():
     assert hasattr(model.nonlinear_solver_statistics, "simulation_status")
     assert hasattr(model.nonlinear_solver_statistics, "solver_status")
     assert hasattr(model.nonlinear_solver_statistics, "simulation_status_history")
-    assert hasattr(model.nonlinear_solver_statistics, "solver_status_history")
     assert hasattr(model.nonlinear_solver_statistics, "custom_data")
 
     # Check that SolverStatistics has not path for storing.
@@ -835,7 +835,6 @@ def test_nonlinear_solver_statistics_append_iterative_data():
     stats.simulation_status_history = [
         time_stepper_status("failed"),
     ]
-    stats.solver_status_history = [nonlinear_solver_status("failed")]
     stats.convergence_status = pp.solvers.ConvergenceStatusHistory(
         {
             "crit1": ["continue_iterating", "failed"],
@@ -851,6 +850,7 @@ def test_nonlinear_solver_statistics_append_iterative_data():
             "crit2": [2.0, 1.5],
         }
     )
+    stats.solver_status = nonlinear_solver_status("failed")
 
     # Make sure that the data dict has the correct 'index' key before appending.
     # Typically prepared when calling the `append_data` method.
@@ -860,9 +860,7 @@ def test_nonlinear_solver_statistics_append_iterative_data():
     # Compare against reference data. Restrict to "0", ignore custom data, and cast.
     reference_data = {"0": reference_nonlinear_solver_statistics_dict()["0"]}
     reference_data["0"].pop("foo")
-    failed_solver_status = "failed"
-    reference_data["0"]["solver_status"] = failed_solver_status
-    reference_data["0"]["solver_status_history"] = [failed_solver_status]
+    reference_data["0"]["solver_status"] = nonlinear_solver_status("failed").serialize()
     assert (
         DeepDiff(
             out,
@@ -970,7 +968,6 @@ def test_nonlinear_solver_statistics_save():
         time_stepper_status("failed"),
         time_stepper_status("converged"),
     ]
-    stats.solver_status_history = [nonlinear_solver_status("converged")]
     stats.index = 1
     stats.num_iterations_history = [2, 1]
     stats.num_iterations = 1
@@ -1001,7 +998,6 @@ def test_nonlinear_solver_statistics_save():
 
     successful_solver_status = "successful"
     reference_data["1"]["solver_status"] = successful_solver_status
-    reference_data["1"]["solver_status_history"] = [successful_solver_status]
 
     assert (
         DeepDiff(
@@ -1118,7 +1114,6 @@ def test_time_statistics_initialization():
     assert stats.num_domains == {}
     assert stats.simulation_status == SolverStatistics().simulation_status
     assert stats.simulation_status_history == []
-    assert stats.solver_status_history == []
     assert stats.custom_data == {}
 
     # Check TimeStatistics attributes.
@@ -1141,7 +1136,6 @@ def test_time_statistics_attributes():
     assert hasattr(model.nonlinear_solver_statistics, "simulation_status")
     assert hasattr(model.nonlinear_solver_statistics, "solver_status")
     assert hasattr(model.nonlinear_solver_statistics, "simulation_status_history")
-    assert hasattr(model.nonlinear_solver_statistics, "solver_status_history")
     assert hasattr(model.nonlinear_solver_statistics, "custom_data")
 
     # Check that SolverStatistics has not path for storing.
@@ -1430,7 +1424,6 @@ def test_nonlinear_solver_and_time_statistics_initialization():
     assert stats.num_domains == {}
     assert stats.simulation_status == SolverStatistics().simulation_status
     assert stats.simulation_status_history == []
-    assert stats.solver_status_history == []
     assert stats.custom_data == {}
 
     # Check NonlinearSolverStatistics attributes.
@@ -1459,7 +1452,6 @@ def test_nonlinear_solver_and_time_statistics_attributes():
     assert hasattr(model.nonlinear_solver_statistics, "simulation_status")
     assert hasattr(model.nonlinear_solver_statistics, "solver_status")
     assert hasattr(model.nonlinear_solver_statistics, "simulation_status_history")
-    assert hasattr(model.nonlinear_solver_statistics, "solver_status_history")
     assert hasattr(model.nonlinear_solver_statistics, "custom_data")
 
     # Check that SolverStatistics has not path for storing.
@@ -1584,7 +1576,6 @@ def test_nonlinear_solver_and_time_statistics_save():
         time_stepper_status("failed"),
         time_stepper_status("converged"),
     ]
-    stats.solver_status_history = [nonlinear_solver_status("converged")]
     stats.solver_status = nonlinear_solver_status("converged")
     stats.index = 1
     stats.num_iterations_history = [2, 1]
@@ -1620,7 +1611,6 @@ def test_nonlinear_solver_and_time_statistics_save():
 
     successful_solver_status = "successful"
     reference_data["1"]["solver_status"] = successful_solver_status
-    reference_data["1"]["solver_status_history"] = [successful_solver_status]
 
     assert (
         DeepDiff(

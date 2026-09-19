@@ -39,22 +39,22 @@ def set_solution_values(
         name: Name of the quantity that is to be assigned values.
         values: The values that are set in the data dictionary.
         data: Data dictionary corresponding to the subdomain or interface in question.
-        time_step_index: ``default=None``
+        time_step_index:
 
             Determines the key of where ``values`` are to be stored in
             ``data[pp.TIME_STEP_SOLUTIONS][name]``.
             0 is the most recent time step, 1 the one before that and so on.
-        iterate_index: ``default=None``
+        iterate_index:
 
             Determines the key of where ``values`` are to be stored in
-            ``data[pp.ITERATE_SOLUTIONS][name]``.
-            0 is the current iterate, 1 the previous iterate, and so on.
-        additive: ``default=False``
+            ``data[pp.ITERATE_SOLUTIONS][name]``. 0 is the current (last accepted)
+            value, 1 the previous value, and so on.
+        additive:
 
             Flag to decide whether the values already stored in the data dictionary
             should be added to or overwritten.
+        reference:
 
-        reference: ``default=False``
             Flag to decide whether reference values should be set instead of time step
             or iterate values. If ``True``, the setter will store values in
             ``data[pp.REFERENCE_SOLUTIONS][name]``.
@@ -113,7 +113,9 @@ def get_solution_values(
 
     Parameters:
         name: Name of the parameter whose values we are interested in. data: The data
-        dictionary. time_step_index:
+        dictionary.
+
+        time_step_index:
 
             Determines the key of where ``values`` are to be stored in
             ``data[pp.TIME_STEP_SOLUTIONS][name]``. 0 is the most recent time step, 1
@@ -121,8 +123,8 @@ def get_solution_values(
         iterate_index:
 
             Determines the key of where ``values`` are to be stored in
-            ``data[pp.ITERATE_SOLUTIONS][name]``. 0 is the current iterate, 1 the
-            previous iterate, and so on.
+            ``data[pp.ITERATE_SOLUTIONS][name]``. 0 is the current (last accepted)
+            value, 1 the second-to-last accepted value, and so on.
         reference:
             Flag to decide whether reference values should be fetched instead of time
             step or iterate values. If ``True``, the getter will look for values in

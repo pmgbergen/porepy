@@ -106,10 +106,10 @@ from functools import partial
 from typing import Callable, Optional, Sequence, cast
 
 import numpy as np
-from numpy.typing import NDArray
+import scipy.sparse as sps
 
 import porepy as pp
-import porepy.compositional as pc
+import porepy.compositional as compositional
 
 logger = logging.getLogger(__name__)
 
@@ -117,24 +117,17 @@ logger = logging.getLogger(__name__)
 def update_phase_properties(
     sd: pp.Grid,
     phase: pp.Phase,
-    props: pc.PhaseProperties,
+    props: compositional.PhaseProperties,
     depth: int,
-    /,
-    *,
     update_derivatives: bool = True,
     use_extended_derivatives: bool = False,
     update_fugacities: bool = False,
-    mask: NDArray[np.bool_] | None = None,
 ) -> None:
     """Helper method to update the phase properties and its derivatives.
 
     This method is intended for a grid-local update of properties and their derivatives,
     using the methods of the
     :class:`~porepy.numerics.ad.surrogate_operator.SurrogateFactory`.
-
-    Note:
-        If a ``mask`` is given and no iterate values are stored for some property, an
-        error will be raised because an attempt to access values is made.
 
     Parameters:
         sd: A subdomain grid in the md-domain.
@@ -155,51 +148,45 @@ def update_phase_properties(
 
             If True, fugacity coefficients are also updates. To be used in combination
             with local equilibrium conditions.
-        mask: ``default=None``
-
-            If a boolean array is given, the update is only applied for indicated
-            indices.
 
     """
-
-    ops = [
-        phase.density,
-        phase.specific_enthalpy,
-        phase.specific_internal_energy,
-        phase.viscosity,
-        phase.thermal_conductivity,
-    ]
-    vals = [props.rho, props.h, props.u, props.mu, props.kappa]
-    if use_extended_derivatives:
-        dvals = [
-            props.drho_ext,
-            props.dh_ext,
-            props.du_ext,
-            props.dmu_ext,
-            props.dkappa_ext,
-        ]
-    else:
-        dvals = [props.drho, props.dh, props.du, props.dmu, props.dkappa]
+    if isinstance(phase.density, pp.ad.SurrogateFactory):
+        phase.density.progress_iterate_values_on_grid(props.rho, sd, depth=depth)
+        if update_derivatives:
+            phase.density.set_derivatives_on_grid(
+                props.drho_ext if use_extended_derivatives else props.drho, sd
+            )
+    if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
+        phase.specific_enthalpy.progress_iterate_values_on_grid(
+            props.h, sd, depth=depth
+        )
+        if update_derivatives:
+            phase.specific_enthalpy.set_derivatives_on_grid(
+                props.dh_ext if use_extended_derivatives else props.dh, sd
+            )
+    if isinstance(phase.viscosity, pp.ad.SurrogateFactory):
+        phase.viscosity.progress_iterate_values_on_grid(props.mu, sd, depth=depth)
+        if update_derivatives:
+            phase.viscosity.set_derivatives_on_grid(
+                props.dmu_ext if use_extended_derivatives else props.dmu, sd
+            )
+    if isinstance(phase.thermal_conductivity, pp.ad.SurrogateFactory):
+        phase.thermal_conductivity.progress_iterate_values_on_grid(
+            props.kappa, sd, depth=depth
+        )
+        if update_derivatives:
+            phase.thermal_conductivity.set_derivatives_on_grid(
+                props.dkappa_ext if use_extended_derivatives else props.dkappa, sd
+            )
 
     if update_fugacities:
-        ops += [phase.fugacity_coefficient_of[comp] for comp in phase]
-        vals += [phi for phi in props.phis]
-        if use_extended_derivatives:
-            dvals += [dphi for dphi in props.dphis_ext]
-        else:
-            dvals += [dphi for dphi in props.dphis]
-
-    for op, val, dval in zip(ops, vals, dvals):
-        if isinstance(op, pp.ad.SurrogateFactory):
-            if mask is not None:
-                val = np.where(mask, val, op.get_values_on_grid(sd, iterate_index=0))
-            op.progress_iterate_values_on_grid(val, sd, depth=depth)
-            if update_derivatives:
-                if mask is not None:
-                    dval_ = op.get_derivatives_on_grid(sd)
-                    dval_[:, mask] = dval[:, mask]
-                    dval = dval
-                op.set_derivatives_on_grid(dval, sd)
+        dphis = props.dphis_ext if use_extended_derivatives else props.dphis
+        for k, comp in enumerate(phase.components):
+            phi = phase.fugacity_coefficient_of[comp]
+            if isinstance(phi, pp.ad.SurrogateFactory):
+                phi.progress_iterate_values_on_grid(props.phis[k], sd, depth=depth)
+                if update_derivatives:
+                    phi.set_derivatives_on_grid(dphis[k], sd)
 
 
 def is_fractional_flow(model: pp.PorePyModel) -> bool:
@@ -212,11 +199,10 @@ def is_fractional_flow(model: pp.PorePyModel) -> bool:
         model: A PorePy model.
 
     Returns:
-        True if ``model.params['fractional_flow'] == True``. Defaults to False.
+        True if ``model.params['fractional_flow'] == True`. Defaults to False.
 
     """
     return bool(model.params.get("fractional_flow", False))
-
 
 
 def log_cf_model_configuration(model: pp.PorePyModel) -> None:
@@ -226,8 +212,7 @@ def log_cf_model_configuration(model: pp.PorePyModel) -> None:
     p_elim = model._is_reference_phase_eliminated()
     c_elim = model._is_reference_component_eliminated()
     is_ff = is_fractional_flow(model)
-    et = pc.get_equilibrium_specifications(model)
-    schur = model.params.get("apply_schur_complement_reduction", False)
+    et = compositional.get_local_equilibrium_condition(model)
     var_names = set([v.name for v in model.equation_system.variables])
     dofs = model.equation_system.num_dofs()
     dofs_loc = dofs / len(var_names)
@@ -235,9 +220,8 @@ def log_cf_model_configuration(model: pp.PorePyModel) -> None:
 
     logger.info(
         f"Configuration of model {model}:\n"
-        + f"\tEquilibrium specification: {et}\n"
+        + f"\tEquilibrium condition: {et}\n"
         + f"\tFractional flow: {is_ff}"
-        + f"\tEliminating secondary block via Schur complement: {schur}"
         + f"\tNumber of phases: {model.fluid.num_phases}\n"
         + f"\tNumber of components: {model.fluid.num_components}\n"
         + f"\tReference phase eliminated: {p_elim}\n"
@@ -337,54 +321,43 @@ class MassicPressureEquations(pp.fluid_mass_balance.FluidMassBalanceEquations):
     """See :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`."""
 
     def fluid_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        """In the fractional-flow formulation the total mobility sits in the diffuse
-        tensor, so the fluid flux is the :attr:`darcy_flux` itself. Otherwise the
-        mobility-weighted flux of the parent class is required.
+        """The fluid flux is given solely by the :attr:`darcy_flux`, assuming the total
+        mobility is part of the (non-linear) diffuse tensor.
 
         Parameters:
             domains: List of subdomains or boundary grids.
 
         Returns:
-            The massic fluid flux matching the active formulation.
+            Whatever :attr:`darcy_flux` returns.
 
         """
-        if is_fractional_flow(self):
-            return self.darcy_flux(domains)
-        else:
-            return super().fluid_flux(domains)
+        return self.darcy_flux(domains)
 
     def interface_fluid_flux(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-        """Interface counterpart of :meth:`fluid_flux`: the
-        :attr:`interface_darcy_flux` in the fractional-flow formulation, the
-        mobility-weighted parent flux otherwise.
+        """The interface fluid flux is given solely by the :attr:`interface_darcy_flux`,
+        assuming it is a massic flux.
 
         Parameters:
             interfaces: List of mortar grids.
 
         Returns:
-            The massic interface fluid flux matching the active formulation.
+            Whatever :attr:`interface_darcy_flux` returns.
 
         """
-        if is_fractional_flow(self):
-            return self.interface_darcy_flux(interfaces)
-        else:
-            return super().interface_fluid_flux(interfaces)
+        return self.interface_darcy_flux(interfaces)
 
     def well_fluid_flux(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-        """Well counterpart of :meth:`fluid_flux`: the :attr:`well_flux` in the
-        fractional-flow formulation, the mobility-weighted parent flux otherwise.
+        """The well fluid flux is given solely by the :attr:`well_flux`,
+        assuming it is a massic flux.
 
         Parameters:
             interfaces: List of mortar grids.
 
         Returns:
-            The massic well fluid flux matching the active formulation.
+            Whatever :attr:`well_flux` returns.
 
         """
-        if is_fractional_flow(self):
-            return self.well_flux(interfaces)
-        else:
-            return super().well_fluid_flux(interfaces)
+        return self.well_flux(interfaces)
 
 
 class EnthalpyBasedEnergyBalanceEquations(
@@ -422,8 +395,6 @@ class EnthalpyBasedEnergyBalanceEquations(
     fractional_phase_mass_mobility: Callable[
         [pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator
     ]
-    """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
-    phase_mobility: Callable[[pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
 
     enthalpy_buoyancy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
@@ -497,37 +468,26 @@ class EnthalpyBasedEnergyBalanceEquations(
         return op
 
     def enthalpy_flux(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        is_boundary = len(subdomains) == 0 or all(
-            isinstance(d, pp.BoundaryGrid) for d in subdomains
-        )
-        buoyancy_condition: bool = (
-            self.params.get("enable_buoyancy_effects", False) and not is_boundary
-        )
-
-        # PPU and HU share the SAME flux structure: the lumped advective flux (upwinded
-        # by the total flux) plus the separate simplicial monotone buoyancy term. They
-        # differ ONLY in the buoyancy upwind direction (phase potential vs gravity flux),
-        # carried by ``ppu_Q`` in ``update_buoyancy_driven_fluxes``. Reusing HU's
-        # ``enthalpy_buoyancy`` is what keeps PPU correct at the boundary: it is built on
-        # ``rho_gamma - rho_delta`` and ``f_gamma * f_delta``, which vanish identically in
-        # single-phase regions, so the buoyancy term contributes nothing where only one
-        # phase is present (e.g. the inflow/outflow boundaries).
-        if is_boundary and is_fractional_flow(self):
-            flux = self.advection_weight_energy_balance(subdomains) * self.fluid_flux(
+        if (
+            len(subdomains) == 0
+            or all(isinstance(d, pp.BoundaryGrid) for d in subdomains)
+        ) and is_fractional_flow(self):
+            flux = self.advection_weight_energy_balance(subdomains) * self.darcy_flux(
                 subdomains
             )
         else:
             flux = super().enthalpy_flux(subdomains)
+        buoyancy_condition: bool = self.params.get(
+            "enable_buoyancy_effects", False
+        ) and not all([isinstance(g, pp.BoundaryGrid) for g in subdomains])
         if buoyancy_condition:
             flux += self.enthalpy_buoyancy(subdomains)
-        flux.set_name("enthalpy_flux")
         return flux
 
     def energy_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         source = super().energy_source(subdomains)
-        # PPU and HU both use the simplicial ``enthalpy_buoyancy``, so both need its
-        # interface (secondary-side) jump contribution.
-        if self.params.get("enable_buoyancy_effects", False):
+        buoyancy_condition: bool = self.params.get("enable_buoyancy_effects", False)
+        if buoyancy_condition:
             source += self.enthalpy_buoyancy_jump(subdomains)
         return source
 
@@ -615,9 +575,6 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
     ]
     """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
 
-    phase_mobility: Callable[[pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
-
     bc_data_fractional_flow_component_key: Callable[[pp.Component], str]
     """See :class:`BoundaryConditionsFractionalFlow`."""
     bc_data_component_flux_key: Callable[[pp.Component], str]
@@ -673,13 +630,8 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         accumulation = self.volume_integral(
             self.component_mass(component, subdomains), subdomains, dim=1
         )
-        buoyancy_condition: bool = self.params.get("enable_buoyancy_effects", False)
-        # PPU and HU share the SAME flux structure: the lumped advective flux plus the
-        # separate simplicial monotone buoyancy term ``component_buoyancy``. They differ
-        # ONLY in the buoyancy upwind direction (carried by ``ppu_Q``). See the rationale
-        # in :meth:`EnthalpyBasedEnergyBalanceEquations.enthalpy_flux`.
         flux = self.component_flux(component, subdomains)
-        if buoyancy_condition:
+        if self.params.get("enable_buoyancy_effects", False):
             flux += self.component_buoyancy(component, subdomains)
         source = self.component_source(component, subdomains)
 
@@ -785,7 +737,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
             if is_fractional_flow(self):
                 return self.advection_weight_component_mass_balance(
                     component, domains
-                ) * self.fluid_flux(domains)
+                ) * self.darcy_flux(domains)
             else:
                 return self.create_boundary_operator(
                     self.bc_data_component_flux_key(component),
@@ -952,8 +904,6 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         source = projection.mortar_to_secondary_int() @ self.interface_component_flux(
             component, interfaces
         )
-        # PPU and HU both use the simplicial ``component_buoyancy``, so both need its
-        # interface (secondary-side) jump contribution.
         if self.params.get("enable_buoyancy_effects", False):
             source += self.component_buoyancy_jump(component, subdomains)
 
@@ -1012,7 +962,7 @@ class PrimaryEquationsCFF(
 
 
 class VariablesCF(
-    pc.CompositionalVariables,
+    compositional.CompositionalVariables,
     pp.energy_balance.EnthalpyVariable,
     pp.mass_and_energy_balance.VariablesFluidMassAndEnergy,
 ):
@@ -1053,7 +1003,7 @@ class ConstitutiveLawsSolidSkeletonCF(
 
 class ConstitutiveLawsCF(
     # NOTE must be on top to overwrite phase properties as general surrogate factories
-    pc.FluidMixin,
+    compositional.FluidMixin,
     ConstitutiveLawsSolidSkeletonCF,
     pp.constitutive_laws.ThermalConductivityCF,
     pp.constitutive_laws.FluidMobility,
@@ -1082,17 +1032,6 @@ class ConstitutiveLawsCF(
     transport.
 
     """
-
-
-class ConstitutiveLawsCFF(
-    pp.constitutive_laws.DarcysLawAd,
-    ConstitutiveLawsCF,
-):
-    """Constitutive laws for the fractional-flow (CFF) setting: identical to
-    :class:`ConstitutiveLawsCF` but with the differentiable-tensor Darcy flux
-    (:class:`~porepy.constitutive_laws.DarcysLawAd`). The phase-segregation buoyancy terms are
-    unaffected (they use a separate HUpwind discretization); for a mobility-independent tensor (the
-    standard/HU setting) this reduces to the ordinary discretization."""
 
 
 # endregion
@@ -1134,7 +1073,7 @@ class BoundaryConditionsMulticomponent(pp.BoundaryConditionMixin):
 
     _overall_fraction_variable: Callable[[pp.Component], str]
     """Provided by mixin for compositional variables."""
-    _tracer_fraction_variable: Callable[[pp.Component, pc.Compound], str]
+    _tracer_fraction_variable: Callable[[pp.Component, compositional.Compound], str]
     """Provided by mixin for compositional variables."""
     has_independent_fraction: Callable[[pp.Component], bool]
     """Provided by mixin for compositional variables."""
@@ -1170,7 +1109,7 @@ class BoundaryConditionsMulticomponent(pp.BoundaryConditionMixin):
 
         for component in self.fluid.components:
             # Update of tracer fractions on Dirichlet boundary.
-            if isinstance(component, pc.Compound):
+            if isinstance(component, compositional.Compound):
                 for tracer in component.active_tracers:
                     bc_vals = cast(
                         Callable[[pp.BoundaryGrid], np.ndarray],
@@ -1227,7 +1166,7 @@ class BoundaryConditionsMulticomponent(pp.BoundaryConditionMixin):
     def bc_values_tracer_fraction(
         self,
         tracer: pp.Component,
-        compound: pc.Compound,
+        compound: compositional.Compound,
         bg: pp.BoundaryGrid,
     ) -> np.ndarray:
         """BC values for active tracer fractions (primary variable).
@@ -1334,7 +1273,6 @@ class BoundaryConditionsPhaseProperties(pp.BoundaryConditionMixin):
                 if bg.num_cells == 0:
                     rho_bc = np.zeros(0)
                     h_bc = np.zeros(0)
-                    u_bc = np.zeros(0)
                     mu_bc = np.zeros(0)
                     kappa_bc = np.zeros(0)
                 else:
@@ -1348,7 +1286,6 @@ class BoundaryConditionsPhaseProperties(pp.BoundaryConditionMixin):
                     )
                     rho_bc = state.rho
                     h_bc = state.h
-                    u_bc = state.u
                     mu_bc = state.mu
                     kappa_bc = state.kappa
 
@@ -1356,10 +1293,6 @@ class BoundaryConditionsPhaseProperties(pp.BoundaryConditionMixin):
                     phase.density.update_boundary_values(rho_bc, bg, depth=nt)
                 if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
                     phase.specific_enthalpy.update_boundary_values(h_bc, bg, depth=nt)
-                if isinstance(phase.specific_internal_energy, pp.ad.SurrogateFactory):
-                    phase.specific_internal_energy.update_boundary_values(
-                        u_bc, bg, depth=nt
-                    )
                 if isinstance(phase.viscosity, pp.ad.SurrogateFactory):
                     phase.viscosity.update_boundary_values(mu_bc, bg, depth=nt)
                 if isinstance(phase.thermal_conductivity, pp.ad.SurrogateFactory):
@@ -1421,21 +1354,24 @@ class BoundaryConditionsFractionalFlow(pp.BoundaryConditionMixin):
         """
 
         # Updating BC values of non-linear weights in component mass balance equations.
-        # Note: We need the fractional flow boundary values for all components, including the
-        # dependent/reference component, because when mass_mobility_weighted_permeability is
-        # False, the total boundary fluid flux is computed by summing over all components'
-        # boundary fluxes.
+        # Dependent components are skipped.
         for component in self.fluid.components:
-            bc_func = cast(
-                Callable[[pp.BoundaryGrid], np.ndarray],
-                partial(self.bc_values_fractional_flow_component, component),
-            )
+            # NOTE: The independency of overall fractions is used to characterize the
+            # dependency of fractional flow, since the fractional weights also fulfill
+            # the unity constraint.
+            # In practice, the fractional flow weight for the dependent component is
+            # never used in any equation, since it's mass balance is not part of the
+            # model equations.
+            if self.has_independent_fraction(component):
+                bc_func = cast(
+                    Callable[[pp.BoundaryGrid], np.ndarray],
+                    partial(self.bc_values_fractional_flow_component, component),
+                )
 
-            self.update_boundary_condition(
-                name=self.bc_data_fractional_flow_component_key(component),
-                function=bc_func,
-            )
-
+                self.update_boundary_condition(
+                    name=self.bc_data_fractional_flow_component_key(component),
+                    function=bc_func,
+                )
 
         # Updating BC values of the non-linear weight in the energy balance (advected
         # enthalpy).
@@ -1517,7 +1453,9 @@ class InitialConditionsFractions(pp.InitialConditionMixin):
 
     """
 
-    has_independent_tracer_fraction: Callable[[pp.Component, pc.Compound], bool]
+    has_independent_tracer_fraction: Callable[
+        [pp.Component, compositional.Compound], bool
+    ]
     """Provided by mixin for compositional variables."""
     has_independent_fraction: Callable[[pp.Phase | pp.Component], bool]
     """Provided by mixin for compositional variables."""
@@ -1545,7 +1483,7 @@ class InitialConditionsFractions(pp.InitialConditionMixin):
                     )
 
                 # All tracer fractions must have an initial value.
-                if isinstance(component, pc.Compound):
+                if isinstance(component, compositional.Compound):
                     for tracer in component.active_tracers:
                         if self.has_independent_tracer_fraction(tracer, component):
                             self.equation_system.set_variable_values(
@@ -1576,7 +1514,7 @@ class InitialConditionsFractions(pp.InitialConditionMixin):
         return np.zeros(sd.num_cells)
 
     def ic_values_tracer_fraction(
-        self, tracer: pp.Component, compound: pc.Compound, sd: pp.Grid
+        self, tracer: pp.Component, compound: compositional.Compound, sd: pp.Grid
     ) -> np.ndarray:
         """
         Parameters:
@@ -1617,9 +1555,9 @@ class InitialConditionsPhaseProperties(pp.InitialConditionMixin):
         Derivative values are only stored for the current iterate.
 
         """
-
-        equilibrium_defined = pc.has_equilibrium_specified(self)
-        is_persistent = pc.is_persistent_variable_form(self)
+        equilibrium_defined = (
+            compositional.get_local_equilibrium_condition(self) is not None
+        )
 
         # Set the initial values on individual grids for the iterate indices.
         for sd in self.mdg.subdomains():
@@ -1636,12 +1574,7 @@ class InitialConditionsPhaseProperties(pp.InitialConditionMixin):
 
                 # Set values and derivative values for current current index.
                 update_phase_properties(
-                    sd,
-                    phase,
-                    phase_props,
-                    0,
-                    use_extended_derivatives=is_persistent,
-                    update_fugacities=equilibrium_defined,
+                    sd, phase, phase_props, 0, update_fugacities=equilibrium_defined
                 )
 
 
@@ -1706,41 +1639,35 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
         and derivative values of phase properties and to update them in the iterative
         sense, on all subdomains."""
 
-        for grid in self.mdg.subdomains():
-            self.update_thermodynamic_properties_of_phases_on_grid(grid, state=state)
+        subdomains = self.mdg.subdomains()
+        equilibrium_defined = (
+            compositional.get_local_equilibrium_condition(self) is not None
+        )
 
-    def update_thermodynamic_properties_of_phases_on_grid(
-        self, grid: pp.Grid, state: Optional[np.ndarray] = None
-    ) -> None:
-        """Grid-wise function of :meth:`update_thermodynamic_properties_of_phases`."""
+        for grid in subdomains:
+            for phase in self.fluid.phases:
+                # Compute the values of variables/state functions on which the phase
+                # properties depend.
+                dep_vals = [
+                    self.equation_system.evaluate(d([grid]), state=state)
+                    for d in self.dependencies_of_phase_properties(phase)
+                ]
+                # Compute phase properties using the phase EoS.
+                phase_state = phase.compute_properties(
+                    *cast(list[np.ndarray], dep_vals),
+                    params=self.params.get("phase_property_params", None),
+                )
 
-        equilibrium_defined = pc.has_equilibrium_specified(self)
-        is_persistent = pc.is_persistent_variable_form(self)
-
-        for phase in self.fluid.phases:
-            # Compute the values of variables/state functions on which the phase
-            # properties depend.
-            dep_vals = [
-                self.equation_system.evaluate(d([grid]), state=state)
-                for d in self.dependencies_of_phase_properties(phase)
-            ]
-            # Compute phase properties using the phase EoS.
-            phase_state = phase.compute_properties(
-                *cast(list[np.ndarray], dep_vals),
-                params=self.params.get("phase_property_params", None),
-            )
-
-            # Set current iterate indices of values and derivatives.
-            # NOTE: Setting depth to zero does not shift the properties in the
-            # iterative sense, but updates only the current iterate.
-            update_phase_properties(
-                grid,
-                phase,
-                phase_state,
-                0,
-                use_extended_derivatives=is_persistent,
-                update_fugacities=equilibrium_defined,
-            )
+                # Set current iterate indices of values and derivatives.
+                # NOTE: Setting depth to zero does not shift the properties in the
+                # iterative sense, but updates only the current iterate.
+                update_phase_properties(
+                    grid,
+                    phase,
+                    phase_state,
+                    0,
+                    update_fugacities=equilibrium_defined,
+                )
 
     def after_nonlinear_convergence(self) -> None:
         """Progresses phase properties in time, if they are surrogate factories.
@@ -1763,10 +1690,6 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
                 phase.density.progress_values_in_time(subdomains, depth=nt)
             if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
                 phase.specific_enthalpy.progress_values_in_time(subdomains, depth=nt)
-            if isinstance(phase.specific_internal_energy, pp.ad.SurrogateFactory):
-                phase.specific_internal_energy.progress_values_in_time(
-                    subdomains, depth=nt
-                )
 
     def initialize_previous_iterate_and_time_step_values(self) -> None:
         """Attaches to the iterate and time step initialization and copies the values
@@ -1787,7 +1710,9 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
 
         ni = self.iterate_indices.size
         nt = self.time_step_indices.size
-        equilibrium_defined = pc.has_equilibrium_specified(self)
+        equilibrium_defined = (
+            compositional.get_local_equilibrium_condition(self) is not None
+        )
 
         for sd in self.mdg.subdomains():
             for phase in self.fluid.phases:
@@ -1808,15 +1733,6 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
                         phase.specific_enthalpy.progress_iterate_values_on_grid(
                             vals, sd, depth=ni
                         )
-                    if isinstance(
-                        phase.specific_internal_energy, pp.ad.SurrogateFactory
-                    ):
-                        vals = phase.specific_internal_energy.get_values_on_grid(
-                            sd, iterate_index=0
-                        )
-                        phase.specific_internal_energy.progress_iterate_values_on_grid(
-                            vals, sd, depth=ni
-                        )
                     if isinstance(phase.viscosity, pp.ad.SurrogateFactory):
                         vals = phase.viscosity.get_values_on_grid(sd, iterate_index=0)
                         phase.viscosity.progress_iterate_values_on_grid(
@@ -1831,7 +1747,7 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
                         )
 
                     if equilibrium_defined:
-                        for _, comp in enumerate(phase.components):
+                        for k, comp in enumerate(phase.components):
                             phi = phase.fugacity_coefficient_of[comp]
                             if isinstance(phi, pp.ad.SurrogateFactory):
                                 vals = phi.get_values_on_grid(sd, iterate_index=0)
@@ -1843,12 +1759,6 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
                         phase.density.progress_values_in_time([sd], depth=nt)
                     if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
                         phase.specific_enthalpy.progress_values_in_time([sd], depth=nt)
-                    if isinstance(
-                        phase.specific_internal_energy, pp.ad.SurrogateFactory
-                    ):
-                        phase.specific_internal_energy.progress_values_in_time(
-                            [sd], depth=nt
-                        )
 
 
 class SolutionStrategyExtendedFluidMassAndEnergy(
@@ -1883,6 +1793,43 @@ class SolutionStrategyExtendedFluidMassAndEnergy(
         advected enthalpy to be equal to the upwinding discretization for component
         mass balances."""
 
+
+class SolutionStrategyCF(
+    SolutionStrategyPhaseProperties,
+    SolutionStrategyExtendedFluidMassAndEnergy,
+):
+    """Solution strategy for general compositional flow.
+
+    The generality refers to the fluid phase properties being surrogate operators. I.e,
+    they are given by some underlying EoS and their values must be computed and stored
+    explicitly at several steps in the algorithm.
+
+    It uses a mixed-in solution strategy for phase property updates and is based on the
+    fully functional solution strategy for fluid mass and energy balance equations,
+    including an independent fluid enthalpy variable.
+
+    Supports the following model parameters:
+
+    - ``'eliminate_reference_phase'``: Defaults to True. If True, the molar fraction
+      and saturation of the reference phase are eliminated by unity, reducing the size
+      of the system. If False, more work is required by the modeller.
+    - ``'eliminate_reference_component'``: Defaults to True. If True, the overall
+      fraction of the reference component is eliminated by unity, reducing the number
+      of unknowns. Also, the mass balance equation for the reference component is
+      removed as an equation. If False, the modeller must close the system.
+    - ``'fractional_flow'``: Defaults to False. If True, the model treats the
+      non-linear weights in the advective fluxes in mass and energy balances as closed
+      terms on the boundary. The user must then provide values for the non-linear
+      weights explicitly. It also uses fractional mobilities, instead of regular ones.
+      To be used with consistently discretized diffusive parts or balance equations.
+    - ``'equilibrium_type'``: Defaults to None. If the model contains an equilibrium
+      part, it should be a string indicating the fixed state of the local phase
+      equilibrium problem e.g., ``'p-T'``,``'p-h'``. The string can also contain other
+      qualifiers providing information about the equilibrium model, for example
+      ``'unified-p-h'``.
+
+    """
+
     def add_nonlinear_darcy_flux_discretization(self) -> None:
         """If the fractional flow formulation is used, the nonlinear Darcy flux
         discretization is added by default for all subdomains to the update routine."""
@@ -1902,23 +1849,6 @@ class SolutionStrategyExtendedFluidMassAndEnergy(
         self.add_nonlinear_diffusive_flux_discretization(
             self.fourier_flux_discretization(self.mdg.subdomains()).flux(),
         )
-
-
-class SolutionStrategyCF(
-    SolutionStrategyPhaseProperties,
-    SolutionStrategyExtendedFluidMassAndEnergy,
-):
-    """Solution strategy for general compositional flow.
-
-    The generality refers to the fluid phase properties being surrogate operators. I.e,
-    they are given by some underlying EoS and their values must be computed and stored
-    explicitly at several steps in the algorithm.
-
-    It uses a mixed-in solution strategy for phase property updates and is based on the
-    fully functional solution strategy for fluid mass and energy balance equations,
-    including an independent fluid enthalpy variable.
-
-    """
 
 
 # endregion
@@ -1976,7 +1906,7 @@ class CompositionalFlowTemplate(  # type: ignore[misc]
 
 
 class CompositionalFractionalFlowTemplate(  # type: ignore[misc]
-    ConstitutiveLawsCFF,
+    ConstitutiveLawsCF,
     PrimaryEquationsCFF,
     VariablesCF,
     BoundaryConditionsCFF,

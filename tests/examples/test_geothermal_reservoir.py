@@ -59,12 +59,14 @@ def well_subdomains(neuBC_model):
     return wells
 
 
-def test_NeumannWellBCs_in_FirstTimeInterval(neuBC_model, well_subdomains):
+def test_NeumannWellBCs_in_FirstTimeInterval(
+    neuBC_model: pp.PorePyModel, well_subdomains
+):
     """
     Test that well grids have Neumann BCs during the first time interval.
     """
     model = neuBC_model
-    model.time_manager.time = model.time_manager.schedule[0]
+    model.time_manager.time = model.time_manager.time_init
     for sd in well_subdomains:
         bc = model.bc_type_darcy_flux(sd)
         assert not np.any(bc.is_dir)
@@ -104,7 +106,7 @@ def test_well_bcs_pressure(well_bc_model):
     Test the boundary conditions of one well for pressure.
     """
     model = well_bc_model
-    model.time_manager.time = model.time_manager.schedule[0]
+    model.time_manager.time = model.time_manager.time_init
     wells = [sd for sd in model.mdg.subdomains() if model.is_well_grid(sd)]
     assert len(wells) == 1
 
@@ -121,7 +123,7 @@ def test_well_bcs_temperature(well_bc_model):
     Test the boundary conditions of one well for temperature.
     """
     model = well_bc_model
-    model.time_manager.time = model.time_manager.schedule[0]
+    model.time_manager.time = model.time_manager.time_init
     wells = [sd for sd in model.mdg.subdomains() if model.is_well_grid(sd)]
     assert len(wells) == 1
 
@@ -240,7 +242,7 @@ def test_geothermal_reservoir():
             mdg: pp.MixedDimensionalGrid = self.mdg
             matrix = mdg.subdomains(dim=self.nd)
             t = self.time_manager.time
-            if t <= self.time_manager.schedule[1]:
+            if t <= self.time_manager.schedule.get_array()[1]:
                 pressure_data_initialization.append(
                     self.equation_system.evaluate(self.pressure(matrix))
                 )
@@ -251,7 +253,7 @@ def test_geothermal_reservoir():
                     self.equation_system.evaluate(self.displacement(matrix))
                 )
 
-            if np.any(abs(t - self.time_manager.schedule) < 1e-6):
+            if np.any(abs(t - self.time_manager.schedule.get_array()) < 1e-6):
                 # Hitting the checkpoint.
                 self._collect_data_for_tests()
 

@@ -17,9 +17,9 @@ def test_frac_2d():
     # Simple line, known center.
     f_1 = make_line_fracture()
     c_known = np.array([1, 1]).reshape((2, 1))
-    n_known = np.array([1, -1]).reshape((1, 2))
+    n_known = np.array([1, -1, 0])
     assert np.allclose(c_known, f_1.center)
-    assert np.allclose(np.cross(n_known, f_1.normal.T), 0)
+    assert np.allclose(np.cross(n_known, np.hstack((f_1.normal.ravel(), 0))), 0)
 
 
 def test_frac_index_2d():

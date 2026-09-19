@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Union
+from warnings import warn
 
 import numpy as np
 from scipy.spatial import distance as scidist
@@ -654,6 +655,10 @@ def segment_overlap_segment_set(
 
     The function currently works only for 2D geometries: ``nd == 2``.
 
+    Warning:
+        This function is not tested regularly and should be used with extreme caution.
+        It will be removed in a future version of PorePy.
+
     Parameters:
         start: ``shape=(nd,)``
 
@@ -687,16 +692,18 @@ def segment_overlap_segment_set(
         Otherwise, the 0th element of the tuple is returned.
 
     """
+    s = "This function is deprecated and will be removed in a future version of PorePy."
+    warn(s, category=FutureWarning, stacklevel=2)
 
     # reshape the input points
-    start_set = np.atleast_2d(start_set)[:2].reshape((2, -1))
-    end_set = np.atleast_2d(end_set)[:2].reshape((2, -1))
+    start_set = np.atleast_2d(start_set).reshape((3, -1))
+    end_set = np.atleast_2d(end_set).reshape((3, -1))
 
-    start = start.reshape(-1)[:2]
-    end = end.reshape(-1)[:2]
+    start = start.reshape(-1)
+    end = end.reshape(-1)
     norm = np.linalg.norm(start - end)
 
-    # compute the 2d-cross product useful for the collinearity
+    # Compute the 2d-cross product useful for the collinearity.
     cross = np.empty((2, start_set.shape[1]))
     for idx, (i, j) in enumerate(zip(start_set.T, end_set.T)):
         cross[0, idx] = np.cross(j - i, end - start) / norm

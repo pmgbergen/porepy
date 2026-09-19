@@ -17,6 +17,7 @@ from . import (
     functions,
     get_set_values,
     grid_operators,
+    indexers,
     operator_functions,
     operators,
     surrogate_operator,
@@ -29,6 +30,7 @@ from .forward_mode import *
 from .functions import *
 from .get_set_values import *
 from .grid_operators import *
+from .indexers import *
 from .operator_functions import *
 from .operators import *
 from .surrogate_operator import *
@@ -45,3 +47,4 @@ __all__.extend(grid_operators.__all__)
 __all__.extend(equation_system.__all__)
 __all__.extend(time_derivatives.__all__)
 __all__.extend(surrogate_operator.__all__)
+__all__.extend(indexers.__all__)

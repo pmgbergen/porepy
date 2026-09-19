@@ -44,15 +44,12 @@ def _build_buoyancy_model(
         schedule=[0.0, tf],
         dt_init=dt,
         constant_dt=True,
-        iter_max=50,
-        print_info=True,
     )
     params = {
         "fractional_flow": True,
         "enable_buoyancy_effects": True,
         "material_constants": {"solid": solid_constants},
         "time_manager": time_manager,
-        "apply_schur_complement_reduction": False,
         "nl_convergence_inc_atol": np.inf,
         "nl_convergence_res_atol": np.inf,
     }

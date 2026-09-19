@@ -58,9 +58,6 @@ class DataSavingMixin(pp.PorePyModel):
         if do_export:
             self.write_pvd_and_vtu()
 
-        # Save solver statistics to file.
-        self.nonlinear_solver_statistics.save()
-
         # Collecting and storing data in runtime for analysis. If default value of None
         # is returned, nothing is stored to not burden memory.
         if not self._is_time_dependent():
@@ -68,12 +65,17 @@ class DataSavingMixin(pp.PorePyModel):
             if collected_data is not None:
                 self.results.append(collected_data)
         else:
-            t = self.time_manager.time  # current time
-            scheduled = self.time_manager.schedule[1:]  # scheduled times except t_init
+            t = self.time_manager.time  # Current time.
+            # Scheduled times except t_init.
+            scheduled = self.time_manager.schedule.get_array()[1:]
             if any(np.isclose(t, scheduled)):
                 collected_data = self.collect_data()
                 if collected_data is not None:
                     self.results.append(collected_data)
+
+    def save_statistics(self):
+        """Save solver statistics to file."""
+        self.nonlinear_solver_statistics.save()
 
     def collect_data(self) -> Any:
         """Collect relevant simulation data to be stored in attr:`results`.
@@ -338,14 +340,26 @@ class IterationExporting(pp.PorePyModel):
             + 10**r * self.time_manager.time_index,
         )
 
-    def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
+    def after_nonlinear_iteration(
+        self,
+        nonlinear_increment: np.ndarray,
+        updated_variables: Optional[list[pp.ad.Variable]] = None,
+    ) -> None:
         """Integrate iteration export into simulation workflow.
 
         Order of operations is important, super call distributes the solution to
         iterate subdictionary.
 
+        Parameters:
+            nonlinear_increment: Newly computed solution increment.
+            updated_variables: Variables updated by the nonlinear solver. If ``None``,
+                all variables are updated.
+
         """
-        super().after_nonlinear_iteration(solution_vector)  # type: ignore[safe-super]
+        super().after_nonlinear_iteration(  # type: ignore[safe-super]
+            nonlinear_increment=nonlinear_increment,
+            updated_variables=updated_variables,
+        )
         self.save_data_iteration()
         self.iteration_exporter.write_pvd()
 
@@ -389,7 +403,7 @@ class ResidualExporting:
             # GridEntity = Literal["cells", "faces", "nodes"]
             image_info = self.equation_system.equation_image_size_info[name]
             dof_start, dof_end = 0, 0
-            for g in self.equation_system.equation_image_space_composition[name].keys():
+            for g in operator.domains:
                 # Add number of dofs for each entity in image_info.
                 for entity, num in image_info.items():
                     dof_end += getattr(g, "num_" + entity) * num

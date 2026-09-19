@@ -547,7 +547,12 @@ class ConformingFracturePropagation(FracturePropagation):
             # Propagation vector, with sign assuring a positive orientation
             # of the basis
             if nd == 2:
-                sign = np.cross(tip_bases[0, :, i], tip_bases[1, :, i])
+                # Manual cross product in 2d, avoid having to reshape to 3d and back
+                # to be compatible with numpy versions >= 2.5.
+                sign = (
+                    tip_bases[0, 0, i] * tip_bases[1, 1, i]
+                    - tip_bases[0, 1, i] * tip_bases[1, 0, i]
+                )
                 e2 = np.array([0, 0, sign])
             else:
                 e2 = tip_bases[2, :, i]

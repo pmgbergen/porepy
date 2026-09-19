@@ -7,7 +7,7 @@ the functionality is thoroughly tested through the test suit for the models.
 
 from __future__ import annotations
 
-import operator
+import operator as _operator
 from typing import Any, Literal, overload
 
 import numpy as np
@@ -17,34 +17,22 @@ import porepy as pp
 
 from .operators import Operations
 
+# Maps each binary Operations member to the callable that implements it, so
+# _evaluate_single can dispatch directly instead of building and eval()-ing a source
+# string per node (the latter is costly when repeated many times in a large operator
+# tree).
 _BINARY_OP = {
-    Operations.add: operator.add,
-    Operations.sub: operator.sub,
-    Operations.mul: operator.mul,
-    Operations.div: operator.truediv,
-    Operations.pow: operator.pow,
-    Operations.matmul: operator.matmul,
+    Operations.add: _operator.add,
+    Operations.sub: _operator.sub,
+    Operations.mul: _operator.mul,
+    Operations.rmul: _operator.mul,
+    Operations.div: _operator.truediv,
+    Operations.rdiv: _operator.truediv,
+    Operations.pow: _operator.pow,
+    Operations.rpow: _operator.pow,
+    Operations.matmul: _operator.matmul,
+    Operations.rmatmul: _operator.matmul,
 }
-"""Callables for the binary operations, avoiding a string eval per node."""
-
-
-def _visit_counts(roots: list[pp.ad.Operator]) -> dict[int, int]:
-    """Number of times each node is reached during a memoized evaluation of ``roots``.
-
-    Children are traversed only on a node's first encounter, mirroring the
-    evaluation: later encounters return the memoized result without descending.
-    """
-    counts: dict[int, int] = {}
-    stack: list[pp.ad.Operator] = list(roots)
-    while stack:
-        node = stack.pop()
-        key = id(node)
-        n = counts.get(key, 0)
-        counts[key] = n + 1
-        # ProjectionList children are parsed directly, not via _evaluate_single.
-        if n == 0 and not isinstance(node, pp.ad.ProjectionList):
-            stack.extend(node.children)
-    return counts
 
 
 class AdParser:
@@ -60,6 +48,18 @@ class AdParser:
         self._mdg = mdg
         """MixedDimensionalGrid on which the operators are defined."""
 
+        self._cache: dict[pp.ad.Operator, Any] = {}
+        """Cache for parsed operators. This is used to avoid re-parsing the same
+        operator multiple times. The cache is cleared after each evaluation.
+
+        Efficient use of caching has turned out to be difficult to achieve, and the
+        cache is at the moment used sparingly. This will be revisited in the future.
+        """
+
+    def clear_cache(self) -> None:
+        """Clear the cache of parsed operators."""
+        self._cache = {}
+
     @overload
     def evaluate(
         self,
@@ -67,6 +67,7 @@ class AdParser:
         equation_system: pp.ad.EquationSystem,
         derivative: Literal[False],
         state: np.ndarray | None,
+        variable_indexer: pp.ad.VariableIndexer,
     ) -> float | np.ndarray | sps.spmatrix: ...
 
     @overload
@@ -76,6 +77,7 @@ class AdParser:
         equation_system: pp.ad.EquationSystem,
         derivative: Literal[True],
         state: np.ndarray | None,
+        variable_indexer: pp.ad.VariableIndexer,
     ) -> pp.ad.AdArray: ...
 
     @overload
@@ -85,6 +87,7 @@ class AdParser:
         equation_system: pp.ad.EquationSystem,
         derivative: Literal[True],
         state: np.ndarray | None,
+        variable_indexer: pp.ad.VariableIndexer,
     ) -> list[pp.ad.AdArray]: ...
 
     @overload
@@ -94,6 +97,7 @@ class AdParser:
         equation_system: pp.ad.EquationSystem,
         derivative: Literal[False],
         state: np.ndarray | None,
+        variable_indexer: pp.ad.VariableIndexer,
     ) -> list[float | np.ndarray | sps.spmatrix]: ...
 
     def evaluate(
@@ -102,6 +106,7 @@ class AdParser:
         equation_system: pp.ad.EquationSystem,
         derivative: bool,
         state: np.ndarray | None,
+        variable_indexer: pp.ad.VariableIndexer,
     ) -> (
         float
         | np.ndarray
@@ -121,33 +126,44 @@ class AdParser:
             equation_system: The EquationSystem wherein the system state is defined.
             state: The state of the system. If not provided, the state is taken from the
                 variable values provided by equation_system.
+            variable_indexer: The indexer that defines the arrangement in a vector of
+                active variables. If both variable_indexer and state are provided, the
+                state must conform to the variable indexer. I.e., if we want to evaluate
+                the operator only with respect to the pressure variable and provide
+                custom state, we need to pass the restricted variable_indexer (with only
+                pressure) and the restricted state array (with only pressure values).
 
         Returns:
             The value, or value and Jacobian combined in an AdArray, of the operator op,
                 or a list of values, or AdArrays if op is a list.
 
         """
-
         # Get the state of the system, if not provided.
         if state is None:
-            state = equation_system.get_variable_values(iterate_index=0)
+            state = equation_system.get_variable_values(
+                iterate_index=0, variables=list(variable_indexer.indices)
+            )
+        elif state.size != variable_indexer.size:
+            raise ValueError(
+                f"Passed state shape ({state.size}) does not conform to the variable "
+                f"indexer size ({variable_indexer.size})."
+            )
 
         # Create an AdArray representation of the state, if the derivative is requested.
         # If not, the state is used as is (as a numpy array).
         ad_base = pp.ad.initAdArrays([state])[0] if derivative else state
 
         # Evaluate the operators. A single operator is treated as a list to simplify the
-        # post-processing below. Nodes shared within the expression graph (also across
-        # list members) are evaluated once: the counting pass tells how many consumers
-        # each node has, and the memo entry is dropped when the last one has been
-        # served, keeping only the live frontier of shared results in memory.
-        roots = op if isinstance(op, list) else [op]
-        counts = _visit_counts(roots)
-        memo: dict[int, tuple[Any, int]] = {}
-        result_list = [
-            self._evaluate_single(o, ad_base, equation_system, counts, memo)
-            for o in roots
-        ]
+        # post-processing below.
+        if isinstance(op, list):
+            result_list = [
+                self._evaluate_single(o, ad_base, equation_system, variable_indexer)
+                for o in op
+            ]
+        else:
+            result_list = [
+                self._evaluate_single(op, ad_base, equation_system, variable_indexer)
+            ]
 
         # If the derivative is requested, the results should be AdArrays. Enforce this.
         if derivative:
@@ -159,7 +175,7 @@ class AdParser:
                 if isinstance(res, np.ndarray) and len(res.shape) == 1:
                     # Convert numpy arrays to AdArrays and update result_list.
                     result_list[index] = pp.ad.AdArray(
-                        res, sps.csr_matrix((res.shape[0], equation_system.num_dofs()))
+                        res, sps.csr_matrix((res.shape[0], variable_indexer.size))
                     )
                 elif isinstance(res, (sps.spmatrix, sps.sparray, np.ndarray)):
                     # This will cover numpy arrays of higher dimensions (> 1) and sparse
@@ -179,6 +195,11 @@ class AdParser:
                         "multidimensional."
                     )
 
+        # Clear the cache after each evaluation. For the moment, this seems like the
+        # safest option, although it should be possible to safely cache some results
+        # also between evaluations.
+        self.clear_cache()
+
         if isinstance(op, list):
             return result_list
         else:
@@ -189,85 +210,90 @@ class AdParser:
         op: pp.ad.Operator,
         ad_base: np.ndarray | pp.ad.AdArray,
         equation_system: pp.EquationSystem,
-        counts: dict[int, int] | None = None,
-        memo: dict[int, tuple[Any, int]] | None = None,
+        variable_indexer: pp.ad.VariableIndexer,
     ) -> float | np.ndarray | sps.spmatrix | pp.ad.AdArray:
-        """Evaluate a single operator, memoizing nodes with more than one consumer.
+        """Evaluate a single operator.
 
         Parameters:
             op: The operator to evaluate.
             ad_base: The base for the automatic differentiation. This should be an
                 AdArray if the derivative is requested, and a numpy array if not.
             equation_system: The EquationSystem wherein the system state is defined.
-            counts: Per-node visit counts from :func:`_visit_counts`. Computed here if
-                not provided.
-            memo: Shared results, each stored with its number of remaining consumers.
+            variable_indexer: The indexer that defines the arrangement in ad_base.
 
         Returns:
             A numpy array or an AdArray representation of the operator op, depending on
                 whether the derivative is requested.
 
         """
-        if counts is None or memo is None:
-            counts = _visit_counts([op])
-            memo = {}
-        key = id(op)
-        entry = memo.get(key)
-        if entry is not None:
-            res, remaining = entry
-            if remaining == 1:
-                del memo[key]
-            else:
-                memo[key] = (res, remaining - 1)
-            return res
-        res = self._compute(op, ad_base, equation_system, counts, memo)
-        n = counts[key]
-        if n > 1:
-            memo[key] = (res, n - 1)
-        return res
+        # If the operator is in the cache, return the cached value.
+        if op in self._cache:
+            cached = self._cache[op]
+            return cached
 
-    def _compute(
-        self,
-        op: pp.ad.Operator,
-        ad_base: np.ndarray | pp.ad.AdArray,
-        equation_system: pp.EquationSystem,
-        counts: dict[int, int],
-        memo: dict[int, tuple[Any, int]],
-    ) -> float | np.ndarray | sps.spmatrix | pp.ad.AdArray:
-        """Parse a single operator, recursing into its children via
-        :meth:`_evaluate_single`."""
-        # Parse the operator by recursion:
+        # The operator is not in the cache. Parse the operator by recursion:
         # 1. If the operator is a leaf (has no children), parse the leaf.
         # 2. If the operator is a composite operator, parse the children and combine
         #    them according to the operator.
         if op.is_leaf():
             if isinstance(op, pp.ad.MixedDimensionalVariable):
-                if op.is_previous_iterate or op.is_previous_time or op.is_reference:
-                    # Empty vector like the global vector of unknowns for prev time/iter
-                    # insert the values at the right dofs and slice.
-                    vals = np.empty_like(
-                        ad_base.val if isinstance(ad_base, pp.ad.AdArray) else ad_base
-                    )
-                    # List of indices for sub variables.
-                    dofs = []
-                    for sub_var in op.sub_vars:
-                        sub_dofs = equation_system.dofs_of([sub_var])
-                        vals[sub_dofs] = sub_var.parse(equation_system.mdg)
-                        dofs.append(sub_dofs)
+                # Check if the MDVariable is not active (not present in ad_base).
+                not_active_variable = False
+                num_not_in_indexer = sum(
+                    sub_var not in variable_indexer.indices for sub_var in op.sub_vars
+                )
+                if num_not_in_indexer > 0:
+                    not_active_variable = num_not_in_indexer == len(op.sub_vars)
+                    # It is in principly possible to evaluate variable which is active
+                    # on some domains and disabled on others, but we do not need this
+                    # yet, so it is not implemented. If we ever need it, the change
+                    # should be localized by restructuring the loops in this function.
+                    if not not_active_variable:
+                        raise NotImplementedError(
+                            "Evaluating MDVariables partially disabled on some domains "
+                            "is not supported yet."
+                        )
 
-                    return vals[np.hstack(dofs, dtype=int)] if dofs else np.array([])
+                if (
+                    op.is_previous_iterate
+                    or op.is_previous_time
+                    or op.is_reference
+                    or not_active_variable
+                ):
+                    # This relies on an assumption, that the domains within a single
+                    # MDVariable are ordered according to the MDG. If this assumption is
+                    # broken, this will not be the failure point, because it will fail
+                    # much earlier.
+                    vals = [
+                        sub_var.parse(equation_system.mdg) for sub_var in op.sub_vars
+                    ]
+                    return np.concatenate(vals) if len(vals) else np.array([])
                 else:
+                    dofs_list = [
+                        variable_indexer.indices[sub_var] for sub_var in op.sub_vars
+                    ]
+                    dofs = (
+                        np.concatenate(dofs_list)
+                        if len(dofs_list)
+                        else np.zeros(0, dtype=int)
+                    )
                     # Fetch the values from the state vector.
-                    return ad_base[equation_system.dofs_of([op])]
+                    return ad_base[dofs]
 
             # Atomic variables.
             elif isinstance(op, pp.ad.Variable):
+                not_active_variable = op not in variable_indexer.indices
                 # If a variable represents a previous iteration or time, parse values.
-                if op.is_previous_iterate or op.is_previous_time or op.is_reference:
+                if (
+                    op.is_previous_iterate
+                    or op.is_previous_time
+                    or op.is_reference
+                    or not_active_variable
+                ):
                     return op.parse(equation_system.mdg)
                 # Otherwise use the current time and iteration values.
                 else:
-                    return ad_base[equation_system.dofs_of([op])]
+                    return ad_base[variable_indexer.indices[op]]
             # All other leafs like discretizations or some wrapped data.
             else:
                 # Mypy complains because the return type of parse is Any.
@@ -284,7 +310,7 @@ class AdParser:
         # This is not a leaf, but a composite operator. Parse the children and combine
         # them according to the operator.
         child_values = [
-            self._evaluate_single(child, ad_base, equation_system, counts, memo)
+            self._evaluate_single(child, ad_base, equation_system, variable_indexer)
             for child in op.children
         ]
 

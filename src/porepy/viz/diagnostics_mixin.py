@@ -6,7 +6,7 @@ import logging
 from collections import defaultdict
 from collections.abc import Iterable
 from itertools import product
-from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Sequence
+from typing import Any, Callable, Literal, Optional, Sequence, cast
 
 import matplotlib
 import numpy as np
@@ -15,32 +15,30 @@ from scipy.sparse import spmatrix
 from scipy.sparse.linalg import svds
 from typing_extensions import TypeAlias
 
-from porepy import solvers
+import porepy as pp
+from porepy import GridLike, solvers
 from porepy.grids.md_grid import MixedDimensionalGrid
 from porepy.grids.mortar_grid import MortarGrid
 from porepy.numerics.ad.equation_system import EquationSystem
 from porepy.numerics.ad.operators import Variable
 
-if TYPE_CHECKING:
-    from porepy import GridLike
+# Type aliases. See the docs of `DiagnosticsMixin.show_diagnostics` for the details.
+GridGroupingType: TypeAlias = "list[list[GridLike]]"
+"""A type representing the structuring of grouping the diagnostics among the grids.
 
-    # Type aliases. See the docs of `DiagnosticsMixin.show_diagnostics` for the details.
-    GridGroupingType: TypeAlias = "list[list[GridLike]]"
-    """A type representing the structuring of grouping the diagnostics among the grids.
+"""
+SubmatrixHandlerType: TypeAlias = Callable[[spmatrix, str, str], float]
+"""A type representing the diagnostics handler function to be applied to the
+submatrix.
 
-    """
-    SubmatrixHandlerType: TypeAlias = Callable[[spmatrix, str, str], float]
-    """A type representing the diagnostics handler function to be applied to the
-    submatrix.
+"""
+DiagnosticsData: TypeAlias = "dict[tuple[int, int], dict[str, Any]]"
+"""A type representing the diagnostics data for each submatrix in the Jacobian.
 
-    """
-    DiagnosticsData: TypeAlias = "dict[tuple[int, int], dict[str, Any]]"
-    """A type representing the diagnostics data for each submatrix in the Jacobian.
+The key represents the pair (row, column) of the block. The value is a dictionary of
+all diagnostical values collected for this submatrix -- names and values.
 
-    The key represents the pair (row, column) of the block. The value is a dictionary of
-    all diagnostical values collected for this submatrix -- names and values.
-
-    """
+"""
 
 logger = logging.getLogger(__name__)
 
@@ -86,8 +84,10 @@ class DiagnosticsMixin:
     ) -> DiagnosticsData:
         """Collect and plot diagnostics for an assembled Jacobian matrix.
 
-        It is assumed that full information about the matrix indices is stored in
-        `self.equation_system.equation_image_space_composition`.
+        By default, the matrix is assumed to represent the full equation system. For a
+        restricted matrix, pass the indexers returned by
+        :meth:`EquationSystem.construct_assembled_matrix_indexers` with the same
+        restrictions that were used to assemble the matrix.
 
         Note:
             It is assumed that variables with the same name defined on different grids
@@ -163,12 +163,26 @@ class DiagnosticsMixin:
                 f"{grouping=} instead."
             )
         # The type is checked one line earlier.
-        grouping_: GridGroupingType = grouping  # type: ignore
+        grouping = cast(GridGroupingType, grouping)
 
         full_matrix = linear_system.matrix
         assert full_matrix is not None, (
             "Cannot diagnose a linear system whose matrix was freed."
         )
+
+        equation_indexer = linear_system.equation_indexer
+        variable_indexer = linear_system.variable_indexer
+
+        indexed_shape = (
+            sum(dofs.size for dofs in equation_indexer.indices.values()),
+            variable_indexer.size,
+        )
+        if full_matrix.shape != indexed_shape:
+            raise ValueError(
+                "The diagnostics indexers do not describe the supplied matrix: "
+                f"matrix shape is {full_matrix.shape}, but indexed shape is "
+                f"{indexed_shape}. Pass the indexers used to assemble this system."
+            )
 
         # Validating default_handlers.
         assert all(x in ("cond", "max") for x in default_handlers)
@@ -188,10 +202,14 @@ class DiagnosticsMixin:
 
         # Determining the block indices and collecting the submatrices.
         equation_data = self._equations_data(
-            grouping=grouping_, add_grid_info=add_grid_info
+            equation_indexer=equation_indexer,
+            grouping=grouping,
+            add_grid_info=add_grid_info,
         )
         variable_data = self._variable_data(
-            grouping=grouping_, add_grid_info=add_grid_info
+            variable_indexer=variable_indexer,
+            grouping=grouping,
+            add_grid_info=add_grid_info,
         )
 
         submatrices = self._collect_submatrices(
@@ -303,9 +321,14 @@ class DiagnosticsMixin:
             print(np.array_str(block_data, precision=2))
 
     def _equations_data(
-        self, grouping: GridGroupingType, add_grid_info: bool
+        self,
+        equation_indexer: pp.ad.EquationIndexer,
+        grouping: GridGroupingType,
+        add_grid_info: bool,
     ) -> Sequence[dict[str, Any]]:
         """Collects the indices of equations presented in the Jacobian matrix as rows.
+
+        The indexer must describe the row ordering of the matrix being diagnosed.
 
         Returns:
             A tuple with dictionaries -- data of each row in the block matrix. The keys
@@ -314,56 +337,55 @@ class DiagnosticsMixin:
         """
         equation_indices = []
 
-        assembled_equation_indices = self.equation_system.assembled_equation_indices
-
-        # `equation_image_space_composition` has dof indices starting from zero for
-        # each equation. We need to count the offset to get the global dof indices.
-        block_indices = 0
-
-        for eq_name, eq_dof_indices in assembled_equation_indices.items():
-            equation_image_space = (
-                self.equation_system.equation_image_space_composition[eq_name]
+        equations_by_name: dict[str, list[tuple[GridLike, np.ndarray]]] = defaultdict(
+            list
+        )
+        for equation_on_domain, dofs in equation_indexer.indices.items():
+            equations_by_name[equation_on_domain.name].append(
+                (equation_on_domain.domain, dofs)
             )
+
+        for equation_name, equation_on_domains in equations_by_name.items():
             # Forming a block from required grids.
             for block_of_grids in grouping:
-                block_dofs = []
-                for grid, grid_dof_indices in equation_image_space.items():
-                    if grid not in block_of_grids:
-                        continue
-                    block_dofs.extend(grid_dof_indices.tolist())
-
-                if len(block_dofs) == 0:
+                dof_blocks = [
+                    dofs
+                    for domain, dofs in equation_on_domains
+                    if domain in block_of_grids
+                ]
+                if len(dof_blocks) == 0:
                     # This equation is not present on the grids of interest.
+                    continue
+                block_dofs = np.concatenate(dof_blocks)
+                if block_dofs.size == 0:
                     continue
 
                 printed_name = _format_ticks(
-                    name=eq_name,
+                    name=equation_name,
                     block_of_grids=block_of_grids,
                     add_grid_info=add_grid_info,
                 )
-                # Adding the offset to form the global dofs of this block.
-                block_dofs_array = np.array(block_dofs).flatten() + block_indices
-                # Sanity check - we're still within the dofs of this equation.
-                assert np.all(np.isin(block_dofs_array, eq_dof_indices))
-
                 equation_indices.append(
                     {
-                        "block_dofs": block_dofs_array,
+                        "block_dofs": block_dofs,
                         "printed_name": printed_name,
-                        "equation_name": eq_name,
+                        "equation_name": equation_name,
                         "grids": block_of_grids,
                     }
                 )
 
-            block_indices += eq_dof_indices.size
-
         return tuple(equation_indices)
 
     def _variable_data(
-        self, grouping: GridGroupingType, add_grid_info: bool
+        self,
+        variable_indexer: pp.ad.VariableIndexer,
+        grouping: GridGroupingType,
+        add_grid_info: bool,
     ) -> Sequence[dict[str, Any]]:
         """Collects the indices of variables presented in the Jacobian matrix as
         columns.
+
+        The indexer must describe the column ordering of the matrix being diagnosed.
 
         Returns:
             A tuple with dictionaries -- data of each column in the block matrix. The
@@ -375,35 +397,27 @@ class DiagnosticsMixin:
         # First, we group variables by names. We assume that variables with the same
         # name are one variable on multiple grids.
         names_to_variables: dict[str, list[Variable]] = defaultdict(list)
-        for variable in self.equation_system.variables:
+        for variable in variable_indexer.indices:
             names_to_variables[variable.name].append(variable)
-        names_to_variables = dict(names_to_variables)
 
         for variable_name, variable_on_grids in names_to_variables.items():
             for block_of_grids in grouping:
-                variables_of_interest = []
-                # We add the variable to the list only on the grids of this block.
-                for variable_on_grid in variable_on_grids:
-                    grids: list[GridLike] = (
-                        variable_on_grid.subdomains + variable_on_grid.interfaces
-                    )
-                    assert len(grids) == 1, (
-                        "Something changed in how we store variables in the equation"
-                        "system."
-                    )
-                    if grids[0] in block_of_grids:
-                        variables_of_interest.append(variable_on_grid)
-
-                dofs = self.equation_system.dofs_of(variables_of_interest)
-                if len(dofs) == 0:
+                dof_blocks = [
+                    variable_indexer.indices[variable]
+                    for variable in variable_on_grids
+                    if variable.domain in block_of_grids
+                ]
+                if len(dof_blocks) == 0:
                     # This variable is not present on the grids of interest.
+                    continue
+                dofs = np.concatenate(dof_blocks)
+                if dofs.size == 0:
                     continue
                 printed_name = _format_ticks(
                     name=variable_name,
                     block_of_grids=block_of_grids,
                     add_grid_info=add_grid_info,
                 )
-                # variable_indices[printed_name] = dofs
                 variable_indices.append(
                     {
                         "block_dofs": dofs,

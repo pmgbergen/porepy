@@ -17,7 +17,7 @@ def test_failed_nonlinear_solve_dynamic_time_step():
     do not propagate into the residual vector of the next.
     """
     STATE_VALUE = 1.0  # The value for the primary variables.
-    num_times_visited_assemble_linear_system = 0
+    num_times_visited_before_nonlinear_iteration = 0
     num_times_visited_solve_linear_system = 0
 
     class FailingModel(pp.SinglePhaseFlow):
@@ -27,17 +27,17 @@ def test_failed_nonlinear_solve_dynamic_time_step():
             values = np.full(self.equation_system.num_dofs(), STATE_VALUE)
             self.equation_system.set_variable_values(values, iterate_index=0)
 
-        def assemble_linear_system(self) -> pp.solvers.LinearSystem:
+        def before_nonlinear_iteration(self) -> None:
             # The iterate array should be equal to the state array, since we never
             # proceed further than the 0-th Newton iteration.
-            nonlocal num_times_visited_assemble_linear_system
-            num_times_visited_assemble_linear_system += 1
+            nonlocal num_times_visited_before_nonlinear_iteration
+            num_times_visited_before_nonlinear_iteration += 1
 
             state = self.equation_system.get_variable_values(time_step_index=0)
             iterate = self.equation_system.get_variable_values(iterate_index=0)
             assert np.all(state == STATE_VALUE)
             assert np.all(iterate == STATE_VALUE)
-            return super().assemble_linear_system()
+            return super().before_nonlinear_iteration()
 
     class MockLinearSolver(pp.solvers.LinearSolverBase):
         def solve_linear_system(
@@ -76,6 +76,39 @@ def test_failed_nonlinear_solve_dynamic_time_step():
         model_runner.run()
 
     assert num_times_visited_solve_linear_system == 2, "Should do exactly 2 attempts."
-    assert num_times_visited_assemble_linear_system == 2, (
+    assert num_times_visited_before_nonlinear_iteration == 2, (
         "Should do exactly 2 attempts."
     )
+
+
+def test_time_data_seeded_from_time_stepper_before_prepare_simulation():
+    """Test that model.time_data reflects the real schedule from the time_stepper
+    already during prepare_simulation(), not just after the first time step.
+
+    ModelRunner.__init__ must resolve the passed-in time_stepper and seed
+    model.time_data from its scheduler *before* calling prepare_simulation(). Otherwise,
+    anything invoked during prepare_simulation() that depends on self.time_data.schedule
+    (e.g. time-dependent boundary conditions defined per schedule point) would
+    incorrectly see the SolutionStrategy.__init__ placeholder schedule [0.0, 1.0]
+    instead of the real one.
+
+    """
+    schedule = [0, 1, 2, 3]
+    prepare_simulation_called = False
+
+    class RecordingModel(pp.SinglePhaseFlow):
+        def prepare_simulation(self) -> None:
+            assert np.all(self.time_manager.schedule.get_array() == schedule)
+            assert self.time_manager.time == schedule[0]
+
+            nonlocal prepare_simulation_called
+            prepare_simulation_called = True
+
+    model = RecordingModel(
+        {
+            "times_to_export": [],
+            "time_manager": pp.TimeManager(schedule=schedule, dt_init=1),
+        }
+    )
+    _ = pp.ModelRunner(model)
+    assert prepare_simulation_called

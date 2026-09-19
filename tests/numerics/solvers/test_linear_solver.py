@@ -6,7 +6,11 @@ import numpy as np
 import pytest
 from scipy.sparse import csr_matrix
 
-from porepy.numerics.solvers.linear_solver import LinearSolverDirect, LinearSystem
+from porepy.numerics.ad.indexers import EquationIndexer, VariableIndexer
+from porepy.numerics.solvers.linear_solvers.linear_solver import (
+    LinearSolverDirect,
+    LinearSystem,
+)
 
 
 def make_linear_system(case: Literal["nonsingular", "singular"]) -> LinearSystem:
@@ -37,7 +41,12 @@ def make_linear_system(case: Literal["nonsingular", "singular"]) -> LinearSystem
         rhs = np.array([1, 2, 3], dtype=float)
     else:
         raise ValueError(case)
-    return LinearSystem(matrix=mat, rhs=rhs)
+    return LinearSystem(
+        matrix=mat,
+        rhs=rhs,
+        equation_indexer=EquationIndexer(indices={}),
+        variable_indexer=VariableIndexer(indices={}),
+    )
 
 
 @pytest.mark.parametrize("case", ["nonsingular", "singular"])

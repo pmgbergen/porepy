@@ -32,20 +32,13 @@ operator, which is defined in the momentum models.fracture_damage.
 
 """
 
-import copy
+from typing import Any
 
 import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.applications.md_grids.model_geometries import (
-    CubeDomainOrthogonalFractures,
-    SquareDomainOrthogonalFractures,
-)
-from porepy.applications.test_utils.models import add_mixin
-from porepy.compositional.materials import FractureDamageSolidConstants
-from porepy.examples import fracture_damage as damage_examples
-from porepy.models import fracture_damage as damage_models
+from porepy.examples import fracture_damage as damage_example
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -56,7 +49,7 @@ def _prepared_model(
     isotropic: bool = True,
     damages: list[str] | None = None,
     dim: int = 2,
-) -> object:
+) -> Any:
     """Build and prepare (but not run) a fracture damage model.
 
     ``prepare_simulation`` is called so that the equation system, all variables, and the
@@ -79,32 +72,19 @@ def _prepared_model(
     if damages is None:
         damages = ["dilation", "friction"]
 
-    params = copy.deepcopy(damage_examples.model_params)
+    model_class, params, _ = damage_example.create_displacement_controlled_setup(
+        isotropic=isotropic,
+        damages=damages,
+        dim=dim,
+    )
     # Zero displacement BCs: shape (dim, 2) — dim components × 2 time steps.
     params["north_displacements"] = np.zeros((dim, 2))
     params["time_manager"] = pp.TimeManager([0, 1], 1, True)
-    params["material_constants"] = {
-        "solid": FractureDamageSolidConstants(**damage_examples.solid_params),
-    }
     params["exact_solution"] = (
-        damage_examples.ExactSolutionIsotropic
+        damage_example.ExactSolutionIsotropic
         if isotropic
-        else damage_examples.ExactSolutionAnisotropic
+        else damage_example.ExactSolutionAnisotropic
     )
-
-    model_class = damage_examples.FractureDamageMomentumBalance
-    length_mixin = (
-        damage_models.IsotropicFractureDamageLength
-        if isotropic
-        else damage_models.AnisotropicFractureDamageLength
-    )
-    model_class = add_mixin(length_mixin, model_class)
-    for name in damages:
-        model_class = add_mixin(damage_examples.damage_types[name], model_class)
-    geom = (
-        SquareDomainOrthogonalFractures if dim == 2 else CubeDomainOrthogonalFractures
-    )
-    model_class = add_mixin(geom, model_class)
 
     model = model_class(params)
     model.prepare_simulation()
@@ -129,7 +109,7 @@ class TestDamageStateFormula:
         isotropic: bool = True,
         damages: list[str] | None = None,
         dim: int = 2,
-    ) -> tuple[object, list[pp.Grid], int]:
+    ) -> tuple[Any, list[pp.Grid], int]:
         """Return a prepared model together with fracture subdomains and cell count."""
         model = _prepared_model(isotropic=isotropic, damages=damages, dim=dim)
         fractures = model.mdg.subdomains(dim=model.nd - 1)

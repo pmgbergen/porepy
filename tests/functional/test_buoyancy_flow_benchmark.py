@@ -508,8 +508,6 @@ def _run_buoyancy_case(
         schedule=[0.0, tf],
         dt_init=dt,
         constant_dt=True,
-        iter_max=50,
-        print_info=True,
     )
 
     solid_constants = pp.SolidConstants(

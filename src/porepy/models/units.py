@@ -145,7 +145,7 @@ class Units:
         Parameters:
             value: Value to be converted. Either a number (int, float) or a numpy array.
             units: Units of ``value`` defined as a string in the form of
-                ``unit1 * unit2 * unit3^-1``, e.g., ``"Pa*m^3/kg"``.
+                ``unit1 * unit2 * unit3^-1``, e.g., ``"Pa*m^3*kg^-1"``.
 
                 Valid units are the attributes and properties of the :attr:`units`
                 defined at instantiation.

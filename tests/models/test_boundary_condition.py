@@ -82,11 +82,12 @@ def test_boundary_condition_mixin(t_end: int):
     """
     model = MassBalance(
         {
-            "times_to_export": [],  # Suppress output for tests
+            "times_to_export": [],  # Suppress output for tests,
+            "time_manager": pp.TimeManager(
+                schedule=[0, t_end], dt_init=1, constant_dt=True
+            ),
         }
     )
-    model.time_manager.dt = 1
-    model.time_manager.time_final = t_end
     pp.ModelRunner(model).run()
 
     subdomains = model.mdg.subdomains()
@@ -427,7 +428,7 @@ def test_robin_limit_case(
     reference_model_class: type[pp.PorePyModel],
     alpha: float,
 ):
-    """Test Robin limit cases.
+    r"""Test Robin limit cases.
 
     The Robin conditions are implemented on the form: sigma * n + alpha * u = G. That
     means that setting Robin conditions with alpha = 0 should correspond to setting

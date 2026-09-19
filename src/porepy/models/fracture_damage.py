@@ -293,8 +293,9 @@ class DilationDamageEquation(FractureDamageEquations):
         """Update the dilation damage equation to include new term."""
         super().before_nonlinear_loop()
         fractures = self.mdg.subdomains(dim=self.nd - 1)
-        self.equation_system._equations[self.dilation_damage_equation_name] = (
-            self.dilation_damage_equation(fractures)
+        self.equation_system.update_equation(
+            equation_name=self.dilation_damage_equation_name,
+            new_equation=self.dilation_damage_equation(fractures),
         )
 
     def dilation_damage_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:

@@ -335,21 +335,18 @@ def test_matrix_slicer_delayed_evaluation_sparse(
     _matrix_slicer_delayed_evaluation_backend(A, other_mode, target_mode, operator)
 
 
-@pytest.mark.parametrize("other_mode", ["ad", "float"])
+@pytest.mark.parametrize("other_mode", ["ad", "float", "dense"])
 @pytest.mark.parametrize("target_mode", ["ad", "dense", "float"])
 @pytest.mark.parametrize("operator", ["*", "/", "+", "-", "**"])
 def test_matrix_slicer_delayed_evaluation_ad_dense_float(
     A: sps.spmatrix,
-    other_mode: Literal["ad", "float"],
+    other_mode: Literal["ad", "float", "dense"],
     target_mode: Literal["ad", "dense", "float"],
     operator: Literal["*", "/", "+", "-", "**"],
 ):
     """Test the application of the ArraySlicer to numpy and AdArrays, as well as scalars
     (floats), with delayed evaluation.
 
-    Note that the parametrization of 'other_mode' does not include 'dense' (i.e. a numpy
-    array), since this does not make sense in the context of the ArraySlicer. See the
-    docstring of that class for more information.
     """
     # The actual test is left to a backend function, to avoid code duplication.
     _matrix_slicer_delayed_evaluation_backend(A, other_mode, target_mode, operator)
@@ -1007,12 +1004,32 @@ def test_invert_permuted_block_diag_mat_on_mdg(mdg: pp.MixedDimensionalGrid):
     secondaryEqList = ["eq_s_f_1", "eq_s_f_2"]
     secondaryVarList = ["sf1", "sf2"]
 
+    # ``pf`` occurs in the selected equations, but is not part of the selected
+    # variable block. Consequently, assembly reads its value from the iterate
+    # data rather than from ``state``. Populate that data explicitly for every
+    # interface.
+    for interface, data in mdg.interfaces(return_data=True):
+        pp.set_solution_values(
+            name="pf",
+            values=np.zeros(interface.num_cells),
+            data=data,
+            iterate_index=0,
+        )
+
+    # Access the secondary variables size, needed to mock the secondary state.
+    secondary_indexer = equation_system.variable_indexer.construct_restricted_indexer(
+        equation_system.get_variables(secondaryVarList)
+    )
+    secondary_variables_size = secondary_indexer.size
+
     # Extract the secondary block matrix.
-    A_ss, _ = equation_system.assemble(
+    secondary_linear_system = equation_system.assemble(
         equations=secondaryEqList,
         variables=secondaryVarList,
-        state=np.zeros(equation_system.num_dofs()),
+        state=np.zeros(secondary_variables_size),
     )
+    A_ss = secondary_linear_system.matrix
+    assert A_ss is not None
 
     # Invert the non-diagonal block matrix A_ss.
     row_perm, col_perm, block_sizes = (

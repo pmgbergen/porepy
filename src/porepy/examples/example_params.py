@@ -82,8 +82,6 @@ model_params = {
     # Compositional model (multiphase multicomponent flow)
     "fractional_flow": True,
     "enable_buoyancy_effects": False,
-    "apply_schur_complement_reduction": False,
-    "schur_complement_inverter": None,
     "eliminate_reference_phase": True,
     "eliminate_reference_component": True,
     "phase_property_params": None,  # See Phase.compute_properties for details.
@@ -138,7 +136,7 @@ solver_params = {
     "global_line_search": 0,  # Set to 1 to use turn on a residual-based line search.
     "residual_line_search_interval_size": 1e-1,
     "residual_line_search_num_steps": 5,
-    "local_line_search": 1,  # Set to 0 to use turn off the tailored line search.
+    "local_line_search": False,  # Set to True to turn on the tailored line search.
     "relative_constraint_transition_tolerance": 2e-1,
     "constraint_violation_tolerance": 3e-1,
     "min_line_search_weight": 1e-10,

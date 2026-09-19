@@ -641,7 +641,7 @@ class Operator:
         # When using the sum operator on a list with a single item, Python will call the
         # addition operator with other == 0. Convert that other to an Ad Scalar with
         # value 0 to avoid errors in the addition operator.
-        if other == 0:
+        if isinstance(other, (int, float)) and other == 0:
             other = Scalar(0)
 
         children = self._parse_other(other)
@@ -1456,6 +1456,15 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
                 + self.domain.num_nodes * self._nodes
             )
         raise ValueError()
+
+    @property
+    def dof_info(self) -> dict[Literal["cells", "faces", "nodes"], int]:
+        """Number of degrees of freedom per grid entity."""
+        return {
+            "cells": self._cells,
+            "faces": self._faces,
+            "nodes": self._nodes,
+        }
 
     def set_name(self, name: str) -> None:
         """

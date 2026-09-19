@@ -15,6 +15,7 @@ from porepy.numerics.solvers.convergence_check import _recursive_append
 from porepy.time_stepper.time_step_status import (
     TimeStepperStatus,
     TimeStepperStatusContinueIterating,
+    TimeStepperStatusFailure,
 )
 
 logger = logging.getLogger(__name__)
@@ -61,26 +62,15 @@ class SolverStatistics:
     num_domains: dict[str, int] = field(default_factory=dict)
     """Number of domains in each dimension."""
     solver_status: solvers.NonlinearSolverStatus = field(
-        default_factory=lambda: solvers.NonlinearSolverStatusConverged(
+        default_factory=lambda: solvers.NewtonSolverConverged(
             linear_solver_statuses=[],
             convergence_statuses=solvers.ConvergenceStatusCollection(),
             divergence_statuses=solvers.ConvergenceStatusCollection(),
         )
     )
     """Nonlinear solver status."""
-    solver_status_history: list[solvers.NonlinearSolverStatus] = field(
-        default_factory=list
-    )
-    """Nonlinear solver status history."""
     simulation_status: TimeStepperStatus = field(
-        default_factory=lambda: TimeStepperStatusContinueIterating(
-            attempt=-1,
-            nonlinear_solver_status=solvers.NonlinearSolverStatusConverged(
-                linear_solver_statuses=[],
-                convergence_statuses=solvers.ConvergenceStatusCollection(),
-                divergence_statuses=solvers.ConvergenceStatusCollection(),
-            ),
-        )
+        default_factory=lambda: TimeStepperStatusContinueIterating(attempts=[])
     )
     """Simulation time step status."""
     simulation_status_history: list[TimeStepperStatus] = field(default_factory=list)
@@ -145,7 +135,6 @@ class SolverStatistics:
         """
         if solver_status is not None:
             self.solver_status = solver_status
-            self.solver_status_history.append(self.solver_status)
 
     def log_custom_data(self, append: bool = False, **kwargs) -> None:
         """Log custom data to be added to the statistics object with custom keys.
@@ -243,6 +232,10 @@ class SolverStatistics:
         if self.index == -1:
             return data
 
+        # Initialize global entry if non-existing.
+        if "global" not in data:
+            data["global"] = {}
+
         # Initialize index entry if non-existing.
         if str(self.index) not in data:
             data[str(self.index)] = {}
@@ -332,7 +325,6 @@ class NonlinearSolverStatistics(SolverStatistics):
         self.num_iterations = 0
         self.convergence_status.clear()
         self.convergence_info.clear()
-        self.solver_status_history.clear()
 
     def log_convergence_status(
         self, convergence_status: solvers.ConvergenceStatusCollection, **kwargs
@@ -387,14 +379,15 @@ class NonlinearSolverStatistics(SolverStatistics):
         # Extract final convergence status.
         final_convergence_status = _leafs_only(self.convergence_status.to_str())
 
-        # Determine number of waisted iterations.
+        # Determine number of wasted iterations.
         # TODO: Rethink during upgrade of time integration.
         total_num_waisted_iterations = 0
-        for simulation_status, num_iterations in zip(
-            self.simulation_status_history, self.num_iterations_history
-        ):
-            if not simulation_status.is_success():
-                total_num_waisted_iterations += num_iterations
+        for simulation_status in self.simulation_status_history:
+            if isinstance(simulation_status, TimeStepperStatusFailure):
+                for attempt in simulation_status.attempts:
+                    total_num_waisted_iterations += (
+                        attempt.nonlinear_solve_status.number_of_iterations()
+                    )
 
         # Update global data.
         data["global"].update(
@@ -410,15 +403,6 @@ class NonlinearSolverStatistics(SolverStatistics):
     def append_iterative_data(self, data: dict[str, dict]) -> dict[str, dict]:
         """Append the current statistics to the data dictionary at current index."""
 
-        str_solver_status_history = [
-            status.serialize() for status in self.solver_status_history
-        ]
-        str_solver_status = (
-            None
-            if len(self.solver_status_history) == 0
-            else str_solver_status_history[-1]
-        )
-
         data = super().append_iterative_data(data)
         data[str(self.index)].update(
             {
@@ -428,8 +412,7 @@ class NonlinearSolverStatistics(SolverStatistics):
                     if len(self.simulation_status_history) == 0
                     else self.simulation_status_history[-1].serialize()
                 ),
-                "solver_status_history": str_solver_status_history,
-                "solver_status": str_solver_status,
+                "solver_status": self.solver_status.serialize(),
                 "convergence_status": self.convergence_status.to_str().copy(),
                 "convergence_info": self.convergence_info.copy(),
             }
