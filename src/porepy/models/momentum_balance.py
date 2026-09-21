@@ -394,8 +394,7 @@ class ConstitutiveLawsMomentumBalance(
             Operator for the stress.
 
         """
-        # Method from constitutive library's LinearElasticRock.
-        return self.mechanical_stress(domains)
+        return self.reference_stress(domains) + self.mechanical_stress(domains)
 
 
 class VariablesMomentumBalance(VariableMixin):
@@ -672,6 +671,14 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
 
         """
 
+        self.reference_stress_key: str = "reference_stress"
+        """Key used to store the reference stress in the subdomain data dictionaries.
+
+        See :meth:`~porepy.models.constitutive_laws.LinearElasticMechanicalStress.
+        reference_stress`.
+
+        """
+
     def update_discretization_parameters(self) -> None:
         """Updates the stiffness tensor and BC type for the mechanics problem."""
 
@@ -805,6 +812,51 @@ class InitialConditionsMomentumBalance(pp.InitialConditionMixin):
 
     interface_displacement: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
     """See :class:`VariablesMomentumBalance`."""
+
+    reference_stress_key: str
+    """See :class:`SolutionStrategyMomentumBalance`."""
+
+    def initial_condition(self) -> None:
+        """After the super-call, it stores the reference stress.
+
+        See also:
+
+            - :meth:`ic_values_reference_stress`
+
+        """
+        super().initial_condition()
+
+        for sd, data in self.mdg.subdomains(return_data=True):
+            # The stress, and hence the reference stress, is only defined on subdomains
+            # of ambient dimension.
+            if sd.dim == self.nd:
+                pp.set_solution_values(
+                    name=self.reference_stress_key,
+                    values=self.ic_values_reference_stress(sd),
+                    data=data,
+                    reference=True,
+                )
+
+    def ic_values_reference_stress(self, sd: pp.Grid) -> np.ndarray:
+        """Values for the reference stress on the matrix grid.
+
+        Override this method to prescribe a non-zero reference stress, see
+        :meth:`~porepy.models.constitutive_laws.LinearElasticMechanicalStress.
+        reference_stress`.
+
+        Note:
+            This method will only be called with the matrix grid (ambient dimension),
+            since the stress is only defined there.
+
+        Parameters:
+            sd: A subdomain in the md-grid.
+
+        Returns:
+            The reference stress on the faces of the matrix with
+            ``shape=(sd.num_faces * nd,)``. Defaults to zero array.
+
+        """
+        return np.zeros(sd.num_faces * self.nd)
 
     def set_initial_values_primary_variables(self) -> None:
         """Method to set initial values for displacement, contact traction and interface

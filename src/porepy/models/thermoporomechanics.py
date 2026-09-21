@@ -72,7 +72,8 @@ class ConstitutiveLawsThermoporomechanics(
         """
         # Simply add the pressure and temperature terms to the mechanical stress
         traction = (
-            self.mechanical_stress(subdomains)
+            self.reference_stress(subdomains)
+            + self.mechanical_stress(subdomains)
             + self.pressure_stress(subdomains)
             + self.thermal_stress(subdomains)
         )

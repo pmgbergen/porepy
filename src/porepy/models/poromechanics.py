@@ -62,7 +62,11 @@ class ConstitutiveLawsPoromechanics(
 
         """
         # Method from constitutive library's LinearElasticRock.
-        return self.mechanical_stress(subdomains) + self.pressure_stress(subdomains)
+        return (
+            self.reference_stress(subdomains)
+            + self.mechanical_stress(subdomains)
+            + self.pressure_stress(subdomains)
+        )
 
 
 class EquationsPoromechanics(
