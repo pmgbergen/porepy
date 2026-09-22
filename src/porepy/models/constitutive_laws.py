@@ -5164,8 +5164,8 @@ class PoroMechanicsPorosity(pp.PorePyModel):
         # Add contributions to poromechanics porosity
         phi = (
             self.reference_porosity(subdomains)
-            + self.porosity_change_from_pressure(subdomains)
-            + self.porosity_change_from_displacement(subdomains)
+            # + self.porosity_change_from_pressure(subdomains)
+            # + self.porosity_change_from_displacement(subdomains)
         )
 
         if not isinstance(self.stress_discretization(subdomains), pp.ad.TpsaAd):
@@ -5438,7 +5438,7 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
         # Inherit poromechanical porosity from base class.
         phi = super().matrix_porosity(subdomains)
         # Add thermal contribution.
-        phi += self.porosity_change_from_temperature(subdomains)
+        # phi += self.porosity_change_from_temperature(subdomains)
         phi.set_name("Thermoporomechanics porosity")
         return phi
 
