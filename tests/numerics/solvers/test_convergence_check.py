@@ -755,3 +755,70 @@ def test_divergence_criteria_collection(
         assert status.is_failed()
     else:
         assert False
+
+
+"""Behaviour when a relative criterion's reference value is zero.
+
+A block that starts a time step at exactly zero residual is ordinary in
+thermo-poromechanics, and a relative measure against it is meaningless. A failure in
+this group means either that such a block crashes the solver, or -- worse -- that it is
+silently counted as converged and drags the whole conjunction with it.
+"""
+
+
+def identity_metric():
+    """A metric passing its argument through, so tests can supply blocks directly."""
+    return lambda x: x
+
+
+def test_zero_reference_falls_back_to_the_absolute_tolerance():
+    """The relative test is undefined at zero, so an absolute one stands in for it."""
+    criterion = RelativeConvergenceCriterion(
+        tol=1e-6, metric=identity_metric(), zero_reference_atol=1e-8
+    )
+    status, _ = criterion.check(value=1e-10, reference=0.0)
+    assert status == ConvergenceStatus.CONVERGED
+
+    criterion.reset()
+    status, _ = criterion.check(value=1.0, reference=0.0)
+    assert status == ConvergenceStatus.CONTINUE_ITERATING
+
+
+def test_zero_reference_without_a_fallback_is_not_convergence():
+    """With nothing to test against, the criterion must abstain, not report success."""
+    criterion = RelativeConvergenceCriterion(tol=1e-6, metric=identity_metric())
+    status, _ = criterion.check(value=1e30, reference=0.0)
+    assert status == ConvergenceStatus.CONTINUE_ITERATING
+
+
+def test_a_zero_reference_block_is_judged_on_its_own():
+    """One zero-reference block must not decide the verdict for the others."""
+    reference = {"mass": 0.0, "momentum": 1.0}
+
+    criterion = RelativeConvergenceCriterion(
+        tol=1e-6, metric=identity_metric(), zero_reference_atol=1e-8
+    )
+    status, info = criterion.check(
+        value={"mass": 1e-12, "momentum": 1e-9}, reference=reference
+    )
+    assert status == ConvergenceStatus.CONVERGED
+    assert np.isclose(info["mass"], 1e-12), "zero-reference info is the value itself"
+    assert np.isclose(info["momentum"], 1e-9), "otherwise it is the ratio"
+
+    criterion = RelativeConvergenceCriterion(
+        tol=1e-6, metric=identity_metric(), zero_reference_atol=1e-8
+    )
+    status, _ = criterion.check(
+        value={"mass": 1.0, "momentum": 1e-9}, reference=reference
+    )
+    assert status == ConvergenceStatus.CONTINUE_ITERATING
+
+
+def test_a_relative_divergence_criterion_ignores_zero_reference_blocks():
+    """Without a fallback tolerance, a zero reference must not be read as divergence."""
+    criterion = RelativeDivergenceCriterion(tol=1e6, metric=identity_metric())
+    status = criterion.check(
+        value={"mass": 1e30, "momentum": 1.0},
+        reference={"mass": 0.0, "momentum": 1e30},
+    )
+    assert status == ConvergenceStatus.CONVERGED

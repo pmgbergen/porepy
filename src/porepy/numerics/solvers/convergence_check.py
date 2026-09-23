@@ -414,11 +414,24 @@ class AbsoluteDivergenceCriterion(AbsoluteCriterion, DivergenceCriterion):
 
 
 class RelativeCriterion:
+    """Base class for criteria measuring a quantity against a reference value.
+
+    Parameters:
+        tol: Tolerance for convergence - criterion is inactive if set to `np.inf`.
+        metric: Metric to compute the convergence measure.
+        reference_value: Reference value for relative convergence.
+        zero_reference_atol: Absolute tolerance applied where the reference value is
+            zero, since a relative measure is undefined there. `None`, the default,
+            leaves such entries out of the criterion altogether.
+
+    """
+
     def __init__(
         self,
         tol: float,
         metric: ConvergenceMetricType,
         reference_value: ConvergenceInfo | None = None,
+        zero_reference_atol: float | None = None,
     ) -> None:
         self.tol = tol
         """Tolerance for convergence - criterion in active if set to `np.inf`."""
@@ -426,6 +439,8 @@ class RelativeCriterion:
         """Metric to compute the convergence measure."""
         self.reference_value = reference_value
         """Reference value for relative convergence."""
+        self.zero_reference_atol = zero_reference_atol
+        """Absolute tolerance used where the reference value is zero."""
 
     def reset(self) -> None:
         """Reset the reference value."""
@@ -434,8 +449,11 @@ class RelativeCriterion:
     def set_reference_value(self, reference_value: ConvergenceInfo) -> None:
         """Set the reference value for relative convergence.
 
-        The reference value is only set for entries of self.reference_value that are not
-        already set and are non-zero in the provided reference value.
+        Only entries that are not already set are taken from the provided value, so the
+        reference is the one from the iteration at which the criterion was first
+        checked. Zero references are stored like any other: dropping them would both
+        leave a scalar reference unset, and silently move a block's reference to a later
+        iteration than every other block's.
 
         Parameters:
             reference_value: Reference value to set.
@@ -444,14 +462,28 @@ class RelativeCriterion:
         if isinstance(reference_value, dict):
             self.reference_value = self.reference_value or {}
             assert isinstance(self.reference_value, dict)
-            non_zero_reference_value = {}
             for key, val in reference_value.items():
-                if self.reference_value.get(key) is None and not np.isclose(val, 0.0):
-                    non_zero_reference_value[key] = val
-            self.reference_value.update(non_zero_reference_value)
+                if self.reference_value.get(key) is None:
+                    self.reference_value[key] = val
         else:  # float
-            if self.reference_value is None and not np.isclose(reference_value, 0.0):
+            if self.reference_value is None:
                 self.reference_value = reference_value
+
+    def bound(self, reference: float) -> float | None:
+        """Return the value a quantity must fall below to satisfy this criterion.
+
+        Parameters:
+            reference: The reference value for the entry being checked.
+
+        Returns:
+            `tol * reference`, or, where the reference is zero,
+            :attr:`zero_reference_atol` - which is `None` when the entry is to be left
+            out of the criterion.
+
+        """
+        if not np.isclose(reference, 0.0):
+            return self.tol * reference
+        return self.zero_reference_atol
 
     def __repr__(self) -> str:
         s = f"{self.__class__.__name__}(tol={self.tol}, "
@@ -473,6 +505,13 @@ class RelativeConvergenceCriterion(RelativeCriterion, ConvergenceCriterion):
         in this dictionary separately, and the convergence is declared only if all
         entries satisfy the criterion.
 
+        A reference value of zero makes the relative measure meaningless, so such an
+        entry is instead held to :attr:`zero_reference_atol`, or left out of the
+        criterion entirely when that is `None`. Convergence is not declared if every
+        entry was left out, since nothing was then tested. The reported convergence
+        information is the ratio to the reference value, except for zero-reference
+        entries, where it is the quantity itself.
+
         Parameters:
             args: Positional arguments for the convergence check.
             kwargs: Quantities to check for convergence.
@@ -493,28 +532,41 @@ class RelativeConvergenceCriterion(RelativeCriterion, ConvergenceCriterion):
         metric_value = self.metric(kwargs["value"])
         if isinstance(metric_value, dict):
             assert isinstance(self.reference_value, dict)
+            bounds = {
+                key: self.bound(self.reference_value[key])
+                for key in metric_value
+                if key in self.reference_value
+            }
+            judged = {
+                key: val
+                for key, val in metric_value.items()
+                if bounds.get(key) is not None
+            }
             status = (
                 ConvergenceStatus.CONVERGED
-                if all(
-                    val < self.tol * (self.reference_value[key])
-                    for key, val in metric_value.items()
-                    if key in self.reference_value
-                )
+                if judged
+                and all(val < cast(float, bounds[key]) for key, val in judged.items())
                 else ConvergenceStatus.CONTINUE_ITERATING
             )
             relative_metric_value: ConvergenceInfo = {
                 key: val / self.reference_value[key]
-                for key, val in metric_value.items()
-                if key in self.reference_value
+                if not np.isclose(self.reference_value[key], 0.0)
+                else val
+                for key, val in judged.items()
             }
         else:
             assert isinstance(self.reference_value, float)
+            bound = self.bound(self.reference_value)
             status = (
                 ConvergenceStatus.CONVERGED
-                if metric_value < self.tol * self.reference_value
+                if bound is not None and metric_value < bound
                 else ConvergenceStatus.CONTINUE_ITERATING
             )
-            relative_metric_value = metric_value / self.reference_value
+            relative_metric_value = (
+                metric_value / self.reference_value
+                if not np.isclose(self.reference_value, 0.0)
+                else metric_value
+            )
         return status, relative_metric_value
 
 
@@ -1054,13 +1106,13 @@ def assemble_default_convergence_criteria(
                     tol=inc_atol, metric=metric
                 ),
                 "inc_rel": pp.solvers.IncrementBasedRelativeCriterion(
-                    tol=inc_rtol, metric=metric
+                    tol=inc_rtol, metric=metric, zero_reference_atol=inc_atol
                 ),
                 "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
                     tol=res_atol, metric=metric
                 ),
                 "res_rel": pp.solvers.ResidualBasedRelativeCriterion(
-                    tol=res_rtol, metric=metric
+                    tol=res_rtol, metric=metric, zero_reference_atol=res_atol
                 ),
             }
         )
