@@ -461,6 +461,37 @@ def test_solve_convergence_statistics():
     Path("solver_statistics.json").unlink()
 
 
+def test_a_solver_with_no_active_convergence_criterion_is_rejected():
+    """Every criterion abstaining means the first iteration is accepted unconditionally.
+
+    Convergence is a conjunction over the criteria, and a criterion with an infinite
+    tolerance reports success without testing anything. A failure here means a nonlinear
+    problem can be declared solved before a single residual has been looked at.
+
+    """
+    with pytest.raises(ValueError, match="finite tolerance"):
+        pp.solvers.NewtonSolver(
+            params={
+                "nl_convergence_inc_atol": np.inf,
+                "nl_convergence_inc_rtol": np.inf,
+                "nl_convergence_res_atol": np.inf,
+                "nl_convergence_res_rtol": np.inf,
+            },
+            is_nonlinear_problem=True,
+            linear_solver=MockLinearSolver(np.ndarray(shape=())),
+        )
+
+
+def test_a_linear_problem_needs_no_convergence_criterion():
+    """A linear solve converges by construction, and must not trip the guard above."""
+    solver = pp.solvers.NewtonSolver(
+        params={},
+        is_nonlinear_problem=False,
+        linear_solver=MockLinearSolver(np.ndarray(shape=())),
+    )
+    assert len(solver.convergence_criteria) == 0
+
+
 def test_solve_failure():
     """Test that the solver returns FAILED on divergence."""
     # Minimal setup for failure after two iterations.

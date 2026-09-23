@@ -18,6 +18,7 @@ from porepy.numerics.solvers.convergence_check import (
     assemble_default_convergence_criteria,
     assemble_default_divergence_criteria,
     check_convergence,
+    has_active_criterion,
 )
 from porepy.numerics.solvers.equation_variable_tags import EquationTag, VariableTag
 from porepy.numerics.solvers.linear_solvers.linear_solver import (
@@ -245,6 +246,15 @@ class NewtonSolver(NonlinearSolverBase):
         # Initialize convergence criteria.
         self.convergence_criteria = ConvergenceCriteria(convergence_criteria)
         """Convergence criterion used in the convergence check."""
+
+        # Convergence requires every criterion to pass, so a collection in which none
+        # of them tests anything is satisfied by the first iteration, whatever the
+        # residual. Refuse that rather than declare a nonlinear problem solved at once.
+        if is_nonlinear_problem and not has_active_criterion(self.convergence_criteria):
+            raise ValueError(
+                "No convergence criterion has a finite tolerance, so the nonlinear "
+                "solver would accept the first iteration unconditionally."
+            )
 
     def init_divergence_criteria(self, is_nonlinear_problem: bool) -> None:
         """Parse and initialize divergence criteria.

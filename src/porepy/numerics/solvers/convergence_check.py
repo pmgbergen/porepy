@@ -61,6 +61,7 @@ __all__ = [
     "ResidualBasedCombinedDivergenceCriterion",
     "MaxIterationsCriterion",
     "assemble_default_convergence_criteria",
+    "has_active_criterion",
     "assemble_default_divergence_criteria",
 ]
 
@@ -291,6 +292,32 @@ class ConvergenceCriteria(dict[str, ConvergenceCriterion]):
         """Reset all convergence criteria in the collection."""
         for criterion in self.values():
             criterion.reset()
+
+
+def has_active_criterion(criteria: dict[str, ConvergenceCriterion]) -> bool:
+    """Check whether any criterion in a collection actually tests something.
+
+    A criterion whose tolerances are all infinite reports convergence unconditionally,
+    so a collection of only such criteria would declare the very first iteration
+    converged. A criterion exposing no tolerance at all is assumed to test something.
+
+    Parameters:
+        criteria: The convergence criteria to inspect.
+
+    Returns:
+        True if at least one criterion has a finite tolerance.
+
+    """
+
+    def is_active(criterion: ConvergenceCriterion) -> bool:
+        tolerances = [
+            getattr(criterion, name)
+            for name in ("tol", "atol", "rtol")
+            if hasattr(criterion, name)
+        ]
+        return not tolerances or not all(np.isinf(tol) for tol in tolerances)
+
+    return any(is_active(criterion) for criterion in criteria.values())
 
 
 class DivergenceCriteria(dict[str, DivergenceCriterion]):
