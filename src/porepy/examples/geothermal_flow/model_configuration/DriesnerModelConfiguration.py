@@ -277,7 +277,8 @@ class _DriesnerBrineBase(  # type:ignore[misc]
                 - diff_eq_indices: dict of differential equation indices
                 - alg_eq_indices: dict of algebraic equation indices
         """
-        eq_indices = self.equation_system.assembled_equation_indices
+        from .flow_model_base import assembled_equation_indices
+        eq_indices = assembled_equation_indices(self.equation_system)
 
         # Find equation names dynamically
         try:
@@ -442,6 +443,13 @@ class _DriesnerBrineBase(  # type:ignore[misc]
         # why the raw "Overall residual norm" looked converged while the solver kept iterating.
         from .flow_model_base import RelativeStorageLebesgueMetric      # noqa: E402  (avoid import cycle)
         scaled = RelativeStorageLebesgueMetric(self)(residual_vector)
+
+        if self.params.get("dump_metric", False):                       # per-equation criterion audit
+            scales = self.residual_row_scales()
+            print("  [metric dump] every equation the criterion tests (value vs tol):")
+            for k in sorted(scaled, key=lambda n: -scaled[n]):
+                tag = "SCALED" if scales.get(k, 0.0) > 0.0 else "raw   "
+                print(f"    {tag}  {scaled[k]:.4e}   {k}")
 
         def _scaled_of(cat: str):
             """Row-scaled metric value for a differential category, matching the criterion's equations."""

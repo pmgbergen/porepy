@@ -61,6 +61,7 @@ from porepy.examples.geothermal_flow.model_configuration.flow_model_base import 
     FlowModelBase,              # total-mass formulation      -> CompositionalFlowTemplate
     FractionalFlowModelBase,    # fractional-flow formulation -> CompositionalFractionalFlowTemplate
     geothermal_nonlinear_solver,  # NewtonSolver that dispatches to model.solve_linear_system
+    assembled_equation_indices,   # compat shim for the removed EquationSystem attribute
 )
 from porepy.examples.geothermal_flow.model_configuration.geometry_description.geometry_market import (  # noqa: E402,E501
     GeometryBarriers2D,
@@ -782,7 +783,7 @@ class NullSpaceDriftCriterion(pp.solvers.ConvergenceCriterion):
         self, residual: np.ndarray, **kwargs
     ) -> tuple[pp.solvers.ConvergenceStatus, float]:
         model = self._model
-        rows = model.equation_system.assembled_equation_indices["mass_balance_equation"]
+        rows = assembled_equation_indices(model.equation_system)["mass_balance_equation"]
         if self._total_volume is None:
             # The geometry is fixed, so the normalization volume is computed once.
             self._total_volume = sum(
@@ -910,7 +911,7 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
         after it -- goes to ILU. Returns (primary_cols, primary_rows, secondary_cols, secondary_rows,
         n_pressure, n_elliptic)."""
         es = self.equation_system
-        aei = es.assembled_equation_indices
+        aei = assembled_equation_indices(es)
         eq_names = list(aei.keys())
         vars_by_name: dict = {}
         for v in es.variables:                          # atomic Variable objects, one per grid

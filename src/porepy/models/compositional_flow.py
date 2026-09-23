@@ -212,7 +212,7 @@ def log_cf_model_configuration(model: pp.PorePyModel) -> None:
     p_elim = model._is_reference_phase_eliminated()
     c_elim = model._is_reference_component_eliminated()
     is_ff = is_fractional_flow(model)
-    et = compositional.get_local_equilibrium_condition(model)
+    et = compositional.get_equilibrium_specifications(model)
     var_names = set([v.name for v in model.equation_system.variables])
     dofs = model.equation_system.num_dofs()
     dofs_loc = dofs / len(var_names)
@@ -1556,7 +1556,7 @@ class InitialConditionsPhaseProperties(pp.InitialConditionMixin):
 
         """
         equilibrium_defined = (
-            compositional.get_local_equilibrium_condition(self) is not None
+            compositional.has_equilibrium_specified(self)
         )
 
         # Set the initial values on individual grids for the iterate indices.
@@ -1641,7 +1641,7 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
 
         subdomains = self.mdg.subdomains()
         equilibrium_defined = (
-            compositional.get_local_equilibrium_condition(self) is not None
+            compositional.has_equilibrium_specified(self)
         )
 
         for grid in subdomains:
@@ -1711,7 +1711,7 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
         ni = self.iterate_indices.size
         nt = self.time_step_indices.size
         equilibrium_defined = (
-            compositional.get_local_equilibrium_condition(self) is not None
+            compositional.has_equilibrium_specified(self)
         )
 
         for sd in self.mdg.subdomains():

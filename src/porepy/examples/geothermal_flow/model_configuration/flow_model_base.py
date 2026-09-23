@@ -298,6 +298,15 @@ def geothermal_nonlinear_solver(solver_params: dict) -> "pp.solvers.NewtonSolver
         params=solver_params, linear_solver=GeothermalLinearSolver())
 
 
+def assembled_equation_indices(equation_system) -> dict:
+    """Compat shim for the removed ``EquationSystem.assembled_equation_indices``: maps each
+    equation name to its global residual-row indices, rebuilt from the current
+    ``equation_indexer.group_by_name()`` (nested name -> domain -> dofs)."""
+    return {name: np.concatenate(list(domains_dofs.values()))
+            for name, domains_dofs
+            in equation_system.equation_indexer.group_by_name().items()}
+
+
 class RelativeStorageLebesgueMetric(pp.EquationBasedLebesgueMetric):
     """Per-equation Lebesgue metric with each PHYSICAL row divided by its storage/throughput scale --
     the same ms/es row-normalization the weis reference uses. Turns PorePy's ABSOLUTE residual bound
@@ -921,7 +930,7 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         ``(subdomain_cols, subdomain_rows, interface_cols, interface_rows, secondary_cols,
         secondary_rows, n_pressure, matrix_p_pos)``."""
         es = self.equation_system
-        aei = es.assembled_equation_indices
+        aei = assembled_equation_indices(es)
         eq_names = list(aei.keys())
         vars_by_name: dict = {}
         for v in es.variables:                          # atomic Variable objects, one per grid
@@ -1481,10 +1490,20 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         iteration and a larger minimum step (``rho**(cap-1)``), at the cost of a coarser search.
         """
         max_iterations = int(self.params.get("line_search_max_iterations", max_iterations))
+        # Non-monotone kink escape (gated by ``line_search_min_alpha`` > 0; default 0 keeps the pure
+        # monotone weis search the 1D/3D benchmarks were validated with). At an OBL table / saturation
+        # kink the full Newton step transiently RAISES the merit, so pure monotone backtracking damps
+        # all the way to ``rho**max_iterations`` (~2e-3) and CRAWLS for many expensive iterations.
+        # With a floor, we stop damping there and take the LEAST-BAD step >= floor (a bounded merit
+        # increase) instead of the microscopic one -- stepping over the kink rather than around it.
+        alpha_floor = float(self.params.get("line_search_min_alpha", 0.0))
         nrm_current = self._line_search_merit(current_residual)
         alpha = 1.0
+        best_alpha, best_nrm = None, None
         for i in range(max_iterations):
             alpha = rho ** i                                   # 1, 1/2, 1/4, ...
+            if alpha_floor > 0.0 and alpha < alpha_floor:
+                break                                          # don't damp below the floor
             trial = alpha * delta_x
             try:
                 self.postprocessing_overshoots(trial)          # physical clip, per trial
@@ -1503,7 +1522,14 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
                               f"merit={nrm_trial:.4e} < {nrm_current:.4e}")
                     self._cur_step_timing.n_line_searches += i + 1   # backtracking trials this call
                     return alpha
+                if best_nrm is None or nrm_trial < best_nrm:
+                    best_alpha, best_nrm = alpha, nrm_trial          # track least-bad bounded step
         self._cur_step_timing.n_line_searches += max_iterations
+        if alpha_floor > 0.0 and best_alpha is not None:             # no monotone step >= floor: escape
+            if best_alpha < 1.0:
+                print(f"  Line search (kink escape): alpha={best_alpha:.4f}, "
+                      f"merit={best_nrm:.4e} vs {nrm_current:.4e} (bounded, non-monotone)")
+            return best_alpha
         return alpha
 
     def _line_search_merit(self, residual: np.ndarray) -> float:
@@ -1647,7 +1673,7 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
             permutations are index arrays and ``field_sizes`` is
             ``{'elliptic': n_e, 'transport': n_t}``.
         """
-        assembled = self.equation_system.assembled_equation_indices
+        assembled = assembled_equation_indices(self.equation_system)
         equation_keys = list(assembled.keys())
 
         def equation_named(keyword: str, exclude: str | None = None) -> str | None:
@@ -1816,9 +1842,10 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         super().before_nonlinear_iteration()
         self._accum_step("t_before_ms", (time.perf_counter() - t) * 1e3)
 
-    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
+    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray,
+                                  updated_variables=None) -> None:
         t = time.perf_counter()
-        super().after_nonlinear_iteration(nonlinear_increment)
+        super().after_nonlinear_iteration(nonlinear_increment, updated_variables)
         self._accum_step("t_after_ms", (time.perf_counter() - t) * 1e3)
 
     def after_nonlinear_convergence(self) -> None:

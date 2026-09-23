@@ -64,7 +64,7 @@ to_Mega = 1.0e-6
 
 # Dynamic time stepping (all CLI-overridable).  The schedule pins EXACT landing -- and
 # VTU export -- at the Fig. 8 snapshot instants; dt adapts freely in between.
-_DEFAULT_SNAP_YEARS = tuple(float(y) for y in range(0, 15001, 250))  # 0..15 kyr / 0.25 kyr
+_DEFAULT_SNAP_YEARS = tuple(float(y) for y in range(0, 25001, 50))  # 0..25 kyr / 0.05 kyr
 DT_NOMINAL = 20.0           # nominal (initial) step [yr] (--dt-nominal)
 DT_MIN = 0.0001               # smallest allowed step [yr] (--dt-min)
 DT_MAX = 100.0              # largest allowed step [yr]  (--dt-max)
@@ -92,7 +92,8 @@ _VERTICAL_CUT = 1000.0      # --truncated-domain: metres removed from the BOTTOM
 # --------------------------------------------------------------------------------------- #
 #  --md : approved discrete fault & barrier network on the Fig. 8 domain (F1-F6, B1-B3).
 #  y = ELEVATION (y=0 base, y=DOMAIN_HEIGHT surface).  Conductive faults F1-F5 are inclined
-#  high-k lines (1000 * rock); F6 is a gently-dipping low-angle LINKING connector at reduced
+#  high-k lines (1e3 * rock = 1 D, 5 m damage-zone aperture -> tangential transmissivity ~100x a
+#  matrix cell and channel-dominated T_n/T_t=0.08); F6 is a gently-dipping low-angle LINKING connector at reduced
 #  grade (--f6-factor, default 100 * rock -- per the geological assessment, a bedding-parallel
 #  weak layer, not a fault, so it redistributes fluid without short-circuiting the seals it
 #  shares a depth with); sealing barriers B1-B3 are thin curved low-k lines (--barrier-factor *
@@ -102,28 +103,35 @@ _VERTICAL_CUT = 1000.0      # --truncated-domain: metres removed from the BOTTOM
 #  / material logic mirrors porepy_2d_recharge.py: lines are added in the order faults, links,
 #  barriers, so a 1D subdomain is classified by its frac_num (fault < link < barrier bands).
 # --------------------------------------------------------------------------------------- #
-_F8_MD_FRAC_PERM_FACTOR = 1000.0     # conductive fault k (in-plane & normal) = rock * this
-_F8_LINK_PERM_FACTOR = 100.0         # F6 low-angle linking connector k = rock * this (--f6-factor)
-_F8_BARRIER_FACTOR = 1.0e-3          # sealing-barrier k = rock * this (--barrier-factor)
-_F8_BARRIER_THICKNESS = 2.0          # 1D barrier aperture [m] (seal thickness; 1-2 m)
-_F8_FAULT_CELL_SIZE_FACTOR = 0.5     # cell size along fracture lines = this * cell_size
+_FIG8_MD_FRAC_PERM_FACTOR = 1.0e3      # conductive fault k (in-plane & normal) = rock * this (1 D)
+_FIG8_LINK_PERM_FACTOR = 250.0         # F6 low-angle linking connector k = rock * this (0.25 D; --f6-factor)
+_FIG8_BARRIER_FACTOR = 1.0e-3          # sealing-barrier k = rock * this (--barrier-factor)
+_FIG8_BARRIER_THICKNESS = 2.0          # 1D barrier aperture [m] (seal thickness; 1-2 m)
+_FIG8_FAULT_APERTURE = 5.0             # 1D fault aperture [m] (damage-zone thickness); with the 1e3 k
+                                       # factor this gives fault k*a = 5e-12 -> tangential transmissivity
+                                       # ~100x a matrix cell (cell_size 50 m), and normal/tangential
+                                       # T_n/T_t = 2/a^2 = 0.08, so faults channel flow instead of leaking
+_FIG8_LINK_APERTURE = 2.0              # 1D F6-link aperture [m]; with the 250 k factor gives k*a = 5e-13
+                                       # -> tangential transmissivity ~10x a matrix cell (one order below
+                                       # the faults) and T_n/T_t = 0.5, so it redistributes without leaking
+_FIG8_FAULT_CELL_SIZE_FACTOR = 0.5     # cell size along fracture lines = this * cell_size
 
 # Conductive faults F1-F5, DEEP (low-y) endpoint first: (x0, y0, x1, y1) in metres.
-_F8_FAULTS = [
+_FIG8_FAULTS = [
     (4000.0,    0.0, 2300.0, 3000.0),   # F1 master normal fault ~60 E (west graben wall)
     (5000.0,  300.0, 6700.0, 3000.0),   # F2 antithetic fault ~58 W (east graben wall)
     (3320.0, 1200.0, 4000.0, 3000.0),   # F3 W synthetic splay off F1 (intersects F1)
-    (4500.0, 1250.0, 5250.0, 2100.0),   # F4 near-vertical central feeder, blind tip (+250 m)
+    (4500.0, 1050.0, 5050.0, 2250.0),   # F4 near-vertical central feeder, blind tip (+250 m)
     (5630.0, 1300.0, 5000.0, 3000.0),   # F5 E synthetic splay off F2 (intersects F2)
 ]
 
 # F6 low-angle (~5 deg) linking connector tying F3, F4, F2 beneath the cap; reduced grade.
-_F8_LINK_FAULTS = [
+_FIG8_LINK_FAULTS = [
     (3471.0, 1600.0, 5693.0, 1400.0),   # F6 (drop via --no-f6; grade via --f6-factor)
 ]
 
 # Sealing barriers B1-B3: thin curved seals, each a polyline of (x, y) vertices [m].
-_F8_BARRIERS = [
+_FIG8_BARRIERS = [
     [(2200.0, 2150.0), (3000.0, 2350.0), (3800.0, 2460.0), (4500.0, 2500.0),
      (5200.0, 2460.0), (6000.0, 2350.0), (6800.0, 2150.0)],                    # B1 clay cap
     [(800.0, 1620.0), (1700.0, 1560.0), (2500.0, 1520.0), (3150.0, 1500.0)],   # B2 west seal
@@ -140,19 +148,19 @@ def _lines_from(entries, cu) -> list:
 
 def _f8_fault_fractures(cu) -> list:
     """Faults F1-F5 as pp.LineFracture (full conductive grade)."""
-    return _lines_from(_F8_FAULTS, cu)
+    return _lines_from(_FIG8_FAULTS, cu)
 
 
 def _f8_link_fractures(cu) -> list:
     """F6 low-angle linking connector(s) as pp.LineFracture (reduced grade)."""
-    return _lines_from(_F8_LINK_FAULTS, cu)
+    return _lines_from(_FIG8_LINK_FAULTS, cu)
 
 
 def _f8_barrier_fractures(cu) -> list:
     """Barriers B1-B3 as pp.LineFracture seals: one straight segment per polyline edge, so a
     curved seal is a connected chain of low-k blocking lines."""
     segs = []
-    for poly in _F8_BARRIERS:
+    for poly in _FIG8_BARRIERS:
         for (xa, ya), (xb, yb) in zip(poly[:-1], poly[1:]):
             segs.append(pp.LineFracture(np.array([[cu(xa, "m"), cu(xb, "m")],
                                                   [cu(ya, "m"), cu(yb, "m")]])))
@@ -369,17 +377,23 @@ _ap.add_argument("--recombine", action="store_true", default=False,
                       "(gmsh recombination) instead of triangles")
 _ap.add_argument("--no-barriers", dest="barriers", action="store_false", default=True,
                  help="drop the sealing barriers B1-B3 (faults only) under --md")
-_ap.add_argument("--barrier-factor", type=float, default=_F8_BARRIER_FACTOR, metavar="F",
-                 help=f"sealing-barrier permeability = rock * F; default {_F8_BARRIER_FACTOR:g}")
+_ap.add_argument("--barrier-factor", type=float, default=_FIG8_BARRIER_FACTOR, metavar="F",
+                 help=f"sealing-barrier permeability = rock * F; default {_FIG8_BARRIER_FACTOR:g}")
 _ap.add_argument("--no-f6", dest="f6", action="store_false", default=True,
                  help="drop the F6 low-angle linking connector (A/B baseline)")
-_ap.add_argument("--f6-factor", type=float, default=_F8_LINK_PERM_FACTOR, metavar="F",
+_ap.add_argument("--f6-factor", type=float, default=_FIG8_LINK_PERM_FACTOR, metavar="F",
                  help=f"F6 linking-connector permeability = rock * F; default "
-                      f"{_F8_LINK_PERM_FACTOR:g} (faults use {_F8_MD_FRAC_PERM_FACTOR:g})")
+                      f"{_FIG8_LINK_PERM_FACTOR:g} (faults use {_FIG8_MD_FRAC_PERM_FACTOR:g})")
 _ap.add_argument("--diagnose-binding", action="store_true", default=False,
                  help="on each time-step cut, run the STEP-0 binding diagnostic on the stalled iterate: "
                       "identify the failing cells and test kink vs negative compressibility (sign of "
                       "dRho/dp) + line-search merit alignment. Logs only, no behaviour change")
+_ap.add_argument("--dump-metric", action="store_true", default=False,
+                 help="print every equation the convergence criterion tests (value vs tol), scaled/raw. Debug only")
+_ap.add_argument("--ls-min-alpha", type=float, default=0.1, metavar="A",
+                 help="line-search alpha floor: below A, stop monotone damping and take the least-bad "
+                      "bounded step (non-monotone kink escape). Kills the alpha~2e-3 crawl at OBL kinks "
+                      "that stalls MD. 0 restores the pure monotone weis search (default 0.1)")
 _ap.add_argument("--tol", type=float, default=NL_TOL, metavar="T",
                  help=f"Newton convergence tolerance on the row-scaled residual (default {NL_TOL:g})")
 _ap.add_argument("--max-iter", type=int, default=NL_MAX_ITER, metavar="N",
@@ -424,7 +438,6 @@ if _args.dt_constant is not None:
         dt_init=dtc,
         dt_min_max=(dtc, dtc),
         constant_dt=True,
-        print_info=True,
     )
 else:
     time_manager = pp.TimeManager(
@@ -432,11 +445,9 @@ else:
         dt_init=_args.dt_nominal * year_to_second,
         dt_min_max=(_args.dt_min * year_to_second, _args.dt_max * year_to_second),
         constant_dt=False,
-        iter_max=15,
         iter_optimal_range=(3, 8),
         iter_relax_factors=(0.25, 1.5),
         recomp_factor=0.3,
-        print_info=True,
     )
 times_to_export = list(schedule)
 
@@ -479,6 +490,15 @@ params = {
 params["consistent_discretization"] = _args.consistent
 params["lag_buoyancy_direction"] = _args.lag_buoyancy
 params["diagnose_binding"] = _args.diagnose_binding
+params["dump_metric"] = _args.dump_metric
+params["line_search_min_alpha"] = _args.ls_min_alpha
+# Line-search cost cuts (the LS is ~70% of the per-step wall on --md; each trial re-evaluates the
+# full OBL-flash residual). lazy_residual_restore skips the dead base-state rebuild after each trial
+# (~39% of the eval; byte-identical for the LS path). lag_discretization freezes the upwind/mobility
+# discretization at the base state during backtracking (skips the per-trial rediscretize -- the
+# dominant cost on many-subdomain/MD runs; changes the Newton PATH, not the fixed point).
+params["lazy_residual_restore"] = os.environ.get("POREPY_LS_LAZY", "1") == "1"          # on: measured -39% LS, byte-identical
+params["lag_discretization_in_line_search"] = os.environ.get("POREPY_LS_LAG", "0") == "1"  # off: neutral here, changes path
 if _args.grid_type is not None:
     params["grid_type"] = _args.grid_type            # Figure8Geometry2D reads this key
 params.update(_SCHEME_CONFIG[_args.scheme])
@@ -557,7 +577,7 @@ class GeothermalBrineFlowModel(
         self._n_link_lines = len(links)
         network = pp.create_fracture_network(faults + links + barriers, self._domain)
         h = cu(100.0 if _args.cell_size is None else _args.cell_size, "m")
-        h_frac = _F8_FAULT_CELL_SIZE_FACTOR * h
+        h_frac = _FIG8_FAULT_CELL_SIZE_FACTOR * h
         mesh_args = {"cell_size": h, "cell_size_boundary": h,
                      "cell_size_fracture": h_frac, "cell_size_min": h_frac}
         with warnings.catch_warnings():
@@ -565,19 +585,75 @@ class GeothermalBrineFlowModel(
             self.mdg = _create_mdg_maybe_recombine(mesh_args, network, _unique_gmsh_file())
         self.nd = self.mdg.dim_max()
         pp.set_local_coordinate_projections(self.mdg)
+        if os.environ.get("POREPY_DUMP_MD"):
+            self._dump_md_classification()
+
+    def _dump_md_classification(self) -> None:
+        """Diagnostic: per lower-dim subdomain, print frac_num -> classification + effective
+        in-plane / normal perm factor, so we can confirm faults are conductive and barriers seal."""
+        print("\n=== MD CLASSIFICATION DUMP (nf=%d nl=%d) ==="
+              % (self._n_fault_lines, self._n_link_lines))
+        print("dim frac_num  ncells   x_range          y_range        perm_factor  is_barrier  class")
+        for sd in self.mdg.subdomains():
+            if sd.dim == self.mdg.dim_max():
+                continue
+            cc = sd.cell_centers
+            fn = int(getattr(sd, "frac_num", -1))
+            pf = self._fracture_perm_factor(sd)
+            isb = self._is_barrier_subdomain(sd)
+            nf, nl = self._n_fault_lines, self._n_link_lines
+            if sd.dim == self.mdg.dim_max() - 1:
+                cls = "FAULT" if fn < nf else ("LINK" if fn < nf + nl else "BARRIER")
+            else:
+                cls = "INTERSECTION(%dD)" % sd.dim
+            xr = "[%6.0f,%6.0f]" % (cc[0].min() / self.units.convert_units(1.0, "m"),
+                                    cc[0].max() / self.units.convert_units(1.0, "m"))
+            yr = "[%6.0f,%6.0f]" % (cc[1].min() / self.units.convert_units(1.0, "m"),
+                                    cc[1].max() / self.units.convert_units(1.0, "m"))
+            print("%3d %8d %7d  %s %s  %10.3g  %5s      %s"
+                  % (sd.dim, fn, sd.num_cells, xr, yr, pf, isb, cls))
+        print("=== END MD CLASSIFICATION DUMP ===\n")
+        # Effective conductance summary: tangential (channeling) T_t ~ k_inplane * specific_volume,
+        # normal (cross) T_n ~ normal_k * 2/aperture.  Compared to a matrix strip of width cell_size.
+        km = float(self.solid.permeability)
+        h = self.units.convert_units(50.0 if _args.cell_size is None else _args.cell_size, "m")
+        T_matrix_strip = km * h                       # matrix conductance over one cell width
+        print("=== EFFECTIVE CONDUCTANCE (matrix strip T = k_m*cell = %.3g) ===" % T_matrix_strip)
+        print("class      k_inplane   aperture  spec_vol   T_tangential  T_t/T_matrix   T_normal(=nk*2/a)")
+        seen = set()
+        for sd in self.mdg.subdomains():
+            if sd.dim != self.mdg.dim_max() - 1:
+                continue
+            nf, nl = self._n_fault_lines, self._n_link_lines
+            fn = int(sd.frac_num)
+            cls = "FAULT" if fn < nf else ("LINK" if fn < nf + nl else "BARRIER")
+            if cls in seen:
+                continue
+            seen.add(cls)
+            a = float(self.grid_aperture(sd)[0])
+            spec_vol = a ** (self.mdg.dim_max() - sd.dim)
+            k_ip = self._fracture_perm_factor(sd) * km
+            T_t = k_ip * spec_vol
+            nk = self._fracture_perm_factor(sd) * km
+            T_n = nk * 2.0 / a
+            print("%-8s  %.3e  %7.3g  %.3e  %.3e   %.3e   %.3e"
+                  % (cls, k_ip, a, spec_vol, T_t, T_t / T_matrix_strip, T_n))
+        print("=== END EFFECTIVE CONDUCTANCE ===\n")
+        if os.environ.get("POREPY_DUMP_MD") == "exit":
+            raise SystemExit(0)
 
     # -- fracture material / permeability / aperture (mirrors porepy_2d_recharge.py) ------
     def _fracture_perm_factor(self, sd: pp.Grid) -> float:
         """Rock-permeability multiplier for a lower-dim subdomain, by frac_num band:
-        fault (1000x) < F6 link (--f6-factor) < barrier seal (--barrier-factor). 0D
+        fault (1e3x) < F6 link (--f6-factor) < barrier seal (--barrier-factor). 0D
         intersections are conductive (fault grade), as in the recharge/3D solvers."""
         if sd.dim != self.mdg.dim_max() - 1:
-            return _F8_MD_FRAC_PERM_FACTOR
+            return _FIG8_MD_FRAC_PERM_FACTOR
         fn = int(sd.frac_num)
         nf = getattr(self, "_n_fault_lines", 0)
         nl = getattr(self, "_n_link_lines", 0)
         if fn < nf:
-            return _F8_MD_FRAC_PERM_FACTOR
+            return _FIG8_MD_FRAC_PERM_FACTOR
         if fn < nf + nl:
             return _args.f6_factor
         return _args.barrier_factor
@@ -589,10 +665,29 @@ class GeothermalBrineFlowModel(
         return int(sd.frac_num) >= (getattr(self, "_n_fault_lines", 0)
                                     + getattr(self, "_n_link_lines", 0))
 
+    def _is_fault_subdomain(self, sd: pp.Grid) -> bool:
+        """True for a 1D conductive fault F1-F5 (the lowest frac_num band)."""
+        if sd.dim != self.mdg.dim_max() - 1 or sd.num_cells == 0:
+            return False
+        return int(sd.frac_num) < getattr(self, "_n_fault_lines", 0)
+
+    def _is_link_subdomain(self, sd: pp.Grid) -> bool:
+        """True for the 1D F6 linking connector (frac_num band between faults and barriers)."""
+        if sd.dim != self.mdg.dim_max() - 1 or sd.num_cells == 0:
+            return False
+        nf = getattr(self, "_n_fault_lines", 0)
+        return nf <= int(sd.frac_num) < nf + getattr(self, "_n_link_lines", 0)
+
     def grid_aperture(self, grid: pp.Grid) -> np.ndarray:
         if _args.md and self._is_barrier_subdomain(grid):
             return np.full(grid.num_cells,
-                           self.units.convert_units(_F8_BARRIER_THICKNESS, "m"))
+                           self.units.convert_units(_FIG8_BARRIER_THICKNESS, "m"))
+        if _args.md and self._is_fault_subdomain(grid):    # damage-zone thickness -> channels flow
+            return np.full(grid.num_cells,
+                           self.units.convert_units(_FIG8_FAULT_APERTURE, "m"))
+        if _args.md and self._is_link_subdomain(grid):     # F6 redistributes -> modest aperture
+            return np.full(grid.num_cells,
+                           self.units.convert_units(_FIG8_LINK_APERTURE, "m"))
         return super().grid_aperture(grid)
 
     def _absolute_permeability(self, subdomains: list[pp.Grid]) -> np.ndarray:
@@ -721,6 +816,24 @@ model.exporter.write_vtu()
 tb = time.time()
 runner.run()
 te = time.time()
+
+# Optional final-state dump for verification diffs (env POREPY_DUMP_STATE=path.npz). Writes the
+# converged primary + slaved-secondary cell vectors so two runs (e.g. monotone vs kink-escape line
+# search) can be compared field-by-field. No effect unless the env var is set.
+_dump_path = os.environ.get("POREPY_DUMP_STATE")
+if _dump_path:
+    try:
+        _es = model.equation_system
+        _present = {v.name for v in _es.variables}
+        _fields = {}
+        for _n in [model.pressure_variable, model.enthalpy_variable, "z_NaCl",
+                   "temperature", "s_gas", "s_halite"]:
+            if _n in _present:
+                _fields[_n] = _es.get_variable_values([_n], iterate_index=0)
+        np.savez(_dump_path, final_years=model.time_manager.time / year_to_second, **_fields)
+        print("STATE DUMP ->", _dump_path, "fields:", list(_fields))
+    except Exception as _e:
+        print("WARNING: state dump failed:", _e)
 # Completion marker, written only when the time loop actually reached the FINAL TIME (not
 # tied to the trailing flux prints). run_scenarios.py treats this file as the authoritative
 # success/cache signal, so a run that finished but then exits via a teardown signal (e.g.
