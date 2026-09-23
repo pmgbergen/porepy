@@ -209,6 +209,28 @@ class DataSavingMixin(pp.PorePyModel):
                 / self.params["solver_statistics_file_name"]
             )
 
+    def _convert_imported_state_from_si(self) -> None:
+        """Undo the conversion to SI units that :meth:`data_to_export` applied.
+
+        Exported values are written in SI units so that the files are meaningful on
+        their own. The model, however, works in the scaled units given by
+        :attr:`units`, so a state read back from those files has to be converted the
+        other way before it can be used - otherwise a restart of a model with a
+        non-trivial unit system silently resumes from the wrong numbers.
+
+        """
+        for variable in self.equation_system.variables:
+            values_si = self.equation_system.get_variable_values(
+                variables=[variable], time_step_index=0
+            )
+            self.equation_system.set_variable_values(
+                self.units.convert_units(
+                    values_si, variable.tags["si_units"], to_si=False
+                ),
+                variables=[variable],
+                time_step_index=0,
+            )
+
     def load_data_from_vtu(
         self,
         vtu_files: Union[Path, list[Path]],
@@ -247,6 +269,7 @@ class DataSavingMixin(pp.PorePyModel):
 
         # Load states and read time index, connecting data and time history.
         self.exporter.import_state_from_vtu(vtu_files, keys, **kwargs)
+        self._convert_imported_state_from_si()
 
         # Load time and time step size.
         self.time_manager.load_time_information(times_file)
@@ -286,6 +309,7 @@ class DataSavingMixin(pp.PorePyModel):
 
         # Import data and determine time index corresponding to the pvd file.
         time_index: int = self.exporter.import_from_pvd(pvd_file, is_mdg_pvd, keys)
+        self._convert_imported_state_from_si()
 
         # Load time and time step size.
         self.time_manager.load_time_information(times_file)
