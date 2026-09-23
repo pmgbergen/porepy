@@ -1607,17 +1607,6 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
             self.update_buoyancy_driven_fluxes()
             self.rediscretize()
 
-    def  after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
-        super().after_nonlinear_iteration(nonlinear_increment)
-        # check_convergence (called immediately after this by the nonlinear solver) re-runs
-        # update_derived_quantities + refresh_buoyancy_direction + rediscretize on the FRESH flash and
-        # nothing reads the discretization in between -- so this refresh+rediscretize is on stale flash
-        # and is fully overwritten (dead work). ``skip_after_iteration_discretization`` drops it; kept
-        # by default for any model whose check_convergence does NOT rediscretize.
-        if not self.params.get("skip_after_iteration_discretization", False):
-            self.refresh_buoyancy_direction()
-            self.rediscretize()
-
     def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         # ``params["gravity"]=False`` (or 0) sets g=0 -- removes BOTH the buoyant phase
         # segregation and the hydrostatic term from the Darcy flux (gravity-free flow).
@@ -1846,6 +1835,15 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
                                   updated_variables=None) -> None:
         t = time.perf_counter()
         super().after_nonlinear_iteration(nonlinear_increment, updated_variables)
+        # Refresh the buoyancy upwind direction and rediscretize the state-dependent flux
+        # operators on the freshly updated iterate. Without this the buoyancy discretization is
+        # never rebuilt during the Newton loop, the phase-segregation drive stays inert, and the
+        # saturations freeze at the initial condition (only the pressure equilibrates). Skipped by
+        # ``skip_after_iteration_discretization`` for a model whose convergence check already
+        # rediscretizes.
+        if not self.params.get("skip_after_iteration_discretization", False):
+            self.refresh_buoyancy_direction()
+            self.rediscretize()
         self._accum_step("t_after_ms", (time.perf_counter() - t) * 1e3)
 
     def after_nonlinear_convergence(self) -> None:
