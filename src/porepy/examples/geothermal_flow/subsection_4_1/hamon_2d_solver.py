@@ -314,6 +314,127 @@ def barrier_mask(nx: int, ny: int) -> np.ndarray:
 
 
 # --------------------------------------------------------------------------------------- #
+#  Equi-dimensional fractures (the standalone solver has no lower-dimensional/MD support).
+#  The 10 conformal fractures of porepy_2d_solver._FRACTURES_REF are represented as thin, high-k
+#  BANDS on a locally-refined conforming mesh (make_grid_fractured). Each band's permeability is
+#  set so its TANGENTIAL transmissivity matches the mixed-dimensional fracture: an MD fracture
+#  conducts k_frac * aperture along its length, and a band of width w conducts k_band * w, so
+#      k_band = FRACTURE_K_FACTOR * FRACTURE_APERTURE * K_ROCK / w   ( = 100 * K_ROCK / w ).
+#  FRACTURE_K_FACTOR/FRACTURE_APERTURE mirror porepy_2d_solver (their product 100*K_ROCK is what
+#  the paper's k_frac*aperture = 1e4*1e-2 and the code's 1e3*1e-1 both equal).
+# --------------------------------------------------------------------------------------- #
+FRACTURE_K_FACTOR = 1.0e3            # matches porepy_2d_solver.FRACTURE_K_FACTOR
+FRACTURE_APERTURE = 1.0e-1           # [m] matches porepy_2d_solver.FRACTURE_APERTURE
+_FRACTURE_BAND_M = 0.1               # equi-dim band width [m] = the MD aperture, so k_band = 1000*rock
+                                     # (exact geometric replica of the lower-dim fracture, no upscaling)
+_FRACTURE_GRADE_RATIO = 1.3          # geometric cell-growth ratio from the band out to the coarse bulk
+
+# 10 conformal fractures (x0, y0, x1, y1) [m], copied from porepy_2d_solver._FRACTURES_REF.
+_FRACTURES_REF = [
+    (20.0, 47.0, 20.0, 89.0),   # V1
+    (48.0, 11.0, 48.0, 68.0),   # V2
+    (72.0, 15.0, 72.0, 80.0),   # V3
+    (30.0, 11.0, 30.0, 49.0),   # V4
+    (85.0, 12.0, 85.0, 71.0),   # V5
+    (8.0, 88.0, 44.0, 88.0),    # H1
+    (56.0, 70.0, 92.0, 70.0),   # H2
+    (8.0, 48.0, 44.0, 48.0),    # H3
+    (56.0, 33.0, 92.0, 33.0),   # H4
+    (28.0, 12.0, 72.0, 12.0),   # H5
+]
+
+
+def _mask_boxes_at(xc: np.ndarray, yc: np.ndarray, boxes) -> np.ndarray:
+    """Boolean mask of cells whose centre (xc, yc) lies in any (x_lo, x_hi, y_lo, y_hi) box."""
+    m = np.zeros(xc.size, dtype=bool)
+    for (x_lo, x_hi, y_lo, y_hi) in boxes:
+        m |= (xc >= x_lo) & (xc <= x_hi) & (yc >= y_lo) & (yc <= y_hi)
+    return m
+
+
+def _fracture_boxes(w: float):
+    """Bounding boxes (x_lo, x_hi, y_lo, y_hi) of each fracture's w-wide band -- vertical fractures
+    get a band in x over the full segment span in y, horizontal ones the transpose."""
+    h = 0.5 * w
+    boxes = []
+    for (x0, y0, x1, y1) in _FRACTURES_REF:
+        if abs(x1 - x0) < abs(y1 - y0):                       # vertical fracture
+            xm = 0.5 * (x0 + x1)
+            boxes.append((xm - h, xm + h, min(y0, y1), max(y0, y1)))
+        else:                                                 # horizontal fracture
+            ym = 0.5 * (y0 + y1)
+            boxes.append((min(x0, x1), max(x0, x1), ym - h, ym + h))
+    return boxes
+
+
+def _fracture_intervals(w: float):
+    """(x_intervals, y_intervals): the w-wide refinement bands in x (from vertical fractures) and in
+    y (from horizontal fractures), used to grade the mesh so each fracture is one fine cell wide."""
+    h = 0.5 * w
+    xiv, yiv = [], []
+    for (x0, y0, x1, y1) in _FRACTURES_REF:
+        if abs(x1 - x0) < abs(y1 - y0):
+            xm = 0.5 * (x0 + x1); xiv.append((xm - h, xm + h))
+        else:
+            ym = 0.5 * (y0 + y1); yiv.append((ym - h, ym + h))
+    return xiv, yiv
+
+
+def _graded_gap(a: float, b: float, hL: float, hR: float, h_max: float, r: float) -> list:
+    """Interior + right edge of a coarse gap [a, b]: cell sizes grow geometrically by ratio ``r`` from
+    ``hL`` at the left end and ``hR`` at the right end up to ``h_max`` in the middle, then all sizes are
+    rescaled to sum exactly to ``b - a`` (smooth, no slivers). ``hL``/``hR`` = the fine size at a
+    fracture-adjacent end, or ``h_max`` at a domain-boundary end (no growth from that side)."""
+    span = b - a
+
+    def grow(h0):
+        s, h = [], h0
+        while h < h_max - 1e-12:
+            s.append(h); h *= r
+        return s
+
+    sizes = grow(hL) + grow(hR)[::-1]                       # fans in from both ends
+    core = span - sum(sizes)
+    if core > 0.0:                                          # fill the middle with h_max cells
+        nmid = max(1, int(round(core / h_max)))
+        left = grow(hL)
+        sizes = left + [h_max] * nmid + grow(hR)[::-1]
+    if not sizes:
+        sizes = [span]
+    sizes = np.array(sizes, float)
+    sizes *= span / sizes.sum()                            # exact fit to [a, b]
+    return (a + np.cumsum(sizes)).tolist()
+
+
+def _graded_edges(L: float, fine_intervals, h_fine: float, h_coarse: float,
+                  r: float = _FRACTURE_GRADE_RATIO) -> np.ndarray:
+    """1-D rectilinear edges over [0, L]: ``h_fine`` spacing inside each (merged) fine interval
+    (fracture band); each coarse gap between/around the bands is GEOMETRICALLY graded from ``h_fine``
+    at a fracture-adjacent end up to ``h_coarse``, growth ratio ``r`` (a smooth transition instead of
+    an abrupt jump). Domain-boundary ends start at ``h_coarse`` (no fracture there)."""
+    ivs = sorted((max(0.0, lo), min(L, hi)) for lo, hi in fine_intervals if hi > 0.0 and lo < L)
+    merged = []
+    for lo, hi in ivs:
+        if merged and lo <= merged[-1][1] + 1e-9:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], hi))
+        else:
+            merged.append((lo, hi))
+    bounds = sorted({round(b, 9) for seg in ([0.0], *merged, [L]) for b in seg})
+    edges = [bounds[0]]
+    for a, b in zip(bounds[:-1], bounds[1:]):
+        if b - a < 1e-12:
+            continue
+        if any(lo - 1e-9 <= 0.5 * (a + b) <= hi + 1e-9 for lo, hi in merged):    # fine band
+            n = max(1, int(round((b - a) / h_fine)))
+            edges.extend(np.linspace(a, b, n + 1)[1:].tolist())
+        else:                                                                    # graded coarse gap
+            hL = h_fine if any(abs(a - hi) < 1e-9 for _, hi in merged) else h_coarse
+            hR = h_fine if any(abs(b - lo) < 1e-9 for lo, _ in merged) else h_coarse
+            edges.extend(_graded_gap(a, b, hL, hR, h_coarse, r))
+    return np.array(sorted({round(e, 9) for e in edges}))
+
+
+# --------------------------------------------------------------------------------------- #
 #  Grid (structured Cartesian) with cell-wise permeability (barrier cells) + harmonic faces
 # --------------------------------------------------------------------------------------- #
 @dataclass
@@ -331,7 +452,11 @@ class Grid:
     fR: np.ndarray                # (nface,) upper/right cell index
     Tf: np.ndarray                # (nface,) transmissibility (harmonic-K) [m^3]
     GC: np.ndarray                # (nface,) gravity coefficient T_f * g * dz  (0 on x-faces)
-    Vcell: float                  # cell pore-volume factor |c| = dx*dy (depth = 1)
+    Vcell: float                  # scalar REPRESENTATIVE cell pore-volume factor (mean of Vc)
+    frac: np.ndarray = None       # (ncell,) bool equi-dim fracture-band mask (empty on fixed-dim)
+    Vc: np.ndarray = None         # (ncell,) per-cell pore-volume factor dx*dy (non-uniform-safe)
+    xe: np.ndarray = None         # (nx+1,) x edge coordinates (non-uniform for graded grids)
+    ye: np.ndarray = None         # (ny+1,) y edge coordinates
 
 
 def make_grid(nx: int = 100, ny: int = 100) -> Grid:
@@ -367,7 +492,53 @@ def make_grid(nx: int = 100, ny: int = 100) -> Grid:
     return Grid(nx=nx, ny=ny, dx=dx, dy=dy, ncell=ncell, xc=xc, yc=yc,
                 Kcell=Kcell, barrier=bmask,
                 fL=np.array(fL), fR=np.array(fR), Tf=np.array(Tf), GC=np.array(GC),
-                Vcell=dx * dy)
+                Vcell=dx * dy, frac=np.zeros(ncell, dtype=bool), Vc=np.full(ncell, dx * dy),
+                xe=np.arange(nx + 1) * dx, ye=np.arange(ny + 1) * dy)
+
+
+def make_grid_fractured(nx: int = 100, ny: int = 100, band: float = _FRACTURE_BAND_M) -> Grid:
+    """Equi-dimensional counterpart of :func:`make_grid`: a graded rectilinear mesh, locally
+    refined so each of the 10 conformal fractures is one ``band``-wide cell layer of high-k rock.
+    Barriers keep their reduced-k cells; fracture cells override the barrier (a conductive fracture
+    cuts the seal), with k set to match the MD tangential transmissivity (see the fracture block).
+    Reduces to a uniform grid where there are no fractures, so non-fracture physics is unchanged."""
+    xiv, yiv = _fracture_intervals(band)
+    xe = _graded_edges(LX, xiv, band, LX / nx)
+    ye = _graded_edges(LY, yiv, band, LY / ny)
+    dxc, dyc = np.diff(xe), np.diff(ye)
+    xcx, ycy = 0.5 * (xe[:-1] + xe[1:]), 0.5 * (ye[:-1] + ye[1:])
+    nxf, nyf = dxc.size, dyc.size
+    ncell = nxf * nyf
+    II, JJ = np.meshgrid(np.arange(nxf), np.arange(nyf))          # (nyf, nxf); c = j*nxf + i
+    xc, yc = xcx[II].ravel(), ycy[JJ].ravel()
+
+    bmask = _mask_boxes_at(xc, yc, _barrier_boxes())
+    fmask = _mask_boxes_at(xc, yc, _fracture_boxes(band))
+    Kcell = np.full(ncell, K_ROCK)
+    Kcell[bmask] = K_ROCK * BARRIER_K_FACTOR
+    Kcell[fmask] = FRACTURE_K_FACTOR * FRACTURE_APERTURE * K_ROCK / band    # matched tangential T
+
+    def cix(i, j):
+        return j * nxf + i
+
+    fL, fR, Tf, GC = [], [], [], []
+    for j in range(nyf):                                         # x-faces (area dyc[j], no gravity)
+        for i in range(nxf - 1):
+            L, R = cix(i, j), cix(i + 1, j)
+            T = dyc[j] / (dxc[i] / (2.0 * Kcell[L]) + dxc[i + 1] / (2.0 * Kcell[R]))
+            fL.append(L); fR.append(R); Tf.append(T); GC.append(0.0)
+    for j in range(nyf - 1):                                     # y-faces (area dxc[i], gravity)
+        for i in range(nxf):
+            L, R = cix(i, j), cix(i, j + 1)
+            T = dxc[i] / (dyc[j] / (2.0 * Kcell[L]) + dyc[j + 1] / (2.0 * Kcell[R]))
+            fL.append(L); fR.append(R); Tf.append(T)
+            GC.append(T * G * 0.5 * (dyc[j] + dyc[j + 1]))       # gravity over cell-centre distance
+
+    Vc = (dxc[II] * dyc[JJ]).ravel()
+    return Grid(nx=nxf, ny=nyf, dx=float(dxc.mean()), dy=float(dyc.mean()), ncell=ncell,
+                xc=xc, yc=yc, Kcell=Kcell, barrier=bmask,
+                fL=np.array(fL), fR=np.array(fR), Tf=np.array(Tf), GC=np.array(GC),
+                Vcell=float(Vc.mean()), frac=fmask, Vc=Vc, xe=xe, ye=ye)
 
 
 # --------------------------------------------------------------------------------------- #
@@ -593,7 +764,7 @@ def make_residual(grid, dt, s_old, dirs):
     dropping a cell equation -- this is what avoids the point-source artifact of a pinned cell.
     """
     nc = grid.ncell
-    acc = PHI * grid.Vcell / dt
+    acc = PHI * grid.Vc / dt                       # per-cell (non-uniform-safe; == Vcell on uniform)
 
     def r(x):
         qT, q_indep = _face_fluxes(x, grid, dirs)
@@ -783,8 +954,8 @@ def newton(r, x0, pattern, grid, dt, atol=NEWTON_ATOL, maxit=NEWTON_MAXIT, linso
     # porepy component-MASS rows [kg/s], and the porepy pressure row (TOTAL mass) is the
     # rho-weighted sum of ALL phase rows, with the reference (lightest) phase's row
     # reconstructed as (pressure block - sum of assembled transport blocks).
-    Vc = grid.Vcell
-    rho_ref = RHO[NPHASE - 1]
+    inv_sqrt_V = 1.0 / np.sqrt(grid.Vc)                # PER-CELL weight (== 1/sqrt(Vcell) on a uniform
+    rho_ref = RHO[NPHASE - 1]                          # grid, so unchanged there; correct on graded)
 
     def total_mass_row(rp):
         r_tm = rho_ref * np.asarray(rp[:nc], float).copy()
@@ -792,11 +963,12 @@ def newton(r, x0, pattern, grid, dt, atol=NEWTON_ATOL, maxit=NEWTON_MAXIT, linso
             r_tm += (RHO[j - 1] - rho_ref) * rp[j * nc:(j + 1) * nc]
         return r_tm
 
-    def metric(rp):                                    # = porepy EquationBasedLebesgueMetric,
-        vals = [np.linalg.norm(total_mass_row(rp))]    #   sqrt(sum r_c^2 / V_c) per equation
+    def metric(rp):                                    # = porepy EquationBasedLebesgueMetric:
+        # sqrt(sum_c r_c^2 / V_c) per equation, max over equations (per-cell Lebesgue norm).
+        vals = [np.linalg.norm(total_mass_row(rp) * inv_sqrt_V)]
         for j in range(1, NPHASE):
-            vals.append(RHO[j - 1] * np.linalg.norm(rp[j * nc:(j + 1) * nc]))
-        return max(vals) / np.sqrt(Vc)
+            vals.append(RHO[j - 1] * np.linalg.norm(rp[j * nc:(j + 1) * nc] * inv_sqrt_V))
+        return max(vals)
 
     # dt-scaled TOTAL-MASS drift (= porepy NullSpaceDriftCriterion): the summed mass residual
     # is the null-space component the linear solve cannot reduce, and it is a rate -- scaled
@@ -891,7 +1063,7 @@ def run(scheme, nx=100, ny=100, dt_days=DT_MAX_DAYS, snap_days=SNAP_DAYS, t_end_
         atol=NEWTON_ATOL, linear_solver="cpr", dir_lag="iteration", nphase=3, verbose=True,
         dt_init_days=DT_INIT_DAYS, drift_order=DRIFT_ORDER, backtracking=False,
         equal_middle=False, permute_middle=False, linear_kr_middle=False, merge_ref=False,
-        merge_ic=False):
+        merge_ic=False, fractures=False):
     """Advance the ``nphase``-phase segregation to ``t_end_days`` with the chosen ``scheme``.
 
     ``nphase=3`` reproduces Bosma Fig. 5; ``nphase=4`` splits oil into a mid-heavy + mid-light
@@ -923,7 +1095,7 @@ def run(scheme, nx=100, ny=100, dt_days=DT_MAX_DAYS, snap_days=SNAP_DAYS, t_end_
     # (= porepy_2d_solver; adaptive cuts only shrink dt and the drift is dt-scaled).
     n_planned = max(1, round(t_end / (dt_days * DAY)))
     drift_tol = 10.0 ** (-(drift_order - 1)) / (2 * n_planned) if drift_order else None
-    grid = make_grid(nx, ny)
+    grid = make_grid_fractured(nx, ny) if fractures else make_grid(nx, ny)
     pattern = sparsity_pattern(grid)
     linsolve = make_linear_solver(linear_solver)     # reused across all Newton solves
     s0 = initial_saturations(grid)                     # (NPHASE, ncell)
@@ -1055,8 +1227,8 @@ def write_vtr(path, grid: Grid, fields: dict):
     """
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     nx, ny = grid.nx, grid.ny
-    x = (np.arange(nx + 1) * grid.dx).astype("<f4")
-    y = (np.arange(ny + 1) * grid.dy).astype("<f4")
+    x = np.asarray(grid.xe, dtype="<f4")           # actual edges (non-uniform on graded/fractured)
+    y = np.asarray(grid.ye, dtype="<f4")
     z = np.array([0.0, 1.0], dtype="<f4")
     ext = f"0 {nx} 0 {ny} 0 1"
     with open(path, "w") as fh:
@@ -1083,6 +1255,7 @@ def write_snapshots_vtr(out_dir, scheme, grid, snaps):
         fields = {f"s_{k}": s[k] for k in range(s.shape[0])}   # s_0 .. s_{N-1} for any N
         fields["p"] = snap["p"]
         fields["barrier"] = grid.barrier
+        fields["fracture"] = grid.frac
         if s.shape[0] == 3:                              # keep the Fig-5 names for the plots
             fields["s_w"], fields["s_o"], fields["s_g"] = s[0], s[1], s[2]
         path = os.path.join(out_dir, f"hamon_{scheme.replace('-', '_')}_{int(round(day))}d.vtr")
@@ -1160,6 +1333,10 @@ def _parse_args(argv=None):
                         "(default; pinned, unordered, division-free), rho-ratio "
                         "barycentric weights (_wr), or the legacy constant CHI "
                         "(_chic; NOT reduction-consistent).")
+    p.add_argument("--fractures", action="store_true",
+                   help="equi-dimensional representation of the 10 conformal fractures: a locally-"
+                        "refined conforming mesh with thin high-k bands (k matched to the MD "
+                        "fracture's tangential transmissivity). Output dir gains _frac.")
     p.add_argument("--out", default=None,
                    help="output directory for .vtr / stats (default: ./vtr next to this file)")
     p.add_argument("--quiet", action="store_true", help="suppress per-step progress")
@@ -1169,7 +1346,8 @@ def _parse_args(argv=None):
 if __name__ == "__main__":
     args = _parse_args()
     HERE = os.path.dirname(os.path.abspath(__file__))
-    _sfx = (("_eqmid" if args.equal_middle else "")
+    _sfx = (("_frac" if args.fractures else "")
+            + ("_eqmid" if args.equal_middle else "")
             + ("_perm" if args.permute_middle else "")
             + ("_lkmid" if args.linear_kr_middle else "")
             + ("_mref" if args.merge_ref else "")
@@ -1188,7 +1366,7 @@ if __name__ == "__main__":
                                  backtracking=args.backtracking, equal_middle=args.equal_middle,
                                  permute_middle=args.permute_middle,
                                  linear_kr_middle=args.linear_kr_middle, merge_ref=args.merge_ref,
-                                 merge_ic=args.merge_ic)
+                                 merge_ic=args.merge_ic, fractures=args.fractures)
         paths = write_snapshots_vtr(OUT, scheme, grid, snaps)
         paths.append(write_stats(OUT, stats))
         results[scheme] = stats

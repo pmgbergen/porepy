@@ -180,6 +180,11 @@ def _hamon_vtr_dir(n):
     return os.path.join(HERE, "vtr" if n == 3 else f"vtr_n{n}")
 
 
+def _hamon_frac_vtr_dir(n):
+    """Directory of the independent solver's EQUI-DIMENSIONAL (fractured) snapshots."""
+    return os.path.join(HERE, "vtr_frac" if n == 3 else f"vtr_n{n}_frac")
+
+
 def _hamon_days(n, scheme):
     """Snapshot days available in the hamon vtr dir for ``scheme`` (sorted)."""
     tag = scheme.replace("-", "_")
@@ -328,7 +333,7 @@ def comparison_saturation_maps(n, days, out_dir):
         axes[row][0].set_ylabel(lab, fontsize=12)
     cbar = fig.colorbar(im, ax=[a for r in axes for a in r], fraction=0.02, pad=0.02,
                         ticks=[-1, 0, 1])
-    cbar.ax.set_yticklabels(PR._diverging_tick_labels(n))
+    _label_composite_cbar(cbar, n)
     _save(fig, os.path.join(out_dir, f"comparison_saturation_maps_{n}_phases.png"), dpi=360)
 
 
@@ -372,6 +377,194 @@ def _composite_of(n):
     return lambda mesh: sum(ck * _field(mesh, key) for ck, key in zip(c, _PHASE_FIELDS[n]))
 
 
+def _overlay_fractures(ax, frac1d, nx, ny):
+    """Overlay the equi-dimensional fracture-band cells (teal) -- the standalone solver's
+    resolved high-k fractures, distinct from the grey barriers."""
+    F = PR._image(frac1d, nx, ny) > 0.5
+    rgba = np.zeros(F.shape + (4,))
+    rgba[..., 0], rgba[..., 1], rgba[..., 2] = 0.0, 0.5, 0.5      # teal
+    rgba[..., 3] = np.where(F, 0.9, 0.0)
+    ax.imshow(rgba, extent=[0, LX, LY, 0], aspect="equal", interpolation="nearest")
+
+
+def _overlay_fracture_network(ax):
+    """Draw the conformal fractures as dark line segments (from H._FRACTURES_REF), matching the md
+    row's network rendering -- used on the equi-dim row, where the resampled 0.1 m band is sub-grid."""
+    segs = [[(x0, LY - y0), (x1, LY - y1)] for (x0, y0, x1, y1) in H._FRACTURES_REF]   # elev -> depth
+    ax.add_collection(LineCollection(segs, colors="0.15", linewidths=FRAC_LW + 1.2,
+                                     capstyle="projecting", zorder=5))
+
+
+def _hamon_it(vtr_dir, scheme="ppu"):
+    """Total accepted Newton iterations of an independent-solver run, or None if unavailable."""
+    st = PR.parse_stats(os.path.join(vtr_dir, f"stats_{scheme.replace('-', '_')}.txt"))
+    return st.get("total_newton_iters")
+
+
+def _pp_it(case_dir):
+    """Total accepted Newton iterations of a PorePy run (run_statistics.txt), or None."""
+    try:
+        txt = open(os.path.join(case_dir, "run_statistics.txt")).read()
+        return int(re.search(r"total Newton iterations \(accepted\): (\d+)", txt).group(1))
+    except Exception:
+        return None
+
+
+def _it_label(base, it):
+    return base if it is None else f"{base}\n({it} iterations)"
+
+
+def _label_composite_cbar(cbar, n):
+    """Make the diverging colorbar unambiguous: the first two rows show a SATURATION composite
+    sum_k c_k s_k (c_k = density rank in [-1, +1]), NOT densities. Blue end = heaviest phase
+    dominant, red end = lightest phase dominant. Ticks name the phases (heavy -> light); no bare
+    density numbers (those were the source of the 'saturations or densities?' confusion)."""
+    labs = PR.phase_labels(n)                       # heavy -> light: [s_gamma, ..., s_alpha]
+    cbar.ax.set_yticklabels([labs[0] + "\n(heaviest phase)",
+                             ", ".join(labs[1:-1]),
+                             labs[-1] + "\n(lightest phase)"])
+    cbar.set_label(r"saturation composite $\sum_k c_k\, s_k$", fontsize=10)
+
+
+def comparison_saturation_maps_fixed_dim(n, days, out_dir):
+    """Fixed-dimensional maps (columns = days): the MIXTURE DENSITY rho = sum_k s_k rho_k [kg/m^3]
+    for the independent PPU (row 0) and the PorePy HU (row 1), and their absolute difference
+    |rho_PPU - rho_HU| (row 2), on the unfractured domain. The first two row labels report each
+    run's total Newton iterations."""
+    cm = PR._cmap("vlag")
+    cm_rho = cm.reversed()                                # heavy (high rho) -> blue, light -> red
+    rho = np.linspace(1500.0, 500.0, n)                  # phase densities, heavy -> light [kg/m^3]
+    barrier = np.asarray(H.barrier_mask(100, 100), float)
+    fig, axes = plt.subplots(3, len(days), figsize=(4.4 * len(days), 4.2 * 3), squeeze=False)
+    rho_ppu, rho_hu = [], []                              # per-day mixture-density maps [kg/m^3]
+    im = None
+    for k, day in enumerate(days):                        # row 0: independent PPU (vtr)
+        ax = axes[0][k]
+        nx, ny, f = PR.load_vtr(PR._vtr_path(_hamon_vtr_dir(n), "ppu", day))
+        s = [PR._image(np.asarray(f[key], float), nx, ny) for key in PR._phase_fields(f)]
+        rho_ppu.append(sum(rho[j] * s[j] for j in range(n)))     # rho = sum_k s_k rho_k
+        im = ax.imshow(rho_ppu[-1], extent=[0, LX, LY, 0], aspect="equal",
+                       cmap=cm_rho, vmin=500.0, vmax=1500.0, interpolation="nearest")
+        PR._overlay_barriers(ax, f["barrier"], nx, ny)
+        PR._style_axes(ax, "")
+    snaps = dict(read_pvd(_case_dir(n, False)))           # row 1: porepy HU (fixed-dim)
+    for k, day in enumerate(days):
+        ax = axes[1][k]
+        t = min(snaps, key=lambda s: abs(s - day))
+        mesh = meshio.read(snaps[t][2])
+        s = [PR._image(_field(mesh, key), 100, 100) for key in _PHASE_FIELDS[n]]   # heavy->light
+        rho_hu.append(sum(rho[j] * s[j] for j in range(n)))
+        im = ax.imshow(rho_hu[-1], extent=[0, LX, LY, 0], aspect="equal",
+                       cmap=cm_rho, vmin=500.0, vmax=1500.0, interpolation="nearest")
+        PR._overlay_barriers(ax, barrier, 100, 100)
+        PR._style_axes(ax, "")
+    # row 2: |rho_PPU - rho_HU| / ||rho_PPU|| -- mixture-density difference RELATIVE to the
+    # VOLUME-AVERAGED L2 norm ||rho_PPU|| = sqrt(int rho^2 dV / V_tot) = RMS(rho) (a scalar per
+    # snapshot, O(the density scale ~1000), not sqrt(sum) ~ 1e5). Uniform grid -> V_c cancels.
+    diffs = [np.abs(rho_ppu[k] - rho_hu[k]) / np.sqrt(np.mean(rho_ppu[k] ** 2))
+             for k in range(len(days))]
+    dmax = max((float(d.max()) for d in diffs), default=1.0) or 1.0
+    dim = None
+    for k, day in enumerate(days):
+        ax = axes[2][k]
+        dim = ax.imshow(diffs[k], extent=[0, LX, LY, 0], aspect="equal",
+                        cmap=cm, vmin=0.0, vmax=dmax, interpolation="nearest")
+        PR._overlay_barriers(ax, barrier, 100, 100)
+        PR._style_axes(ax, f"$t = {int(round(day))}$ days")
+    axes[0][0].set_ylabel(_it_label("PPU (independent)", _hamon_it(_hamon_vtr_dir(n))), fontsize=12)
+    axes[1][0].set_ylabel(_it_label("HU (PorePy)", _pp_it(_case_dir(n, False))), fontsize=12)
+    axes[2][0].set_ylabel(
+        r"$|\rho_{\mathrm{PPU}}-\rho_{\mathrm{HU}\,(\mathrm{PorePy})}| \,/\, \|\rho_{\mathrm{PPU}}\|$",
+        fontsize=12)
+    cbar = fig.colorbar(im, ax=[axes[r][j] for r in (0, 1) for j in range(len(days))],
+                        fraction=0.02, pad=0.02, ticks=[500, 1000, 1500])
+    cbar.set_label(r"mixture density $\rho=\sum_k s_k\,\rho_k$  [kg m$^{-3}$]", fontsize=10)
+    dcbar = fig.colorbar(dim, ax=[axes[2][j] for j in range(len(days))], fraction=0.02, pad=0.02)
+    dcbar.set_label(
+        r"$|\rho_{\mathrm{PPU}}-\rho_{\mathrm{HU}\,(\mathrm{PorePy})}| \,/\, \|\rho_{\mathrm{PPU}}\|$",
+        fontsize=9)
+    _save(fig, os.path.join(out_dir, f"comparison_saturation_maps_fixed_dim_{n}_phases.png"), dpi=360)
+
+
+def _equidim_density_uniform(n, day, rho, nu=100):
+    """Load the equi-dim (graded) PPU snapshot and resample its mixture density + fracture mask
+    onto a uniform ``nu x nu`` grid, position-aware via the graded edges (piecewise-constant).
+    Returns ``(rho_img, frac_img)`` as top-oriented (nu, nu) images, aligned with the 100x100 maps."""
+    import pyvista as pv
+    m = pv.read(PR._vtr_path(_hamon_frac_vtr_dir(n), "ppu", day))
+    xe, ye = np.asarray(m.x, float), np.asarray(m.y, float)
+    nx, ny = xe.size - 1, ye.size - 1
+    cell = lambda key: np.asarray(m.cell_data[key], float).reshape(ny, nx)   # (j,i), j=0 bottom
+    rho_g = sum(rho[k] * cell(f"s_{k}") for k in range(n))
+    frac_g = cell("fracture")
+    xu, yu = (np.arange(nu) + 0.5) * (LX / nu), (np.arange(nu) + 0.5) * (LY / nu)
+    gi = np.clip(np.searchsorted(xe, xu) - 1, 0, nx - 1)   # graded col covering each uniform col
+    gj = np.clip(np.searchsorted(ye, yu) - 1, 0, ny - 1)
+    idx = np.ix_(gj, gi)
+    return np.flipud(rho_g[idx]), np.flipud(frac_g[idx])   # flip: j=0 bottom -> row 0 top
+
+
+def comparison_saturation_maps_mixed_dim(n, days, out_dir):
+    """Mixed-dimensional maps (columns = days): the independent PPU with an EQUI-DIMENSIONAL fracture
+    representation (row 0; fractures as refined high-k bands, resampled onto the 100x100 grid, teal
+    overlay), the PorePy HU mixed-dimensional computation (row 1; conformal 1D fractures overlaid),
+    both as MIXTURE DENSITY rho = sum_k s_k rho_k [kg/m^3], and their relative difference
+    |rho_PPU - rho_HU|/||rho_PPU|| (row 2). The first two row labels report total Newton iterations."""
+    cm = PR._cmap("vlag")
+    cm_rho = cm.reversed()                                # heavy (high rho) -> blue, light -> red
+    rho = np.linspace(1500.0, 500.0, n)
+    barrier = np.asarray(H.barrier_mask(100, 100), float)
+    frac_dir = _hamon_frac_vtr_dir(n)
+    fig, axes = plt.subplots(3, len(days), figsize=(4.4 * len(days), 4.2 * 3), squeeze=False)
+    rho_ppu, rho_hu, frac_ppu = [], [], []
+    im = None
+    for k, day in enumerate(days):                        # row 0: independent PPU, equi-dimensional
+        ax = axes[0][k]
+        r, _ = _equidim_density_uniform(n, day, rho)      # resampled to 100x100
+        rho_ppu.append(r)
+        im = ax.imshow(r, extent=[0, LX, LY, 0], aspect="equal",
+                       cmap=cm_rho, vmin=500.0, vmax=1500.0, interpolation="nearest")
+        PR._overlay_barriers(ax, barrier, 100, 100)
+        _overlay_fracture_network(ax)                     # fracture network as dark lines (like md)
+        PR._style_axes(ax, "")
+    snaps = dict(read_pvd(_case_dir(n, True)))            # row 1: porepy HU (mixed-dimensional)
+    comp = _composite_of(n)
+    for k, day in enumerate(days):
+        ax = axes[1][k]
+        t = min(snaps, key=lambda s: abs(s - day))
+        mesh = meshio.read(snaps[t][2])
+        s = [PR._image(_field(mesh, key), 100, 100) for key in _PHASE_FIELDS[n]]
+        rho_hu.append(sum(rho[j] * s[j] for j in range(n)))
+        im = ax.imshow(rho_hu[-1], extent=[0, LX, LY, 0], aspect="equal",
+                       cmap=cm_rho, vmin=500.0, vmax=1500.0, interpolation="nearest")
+        PR._overlay_barriers(ax, barrier, 100, 100)
+        _fracture_layer(ax, snaps[t], comp, cm, vmin=-1.0, vmax=1.0)   # 1D fracture lines
+        PR._style_axes(ax, "")
+    diffs = [np.abs(rho_ppu[k] - rho_hu[k]) / np.sqrt(np.mean(rho_ppu[k] ** 2))
+             for k in range(len(days))]
+    dmax = max((float(d.max()) for d in diffs), default=1.0) or 1.0
+    dim = None
+    for k, day in enumerate(days):
+        ax = axes[2][k]
+        dim = ax.imshow(diffs[k], extent=[0, LX, LY, 0], aspect="equal",
+                        cmap=cm, vmin=0.0, vmax=dmax, interpolation="nearest")
+        PR._overlay_barriers(ax, barrier, 100, 100)
+        PR._style_axes(ax, f"$t = {int(round(day))}$ days")
+    axes[0][0].set_ylabel(_it_label("PPU (equi-dim.)", _hamon_it(frac_dir)), fontsize=12)
+    axes[1][0].set_ylabel(_it_label("HU (PorePy, md)", _pp_it(_case_dir(n, True))), fontsize=12)
+    axes[2][0].set_ylabel(
+        r"$|\rho_{\mathrm{PPU}}-\rho_{\mathrm{HU}\,(\mathrm{PorePy})}| \,/\, \|\rho_{\mathrm{PPU}}\|$",
+        fontsize=12)
+    cbar = fig.colorbar(im, ax=[axes[r][j] for r in (0, 1) for j in range(len(days))],
+                        fraction=0.02, pad=0.02, ticks=[500, 1000, 1500])
+    cbar.set_label(r"mixture density $\rho=\sum_k s_k\,\rho_k$  [kg m$^{-3}$]", fontsize=10)
+    dcbar = fig.colorbar(dim, ax=[axes[2][j] for j in range(len(days))], fraction=0.02, pad=0.02)
+    dcbar.set_label(
+        r"$|\rho_{\mathrm{PPU}}-\rho_{\mathrm{HU}\,(\mathrm{PorePy})}| \,/\, \|\rho_{\mathrm{PPU}}\|$",
+        fontsize=9)
+    _save(fig, os.path.join(out_dir, f"comparison_saturation_maps_mixed_dim_{n}_phases.png"), dpi=360)
+
+
 def _pp_stats_line(case_dir):
     """The plot_maps stats line, parsed from the solver's run_statistics.txt."""
     try:
@@ -407,7 +600,7 @@ def saturation_maps(n, md, days, out_dir):
             _fracture_layer(ax, snaps[t], comp, cm, vmin=-1.0, vmax=1.0)
         PR._style_axes(ax, f"({PR._ABC[k]}) Saturation map at {int(round(t))} days")
     cbar = fig.colorbar(im, ax=axes, fraction=0.025, pad=0.02, ticks=[-1, 0, 1])
-    cbar.ax.set_yticklabels(PR._diverging_tick_labels(n))
+    _label_composite_cbar(cbar, n)
     stat_line = _pp_stats_line(_case_dir(n, md))
     if stat_line:
         fig.text(0.5, 0.935, stat_line, ha="center", va="top", fontsize=10, color="0.35")
@@ -500,10 +693,12 @@ def main(argv=None):
             saturation_grid(n, md, args.days, out_dir)
             conservation(n, md, out_dir)
             saturation_conservation(n, md, out_dir)
-        if os.path.isdir(_hamon_vtr_dir(n)):          # porepy-vs-independent comparisons (fd)
+        if os.path.isdir(_hamon_vtr_dir(n)):          # porepy-vs-independent comparisons
             conservation_comparison(n, out_dir)
-            if os.path.isdir(_case_dir(n, True)):
-                comparison_saturation_maps(n, args.days, out_dir)
+            if os.path.isdir(_case_dir(n, False)):    # FIXED-dimensional: independent PPU + PorePy HU
+                comparison_saturation_maps_fixed_dim(n, args.days, out_dir)
+            if os.path.isdir(_case_dir(n, True)) and os.path.isdir(_hamon_frac_vtr_dir(n)):
+                comparison_saturation_maps_mixed_dim(n, args.days, out_dir)  # MIXED-dim: equi-dim + md
     cmp_dir = os.path.join(HERE, "figures", "comparison")       # cross-N figures
     os.makedirs(cmp_dir, exist_ok=True)
     l2_difference(args.nphase, cmp_dir)

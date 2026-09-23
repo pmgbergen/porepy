@@ -1328,7 +1328,8 @@ class _FlowModelBody(
         override -- so the base chain (which also refreshes the buoyancy upwind direction and
         rediscretizes in ``flow_model_base``) stays fully intact.
         """
-        self._project_overall_fractions_to_simplex()
+        if os.environ.get("POREPY_NO_ZPROJ") != "1":     # diagnostic toggle: skip the z-simplex chop
+            self._project_overall_fractions_to_simplex()
         super().update_derived_quantities()
 
     def _project_overall_fractions_to_simplex(self) -> None:
@@ -1549,8 +1550,7 @@ def make_time_manager(t_end_days: float = T_END_DAYS, dt_days: float = DT_DAYS,
     sched = sorted({0.0, *(d * day for d in snap_days if d <= t_end_days + 1e-9),
                     t_end_days * day})
     if constant_dt:                                  # pure constant march at dt_days
-        return pp.TimeManager(schedule=sched, dt_init=dt_days * day, constant_dt=True,
-                              iter_max=20, print_info=True)
+        return pp.TimeManager(schedule=sched, dt_init=dt_days * day, constant_dt=True)
     dt_init = dt_init_days * day
     dt_max = dt_max_days * day
     dt_min = min(dt_max / 64.0, dt_init)             # floor; keep dt_init within [dt_min, dt_max]
@@ -1561,7 +1561,6 @@ def make_time_manager(t_end_days: float = T_END_DAYS, dt_days: float = DT_DAYS,
         iter_optimal_range=(3, 8),            # grow dt when Newton is easy, shrink when it is hard
         iter_relax_factors=(0.5, 2.0),         # halve on a cut / double on grow-back (hamon *0.5, *2)
         recomp_factor=0.5, recomp_max=8,       # reject-and-halve, up to 8 consecutive cuts
-        iter_max=13, print_info=True,          # matches the solver's max_iterations
     )
 
 
