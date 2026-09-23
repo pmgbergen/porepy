@@ -24,7 +24,7 @@ import copy
 import json
 import shutil
 from pathlib import Path
-from typing import Callable, Optional, cast
+from typing import Any, Callable, Optional, cast
 
 import numpy as np
 import pytest
@@ -85,6 +85,57 @@ def create_restart_model(
     # Redefine model.
     model = TailoredPoromechanics(params)
     return model
+
+
+@pytest.fixture(scope="module")
+def restarted_poromechanics(tmp_path_factory) -> tuple[Any, Any]:
+    """Run a fractured poromechanics case, then resume it from its own output.
+
+    The times are large and unevenly spaced on purpose: that is a property of a
+    realistic simulation which a restart has to survive, and it is absent from the
+    reference-file test below.
+
+    Returns:
+        The model that was run, and the model restarted from its output.
+
+    """
+    directory = tmp_path_factory.mktemp("restart")
+
+    def build(restart: bool):
+        model = create_model_with_fracture(
+            {"porosity": 0.5}, {}, {}, 0.1, TailoredPoromechanics
+        )
+        params = model.params
+        params["folder_name"] = str(directory)
+        params["times_to_export"] = None
+        params["time_manager"] = pp.TimeManager(
+            schedule=[0, 1.8e8], dt_init=9e7, constant_dt=True
+        )
+        params["restart_options"] = {
+            "restart": restart,
+            "pvd_file": directory / "data.pvd",
+            "times_file": directory / "times.json",
+        }
+        return TailoredPoromechanics(params)
+
+    original = build(restart=False)
+    pp.run_time_dependent_model(original)
+    restarted = build(restart=True)
+    restarted.prepare_simulation()
+    return original, restarted
+
+
+def test_restart_resumes_at_the_exported_time(restarted_poromechanics):
+    """A restarted model must resume at the time it stopped at.
+
+    The time index is read from the pvd file, whose entries are labelled by simulation
+    time. A failure here means the time is being used as an index into the exported
+    history, or that the entries are being ordered as strings rather than as numbers.
+
+    """
+    original, restarted = restarted_poromechanics
+    assert restarted.time_manager.time == original.time_manager.time
+    assert restarted.time_manager.dt == original.time_manager.dt
 
 
 @pytest.mark.parametrize(

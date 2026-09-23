@@ -262,27 +262,31 @@ class Exporter:
             # corresponding to that time step. Utilize hardcoded format in
             # Exporter.write_pvd().
 
-            # Collect all timesteps first listed in the pvd file, and sort them.
+            # Collect all timesteps first listed in the pvd file, and sort them. They
+            # are compared as numbers: sorted as strings, a time of 9e7 would come
+            # after one of 2e8.
             timesteps = []
             # Use the ET package from the standard library to parse the XML-file.
             tree_pvd = ET.parse(pvd_file)
             for path in tree_pvd.iter("DataSet"):
                 data = path.attrib
-                timesteps.append(data["timestep"])
+                timesteps.append(float(data["timestep"]))
             unique_timesteps = np.unique(timesteps)
 
             # Pick the last time step. NOTE: Possibility to extend to multiple times.
-            restart_timestep_str = unique_timesteps[-1]
+            restart_timestep = unique_timesteps[-1]
 
             # Collect all vtu files connected to the identified time step.
             for path in tree_pvd.iter("DataSet"):
                 data = path.attrib
-                timestep = data["timestep"]
-                if timestep == restart_timestep_str:
+                if float(data["timestep"]) == restart_timestep:
                     restart_vtu_files.append(data["file"])
 
-            # Identify the time_index from the content of the pvd file.
-            time_index = int(float(restart_timestep_str))
+            # The time index is this exporter's own counter, which the vtu file names
+            # carry - the same source the mdg branch above reads it from. The `timestep`
+            # attribute holds the simulation time instead, which equals the counter only
+            # by coincidence.
+            time_index = int(Path(restart_vtu_files[0]).stem[-self._padding :])
 
         # Cache the number of restart files used
         self._restart_files = restart_vtu_files
