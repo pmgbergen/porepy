@@ -91,9 +91,12 @@ def create_restart_model(
 def restarted_poromechanics(tmp_path_factory) -> tuple[Any, Any]:
     """Run a fractured poromechanics case, then resume it from its own output.
 
-    The times are large and unevenly spaced on purpose: that is a property of a
-    realistic simulation which a restart has to survive, and it is absent from the
-    reference-file test below.
+    The unit system is scaled and the times are large and unevenly spaced on purpose:
+    both are properties of a realistic simulation that a restart has to survive, and
+    both are absent from the reference-file test below. Length is what is scaled,
+    because displacement is the only variable this setup drives to a magnitude worth
+    comparing - its pressures sit at 1e-24, where any discrepancy hides inside the
+    tolerance of the comparison.
 
     Returns:
         The model that was run, and the model restarted from its output.
@@ -106,6 +109,7 @@ def restarted_poromechanics(tmp_path_factory) -> tuple[Any, Any]:
             {"porosity": 0.5}, {}, {}, 0.1, TailoredPoromechanics
         )
         params = model.params
+        params["units"] = pp.Units(m=1e2)
         params["folder_name"] = str(directory)
         params["times_to_export"] = None
         params["time_manager"] = pp.TimeManager(
@@ -123,6 +127,44 @@ def restarted_poromechanics(tmp_path_factory) -> tuple[Any, Any]:
     restarted = build(restart=True)
     restarted.prepare_simulation()
     return original, restarted
+
+
+def test_restart_resumes_from_the_exported_state(restarted_poromechanics):
+    """A restarted model must resume from the state it was exported with.
+
+    Exported values are written in SI units, while the model works in the scaled units
+    given by ``units``. A failure here means the conversion back is missing, so the
+    restart resumes from values off by the scaling factor -- invisibly, since the
+    resumed simulation runs perfectly happily on the wrong numbers.
+
+    Every variable is compared, so this also covers the vector-valued ones
+    (displacement, contact traction) and those living on interfaces.
+
+    """
+    original, restarted = restarted_poromechanics
+
+    # The two models build the same variables in the same order, on equal grids.
+    largest = 0.0
+    for exported_variable, resumed_variable in zip(
+        original.equation_system.variables,
+        restarted.equation_system.variables,
+        strict=True,
+    ):
+        assert exported_variable.name == resumed_variable.name
+        exported = original.equation_system.get_variable_values(
+            variables=[exported_variable], time_step_index=0
+        )
+        resumed = restarted.equation_system.get_variable_values(
+            variables=[resumed_variable], time_step_index=0
+        )
+        assert np.allclose(exported, resumed), (
+            f"{exported_variable.name} did not survive the restart"
+        )
+        largest = max(largest, float(np.max(np.abs(exported))))
+
+    # Without this the test passes on a state of all zeros, which is what a comparison
+    # of quantities this setup never drives away from zero amounts to.
+    assert largest > 1e-3, "no variable is large enough for the comparison to mean much"
 
 
 def test_restart_resumes_at_the_exported_time(restarted_poromechanics):
