@@ -99,6 +99,9 @@ class MockModel:
     ) -> None:
         pass
 
+    def variable_bounds(self) -> dict[str, tuple[float, float]]:
+        return {}
+
     def after_nonlinear_convergence(self) -> None:
         pass
 

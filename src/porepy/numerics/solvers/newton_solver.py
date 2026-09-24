@@ -542,7 +542,8 @@ class NewtonSolver(NonlinearSolverBase):
             model: The model instance specifying the problem to be solved.
 
         Returns:
-            np.ndarray: Solution to linearized system, i.e. the update increment.
+            np.ndarray: Solution to linearized system, i.e. the update increment,
+            capped so that bounded variables stay within their admissible range.
 
         """
         t_0 = time()
@@ -555,7 +556,68 @@ class NewtonSolver(NonlinearSolverBase):
         )
         logger.debug(f"Assembled linear system in {time() - t_0:.2e} seconds.")
 
-        return self.linear_solver.solve_linear_system(linear_system)
+        increment, status = self.linear_solver.solve_linear_system(linear_system)
+        if status.is_failure():
+            return increment, status
+        return self.cap_increment_to_bounds(model, increment), status
+
+    def cap_increment_to_bounds(
+        self, model: pp.PorePyModel, increment: np.ndarray
+    ) -> np.ndarray:
+        """Cap the increment so that the updated iterate respects the variable bounds.
+
+        Each entry that would take its variable outside the range stated by
+        :meth:`~porepy.models.solution_strategy.SolutionStrategy.variable_bounds` is
+        shortened to end on the bound; all other entries are left exactly as they
+        are. The updated iterate is thus the projection of the Newton update onto
+        the admissible box. Since the box is convex and contains the current iterate,
+        any relaxation of the capped increment, as by a line search, stays admissible
+        too. An iterate that is already outside the box is moved onto it.
+
+        Parameters:
+            model: The model instance specifying the problem to be solved.
+            increment: The increment of the active variables.
+
+        Returns:
+            The capped increment.
+
+        """
+        bounds = model.variable_bounds()
+        if not bounds:
+            return increment
+
+        def bounds_on_active_dofs() -> tuple[np.ndarray, np.ndarray]:
+            """Lower and upper bound of each active dof, infinite where unbounded."""
+            equation_system = model.equation_system
+            active_variables = self.get_active_variables(model)
+            # The increment follows the global dof order, restricted to active dofs.
+            active_dofs = np.sort(equation_system.dofs_of(active_variables))
+            lower = np.full(active_dofs.size, -np.inf)
+            upper = np.full(active_dofs.size, np.inf)
+            for name, (lower_bound, upper_bound) in bounds.items():
+                for variable in equation_system.get_variables([name]):
+                    if variable not in active_variables:
+                        continue
+                    positions = np.searchsorted(
+                        active_dofs, equation_system.dofs_of([variable])
+                    )
+                    lower[positions] = lower_bound
+                    upper[positions] = upper_bound
+            return lower, upper
+
+        lower, upper = bounds_on_active_dofs()
+        iterate = model.equation_system.get_variable_values(
+            variables=self.get_active_variables(model), iterate_index=0
+        )
+        updated = iterate + increment
+        # Only entries that leave the box are replaced, so that the others are not
+        # perturbed by the round-off of subtracting the iterate again.
+        capped = np.where(updated < lower, lower - iterate, increment)
+        capped = np.where(updated > upper, upper - iterate, capped)
+        num_capped = np.count_nonzero((updated < lower) | (updated > upper))
+        if num_capped > 0:
+            logger.info(f"Capped the increment of {num_capped} dofs to their bounds.")
+        return capped
 
     def after_nonlinear_iteration(
         self, model: pp.PorePyModel, nonlinear_increment: np.ndarray

@@ -100,6 +100,10 @@ class MockModel(PorePyModel):
     ):
         self.sequence_of_calls.append("after_nonlinear_iteration")
 
+    def variable_bounds(self):
+        # A query rather than a delegate method, so its calls are not recorded.
+        return {}
+
     def after_nonlinear_convergence(self):
         self.sequence_of_calls.append("after_nonlinear_convergence")
 

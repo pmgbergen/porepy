@@ -213,6 +213,9 @@ class MockModel:
     ):
         pass
 
+    def variable_bounds(self):
+        return {}
+
     def after_nonlinear_convergence(self):
         self.nonlinear_solver_statistics.save()
 
@@ -953,3 +956,96 @@ def test_rejected_iterate_is_not_accepted_as_converged():
     assert isinstance(status, NonlinearSolverStatusFailed)
     assert not status.is_converged()
     assert status.is_failed()
+
+
+class FailingLinearSolver(MockLinearSolver):
+    """A mock linear solver whose every solve fails."""
+
+    def solve_linear_system(
+        self, linear_system: pp.solvers.LinearSystem
+    ) -> tuple[np.ndarray, pp.solvers.LinearSolverStatus]:
+        increment, _ = super().solve_linear_system(linear_system)
+        return increment, pp.solvers.LinearSolverStatusFailure(reason="mock failure")
+
+
+@pytest.mark.parametrize("linear_solve_fails", [False, True])
+def test_iteration_caps_increment_of_successful_solves_only(linear_solve_fails: bool):
+    """The increment of a successful linear solve is capped to the variable bounds;
+    that of a failed one is returned as it is, for the caller to reject.
+
+    """
+    history = np.array([[5.0]])
+    solver = default_newton_solver(history)
+    if linear_solve_fails:
+        solver.linear_solver = FailingLinearSolver(history)
+    solver.cap_increment_to_bounds = lambda model, increment: np.zeros_like(increment)
+
+    increment, _ = solver.iteration(MockModel())
+
+    expected = history[0] if linear_solve_fails else np.zeros(1)
+    assert np.array_equal(increment, expected)
+
+
+@pytest.fixture
+def bounded_model() -> pp.MassAndEnergyBalance:
+    """A mass and energy balance with bounded pressure and temperature, on four cells,
+    whose current iterate is a pressure of 1 and a temperature of 300 everywhere.
+
+    """
+    model = pp.MassAndEnergyBalance(
+        {
+            "variable_bounds": {
+                "pressure": (0.0, np.inf),
+                "temperature": (273.0, 373.0),
+            }
+        }
+    )
+    model.prepare_simulation()
+    equation_system = model.equation_system
+    for name, value in (("pressure", 1.0), ("temperature", 300.0)):
+        dofs = equation_system.dofs_of([name])
+        equation_system.set_variable_values(
+            np.full(dofs.size, value), variables=[name], iterate_index=0
+        )
+    return model
+
+
+def test_cap_increment_to_bounds(bounded_model: pp.MassAndEnergyBalance):
+    """Entries leaving the box end on the bound, all others are left untouched.
+
+    A failure in the untouched entries means the cap perturbs the Newton step where it
+    has no reason to; a failure in the capped ones means the iterate leaves the bounds.
+
+    """
+    equation_system = bounded_model.equation_system
+    increment = np.zeros(equation_system.num_dofs())
+    pressure_dofs = equation_system.dofs_of(["pressure"])
+    temperature_dofs = equation_system.dofs_of(["temperature"])
+    increment[pressure_dofs] = [-2.0, -0.5, 1e10, 0.1]
+    increment[temperature_dofs] = [100.0, -50.0, 10.0, 1e-3]
+
+    capped = pp.solvers.NewtonSolver().cap_increment_to_bounds(bounded_model, increment)
+
+    # Pressure is bounded below only, so only the first entry is capped.
+    assert np.array_equal(capped[pressure_dofs], [-1.0, -0.5, 1e10, 0.1])
+    assert np.array_equal(capped[temperature_dofs], [73.0, -27.0, 10.0, 1e-3])
+
+
+def test_cap_increment_to_bounds_of_restricted_problem(
+    bounded_model: pp.MassAndEnergyBalance,
+):
+    """For a solver restricted to a subset of the variables, bounds are applied to the
+    matching entries of the shorter increment.
+
+    A failure most likely means that a bound is applied to the wrong dofs.
+
+    """
+    solver = pp.solvers.NewtonSolver(
+        equation_tags=[pp.solvers.DefaultEquationTags.energy_balance],
+        variable_tags=[pp.solvers.DefaultVariableTags.temperature],
+    )
+    increment = np.array([100.0, -50.0, 10.0, -100.0])
+
+    capped = solver.cap_increment_to_bounds(bounded_model, increment)
+
+    assert np.array_equal(capped, [73.0, -27.0, 10.0, -27.0])
