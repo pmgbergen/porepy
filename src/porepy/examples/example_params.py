@@ -88,6 +88,9 @@ model_params = {
     # Contact mechanics
     "traction_estimate_p_mean": 5.0,
     "adaptive_indicator_scaling": 1,  # Scale the indicator adaptively for robustness.
+    # Admissible range of variables, in SI units, kept by the nonlinear solver. E.g.
+    # {"temperature": (273.16, 647.0), "pressure": (0.0, np.inf)}.
+    "variable_bounds": {},
 }
 
 solver_params = {

@@ -778,6 +778,15 @@ else:
 
             """
 
+        def variable_bounds(self) -> dict[str, tuple[float, float]]:
+            """Admissible range of each bounded variable, in simulation units.
+
+            Returns:
+                The range of each bounded variable, keyed by variable name. Variables
+                not listed are unbounded.
+
+            """
+
         def after_nonlinear_convergence(self) -> None:
             """Called after a nonlinear solver loop converges.
 

@@ -10,6 +10,9 @@ We test:
     :meth:`porepy.models.solution_strategy.SolutionStrategy.rediscretize`  called at the
     beginning of a nonlinear iteration.
 
+    - Variable bounds: Conversion of the admissible range of variables from SI to
+    simulation units, and rejection of malformed ranges.
+
     - Equation parsing: The tests here considers equations that are present in the
     global system to be solved, opposed to simpler relations (typically constitutive
     relations) that are used to construct these global equations. Tests discretization
@@ -511,3 +514,52 @@ def test_linear_or_nonlinear_model(params: dict):
 
     model = models.model(model_type=model_name, dim=2, num_fracs=num_fracs)
     assert model._is_nonlinear_problem() == is_nonlinear
+
+
+def mass_and_energy_model(variable_bounds: dict) -> pp.MassAndEnergyBalance:
+    """A mass and energy balance with non-unitary mass and temperature scaling."""
+    model = pp.MassAndEnergyBalance(
+        {
+            "units": pp.Units(kg=1e5, K=10.0),
+            "variable_bounds": variable_bounds,
+        }
+    )
+    model.prepare_simulation()
+    return model
+
+
+def test_variable_bounds_are_converted_to_simulation_units():
+    """Bounds are given in SI and must come back in simulation units.
+
+    A failure means that the bounds a nonlinear solver enforces differ from those the
+    user stated by the unit scaling, which is silent unless the scaling is unitary.
+
+    """
+    model = mass_and_energy_model(
+        {"pressure": (1e5, np.inf), "temperature": (273.16, 647.0)}
+    )
+    bounds = model.variable_bounds()
+    assert bounds.keys() == {"pressure", "temperature"}
+    # A pascal is a kilogram per metre per second squared, scaled here by 1e5.
+    assert np.allclose(bounds["pressure"], (1.0, np.inf))
+    assert np.allclose(bounds["temperature"], (27.316, 64.7))
+
+
+def test_variable_bounds_default_to_none():
+    """Without the parameter, no variable is bounded."""
+    model = mass_and_energy_model({})
+    assert model.variable_bounds() == {}
+
+
+@pytest.mark.parametrize(
+    "variable_bounds",
+    [
+        {"presure": (0.0, np.inf)},
+        {"temperature": (647.0, 273.16)},
+    ],
+)
+def test_variable_bounds_reject_malformed_ranges(variable_bounds: dict):
+    """A misspelt variable name or an inverted range must not pass silently."""
+    model = mass_and_energy_model(variable_bounds)
+    with pytest.raises(ValueError):
+        model.variable_bounds()

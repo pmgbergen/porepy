@@ -383,6 +383,43 @@ class SolutionStrategy(pp.PorePyModel):
         )
         self.update_derived_quantities()
 
+    def variable_bounds(self) -> dict[str, tuple[float, float]]:
+        """Admissible range of each bounded variable, in simulation units.
+
+        The ranges are given in SI units through ``params["variable_bounds"]``, as a
+        dictionary from variable name to ``(lower, upper)``, and converted to the
+        simulation :attr:`units` using each variable's ``si_units`` tag. A nonlinear
+        solver keeps the iterate of each listed variable inside its range; variables
+        not listed are unbounded. Use ``np.inf`` for a range bounded on one side only.
+
+        Raises:
+            ValueError: If a name is not that of a variable in the equation system, or
+                if a lower bound exceeds its upper bound.
+
+        Returns:
+            The range of each bounded variable, keyed by variable name.
+
+        """
+        given = cast(
+            dict[str, tuple[float, float]], self.params.get("variable_bounds", {})
+        )
+        bounds: dict[str, tuple[float, float]] = {}
+        for name, (lower, upper) in given.items():
+            if lower > upper:
+                raise ValueError(
+                    f"Lower bound {lower} of variable {name!r} exceeds its upper bound "
+                    f"{upper}."
+                )
+            variables = self.equation_system.get_variables([name])
+            if not variables:
+                raise ValueError(f"Bounds given for unknown variable {name!r}.")
+            si_units = variables[0].tags["si_units"]
+            bounds[name] = (
+                self.units.convert_units(lower, si_units),
+                self.units.convert_units(upper, si_units),
+            )
+        return bounds
+
     def after_nonlinear_convergence(self) -> None:
         """Called after a nonlinear solver loop converges.
 
