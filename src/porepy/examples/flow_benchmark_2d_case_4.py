@@ -142,7 +142,10 @@ class Permeability(DimensionDependentPermeability):
         """
         size = sum([sd.num_cells for sd in subdomains])
         permeability = pp.wrap_as_dense_ad_array(
-            self.solid.fracture_permeability, size, name="fracture permeability"
+            self.solid.fracture_permeability,
+            size=size,
+            name="fracture permeability",
+            grids=subdomains,
         )
         return self.isotropic_second_order_tensor(subdomains, permeability)
 
