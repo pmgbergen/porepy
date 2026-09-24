@@ -2288,6 +2288,8 @@ class PeacemanWellFlux(pp.PorePyModel):
             return pp.ad.Scalar(1.0, name="effective_point_well_length")
 
         h_all = pp.wrap_as_dense_ad_array(np.concatenate(heights))
+        # The current grid gives a 50 m well-cell height, but the 200 m Buntsandstein open-hole interval is used as the effective well completion length.
+        h_all = pp.ad.Scalar(4.0) * h_all
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
         h_eff = projection.primary_to_mortar_avg() @ h_all
         h_eff.set_name("effective_point_well_length")
