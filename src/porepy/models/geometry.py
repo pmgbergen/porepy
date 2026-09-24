@@ -443,24 +443,24 @@ class ModelGeometry(pp.PorePyModel):
 
         Examples:
             To extend a cell-wise scalar to a vector field, use
-            ``sum([e_i for e_i in basis(subdomains)])``. To restrict to a vector in
-            the tangential direction only, use
+            ``sum([e_i for e_i in basis(subdomains)])``. To restrict to a vector in the
+            tangential direction only, use
             ``sum([e_i for e_i in basis(subdomains, dim=nd-1)])``
 
         See also:
             :meth:`e_i` for the construction of a single basis function.
             :meth:`normal_component` for the construction of a restriction to the
                 normal component of a vector only.
-            :meth:`tangential_component` for the construction of a restriction to
-                the tangential component of a vector only.
+            :meth:`tangential_component` for the construction of a restriction to the
+                tangential component of a vector only.
 
         Parameters:
             grids: List of grids on which the basis is defined.
             dim: Dimension of the basis.
-            domain_type: The type of domain (subdomains, interfaces, or boundary
-                grids) that ``grids`` represents. If ``grids`` is empty, domain_type is
-                used to determine the type of the operator space. If ``grids`` is
-                non-empty, a given domain type must agree with the type of the grids.
+            domain_type: The type of domain (subdomains, interfaces, or boundary grids)
+                that ``grids`` represents. If ``grids`` is empty, domain_type is used to
+                determine the type of the operator space. If ``grids`` is non-empty, a
+                given domain type must agree with the type of the grids.
 
         Returns:
             List of pp.ad.SparseArray, each of which represents a basis function.
