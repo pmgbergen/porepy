@@ -75,7 +75,7 @@ def check_reduction_consistency_porepy(quick: bool = False) -> dict:
 
     def run(nphase, **flags):
         params = P.build_params(
-            nphase, "hu", t_end_days=days, dt_days=2.0, constant_dt=True,
+            nphase, "hu", t_end_days=days, dt_days=0.5, constant_dt=True,
             snap_days=(0.0, days), cell_size=cell, lagrange_linear_solver="scipy",
             folder_name=scratch, times_to_export=[], **flags)
         model = P.flow_model_class(params)(params)
