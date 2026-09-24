@@ -558,15 +558,24 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
     def _clip_fraction_variables(self) -> None:
         """Clamp saturation / partial-fraction ITERATE values into [0, 1].
 
-        The Newton increment is distributed to all variables before the derived
-        quantities are refreshed, so downstream evaluations (in particular the
-        mobility-weighted permeability tensor of the fractional-flow template) can
-        otherwise see negative saturations from a single overshooting update."""
+        The Newton increment is distributed to all variables (the eliminated saturations
+        and partial fractions among them) before the derived quantities are refreshed, so a
+        single overshooting update leaves ``s = s_old + ds`` outside [0, 1] until the
+        ``s = s(z)`` closure is re-applied. The state-dependent discretization parameters --
+        the mobility-weighted permeability and the saturation-weighted thermal conductivity
+        -- are rebuilt in that window (before the closure), so they must not see the raw
+        value: clipping the iterate here keeps ``s_old + ds`` bounded without touching the
+        clip-free residual closure (its Jacobian stays exact).
+
+        Every eliminated saturation (``s_*``) and partial fraction (``x_*``) is a physical
+        fraction in [0, 1], so the clip is generic over the phase/component count. The old
+        hardcoded ``_FRACTION_VARIABLE_NAMES`` list was brine-specific and missed, e.g., the
+        barriers model's ``s_oil1`` / ``s_oil2`` -- which then blew up and drove the
+        conductivity tensor non-positive-definite."""
         es = self.equation_system
         present = {v.name for v in es.variables}
-        for name in self._FRACTION_VARIABLE_NAMES:
-            if name not in present:
-                continue
+        for name in sorted(n for n in present
+                           if n.startswith("s_") or n.startswith("x_")):
             vals = es.get_variable_values([name], iterate_index=0)
             clipped = np.clip(vals, 0.0, 1.0)
             if not np.array_equal(clipped, vals):

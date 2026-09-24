@@ -269,8 +269,7 @@ def check_monotonicity_porepy(quick: bool = False) -> dict:
             return vals
 
     def params():
-        tm = pp.TimeManager(schedule=[0.0, 86400.0], dt_init=86400.0, constant_dt=True,
-                            iter_max=50, print_info=False)
+        tm = pp.TimeManager(schedule=[0.0, 86400.0], dt_init=86400.0, constant_dt=True)
         return {"fractional_flow": False, "enable_buoyancy_effects": True,
                 "material_constants": {"solid": solid}, "time_manager": tm,
                 "expected_order_loss": 3, "residual_tolerance": 1e-4, "drift_tolerance": 1e-4}
