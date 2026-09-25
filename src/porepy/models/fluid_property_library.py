@@ -625,6 +625,15 @@ class FluidMobilityReactiveTransport(FluidMobility):
             Above expression in operator form.
 
         """
+        if component in self.fluid.solid_components:
+            # Solid components are immobile. Short-circuit their mobility before
+            # evaluating solid-phase fractions or density: Both quantities may be
+            # undefined where no mineral is present (in particular on boundaries),
+            # even though the resulting advective mobility is identically zero.
+            mobility = pp.ad.Scalar(0.0) * component.mineral_saturation(domains)
+            mobility.set_name(f"component_mass_mobility_{component.name}")
+            return mobility
+
         if self.fluid.num_phases > 1 or self.fluid.num_components > 1:
             # NOTE: This method is kept as general as possible when typing the
             # signature. But the default fluid of the PorePyModel consists of

@@ -453,6 +453,8 @@ class _MixtureDOFHandler(pp.PorePyModel):
 
         if has_unified_equilibrium(self):
             return False
+        elif phase.state == PhysicalState.solid:
+            return False
         else:
             if component not in phase:
                 return False
@@ -1189,6 +1191,24 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         # non-unified equilibrium.
         # Partial fractions are independent, except for the reference component in that
         # phase, which is eliminated by unity above
+        # for a solid phase, the partial fraction is calculated by mineral saturations of all minerals
+        elif phase.state == PhysicalState.solid:
+            def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                denominator = pp.ad.sum_operator_list(
+                        [
+                            comp.mineral_saturation(domains)/pp.ad.Scalar(comp.molar_volume)
+                            for comp in phase.components
+                        ]
+                    )
+                
+                x_r = component.mineral_saturation(domains)/pp.ad.Scalar(component.molar_volume)/denominator
+                x_r.set_name(
+                    f"solid_partial_fraction_of_mineral_{component.name}"
+                )
+                return x_r
+
+            return fraction
+
         elif self.has_independent_partial_fraction(component, phase):
             fraction = self._fraction_factory(
                 self._partial_fraction_variable(component, phase)
@@ -2526,14 +2546,27 @@ class ChemicalSystem(FluidMixin):
 
         Parameters:
             reactions: A list of Reaction objects defining the chemical reactions.
-        This needs to be overridden to provide actual reaction rates.
+
+        A ``constant_reaction_rate`` supplied when constructing a reaction takes
+        precedence over the default zero rates. Override this method to provide
+        non-constant reaction rates.
         """
 
         def rr(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
             return pp.ad.Scalar(0.0, "synthetic_kinetic_reaction_rate")
 
         for reaction in reactions:
-            if reaction.is_kinetic:
+            if reaction.constant_reaction_rate is not None:
+                user_parameter = reaction.constant_reaction_rate
+
+                def rr_user(
+                    domains: pp.SubdomainsOrBoundaries,
+                    value: float = user_parameter,
+                ) -> pp.ad.Operator:
+                    return pp.ad.Scalar(value, "user_defined_reaction_rate")
+
+                reaction.reaction_rate = rr_user
+            elif reaction.is_kinetic:
                 reaction.reaction_rate = rr
             else:
 
@@ -2802,6 +2835,10 @@ class CreateVariablesForSpecificReactions:
             reactions: A list of Reaction objects defining the chemical reactions.
         This needs to be overridden to provide actual reaction rates.
         """
+        enable_reaction_rate_variable = self.params.get("enable_mineral_reaction_rate_variable", False)
+        if not enable_reaction_rate_variable:
+            return reactions
+
         S = self.fluid.stoichiometric_matrix
         reaction_formulas = self.reaction_formulas
         for reaction in reactions:
@@ -3073,7 +3110,14 @@ class ReactionRatesKineticFromExperiment:
                         "Multiple minerals in one reaction not implemented yet."
                     )
 
-                def rr(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                def rr(
+                    domains: pp.SubdomainsOrBoundaries,
+                    k_0=k_0,
+                    Ceq=Ceq,
+                    reactive_species=tuple(reactive_species),
+                    reactive_coeffs=tuple(reactive_coeffs),
+                    reactive_activities=reactive_activities.copy(),
+                ) -> pp.ad.Operator:
                     """
                     Compute the apparent kinetic Li release rate from a reactive solid inventory.
 

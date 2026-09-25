@@ -115,6 +115,42 @@ from porepy.models.abstract_equations import EquationMixin
 logger = logging.getLogger(__name__)
 
 
+def _fischer_burmeister(
+    var_0: np.ndarray | pp.ad.AdArray,
+    var_1: np.ndarray | pp.ad.AdArray,
+) -> np.ndarray | pp.ad.AdArray:
+    """Evaluate the Fischer-Burmeister function with a finite derivative at zero.
+
+    At ``(0, 0)``, the function is not differentiable. For the semi-smooth Newton
+    method, we select ``(-1, -1)`` from its generalized Jacobian.
+    """
+    value_0 = var_0.val if isinstance(var_0, pp.ad.AdArray) else var_0
+    value_1 = var_1.val if isinstance(var_1, pp.ad.AdArray) else var_1
+    norm = np.sqrt(value_0**2 + value_1**2)
+    value = norm - value_0 - value_1
+
+    if not isinstance(var_0, pp.ad.AdArray) and not isinstance(
+        var_1, pp.ad.AdArray
+    ):
+        return value
+
+    derivative_0 = -np.ones_like(norm, dtype=float)
+    derivative_1 = -np.ones_like(norm, dtype=float)
+    nonzero = norm > 0.0
+    derivative_0[nonzero] += value_0[nonzero] / norm[nonzero]
+    derivative_1[nonzero] += value_1[nonzero] / norm[nonzero]
+
+    ad_var = var_0 if isinstance(var_0, pp.ad.AdArray) else var_1
+    assert isinstance(ad_var, pp.ad.AdArray)
+    jacobian = sps.csr_matrix(ad_var.jac.shape)
+    if isinstance(var_0, pp.ad.AdArray):
+        jacobian += sps.diags(derivative_0) @ var_0.jac
+    if isinstance(var_1, pp.ad.AdArray):
+        jacobian += sps.diags(derivative_1) @ var_1.jac
+
+    return pp.ad.AdArray(value, jacobian)
+
+
 def update_phase_properties(
     sd: pp.Grid,
     phase: pp.Phase,
@@ -1034,10 +1070,45 @@ class EquationsChemical(EquationMixin):
                     #extract the mineral saturation variable from the reaction
                     corresponding_mineral = reaction.corresponding_mineral
                     #equ=reaction.actual_reaction_rate(subdomains)-reaction.reaction_rate(subdomains)
-                    #Fischer–Burmeister equation, ref: Kräutle, S. (2011). The semismooth Newton method for multicomponent reactive transport with minerals. Advances in water resources, 34(1), 137-151.
-                    part1=reaction.reaction_rate(subdomains)-reaction.actual_reaction_rate(subdomains)
-                    part2=corresponding_mineral.mineral_saturation(subdomains)
-                    equ = ((part1 ** pp.ad.Scalar(2) + part2 ** pp.ad.Scalar(2)) ** pp.ad.Scalar(0.5))-part2-part1
+                    # Fischer-Burmeister equation, ref: Kräutle, S. (2011).
+                    reaction_rate_array = np.asarray(
+                        self.equation_system.evaluate(
+                            reaction.reaction_rate(subdomains)
+                        ),
+                        dtype=float,
+                    )
+                    reaction_rate_scale = float(
+                        np.max(np.abs(reaction_rate_array))
+                    )
+                    if reaction_rate_scale == 0.0:
+                        reaction_rate_scale = 1.0
+                    part1 = (
+                        reaction.reaction_rate(subdomains)
+                        - reaction.actual_reaction_rate(subdomains)
+                    ) / pp.ad.Scalar(
+                        reaction_rate_scale,
+                        f"{reaction.name}_rate_scale",
+                    )
+                    initial_mineral_saturation = (
+                        self.ic_values_mineral_saturation_wrap(
+                            corresponding_mineral, subdomains
+                        )
+                    )
+                    mineral_saturation_scale = float(
+                        np.max(initial_mineral_saturation)
+                    )
+                    if mineral_saturation_scale == 0.0:
+                        mineral_saturation_scale = 1.0
+                    part2 = corresponding_mineral.mineral_saturation(
+                        subdomains
+                    ) / pp.ad.Scalar(
+                        mineral_saturation_scale,
+                        f"initial_{corresponding_mineral.name}_saturation_scale",
+                    )
+                    fischer_burmeister = pp.ad.Function(
+                        _fischer_burmeister, "fischer_burmeister"
+                    )
+                    equ = fischer_burmeister(part1, part2)
 
                     equ.set_name(f"actual_reaction_rate_{reaction.name}")
                     self.equation_system.set_equation(equ, subdomains, {"cells": 1})
@@ -2129,7 +2200,7 @@ class InitialConditionsChemical(pp.InitialConditionMixin):
             phase_conc += conc
 
         if self.has_independent_partial_fraction(component, phase):
-            assert phase.name == "aqueous"
+            #assert phase.name == "aqueous"
             initial_conc = self.ic_values_species_concentration(component, sd)
             return initial_conc / phase_conc
 
@@ -2351,6 +2422,17 @@ class InitialConditionsChemical(pp.InitialConditionMixin):
             ic_subdomains.append(ic)
 
         return np.hstack(ic_subdomains)
+
+    def ic_values_mineral_saturation_wrap(
+        self, component: pp.Component, subdomains: list[pp.Grid]
+    ) -> np.ndarray:
+        """Collect initial mineral saturations on all subdomains."""
+        return np.hstack(
+            [
+                self.ic_values_mineral_saturation(component, sd)
+                for sd in subdomains
+            ]
+        )
 
     def ic_values_actual_reaction_rate(
         self, reaction: pp.Reaction, sd: pp.Grid

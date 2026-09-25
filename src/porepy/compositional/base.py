@@ -1394,6 +1394,12 @@ class Reaction:
 
         self.is_kinetic: bool = kwargs.get("is_kinetic", True)
 
+        constant_reaction_rate = kwargs.get("constant_reaction_rate")
+        self.constant_reaction_rate: float | None = (
+            None if constant_reaction_rate is None else float(constant_reaction_rate)
+        )
+        """User-provided constant reaction rate in ``[mol / m^3 / s]``."""
+
         self.reaction_rate: DomainFunctionType
         """Reaction rate of the reaction in ``[mol / m^3 / s]`` ."""
 
