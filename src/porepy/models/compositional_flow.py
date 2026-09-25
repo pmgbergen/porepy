@@ -2368,11 +2368,11 @@ class InitialConditionsChemical(pp.InitialConditionMixin):
             if comp.name != "H2O" and comp not in self.fluid.solid_components:
                 solute_conc += self.ic_solute_concentration(comp, sd)
 
-        mc=self.params["material_constants"]
-        mode=mc.get("molar_density_mode","fully_coupled")
+        # mc=self.params["material_constants"]
+        # mode=mc.get("molar_density_mode","fully_coupled")
 
-        if mode=="provided":
-            fluid_density=self.fluid.reference_component.molar_density * np.ones(sd.num_cells)
+        # if mode=="provided":
+        #     fluid_density=self.fluid.reference_component.molar_density * np.ones(sd.num_cells)
 
 
         fluid_density = self.fluid.reference_component.molar_density * np.ones(

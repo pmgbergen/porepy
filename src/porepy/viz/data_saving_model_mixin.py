@@ -714,12 +714,12 @@ class ExportingCellDarcyFlux:
 
         if hasattr(self, "reactions"):
             # If reactions are defined, use them to compute the reaction rate.
-            assert len(self.reactions) == 1
             for reaction in self.reactions:
-                k_0 = self.rate_constant(reaction)
-                # Compute Damkohler number: Da = (reaction_rate * characteristic_length) / (darcy_velocity)
-                damkohler_number = (k_0 * cell_diameters * porosity) / darcy_flux_magnitude
-                return damkohler_number
+                if reaction.name == "LiX_dissolution":
+                    k_0 = self.rate_constant(reaction)
+                    # Compute Damkohler number: Da = (reaction_rate * characteristic_length) / (darcy_velocity)
+                    damkohler_number = (k_0 * cell_diameters * porosity) / darcy_flux_magnitude
+                    return damkohler_number
         else:
             # If no reactions are defined, use a default value.
             return np.zeros(domain.num_cells)
