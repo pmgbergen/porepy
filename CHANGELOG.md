@@ -13,6 +13,7 @@ The lists are sorted on PR numbers.
 ## Unreleased
 
 ### Changes
+PR 1781: Add documentation for devcontainers to Readme.
 PR 1776: SPEED: Faster geometry computation on 3d simplex grids.
 PR 1772: SPEED: Faster construction of grid topologies on 3d simplex grids.
 PR 1770: Simplify PR template by deferring to CONTRIBUTING.md for details on code style and conventions.
