@@ -488,6 +488,10 @@ class NewtonSolver(NonlinearSolverBase):
                 )
                 linear_solver_statuses.append(linear_solver_status)
 
+                if not self.is_usable_update(nonlinear_increment, linear_solver_status):
+                    convergence_status, divergence_status = _unusable_update_status()
+                    break
+
                 # Finalize nonlinear iteration and determine status.
                 convergence_status, divergence_status = self.after_nonlinear_iteration(
                     model, nonlinear_increment
@@ -556,6 +560,36 @@ class NewtonSolver(NonlinearSolverBase):
         logger.debug(f"Assembled linear system in {time() - t_0:.2e} seconds.")
 
         return self.linear_solver.solve_linear_system(linear_system)
+
+    def is_usable_update(
+        self, nonlinear_increment: np.ndarray, linear_solver_status: LinearSolverStatus
+    ) -> bool:
+        """Check whether a solution increment may be applied to the model.
+
+        An increment from a failed linear solve, or one with non-finite entries, is not
+        usable. Applying it would move the model to a state from which neither the
+        convergence check nor the next iteration can recover, and constitutive laws
+        evaluated at that state may raise errors that end the simulation rather than
+        the nonlinear solve.
+
+        Parameters:
+            nonlinear_increment: Solution increment obtained from the linear solver.
+            linear_solver_status: Status of the linear solve that produced it.
+
+        Returns:
+            True if the increment may be applied, False otherwise.
+
+        """
+        if linear_solver_status.is_failure():
+            logger.warning(
+                "Linear solver failed; the increment is not applied: "
+                f"{linear_solver_status}"
+            )
+            return False
+        if not np.all(np.isfinite(nonlinear_increment)):
+            logger.warning("Increment has non-finite entries; it is not applied.")
+            return False
+        return True
 
     def after_nonlinear_iteration(
         self, model: pp.PorePyModel, nonlinear_increment: np.ndarray
@@ -710,6 +744,25 @@ class NewtonSolver(NonlinearSolverBase):
             # Convergence-related information.
             model.nonlinear_solver_statistics.log_convergence_status(convergence_status)
             model.nonlinear_solver_statistics.log_convergence_info(convergence_info)
+
+
+def _unusable_update_status() -> tuple[
+    ConvergenceStatusCollection, ConvergenceStatusCollection
+]:
+    """Convergence and divergence status of an iteration whose update was rejected.
+
+    The nonlinear solve is failed rather than continued: without an applied update, the
+    next iteration would assemble and solve the same linear system again.
+
+    Returns:
+        Convergence status (not converged) and divergence status (failed).
+
+    """
+    reason = "unusable_update"
+    return (
+        ConvergenceStatusCollection({reason: ConvergenceStatus.CONTINUE_ITERATING}),
+        ConvergenceStatusCollection({reason: ConvergenceStatus.FAILED}),
+    )
 
 
 def _summarize_solver_status(

@@ -472,6 +472,46 @@ def test_solve_failure():
     assert solver_status.is_failed()
 
 
+@pytest.mark.parametrize(
+    "increment, linear_solve_failed",
+    [
+        (2.0, True),  # Finite increment, but the linear solver reports failure.
+        (np.inf, False),
+        (np.nan, False),
+    ],
+)
+def test_solve_rejects_unusable_update(increment, linear_solve_failed):
+    """An increment from a failed linear solve, or a non-finite one, must never reach
+    the model: the nonlinear solve fails on that iteration instead.
+
+    A failure here most likely means that the Newton loop applies updates without
+    consulting the linear solver status.
+
+    """
+
+    class RecordingModel(MockModel):
+        def after_nonlinear_iteration(self, nonlinear_increment, **kwargs):
+            self.applied_increments.append(nonlinear_increment)
+
+    class FailingLinearSolver(MockLinearSolver):
+        def solve_linear_system(self, linear_system):
+            increment, status = super().solve_linear_system(linear_system)
+            if linear_solve_failed and self.iteration_counter == 1:
+                status = pp.solvers.LinearSolverStatusFailure(reason="mock failure")
+            return increment, status
+
+    model = RecordingModel(residual_history=[2.0, 2.0])
+    model.applied_increments = []
+    solver = default_newton_solver()
+    solver.linear_solver = FailingLinearSolver(np.array([2.0, increment]))
+
+    solver_status = solver.solve(model)
+
+    assert solver_status.is_failed()
+    assert solver_status.number_of_iterations() == 2
+    assert model.applied_increments == [2.0]
+
+
 def test_solve_failure_statistics():
     """Test that the solver statistics are updated correctly on convergence to check
     correct behavior after failure.
@@ -898,16 +938,12 @@ def test_linear_nonlinear_model(is_nonlinear: bool):
     assert len(status.linear_solver_statuses) == expected_num_iterations
 
 
-@pytest.mark.xfail(
-    reason="This reproduces a bug https://github.com/pmgbergen/porepy/issues/1713.",
-    strict=True,
-)
 def test_linear_solver_fails():
     """Creates a linear problem and a solver for it. The solver returns nans after the
     first iteration. The solver must return failure status.
 
-    This test is marked as failing. If you are working on this issue, you should make
-    this test passing and remove the "xfail" decorator.
+    Linear problems have no convergence criteria, so an empty collection counts as
+    converged; this was once reported as success (issue #1713).
 
     """
     model = MockModel(
