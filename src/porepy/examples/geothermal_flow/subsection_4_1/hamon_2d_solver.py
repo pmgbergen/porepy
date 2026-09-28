@@ -323,10 +323,13 @@ def barrier_mask(nx: int, ny: int) -> np.ndarray:
 #  FRACTURE_K_FACTOR/FRACTURE_APERTURE mirror porepy_2d_solver (their product 100*K_ROCK is what
 #  the paper's k_frac*aperture = 1e4*1e-2 and the code's 1e3*1e-1 both equal).
 # --------------------------------------------------------------------------------------- #
-FRACTURE_K_FACTOR = 1.0e3            # matches porepy_2d_solver.FRACTURE_K_FACTOR
-FRACTURE_APERTURE = 1.0e-1           # [m] matches porepy_2d_solver.FRACTURE_APERTURE
-_FRACTURE_BAND_M = 0.1               # equi-dim band width [m] = the MD aperture, so k_band = 1000*rock
-                                     # (exact geometric replica of the lower-dim fracture, no upscaling)
+FRACTURE_K_FACTOR = 5.0e2            # matches porepy_2d_solver.FRACTURE_K_FACTOR  (= 500 * rock)
+FRACTURE_APERTURE = 2.0e-1           # [m] matches porepy_2d_solver.FRACTURE_APERTURE (= the band width)
+_FRACTURE_BAND_M = 0.2               # equi-dim band width [m] = FRACTURE_APERTURE, so the FD band is an
+#                                     EXACT equi-dim replica of the MD fracture: same 0.2 m width and
+#                                     k_band = FK*FA*K_ROCK/band = FK*K_ROCK = 500*rock (band = FA).
+#                                     Tangential k_band*band = 100*K_ROCK, unchanged from the old 1e3/0.1
+#                                     -> the already-generated vtr_frac data stays valid.
 _FRACTURE_GRADE_RATIO = 1.3          # geometric cell-growth ratio from the band out to the coarse bulk
 
 # 10 conformal fractures (x0, y0, x1, y1) [m], copied from porepy_2d_solver._FRACTURES_REF.

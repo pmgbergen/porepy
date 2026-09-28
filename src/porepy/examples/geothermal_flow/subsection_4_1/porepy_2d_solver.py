@@ -118,11 +118,14 @@ k_rock = 1000.0 * milli_darcy          # homogeneous rock permeability (k = 1 mD
 porosity = 0.3
 BARRIER_K_FACTOR = 1.0e-4           # barrier cells get k * this (effectively impermeable)
 
-# Optional --md fractures: 1D fault-zone conduits in the 2D matrix (barriers unchanged).
-# Transmissivity contrast K_FACTOR * a / dx = 100 makes them preferential conduits; point CFL
-# scales as K_FACTOR / a.
-FRACTURE_K_FACTOR = 1.0e+3          # fracture (dim<nd) permeability = k * this
-FRACTURE_APERTURE = 1.0e-1          # fracture aperture [m] -> specific volume of 1D cells (a) and 0D points (a^2)
+# Optional --md fractures: 1D fault-zone conduits in the 2D matrix (barriers unchanged). Parametrized
+# to MATCH the equi-dim FD band (hamon: 0.2 m wide, k = 500*rock): the 1D fracture uses the SAME
+# aperture and permeability, so BOTH the tangential (k*a = 100*rock) AND the normal (k*2/a = 5000*rock)
+# transmissivity agree -- a fair MD-vs-FD comparison (the old 1e3 / 0.1 m matched only tangentially).
+# Transmissivity contrast K_FACTOR*a/dx = 100 is unchanged; the point CFL K_FACTOR/a drops 10000 -> 2500,
+# so --md also takes larger steps.
+FRACTURE_K_FACTOR = 5.0e+2          # fracture (dim<nd) permeability = k * this  (= 500 * rock)
+FRACTURE_APERTURE = 2.0e-1          # fracture aperture [m] = the FD band width -> 1D specific vol (a), 0D (a^2)
 
 
 # --------------------------------------------------------------------------------------- #

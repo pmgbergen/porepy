@@ -16,6 +16,7 @@ Exported fields (units):
     T_C   temperature [degC]           s_v/s_l/s_h  vapor/liquid/halite saturation [-]
     rho   mixture density [kg/m^3]     rho_v/rho_l/rho_h  phase densities [kg/m^3]
     h_v/h_l/h_h  phase specific enthalpies [same scaling as the model enthalpy variable, 1e-3*H]
+    mu_l/mu_v    liquid/vapor dynamic viscosity [Pa.s]
 """
 from __future__ import annotations
 
@@ -44,6 +45,8 @@ class DriesnerPhaseExport(pp.PorePyModel):
         ("h_v",   "H_v", 1.0e-3, 0.0),             # match the model's enthalpy scaling (1e-3 * H)
         ("h_l",   "H_l", 1.0e-3, 0.0),
         ("h_h",   "H_h", 1.0e-3, 0.0),
+        ("mu_l",  "mu_l", 1.0, 0.0),               # liquid dynamic viscosity [Pa.s] (raw table value;
+        ("mu_v",  "mu_v", 1.0, 0.0),               # the model's 1e-6 MPa-scaling is not a unit change)
     )
 
     def data_to_export(self):

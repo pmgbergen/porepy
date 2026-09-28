@@ -565,6 +565,46 @@ def comparison_saturation_maps_mixed_dim(n, days, out_dir):
     _save(fig, os.path.join(out_dir, f"comparison_saturation_maps_mixed_dim_{n}_phases.png"), dpi=360)
 
 
+def enthalpy_temperature_maps_mixed_dim(n, days, out_dir):
+    """Enthalpy [MJ/kg] (row 0) and temperature [degC] (row 1) of the PorePy HU MIXED-DIMENSIONAL
+    solution; columns = the requested days. Barriers overlaid (grey) and the conformal 1D fractures
+    coloured on the SAME scale as the matrix. Each row shares one colour scale across the columns
+    (matrix + 1D fracture cells). ``enthalpy`` is already MJ/kg and ``T_C`` already degC in the VTU."""
+    barrier = np.asarray(H.barrier_mask(100, 100), float)
+    snaps = dict(read_pvd(_case_dir(n, True)))
+    picks = [min(snaps, key=lambda s: abs(s - d)) for d in days]
+    meshes = [meshio.read(snaps[t][2]) for t in picks]
+    cm = PR._cmap("vlag").reversed()                    # SAME map as the density maps (high -> blue)
+    rows = (("enthalpy", cm, r"enthalpy [MJ kg$^{-1}$]"),
+            ("T_C",      cm, r"temperature [$^{\circ}$C]"))
+    # one colour scale per row, over matrix AND 1D fracture cells across every column
+    scales = {}
+    for key, _, _ in rows:
+        vals = [_field(m, key) for m in meshes]
+        vals += [_field(meshio.read(snaps[t][1]), key) for t in picks if 1 in snaps[t]]
+        allv = np.concatenate(vals)
+        scales[key] = (float(allv.min()), float(allv.max()))
+    fig, axes = plt.subplots(2, len(days), figsize=(4.4 * len(days), 4.2 * 2), squeeze=False)
+    ims = [None, None]
+    for r, (key, cm, _) in enumerate(rows):
+        vmin, vmax = scales[key]
+        for k, (t, m) in enumerate(zip(picks, meshes)):
+            ax = axes[r][k]
+            ims[r] = ax.imshow(PR._image(_field(m, key), 100, 100), extent=[0, LX, LY, 0],
+                               aspect="equal", cmap=cm, vmin=vmin, vmax=vmax,
+                               interpolation="nearest")
+            PR._overlay_barriers(ax, barrier, 100, 100)
+            _fracture_layer(ax, snaps[t], lambda mm, kk=key: _field(mm, kk),
+                            cm, vmin=vmin, vmax=vmax)
+            PR._style_axes(ax, f"$t = {int(round(t))}$ days" if r == 1 else "")
+    for r, (_, _, label) in enumerate(rows):
+        axes[r][0].set_ylabel(label, fontsize=12)
+        cb = fig.colorbar(ims[r], ax=[axes[r][j] for j in range(len(days))],
+                          fraction=0.02, pad=0.02)
+        cb.set_label(label, fontsize=10)
+    _save(fig, os.path.join(out_dir, f"enthalpy_temperature_mixed_dim_{n}_phases.png"), dpi=360)
+
+
 def _pp_stats_line(case_dir):
     """The plot_maps stats line, parsed from the solver's run_statistics.txt."""
     try:
