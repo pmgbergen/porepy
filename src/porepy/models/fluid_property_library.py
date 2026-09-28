@@ -634,7 +634,7 @@ class FluidMobilityReactiveTransport(FluidMobility):
             mobility.set_name(f"component_mass_mobility_{component.name}")
             return mobility
 
-        if self.fluid.num_phases > 1 or self.fluid.num_components > 1:
+        elif self.fluid.num_phases > 1 or self.fluid.num_components > 1:
             # NOTE: This method is kept as general as possible when typing the
             # signature. But the default fluid of the PorePyModel consists of
             # FluidComponent, not Component. Adding type:ignore for this reason.

@@ -1168,6 +1168,7 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
                 [
                     phase.saturation(domains) * phase.molar_density(domains)
                     for phase in self.phases
+                    if phase.state != PhysicalState.solid
                 ],
                 "fluid_molar_density",
             )

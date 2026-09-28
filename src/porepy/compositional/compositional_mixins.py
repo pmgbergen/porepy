@@ -1193,15 +1193,31 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         # phase, which is eliminated by unity above
         # for a solid phase, the partial fraction is calculated by mineral saturations of all minerals
         elif phase.state == PhysicalState.solid:
+
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-                denominator = pp.ad.sum_operator_list(
-                        [
-                            comp.mineral_saturation(domains)/pp.ad.Scalar(comp.molar_volume)
-                            for comp in phase.components
-                        ]
+                maximum = pp.ad.Function(
+                    pp.ad.maximum, "solid_fraction_positive_part"
+                )
+                zero = pp.ad.Scalar(0.0)
+                eps = pp.ad.Scalar(1e-12)
+
+                # Convert mineral saturations to non-negative molar amounts. The
+                # ordering of the arguments to maximum is intentional: At equality,
+                # pp.ad.maximum uses the Jacobian of its first argument. Thus, a
+                # vanished mineral has both value and derivative equal to zero.
+                amounts = {
+                    comp: maximum(
+                        zero,
+                        comp.mineral_saturation(domains)
+                        / pp.ad.Scalar(comp.molar_volume),
                     )
-                
-                x_r = component.mineral_saturation(domains)/pp.ad.Scalar(component.molar_volume)/denominator
+                    for comp in phase.components
+                }
+
+                denominator = pp.ad.sum_operator_list(list(amounts.values()))
+                safe_denominator = maximum(eps, denominator)
+
+                x_r = amounts[component] / safe_denominator
                 x_r.set_name(
                     f"solid_partial_fraction_of_mineral_{component.name}"
                 )
