@@ -49,6 +49,7 @@ __all__ = [
     "LinearSolverStatus",
     "LinearSolverStatusSuccess",
     "LinearSolverStatusFailure",
+    "LinearSolverStatusNotConverged",
     "LinearSystem",
     "LinearSolverBase",
     "LinearSolverDirect",
@@ -61,16 +62,21 @@ class LinearSolverStatus(ABC):
 
     def is_success(self) -> bool:
         # Developer note: This breaks the OOP principle that the base class should not
-        # know of its children, but we agreed on having these methods (is_success and
-        # is_failure) for convenience. One can think of LinearSolverStatus as a
-        # closed enum of two cases (success and failure), which in this case justifies
-        # this binding with child classes.
+        # know of its children, but we agreed on having these methods (is_success,
+        # is_failure and is_not_converged) for convenience. One can think of
+        # LinearSolverStatus as a closed enum of three cases (success, failure and not
+        # converged), which in this case justifies this binding with child classes.
         """Whether the linear system is solved successfully."""
         return isinstance(self, LinearSolverStatusSuccess)
 
     def is_failure(self) -> bool:
         """Whether the linear system is not solved successfully."""
         return isinstance(self, LinearSolverStatusFailure)
+
+    def is_not_converged(self) -> bool:
+        """Whether the solver stopped short of its tolerance, but returned a finite
+        solution that may be used as an inexact solution."""
+        return isinstance(self, LinearSolverStatusNotConverged)
 
 
 @dataclass
@@ -87,6 +93,43 @@ class LinearSolverStatusFailure(LinearSolverStatus):
 
     reason: str
     """Human-readable description of the failure."""
+
+
+@dataclass
+class LinearSolverStatusNotConverged(LinearSolverStatus):
+    """Status returned when a solver stopped before reaching its tolerance, but without
+    breaking down, so that the returned solution is finite and possibly useful.
+
+    This is the third outcome of a linear solve, next to success and failure. It is
+    needed by iterative solvers, which can stop in two very different ways:
+
+    - The solution is unusable, e.g. it contains NaN or infinite values, or the
+      preconditioner could not be set up. This is a failure
+      (:class:`LinearSolverStatusFailure`); the caller should not use the solution.
+    - The solver ran out of iterations, or its Krylov process broke down, before the
+      requested residual reduction was reached. The solution is finite and usually
+      reduces the residual, only by less than requested. This is the present status.
+
+    Reporting the second case as a failure would discard a usable solution; reporting
+    it as a success would hide that the tolerance was not met. The status therefore
+    leaves the decision to the caller, which has the information to make it. In
+    particular, for a Newton method, the solution is an inexact Newton step, which is
+    a legitimate update as long as the nonlinear convergence and divergence criteria
+    are checked afterwards (inexact Newton methods rely on this, see e.g. Eisenstat and
+    Walker, SIAM J. Sci. Comput. 17(1), 1996).
+    :class:`~porepy.numerics.solvers.NewtonSolver` applies such updates and continues
+    iterating. This mirrors PETSc's nonlinear solvers, which
+    always stop on a NaN or infinite linear solve, but can be allowed to continue past
+    other linear-solver failures (option ``-snes_max_linear_solve_fail``).
+
+    Implementations of :class:`LinearSolverBase` should return this status only when
+    the returned solution is finite. Direct solvers do not use it: they either solve
+    the system or fail.
+
+    """
+
+    reason: str
+    """Human-readable description of why the solver stopped."""
 
 
 @dataclass

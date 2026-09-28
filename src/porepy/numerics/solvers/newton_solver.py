@@ -572,6 +572,11 @@ class NewtonSolver(NonlinearSolverBase):
         evaluated at that state may raise errors that end the simulation rather than
         the nonlinear solve.
 
+        An increment from a solve that did not converge, but did not fail either (see
+        :class:`~porepy.numerics.solvers.LinearSolverStatusNotConverged`), is an
+        inexact Newton step. It is usable: the convergence and divergence criteria
+        judge the resulting iterate like any other.
+
         Parameters:
             nonlinear_increment: Solution increment obtained from the linear solver.
             linear_solver_status: Status of the linear solve that produced it.

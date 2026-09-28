@@ -27,6 +27,7 @@ from porepy.numerics.solvers.linear_solvers.linear_solver import (
     LinearSolverDirect,
     LinearSolverStatus,
     LinearSolverStatusFailure,
+    LinearSolverStatusNotConverged,
     LinearSolverStatusSuccess,
     LinearSystem,
 )
@@ -34,6 +35,7 @@ from porepy.numerics.solvers.linear_solvers.linear_solver import (
 __all__ = [
     "SchurComplementReductionStatusSuccess",
     "SchurComplementReductionStatusFailure",
+    "SchurComplementReductionStatusNotConverged",
     "SchurComplementReductionLinearSolver",
 ]
 
@@ -45,6 +47,11 @@ class SchurComplementReductionStatusSuccess(LinearSolverStatusSuccess):
 
 @dataclass
 class SchurComplementReductionStatusFailure(LinearSolverStatusFailure):
+    primary_solver_status: LinearSolverStatus
+
+
+@dataclass
+class SchurComplementReductionStatusNotConverged(LinearSolverStatusNotConverged):
     primary_solver_status: LinearSolverStatus
 
 
@@ -398,6 +405,13 @@ def _wrap_primary_solver_status(
         return SchurComplementReductionStatusSuccess(
             solve_time=solve_time,
             primary_solver_status=primary_solver_status,
+        )
+    elif primary_solver_status.is_not_converged():
+        # The secondary variables are recovered from a finite primary solution by a
+        # direct back-substitution, so the full solution is as usable as the primary.
+        return SchurComplementReductionStatusNotConverged(
+            primary_solver_status=primary_solver_status,
+            reason="primary linear solver did not converge",
         )
     else:
         return SchurComplementReductionStatusFailure(

@@ -126,22 +126,32 @@ def test_initialize_with_model() -> None:
     assert primary_solver.model is model
 
 
-@pytest.mark.parametrize("primary_solver_succeeds", [True, False])
+@pytest.mark.parametrize(
+    "primary_status, expected_status_type",
+    [
+        (
+            pp.solvers.LinearSolverStatusSuccess(solve_time=1.0),
+            pp.solvers.SchurComplementReductionStatusSuccess,
+        ),
+        (
+            pp.solvers.LinearSolverStatusNotConverged(reason="mock iteration cap"),
+            pp.solvers.SchurComplementReductionStatusNotConverged,
+        ),
+        (
+            pp.solvers.LinearSolverStatusFailure(reason="mock failure"),
+            pp.solvers.SchurComplementReductionStatusFailure,
+        ),
+    ],
+)
 def test_solve(
     linear_system_data: LinearSystemData,
-    primary_solver_succeeds: bool,
+    primary_status: pp.solvers.LinearSolverStatus,
+    expected_status_type: type[pp.solvers.LinearSolverStatus],
 ) -> None:
-    """Solve the linear system with the Schur complement solver. The inner solver may
-    fail, then the Schur complement solver should fail as well.
+    """Solve the linear system with the Schur complement solver. Its status must be of
+    the same kind as the inner solver's: success, not converged, or failure.
 
     """
-    # Construct an inner solver that will either succeed or fail.
-    if primary_solver_succeeds:
-        primary_status: pp.solvers.LinearSolverStatus = (
-            pp.solvers.LinearSolverStatusSuccess(solve_time=1.0)
-        )
-    else:
-        primary_status = pp.solvers.LinearSolverStatusFailure(reason="mock failure")
     primary_solver = MockPrimaryLinearSolver(
         solution=np.array([-1.0, 3.0]),
         status=primary_status,
@@ -177,22 +187,9 @@ def test_solve(
         list(reduced_system.variable_indexer.indices.values())
     ).tolist()
 
-    # Status must be the subclass.
-    assert isinstance(
-        status,
-        (
-            pp.solvers.SchurComplementReductionStatusSuccess,
-            pp.solvers.SchurComplementReductionStatusFailure,
-        ),
-    )
-    # It must contain what the primary solver returned.
+    # Status must be the subclass, and contain what the primary solver returned.
+    assert isinstance(status, expected_status_type)
     assert status.primary_solver_status is primary_status
-    if primary_solver_succeeds:
-        assert isinstance(status, pp.solvers.SchurComplementReductionStatusSuccess)
-        assert status.solve_time >= 0.0
-    else:
-        assert isinstance(status, pp.solvers.SchurComplementReductionStatusFailure)
-        assert status.reason == "primary linear solver failed"
 
 
 def test_solve_delegates_when_secondary_block_is_empty(

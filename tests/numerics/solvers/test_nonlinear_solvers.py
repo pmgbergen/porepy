@@ -473,19 +473,24 @@ def test_solve_failure():
 
 
 @pytest.mark.parametrize(
-    "increment, linear_solve_failed",
+    "increment, linear_solver_status, is_applied",
     [
-        (2.0, True),  # Finite increment, but the linear solver reports failure.
-        (np.inf, False),
-        (np.nan, False),
+        # Finite increment, but the linear solver reports failure.
+        (0.5, pp.solvers.LinearSolverStatusFailure(reason="mock failure"), False),
+        (np.inf, pp.solvers.LinearSolverStatusSuccess(solve_time=0), False),
+        (np.nan, pp.solvers.LinearSolverStatusSuccess(solve_time=0), False),
+        # An inexact step, e.g. from an iterative solver at its iteration cap.
+        (0.5, pp.solvers.LinearSolverStatusNotConverged(reason="mock cap"), True),
     ],
 )
-def test_solve_rejects_unusable_update(increment, linear_solve_failed):
+def test_solve_applies_only_usable_updates(increment, linear_solver_status, is_applied):
     """An increment from a failed linear solve, or a non-finite one, must never reach
-    the model: the nonlinear solve fails on that iteration instead.
+    the model: the nonlinear solve fails on that iteration instead. An increment from
+    a solve that did not converge, but did not fail, is applied, and the nonlinear
+    solve goes on (here to convergence).
 
-    A failure here most likely means that the Newton loop applies updates without
-    consulting the linear solver status.
+    A failure here most likely means that the Newton loop does not consult the linear
+    solver status, or that it treats a non-converged solve as a failed one.
 
     """
 
@@ -493,23 +498,27 @@ def test_solve_rejects_unusable_update(increment, linear_solve_failed):
         def after_nonlinear_iteration(self, nonlinear_increment, **kwargs):
             self.applied_increments.append(nonlinear_increment)
 
-    class FailingLinearSolver(MockLinearSolver):
+    class SecondSolveStatusLinearSolver(MockLinearSolver):
         def solve_linear_system(self, linear_system):
             increment, status = super().solve_linear_system(linear_system)
-            if linear_solve_failed and self.iteration_counter == 1:
-                status = pp.solvers.LinearSolverStatusFailure(reason="mock failure")
+            if self.iteration_counter == 1:
+                status = linear_solver_status
             return increment, status
 
-    model = RecordingModel(residual_history=[2.0, 2.0])
+    model = RecordingModel(residual_history=[2.0, 0.5])
     model.applied_increments = []
     solver = default_newton_solver()
-    solver.linear_solver = FailingLinearSolver(np.array([2.0, increment]))
+    solver.linear_solver = SecondSolveStatusLinearSolver(np.array([2.0, increment]))
 
     solver_status = solver.solve(model)
 
-    assert solver_status.is_failed()
     assert solver_status.number_of_iterations() == 2
-    assert model.applied_increments == [2.0]
+    if is_applied:
+        assert solver_status.is_converged()
+        assert model.applied_increments == [2.0, increment]
+    else:
+        assert solver_status.is_failed()
+        assert model.applied_increments == [2.0]
 
 
 def test_solve_failure_statistics():
