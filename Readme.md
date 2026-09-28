@@ -31,7 +31,10 @@ For additional inspiration, the [examples](https://github.com/pmgbergen/porepy/t
 The code can be accessed in several ways:
 *	The most immediate access is running PorePy in your web browser. If you have a GitHub account, use a GitHub codespace for PorePy following [these instructions]( https://docs.github.com/en/codespaces/developing-in-a-codespace/creating-a-codespace-for-a-repository#creating-a-codespace-for-a-repository). Note that the building time will be a few minutes.
 *	If you want to run the code on your own machine, you have two options:
-    *	We recommend pulling the PorePy Docker image through ‘docker pull porepy/stable’. Make sure you have [Docker](https://www.docker.com/) installed. You can then run the code in a container with ‘docker run -it porepy/stable’. For development, we highly recommend combining docker with Devcontainers, e.g. through [Visual Studio Code](https://code.visualstudio.com/docs/devcontainers/tutorial).  You can use [open workspace in container](https://code.visualstudio.com/docs/devcontainers/containers?referrer=vsc-search#_open-an-existing-workspace-in-a-container) to combine PorePy source code (relative path in the container is "path": "../../workdir/porepy") with your project.
+    *	We recommend the PorePy Docker images (requires [Docker](https://www.docker.com/)): `docker pull porepy/stable`, then `docker run -it porepy/stable`.
+    For development, we recommend VS Code [Dev Containers](https://code.visualstudio.com/docs/devcontainers/containers) based on the image `porepy/dev:latest`.
+    PorePy is installed in editable mode at `/workdir/porepy` in the container; add it to a [multi-root workspace](https://code.visualstudio.com/docs/editor/workspaces/multi-root-workspaces) to work on it alongside your project.
+    Note that changes there are stored in the container only, so commit and push them before rebuilding.
     *	To install PorePy manually, follow the [install instructions]( https://github.com/pmgbergen/porepy/blob/develop/Install.md).
 
 Documentation can be found [here](https://pmgbergen.github.io/porepy/html/docsrc/porepy/porepy.html) (still under construction).
