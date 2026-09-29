@@ -47,6 +47,7 @@ from porepy.numerics.solvers.convergence_check import (
 )
 
 from ..functional.setups.linear_tracer import TracerFlowModel_3p
+from .test_fluid_mass_balance import WellModel
 from .test_poromechanics import TailoredPoromechanics, create_model_with_fracture
 
 # Store current directory, directory containing reference files, and temporary
@@ -178,6 +179,97 @@ def test_restart_resumes_at_the_exported_time(restarted_poromechanics):
     original, restarted = restarted_poromechanics
     assert restarted.time_manager.time == original.time_manager.time
     assert restarted.time_manager.dt == original.time_manager.dt
+
+
+@pytest.fixture(scope="module")
+def restarted_well_flow(tmp_path_factory) -> dict[str, Any]:
+    """Run a compressible flow case with a well crossing a fracture three time steps,
+    once uninterrupted, and once restarted after the second step.
+
+    The well is coupled to the fracture through an interface of codimension two, and
+    the compressible fluid makes the problem both transient and nonlinear, so that a
+    restart has to reproduce the state of every variable exactly for the continued run
+    to take the same Newton path as the uninterrupted one.
+
+    Returns:
+        The uninterrupted run, the run that was restarted from, the restarted run, and
+        the folder of the restarted run.
+
+    """
+    directory = tmp_path_factory.mktemp("restart_well")
+
+    def run(name: str, end_time: float, restart_from: Optional[str] = None):
+        params = {
+            "fracture_indices": [2],
+            "material_constants": {
+                "solid": pp.SolidConstants(permeability=1e-6, well_radius=0.01),
+                "fluid": pp.FluidComponent(compressibility=1e-7),
+            },
+            "time_manager": pp.TimeManager(
+                schedule=[0, end_time], dt_init=1.0, constant_dt=True
+            ),
+            "times_to_export": None,
+            "folder_name": str(directory / name),
+        }
+        if restart_from is not None:
+            params["restart_options"] = {
+                "restart": True,
+                "pvd_file": directory / restart_from / "data.pvd",
+                "times_file": directory / restart_from / "times.json",
+            }
+        model = WellModel(params)
+        pp.run_time_dependent_model(model)
+        return model
+
+    return {
+        "uninterrupted": run("uninterrupted", 3.0),
+        "first_part": run("first_part", 2.0),
+        "restarted": run("restarted", 3.0, restart_from="first_part"),
+        "restarted_folder": directory / "restarted",
+    }
+
+
+def test_restarted_well_flow_continues_as_if_uninterrupted(restarted_well_flow):
+    """A run restarted from its own output must continue exactly as the uninterrupted
+    run does: along the same Newton path, to the same state.
+
+    The Newton path is what reveals a state that was not restored. A converged step
+    forgets its initial guess, so a variable restored wrongly, such as a well flux
+    between the well and the fracture it crosses restored as zero because it was not
+    exported, changes the converged state only within the solver tolerance - but it
+    changes the increments and residuals of every iteration on the way.
+
+    """
+    uninterrupted = restarted_well_flow["uninterrupted"]
+    restarted = restarted_well_flow["restarted"]
+    assert restarted.time_manager.time == uninterrupted.time_manager.time
+    expected_path = uninterrupted.nonlinear_solver_statistics.convergence_info
+    actual_path = restarted.nonlinear_solver_statistics.convergence_info
+    for norm in ("inc_abs", "res_abs"):
+        assert np.allclose(actual_path[norm], expected_path[norm], rtol=1e-8), (
+            f"the Newton path differs after the restart ({norm})"
+        )
+    well_fluxes = 0.0
+    for variable, resumed_variable in zip(
+        uninterrupted.equation_system.variables,
+        restarted.equation_system.variables,
+        strict=True,
+    ):
+        expected = uninterrupted.equation_system.get_variable_values(
+            variables=[variable], time_step_index=0
+        )
+        actual = restarted.equation_system.get_variable_values(
+            variables=[resumed_variable], time_step_index=0
+        )
+        scale = max(float(np.max(np.abs(expected))), 1e-300)
+        assert np.allclose(actual, expected, rtol=0, atol=1e-10 * scale), (
+            f"{variable.name} differs after the restart"
+        )
+        if variable.domain in uninterrupted.mdg.interfaces(codim=2):
+            well_fluxes = max(well_fluxes, float(np.max(np.abs(expected))))
+    # Without this the test passes when the flux through the codimension-two interface
+    # is zero anyway, which would not tell a lost variable from a restored one.
+    assert well_fluxes > 0, "no flux through the codimension-two interface"
 
 
 @pytest.mark.parametrize(

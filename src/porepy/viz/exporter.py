@@ -25,6 +25,7 @@ Field = namedtuple("Field", ["name", "values"])
 # values.
 Meshio_Geom = namedtuple("Meshio_Geom", ["pts", "connectivity", "cell_ids"])
 MD_Meshio_Geom = Dict[int, Union[None, Meshio_Geom]]
+MD_Mortar_Meshio_Geom = Dict[Tuple[int, int], Union[None, Meshio_Geom]]
 
 # All allowed data structures to define data for exporting
 DataInput = Union[
@@ -56,6 +57,11 @@ class Exporter:
     differently dimensioned grids, constant data, and finally time steps. For
     transient simulations with multiple time steps, a single pvd file takes care of
     the ordering of all printed vtu files.
+
+    Interfaces are exported to one file per codimension and dimension, since data is
+    exported for all or none of the grids in a file, and interfaces of different
+    codimension carry different variables. Files of codimension-1 interfaces are marked
+    by ``mortar``, those of higher codimension by, e.g., ``mortar_codim2``.
 
     In the case of different keywords, change the file name with "change_name".
 
@@ -165,11 +171,14 @@ class Exporter:
         # Generate infrastructure for storing fixed-dimensional mortar grids in meshio
         # format.
 
-        self._m_dims = np.unique([intf.dim for intf in self._mdg.interfaces(codim=1)])
-        """Array of dimensions of the mortar grids."""
+        self._m_groups: list[tuple[int, int]] = sorted(
+            {(intf.codim, intf.dim) for intf in self._mdg.interfaces()}
+        )
+        """Codimension and dimension of each group of mortar grids sharing a file."""
 
-        self.m_meshio_geom: MD_Meshio_Geom = dict()
-        """Dictionary storing the meshio representation of the mortar grids."""
+        self.m_meshio_geom: MD_Mortar_Meshio_Geom = dict()
+        """Dictionary storing the meshio representation of the mortar grids, keyed by
+        codimension and dimension."""
 
         # Generate geometrical information in meshio format
         self._update_meshio_geom()
@@ -400,16 +409,30 @@ class Exporter:
                 dim_pos = -2 if vtu_file_pieces[-2].isnumeric() else -1
                 dim = int(vtu_file_pieces[dim_pos])
 
+                # Interfaces of codimension other than one are marked by a 'codim'
+                # piece following 'mortar'.
+                tag_pos = dim_pos - 1
+                codim = 1
+                if (
+                    vtu_file_pieces[tag_pos].startswith("codim")
+                    and len(vtu_file_pieces) > -tag_pos
+                    and vtu_file_pieces[tag_pos - 1] == "mortar"
+                ):
+                    codim = int(vtu_file_pieces[tag_pos].removeprefix("codim"))
+                    tag_pos -= 1
+
                 # If the key words before are 'mortar', or 'mortar' and 'constant', the
                 # vtu file corresponds to intefaces; otherwise to subdomains.
                 is_subdomain_data = not (
-                    vtu_file_pieces[dim_pos - 1] == "mortar"
-                    or vtu_file_pieces[dim_pos - 1] == "constant"
-                    and vtu_file_pieces[dim_pos - 2] == "mortar"
+                    vtu_file_pieces[tag_pos] == "mortar"
+                    or vtu_file_pieces[tag_pos] == "constant"
+                    and vtu_file_pieces[tag_pos - 1] == "mortar"
                 )
 
             else:
-                # Read from keyword arguments
+                # Read from keyword arguments. Interface files are taken to be of
+                # codimension one.
+                codim = 1
 
                 # Dimensionality of the grid
                 if "dims" not in kwargs:
@@ -442,7 +465,9 @@ class Exporter:
             # via some transformation. However, here we require identical grids.
 
             meshio_geometry = (
-                self.meshio_geom[dim] if is_subdomain_data else self.m_meshio_geom[dim]
+                self.meshio_geom[dim]
+                if is_subdomain_data
+                else self.m_meshio_geom[(codim, dim)]
             )
             assert isinstance(meshio_geometry, Meshio_Geom)
 
@@ -471,7 +496,7 @@ class Exporter:
                             _keys += list(sd_data[pp.TIME_STEP_SOLUTIONS].keys())
                 else:
                     for intf, intf_data in self._mdg.interfaces(
-                        dim=dim, return_data=True
+                        dim=dim, return_data=True, codim=codim
                     ):
                         if pp.TIME_STEP_SOLUTIONS in intf_data:
                             _keys += list(intf_data[pp.TIME_STEP_SOLUTIONS].keys())
@@ -502,7 +527,7 @@ class Exporter:
 
                 else:
                     for intf, intf_data in self._mdg.interfaces(
-                        dim=dim, return_data=True, codim=1
+                        dim=dim, return_data=True, codim=codim
                     ):
                         num_dofs = self._num_grid_entities(intf, grid_entity_type)
                         values = _from_vector_format(
@@ -856,13 +881,18 @@ class Exporter:
                     )
 
             # Interface data.
-            for dim in self._m_dims:
-                if self._has_interface_data and self.m_meshio_geom[dim] is not None:
+            for codim, dim in self._m_groups:
+                if (
+                    self._has_interface_data
+                    and self.m_meshio_geom[(codim, dim)] is not None
+                ):
                     o_file.write(
                         fm
                         % (
                             time,
-                            self._make_file_name(self._file_name, "mortar", fn, dim),
+                            self._make_file_name(
+                                self._file_name, self._mortar_tag(codim), fn, dim
+                            ),
                         )
                     )
 
@@ -886,10 +916,10 @@ class Exporter:
                         )
 
                 # Constant interface data.
-                for dim in self._m_dims:
+                for codim, dim in self._m_groups:
                     if (
                         self._has_constant_interface_data
-                        and self.m_meshio_geom[dim] is not None
+                        and self.m_meshio_geom[(codim, dim)] is not None
                     ):
                         o_file.write(
                             fm
@@ -897,7 +927,7 @@ class Exporter:
                                 time,
                                 self._make_file_name(
                                     self._file_name,
-                                    "constant_mortar",
+                                    "constant_" + self._mortar_tag(codim),
                                     fn_constants,
                                     dim,
                                 ),
@@ -1049,7 +1079,7 @@ class Exporter:
                         has_key = True
 
                 # Check data associated to interface field data
-                for intf, intf_data in self._mdg.interfaces(return_data=True, codim=1):
+                for intf, intf_data in self._mdg.interfaces(return_data=True):
                     if _add_data(key, intf, intf_data, interface_data):
                         has_key = True
 
@@ -1499,7 +1529,7 @@ class Exporter:
             self._constant_interface_data_pt = dict()
 
         # Add mesh related, constant interface data by direct assignment.
-        for intf in self._mdg.interfaces(codim=1):
+        for intf in self._mdg.interfaces():
             # Construct empty arrays for all extra interface data
             self._constant_interface_data[(intf, "grid_dim")] = np.empty(0, dtype=int)
             self._constant_interface_data[(intf, "cell_id")] = np.empty(0, dtype=int)
@@ -1602,22 +1632,12 @@ class Exporter:
             msg = "_export_data_vtu got unexpected keyword argument '{}'"
             raise TypeError(msg.format(kwargs.popitem()[0]))
 
-        # Fetch the dimensions to be traversed. For subdomains, fetch the dimensions of
-        # the available grids, and for interfaces fetch the dimensions of the available
-        # mortar grids.
         is_subdomain_data: bool = not self.interface_data
-        dims = self._dims if is_subdomain_data else self._m_dims
 
         # Define file name base
         file_name_stem: str = self._file_name.stem
         # Extend in case of constant data
         file_name_stem += "_constant" if self.constant_data else ""
-        # Extend in case of interface data
-        file_name_stem += "_mortar" if self.interface_data else ""
-        # Append folder name to file name base
-        file_name_base: Path = self._append_folder_name(
-            Path(file_name_stem), self._folder_name
-        )
 
         # Collect unique keys, and for unique sorting, sort by alphabet
         keys = list(set([key for _, key in data]))
@@ -1650,16 +1670,32 @@ class Exporter:
             # for different entities
             return [Field(key, np.hstack(values))] if values else []
 
-        # Collect the data and extra data in a single stack for each dimension
-        for dim in dims:
-            # Define the full file name
-            file_name: Path = self._make_file_name(file_name_base, None, time_step, dim)
+        # The groups of grids exported to one file each: subdomains by dimension, and
+        # interfaces by codimension and dimension.
+        groups: list[tuple[int, list[Any], Optional[Meshio_Geom], str]]
+        if is_subdomain_data:
+            groups = [
+                (dim, self._mdg.subdomains(dim=dim), self.meshio_geom[dim], "")
+                for dim in self._dims
+            ]
+        else:
+            groups = [
+                (
+                    dim,
+                    self._mdg.interfaces(dim=dim, codim=codim),
+                    self.m_meshio_geom[(codim, dim)],
+                    "_" + self._mortar_tag(codim),
+                )
+                for codim, dim in self._m_groups
+            ]
 
-            # Get all geometrical entities of dimension dim:
-            if is_subdomain_data:
-                entities: list[Any] = self._mdg.subdomains(dim=dim)
-            else:
-                entities = self._mdg.interfaces(dim=dim, codim=1)
+        # Collect the data and extra data in a single stack for each group
+        for dim, entities, meshio_geom, file_name_tag in groups:
+            # Define the full file name
+            file_name_base: Path = self._append_folder_name(
+                Path(file_name_stem + file_name_tag), self._folder_name
+            )
+            file_name: Path = self._make_file_name(file_name_base, None, time_step, dim)
 
             # Construct the list of cell fields represented on this dimension.
             fields: list[Field] = []
@@ -1671,11 +1707,7 @@ class Exporter:
             for key in keys_pt:
                 fields_pt += _build_field(key, entities, data_pt, dim)
 
-            # Print data for the particular dimension. Since geometric info is required
-            # distinguish between subdomain and interface data.
-            meshio_geom = (
-                self.meshio_geom[dim] if is_subdomain_data else self.m_meshio_geom[dim]
-            )
+            # Print data for the particular group.
             if meshio_geom is not None:
                 self._write(fields, fields_pt, file_name, meshio_geom)
 
@@ -1711,10 +1743,16 @@ class Exporter:
                 )
 
         # Interface data.
-        for dim in self._m_dims:
-            if self._has_interface_data and self.m_meshio_geom[dim] is not None:
+        for codim, dim in self._m_groups:
+            if (
+                self._has_interface_data
+                and self.m_meshio_geom[(codim, dim)] is not None
+            ):
                 o_file.write(
-                    fm % self._make_file_name(self._file_name, "mortar", time_step, dim)
+                    fm
+                    % self._make_file_name(
+                        self._file_name, self._mortar_tag(codim), time_step, dim
+                    )
                 )
 
         # If constant data is exported to separate vtu files, also include these here.
@@ -1738,16 +1776,16 @@ class Exporter:
                     )
 
             # Constant interface data.
-            for dim in self._m_dims:
+            for codim, dim in self._m_groups:
                 if (
                     self._has_constant_interface_data
-                    and self.m_meshio_geom[dim] is not None
+                    and self.m_meshio_geom[(codim, dim)] is not None
                 ):
                     o_file.write(
                         fm
                         % self._make_file_name(
                             self._file_name,
-                            "constant_mortar",
+                            "constant_" + self._mortar_tag(codim),
                             self._time_step_constant_data,
                             dim,
                         )
@@ -1772,15 +1810,18 @@ class Exporter:
             self.meshio_geom[dim] = self._export_grid(subdomains, dim)
 
         # Interfaces
-        for dim in self._m_dims:
-            # Extract the mortar grids for dimension dim, unrolled by sides
+        for codim, dim in self._m_groups:
+            # Extract the mortar grids of this codimension and dimension, unrolled by
+            # sides
             interface_side_grids = [
                 grid
-                for intf in self._mdg.interfaces(dim=dim, codim=1)
+                for intf in self._mdg.interfaces(dim=dim, codim=codim)
                 for _, grid in intf.side_grids.items()
             ]
             # Export and store
-            self.m_meshio_geom[dim] = self._export_grid(interface_side_grids, dim)
+            self.m_meshio_geom[(codim, dim)] = self._export_grid(
+                interface_side_grids, dim
+            )
 
     def _export_grid(
         self, grids: Iterable[pp.Grid], dim: int
@@ -2658,6 +2699,14 @@ class Exporter:
 
         # Return full path.
         return folder_name / name
+
+    def _mortar_tag(self, codim: int) -> str:
+        """Tag marking the files of interfaces of a given codimension.
+
+        Codimension one, by far the most common, has the plain tag ``mortar``.
+
+        """
+        return "mortar" if codim == 1 else f"mortar_codim{codim}"
 
     def _make_file_name(
         self,

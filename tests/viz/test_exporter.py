@@ -23,8 +23,12 @@ import pytest
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.applications.test_utils import well_models
 from porepy.applications.test_utils.grids import polytop_grid_2d, polytop_grid_3d
-from porepy.applications.test_utils.models import Thermoporomechanics
+from porepy.applications.test_utils.models import (
+    CubeDomainOrthogonalFractures,
+    Thermoporomechanics,
+)
 from porepy.applications.test_utils.vtk import (
     PathLike,
     compare_pvd_files,
@@ -401,6 +405,49 @@ def test_import_from_pvd_mdg(setup: ExporterTestSetup, case: int):
             setup.folder / f"{setup.file_name}{appendix}.pvd",
             setup.folder_reference / f"restart/grid{appendix}.pvd",
         )
+
+
+class FractureCrossedByWell(
+    well_models.OneVerticalWell, CubeDomainOrthogonalFractures, pp.SinglePhaseFlow
+):
+    """A vertical well crossing a horizontal fracture. The two are coupled through an
+    interface of codimension two, next to the codimension-one interfaces of the same
+    dimension that couple the well to the point where it crosses the fracture."""
+
+
+def test_codim2_interfaces_round_trip(setup: ExporterTestSetup):
+    """Data on interfaces of codimension two must be exported, to files of their own
+    listed in the pvd file, and read back on import.
+
+    A failure means that these interfaces are dropped again: a restarted simulation
+    then resumes with their variables (well fluxes, for wells crossing fractures) set
+    to zero, and they are missing from the visualisation.
+
+    """
+    model = FractureCrossedByWell({"fracture_indices": [2]})
+    model.set_geometry()
+    mdg = model.mdg
+    assert mdg.interfaces(codim=2, dim=0) and mdg.interfaces(codim=1, dim=0)
+
+    # Data on interfaces of codimension two only, as with the well fluxes of a model:
+    # the codimension-one interfaces of the same dimension carry other variables.
+    exported = {}
+    for intf, data in mdg.interfaces(return_data=True, codim=2):
+        exported[intf] = np.arange(intf.num_cells) + 10.0 * intf.id + 1.0
+        pp.set_solution_values("flux", exported[intf].copy(), data, time_step_index=0)
+
+    save = pp.Exporter(mdg, setup.file_name, setup.folder)
+    save.write_vtu(["flux"], time_dependent=True)
+    save.write_pvd()
+    pvd_file = setup.folder / f"{setup.file_name}.pvd"
+    assert f"{setup.file_name}_mortar_codim2_0_000000.vtu" in pvd_file.read_text()
+
+    for intf, data in mdg.interfaces(return_data=True, codim=2):
+        pp.set_solution_values("flux", 0 * exported[intf], data, time_step_index=0)
+    save.import_from_pvd(pvd_file, keys=["flux"])
+    for intf, data in mdg.interfaces(return_data=True, codim=2):
+        imported = pp.get_solution_values("flux", data, time_step_index=0)
+        assert np.array_equal(imported, exported[intf])
 
 
 @pytest.mark.parametrize("addendum", ["", "nontrivial_data_"])
