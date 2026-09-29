@@ -100,7 +100,13 @@ class DataSavingMixin(pp.PorePyModel):
             Path(self.params["folder_name"]) / "times.json"
         )
         self.exporter.write_vtu(self.data_to_export(), time_dependent=True)
-        times = np.array(self.time_manager.exported_times)
+        # Both the time history and the exporter's time steps count the exports, so the
+        # time of each written time step is found at its own index in the history. After
+        # a restart, the exporter has written only the time steps since the restart,
+        # while the history reaches back to the start.
+        times = np.array(self.time_manager.exported_times)[
+            self.exporter.exported_time_steps
+        ]
         if self.restart_options.get("restart", False):
             # For a pvd file addressing all time steps (before and after restart
             # time), resume based on restart input pvd file through append.

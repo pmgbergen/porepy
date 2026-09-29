@@ -222,6 +222,15 @@ class Exporter:
         self._padding = 6
         """Padding of zeros for creating the time step dependent appendix for output."""
 
+    @property
+    def exported_time_steps(self) -> list[int]:
+        """The time steps (file name suffixes) written so far, in the order written.
+
+        After a restart, these start at the time step restarted from, not at zero.
+
+        """
+        return list(self._exported_timesteps)
+
     def import_from_pvd(
         self,
         pvd_file: Path,
