@@ -272,6 +272,20 @@ def test_restarted_well_flow_continues_as_if_uninterrupted(restarted_well_flow):
     assert well_fluxes > 0, "no flux through the codimension-two interface"
 
 
+def test_restart_resumes_the_time_step_count(restarted_well_flow):
+    """A restarted run must continue counting time steps where it stopped.
+
+    A failure means the time index restarts from zero, which misplaces everything
+    indexed by it, such as the time step dependent boundary data of some models.
+
+    """
+    first_part = restarted_well_flow["first_part"]
+    restarted = restarted_well_flow["restarted"]
+    uninterrupted = restarted_well_flow["uninterrupted"]
+    assert first_part.time_manager.time_index == 2
+    assert restarted.time_manager.time_index == uninterrupted.time_manager.time_index
+
+
 def test_restarted_pvd_file_labels_every_step_with_its_time(restarted_well_flow):
     """The pvd file continued by a restarted run must label each exported step with
     the time it was exported at, before and after the restart.
