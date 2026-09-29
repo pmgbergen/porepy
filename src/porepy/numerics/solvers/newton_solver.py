@@ -587,9 +587,10 @@ class NewtonSolver(NonlinearSolverBase):
             # instead of retrying.
             message = "model.after_nonlinear_iteration failed"
             logger.exception(message, stack_info=True)
-            return ConvergenceStatusCollection(), ConvergenceStatusCollection(
-                {message: ConvergenceStatus.FAILED}
-            )
+            # Return a failed convergence and divergence status to indicate that the
+            # nonlinear solver has failed.
+            failure = ConvergenceStatusCollection({message: ConvergenceStatus.FAILED})
+            return failure, failure
 
         # Monitor convergence.
         convergence_status, divergence_status, convergence_info = check_convergence(

@@ -921,3 +921,35 @@ def test_linear_solver_fails():
     )
     status = solver.solve(model)
     assert status.is_failed(), "Must return failure, but returns success instead."
+
+
+class RaisingAfterIterationModel(MockModel):
+    """A model whose post-iteration update rejects the iterate.
+
+    ``SolutionStrategy.after_nonlinear_iteration`` may rebuild discretization parameters
+    from the current iterate, and a diverged iterate can make one of them inadmissible
+    -- a conductivity built from a negative porosity, say. The solver catches that, and
+    this model reproduces it without any physics.
+    """
+
+    def after_nonlinear_iteration(self, nonlinear_increment, updated_variables=None):
+        raise ValueError("Error during post-iteration update.")
+
+
+def test_rejected_iterate_is_not_accepted_as_converged():
+    """A post-iteration update that raises must fail the solve, not pass it.
+
+    History note: Returning an empty convergence collection made the status resolve in
+    favour of convergence, so the iterate that had just been rejected was accepted and
+    committed as the time step solution. The crash then arrived at the next step's
+    ``before_time_step``, which performs the same update without a guard.
+    """
+    model = RaisingAfterIterationModel(residual_history=[1.0, 0.5])
+    solver = default_newton_solver(nonlinear_increment_history=[2.0, 0.5])
+    # Call solve, which invokes solver.after_nonlinear_iteration and thus
+    # model.after_nonlinear_iteration, which raises.
+    status = solver.solve(model)
+    # Check that the solver status indicates failure, not convergence.
+    assert isinstance(status, NonlinearSolverStatusFailed)
+    assert not status.is_converged()
+    assert status.is_failed()
