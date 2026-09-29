@@ -272,6 +272,28 @@ def test_restarted_well_flow_continues_as_if_uninterrupted(restarted_well_flow):
     assert well_fluxes > 0, "no flux through the codimension-two interface"
 
 
+def test_restarted_pvd_file_labels_every_step_with_its_time(restarted_well_flow):
+    """The pvd file continued by a restarted run must label each exported step with
+    the time it was exported at, before and after the restart.
+
+    A failure means that the steps exported after the restart are paired with times
+    from the start of the history, so that a later restart from this file, or a look at
+    it in ParaView, finds the wrong state at a given time.
+
+    """
+    folder = restarted_well_flow["restarted_folder"]
+    times = json.loads((folder / "times.json").read_text())["time"]
+    labelled = {}
+    for line in (folder / "data.pvd").read_text().splitlines():
+        if "<DataSet" in line:
+            time = float(line.split('timestep="')[1].split('"')[0])
+            step = int(line.split('file="')[1].split('"')[0].split("_")[-1][:-4])
+            labelled.setdefault(step, set()).add(time)
+    assert sorted(labelled) == list(range(len(times)))
+    for step, labels in labelled.items():
+        assert all(label == pytest.approx(times[step]) for label in labels)
+
+
 @pytest.mark.parametrize(
     "solid_vals,north_displacement",
     [
