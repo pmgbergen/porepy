@@ -40,6 +40,8 @@ __all__ = [
     "TpfaAd",
     "UpwindAd",
     "UpwindCouplingAd",
+    "HUpwindAd",
+    "HUpwindCouplingAd",
 ]
 
 
@@ -259,3 +261,47 @@ class UpwindCouplingAd(Discretization):
             f"Defined on {len(self.interfaces)} interfaces."
         )
         return s
+
+
+class HUpwindAd(Discretization):
+    """AD wrapper for :class:`~porepy.numerics.fv.upwind.HUpwind`.
+
+    Exposes the per-direction upwind / boundary-transport matrices of the two-direction
+    hybrid discretization as :class:`~porepy.numerics.ad.operators.MergedOperator`
+    factories: ``upwind_gamma()`` / ``upwind_delta()`` and the boundary variants.
+    """
+
+    def __init__(self, keyword: str, subdomains: list[pp.Grid]) -> None:
+        self.subdomains = subdomains
+        self._discretization = pp.HUpwind(keyword)
+        self._name = "HUpwind"
+        self.keyword = keyword
+
+        self.upwind_gamma: Callable[[], pp.ad.MergedOperator]
+        self.upwind_delta: Callable[[], pp.ad.MergedOperator]
+        self.bound_transport_dir_gamma: Callable[[], pp.ad.MergedOperator]
+        self.bound_transport_neu_gamma: Callable[[], pp.ad.MergedOperator]
+        self.bound_transport_dir_delta: Callable[[], pp.ad.MergedOperator]
+        self.bound_transport_neu_delta: Callable[[], pp.ad.MergedOperator]
+        pp.ad.wrap_discretization(self, self._discretization, subdomains=subdomains)
+
+
+class HUpwindCouplingAd(Discretization):
+    """AD wrapper for :class:`~porepy.numerics.fv.upwind.HUpwindCoupling`."""
+
+    def __init__(self, keyword: str, interfaces: list[pp.MortarGrid]) -> None:
+        self.interfaces = interfaces
+        self._discretization = pp.HUpwindCoupling(keyword)
+        self._name = "HUpwind coupling"
+        self.keyword = keyword
+
+        self.upwind_primary_gamma: Callable[[], pp.ad.MergedOperator]
+        self.upwind_secondary_gamma: Callable[[], pp.ad.MergedOperator]
+        self.upwind_primary_delta: Callable[[], pp.ad.MergedOperator]
+        self.upwind_secondary_delta: Callable[[], pp.ad.MergedOperator]
+        self.flux_gamma: Callable[[], pp.ad.MergedOperator]
+        self.flux_delta: Callable[[], pp.ad.MergedOperator]
+        self.trace: Callable[[], pp.ad.MergedOperator]
+        self.inv_trace: Callable[[], pp.ad.MergedOperator]
+        self.mortar_discr: Callable[[], pp.ad.MergedOperator]
+        pp.ad.wrap_discretization(self, self._discretization, interfaces=interfaces)

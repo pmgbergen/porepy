@@ -321,43 +321,54 @@ class MassicPressureEquations(pp.fluid_mass_balance.FluidMassBalanceEquations):
     """See :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`."""
 
     def fluid_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        """The fluid flux is given solely by the :attr:`darcy_flux`, assuming the total
-        mobility is part of the (non-linear) diffuse tensor.
+        """In the fractional-flow formulation the total mobility sits in the diffuse
+        tensor, so the fluid flux is the :attr:`darcy_flux` itself. Otherwise the
+        mobility-weighted flux of the parent class is required.
 
         Parameters:
             domains: List of subdomains or boundary grids.
 
         Returns:
-            Whatever :attr:`darcy_flux` returns.
+            The massic fluid flux matching the active formulation.
 
         """
-        return self.darcy_flux(domains)
+        if is_fractional_flow(self):
+            return self.darcy_flux(domains)
+        else:
+            return super().fluid_flux(domains)
 
     def interface_fluid_flux(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-        """The interface fluid flux is given solely by the :attr:`interface_darcy_flux`,
-        assuming it is a massic flux.
+        """Interface counterpart of :meth:`fluid_flux`: the
+        :attr:`interface_darcy_flux` in the fractional-flow formulation, the
+        mobility-weighted parent flux otherwise.
 
         Parameters:
             interfaces: List of mortar grids.
 
         Returns:
-            Whatever :attr:`interface_darcy_flux` returns.
+            The massic interface fluid flux matching the active formulation.
 
         """
-        return self.interface_darcy_flux(interfaces)
+        if is_fractional_flow(self):
+            return self.interface_darcy_flux(interfaces)
+        else:
+            return super().interface_fluid_flux(interfaces)
 
     def well_fluid_flux(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-        """The well fluid flux is given solely by the :attr:`well_flux`,
-        assuming it is a massic flux.
+        """Well counterpart of :meth:`fluid_flux`: the :attr:`well_flux` in the
+        fractional-flow formulation, the mobility-weighted parent flux otherwise.
 
         Parameters:
             interfaces: List of mortar grids.
 
         Returns:
-            Whatever :attr:`well_flux` returns.
+            The massic well fluid flux matching the active formulation.
 
         """
-        return self.well_flux(interfaces)
+        if is_fractional_flow(self):
+            return self.well_flux(interfaces)
+        else:
+            return super().well_fluid_flux(interfaces)
 
 
 class EnthalpyBasedEnergyBalanceEquations(
