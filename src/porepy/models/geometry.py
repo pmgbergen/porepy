@@ -458,9 +458,13 @@ class ModelGeometry(pp.PorePyModel):
             grids: List of grids on which the basis is defined.
             dim: Dimension of the basis.
             domain_type: The type of domain (subdomains, interfaces, or boundary grids)
-                that ``grids`` represents. If ``grids`` is empty, domain_type is used to
-                determine the type of the operator space. If ``grids`` is non-empty, a
-                given domain type must agree with the type of the grids.
+                that ``grids`` represents. This is only needed if ``grids`` is empty:
+                An empty list carries no information on the domain type, and the basis
+                is by default assigned a scalar operator space. Passing a domain type
+                overrides this, which is necessary if the basis is to be combined with
+                other operators defined on an empty list of grids of that type. If
+                ``grids`` is non-empty, the domain type is inferred from the grids, and
+                a given ``domain_type`` must agree with the inferred type.
 
         Returns:
             List of pp.ad.SparseArray, each of which represents a basis function.
@@ -508,16 +512,16 @@ class ModelGeometry(pp.PorePyModel):
             i: Index of the basis function. Note: Counts from 0.
             dim: Dimension of the functions.
             domain_type: The type of domain (subdomains, interfaces, or boundary
-                grids) that ``grids`` represents. If ``grids`` is empty, domain_type is
-                used to determine the type of the operator space. If ``grids`` is
-                non-empty, a given domain type must agree with the type of the grids.
+                grids) that ``grids`` represents. Only needed if ``grids`` is empty,
+                see :meth:`basis` for details.
 
         Returns:
             Ad projection that represents a basis function.
 
         Raises:
-            ValueError: If i is larger than dim - 1, or if *grids* mixes subdomains,
-                interfaces and/or boundary grids.
+            ValueError: If i is larger than dim - 1, if ``grids`` mixes subdomains,
+                interfaces and/or boundary grids, or if ``domain_type`` is inconsistent
+                with a non-empty ``grids``.
 
         """
         if dim is None:
