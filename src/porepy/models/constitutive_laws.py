@@ -1006,10 +1006,7 @@ class DarcysLaw(pp.PorePyModel):
 
         """
 
-        if len(domains) == 0 or all([isinstance(g, pp.BoundaryGrid) for g in domains]):
-            # Note: in case of the empty subdomain list, the time dependent array is
-            # still returned. Otherwise, this method produces an infinite recursion
-            # loop. It does not affect real computations anyhow.
+        if len(domains) > 0 and all([isinstance(g, pp.BoundaryGrid) for g in domains]):
             return self.create_boundary_operator(
                 name=self.bc_data_darcy_flux_key,
                 domains=cast(Sequence[pp.BoundaryGrid], domains),
@@ -1264,10 +1261,7 @@ class AdTpfaFlux(pp.PorePyModel):
         # the dp factor is easily overlooked when comparing a computed and a 'known'
         # value, resulting in frustration.
 
-        if len(domains) == 0 or all([isinstance(g, pp.BoundaryGrid) for g in domains]):
-            # Note: in case of an empty subdomain list, the time dependent array is
-            # still returned. Otherwise, this method produces an infinite recursion
-            # loop. It does not affect real computations.
+        if len(domains) > 0 and all([isinstance(g, pp.BoundaryGrid) for g in domains]):
             domains = cast(Sequence[pp.BoundaryGrid], domains)
             return self.create_boundary_operator(
                 name=flux_name,
@@ -3120,7 +3114,7 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
             Ad operator representing the mechanical stress on the faces of the grids.
 
         """
-        if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
+        if len(domains) > 0 and all(isinstance(d, pp.BoundaryGrid) for d in domains):
             domains = cast(Sequence[pp.BoundaryGrid], domains)
             return self.create_boundary_operator(
                 name=self.stress_keyword, domains=domains, dim=self.nd
@@ -3321,7 +3315,7 @@ class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
             Operator for the stress.
 
         """
-        if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
+        if len(domains) > 0 and all(isinstance(d, pp.BoundaryGrid) for d in domains):
             return self.create_boundary_operator(
                 name=self.stress_keyword,  # type: ignore[call-arg]
                 domains=cast(  # type: ignore[call-arg]
@@ -3393,7 +3387,7 @@ class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
             Operator for the total rotation.
 
         """
-        if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
+        if len(domains) > 0 and all(isinstance(d, pp.BoundaryGrid) for d in domains):
             # The boundary condition for this term is posed in terms of the displacement
             # variable (or stresses).
             return self.create_boundary_operator(
@@ -3450,7 +3444,7 @@ class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
             Operator for the solid mass flux.
 
         """
-        if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
+        if len(domains) > 0 and all(isinstance(d, pp.BoundaryGrid) for d in domains):
             # The boundary condition for this term is posed in terms of the displacement
             # variable (or stresses).
             return self.create_boundary_operator(

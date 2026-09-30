@@ -312,7 +312,7 @@ class TotalEnergyBalanceEquations(pp.BalanceEquation):
 
         """
 
-        if len(subdomains) == 0 or all(
+        if len(subdomains) > 0 and all(
             [isinstance(g, pp.BoundaryGrid) for g in subdomains]
         ):
             return self.create_boundary_operator(

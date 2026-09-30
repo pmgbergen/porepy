@@ -441,8 +441,10 @@ class EnthalpyBasedEnergyBalanceEquations(
 
         op: pp.ad.Operator | pp.ad.TimeDependentDenseArray
 
-        if is_fractional_flow(self) and all(
-            [isinstance(g, pp.BoundaryGrid) for g in domains]
+        if (
+            is_fractional_flow(self)
+            and len(domains) > 0
+            and all([isinstance(g, pp.BoundaryGrid) for g in domains])
         ):
             op = self.create_boundary_operator(
                 self.bc_data_fractional_flow_energy_key,
@@ -468,18 +470,18 @@ class EnthalpyBasedEnergyBalanceEquations(
         return op
 
     def enthalpy_flux(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        if (
-            len(subdomains) == 0
-            or all(isinstance(d, pp.BoundaryGrid) for d in subdomains)
-        ) and is_fractional_flow(self):
+        on_boundary = len(subdomains) > 0 and all(
+            isinstance(d, pp.BoundaryGrid) for d in subdomains
+        )
+        if on_boundary and is_fractional_flow(self):
             flux = self.advection_weight_energy_balance(subdomains) * self.darcy_flux(
                 subdomains
             )
         else:
             flux = super().enthalpy_flux(subdomains)
-        buoyancy_condition: bool = self.params.get(
-            "enable_buoyancy_effects", False
-        ) and not all([isinstance(g, pp.BoundaryGrid) for g in subdomains])
+        buoyancy_condition: bool = (
+            self.params.get("enable_buoyancy_effects", False) and not on_boundary
+        )
         if buoyancy_condition:
             flux += self.enthalpy_buoyancy(subdomains)
         return flux
@@ -696,8 +698,10 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
 
         op: pp.ad.Operator | pp.ad.TimeDependentDenseArray
 
-        if is_fractional_flow(self) and all(
-            [isinstance(g, pp.BoundaryGrid) for g in domains]
+        if (
+            is_fractional_flow(self)
+            and len(domains) > 0
+            and all([isinstance(g, pp.BoundaryGrid) for g in domains])
         ):
             op = self.create_boundary_operator(
                 self.bc_data_fractional_flow_component_key(component),
@@ -733,7 +737,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
             returned as an AD operator.
 
         """
-        if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
+        if len(domains) > 0 and all(isinstance(d, pp.BoundaryGrid) for d in domains):
             if is_fractional_flow(self):
                 return self.advection_weight_component_mass_balance(
                     component, domains

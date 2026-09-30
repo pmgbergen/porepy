@@ -450,7 +450,7 @@ class VariablesMomentumBalance(VariableMixin):
                 grids
 
         """
-        if len(domains) == 0 or all(
+        if len(domains) > 0 and all(
             isinstance(grid, pp.BoundaryGrid) for grid in domains
         ):
             domains = cast(Sequence[pp.BoundaryGrid], domains)
