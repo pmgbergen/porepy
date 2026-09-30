@@ -939,13 +939,7 @@ class EquationSystem:
 
     ### Equation management ------------------------------------------------------------
 
-    def set_equation(
-        self,
-        equation: Operator,
-        equations_per_grid_entity: Optional[
-            Union[GridEntities, Mapping[GridEntity, int]]
-        ] = None,
-    ) -> None:
+    def set_equation(self, equation: Operator) -> None:
         """Sets an equation using the passed operator and uses its name as an
         identifier.
 
@@ -959,21 +953,15 @@ class EquationSystem:
 
         Parameters:
             equation: An equation in AD operator form, assuming the right-hand side is
-                zero and this instance represents the left-hand side.
-            equations_per_grid_entity: a dictionary describing how many equations
-                ``equation_operator`` provides, i.e. the number of equations per grid
-                entity (cells, faces, nodes) for the operator. If None, this is inferred
-                from the equation operator's own ``target.dof_info``. Providing it
-                explicitly is optional and kept for backwards compatibility and as an
-                extra safety net.
+                zero and this instance represents the left-hand side. The number of
+                equations per grid entity (cells, faces, nodes) is inferred from the
+                operator's ``target.dof_info``.
 
         Raises:
             ValueError: If the equation operator has a name already assigned to a
                 previously set equation.
             ValueError: If the equation is defined on both subdomains and interfaces.
             AssertionError: If the equation is defined on an unknown grid.
-            AssertionError: If ``equations_per_grid_entity`` is given explicitly and
-                does not match the equation operator's own ``target.dof_info``.
             ValueError: If indicated number of equations does not match the actual
                 number as per evaluation of operator.
 
@@ -987,26 +975,12 @@ class EquationSystem:
                 "\n\nMake sure your equations are uniquely named."
             )
 
-        # If no grids are specified, there is nothing to do. Note: equation.target is
-        # then a scalar/unclear/waived space with (necessarily) empty dof_info, so
-        # equations_per_grid_entity cannot be validated against it in this case.
+        # If no grids are specified, there is nothing to do.
         grids = equation.target.grids
         if len(grids) == 0:
             # Store the equation itself.
             self._equations.update({name: equation})
             return
-
-        # If provided, check that the number of equations per grid entity is consistent
-        # with the equation operator's own target.dof_info.
-        if equations_per_grid_entity is not None:
-            if equation.target.dof_info != GridEntities.from_mapping(
-                equations_per_grid_entity
-            ):
-                s = (
-                    f"equations_per_grid_entity {equations_per_grid_entity} does not "
-                    f"match the equation operator's own target.dof_info "
-                    f" {equation.target.dof_info} for equation {name}."
-                )
 
         # We require that equations are defined either on a set of subdomains, or a set
         # of interfaces. The combination of the two is mathematically possible, provided
@@ -1058,14 +1032,7 @@ class EquationSystem:
         else:
             raise ValueError(f"Cannot remove unknown equation {name}")
 
-    def update_equation(
-        self,
-        equation_name: str,
-        new_equation: Operator,
-        equations_per_grid_entity: Optional[
-            Union[GridEntities, Mapping[GridEntity, int]]
-        ] = None,
-    ) -> None:
+    def update_equation(self, equation_name: str, new_equation: Operator) -> None:
         """Updates an existing equation with a new equation operator.
 
         This method removes the existing equation and sets a new equation under the same
@@ -1074,23 +1041,11 @@ class EquationSystem:
         Parameters:
             equation_name: Name of the equation to be updated.
             new_equation: New equation in AD form.
-            equations_per_grid_entity: a dictionary describing how many equations
-                ``equation_operator`` provides. This is a temporary work-around until
-                operators are able to provide information on their image space. The
-                dictionary must contain the number of equations per grid entity (cells,
-                faces, nodes) for the operator. The default value is None, and in that
-                case, the equations_per_grid_entity of the previous equation are used.
 
         """
-        if equations_per_grid_entity is None:
-            equations_per_grid_entity = self._equations[equation_name].target.dof_info
-
         self.remove_equation(equation_name)
         new_equation.set_name(equation_name)
-        self.set_equation(
-            equation=new_equation,
-            equations_per_grid_entity=equations_per_grid_entity,
-        )
+        self.set_equation(equation=new_equation)
 
     def reset_variable_equation_indices(self) -> None:
         """Inform the equation system that the domain of definition of variables and/or

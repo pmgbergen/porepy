@@ -3,8 +3,7 @@
 Verifies:
   1. Enum member values.
   2. ``create_variables`` works with enum-keyed ``dof_info`` dicts.
-  3. ``set_equation`` works with enum-keyed ``equations_per_grid_entity`` dicts.
-  4. ``GridEntities`` is an immutable, hashable value object with one field per
+  3. ``GridEntities`` is an immutable, hashable value object with one field per
      ``GridEntity`` member, and its derived properties treat a zero count and an
      absent entity as the same thing.
 """

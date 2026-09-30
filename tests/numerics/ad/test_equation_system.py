@@ -487,18 +487,8 @@ class EquationSystemMockModel:
         self.eq_single_subdomain = self.sd_top_variable * self.sd_top_variable
         self.eq_single_subdomain.set_name("eq_single_subdomain")
 
-        dof_all_subdomains = {GridEntity.cells: 1}
-        dof_single_subdomain = {GridEntity.cells: 1}
-        dof_combined = {GridEntity.cells: 1}
-
-        equation_system.set_equation(
-            self.eq_all_subdomains,
-            equations_per_grid_entity=dof_all_subdomains,
-        )
-        equation_system.set_equation(
-            self.eq_single_subdomain,
-            equations_per_grid_entity=dof_single_subdomain,
-        )
+        equation_system.set_equation(self.eq_all_subdomains)
+        equation_system.set_equation(self.eq_single_subdomain)
 
         # Define equations on the interfaces
         # Common for all interfaces
@@ -509,16 +499,8 @@ class EquationSystemMockModel:
         self.eq_single_interface.set_name("eq_single_interface")
 
         # TODO: Should we do something on a combination as well?
-        dof_all_interfaces = {GridEntity.cells: 2}
-        dof_single_interface = {GridEntity.cells: 2}
-        equation_system.set_equation(
-            self.eq_all_interfaces,
-            equations_per_grid_entity=dof_all_interfaces,
-        )
-        equation_system.set_equation(
-            self.eq_single_interface,
-            equations_per_grid_entity=dof_single_interface,
-        )
+        equation_system.set_equation(self.eq_all_interfaces)
+        equation_system.set_equation(self.eq_single_interface)
         self.eq_inds = np.array(
             [
                 mdg.num_subdomain_cells(),
@@ -533,9 +515,7 @@ class EquationSystemMockModel:
             # Assigned last to avoid mess if omitted
             self.eq_combined = self.sd_top_variable * (proj @ self.sd_variable)
             self.eq_combined.set_name("eq_combined")
-            equation_system.set_equation(
-                self.eq_combined, equations_per_grid_entity=dof_combined
-            )
+            equation_system.set_equation(self.eq_combined)
             self.eq_inds = np.append(self.eq_inds, mdg.subdomains()[0].num_cells)
 
         self.all_equation_names = [
@@ -610,9 +590,7 @@ class EquationSystemMockModel:
         )
         empty_equation = empty_var * empty_var
         empty_equation.set_name("empty_equation")
-        self.equation_system.set_equation(
-            empty_equation, equations_per_grid_entity={GridEntity.cells: 1}
-        )
+        self.equation_system.set_equation(empty_equation)
 
 
 @pytest.fixture(scope="function")
@@ -924,10 +902,7 @@ def test_set_remove_equations(model: EquationSystemMockModel):
 
     # First try to set an equation that is already present. This should raise an error.
     with pytest.raises(ValueError):
-        equation_system.set_equation(
-            model.eq_all_subdomains,
-            equations_per_grid_entity=dof_info_subdomain,
-        )
+        equation_system.set_equation(model.eq_all_subdomains)
 
     # Now remove all equations.
     eq_keys = list(equation_system.equations.keys())
@@ -939,10 +914,7 @@ def test_set_remove_equations(model: EquationSystemMockModel):
         equation_system.remove_equation("nonexistent")
 
     # Now set the equation again.
-    equation_system.set_equation(
-        model.eq_single_subdomain,
-        equations_per_grid_entity=dof_info_subdomain,
-    )
+    equation_system.set_equation(model.eq_single_subdomain)
 
     # Check that the mapping of equation to subdomain to global dof
     # indices is correctly set. Note: in this test, we access the indexer through
@@ -963,10 +935,7 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     ].target.dof_info == pp.ad.GridEntities.from_mapping(dof_info_subdomain)
 
     # Add a second equation, defined on both subdomains
-    equation_system.set_equation(
-        model.eq_all_subdomains,
-        equations_per_grid_entity=dof_info_subdomain,
-    )
+    equation_system.set_equation(model.eq_all_subdomains)
     equation_subdomain_blocks = (
         equation_system.equation_indexer.equation_image_space_composition
     )
@@ -982,10 +951,7 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     # This time we switch the order of the interfaces. This should not matter for the
     # indices of the equation, since these are added in the order returned by
     # mdg.interfaces()
-    equation_system.set_equation(
-        model.eq_all_interfaces,
-        equations_per_grid_entity=dof_info_interface,
-    )
+    equation_system.set_equation(model.eq_all_interfaces)
     equation_subdomain_blocks = (
         equation_system.equation_indexer.equation_image_space_composition
     )
@@ -1000,10 +966,9 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     # Test updating an existing equation. Here we update the equation with a different
     # equation expression and a different number of degrees of freedom per cell. We
     # switch the order of the interfaces here as well, similarly to in the test above.
-    # The new equation is built from a genuinely 3-dofs-per-cell variable (not a mock
-    # dof count grafted onto model.intf_variable, which has only 2), so that the
-    # equation operator's own target.dof_info actually matches the declared
-    # equations_per_grid_entity below.
+    # The new equation is built from a 3-dofs-per-cell variable, so that the number of
+    # equations per cell, as inferred from the equation operator's target space,
+    # differs from that of the original equation (2).
     mock_variable = equation_system.create_variables(
         "mock_interface_variable_dof3",
         dof_info={GridEntity.cells: 3},
@@ -1014,7 +979,6 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     equation_system.update_equation(
         new_equation=mock_equation,
         equation_name="eq_all_interfaces",
-        equations_per_grid_entity=dof_all_interfaces,
     )
     equation_subdomain_blocks = (
         equation_system.equation_indexer.equation_image_space_composition
