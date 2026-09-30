@@ -192,6 +192,29 @@ class BoundaryConditionMixin(pp.PorePyModel):
         """
         boundary_grids = self.subdomains_to_boundary_grids(subdomains)
 
+        if len(boundary_grids) == 0:
+            # There are no boundary grids (the subdomains are empty, or all of them are
+            # zero-dimensional), hence there are no boundary conditions to represent.
+            # Do not call the operator functions: They would interpret the empty list
+            # as a list of subdomains, which for operators that call this method from
+            # their subdomain branch would lead to infinite recursion.
+            empty_space = pp.ad.OperatorSpace.from_domains(
+                [],
+                {pp.ad.GridEntity.cells: dim},
+                domain_type=pp.ad.DomainType.boundary_grids,
+            )
+            empty_boundary_values = pp.ad.DenseArray(
+                np.zeros(0), source=empty_space, target=empty_space
+            )
+            result = (
+                pp.ad.BoundaryProjection(
+                    self.mdg, subdomains=subdomains, dim=dim
+                ).boundary_to_subdomain
+                @ empty_boundary_values
+            )
+            result.set_name(name)
+            return result
+
         # Create dictionaries to hold the Dirichlet and Neumann operators and filters
         operators = {
             "dirichlet": dirichlet_operator(boundary_grids),
