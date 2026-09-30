@@ -216,9 +216,10 @@ class Operations(Enum):
             # Spaces are equal. Fine.
             return True
         if len(a.grids) == 0 and len(b.grids) == 0:
-            # None of the spaces carry any grids, so they are considered compatible
-            # (even if they have different domain types).
-            return True
+            # None of the spaces carry any grids, hence the number of DOFs per grid
+            # entity has no impact on the size of the spaces. The domain types must
+            # still agree, though.
+            return a.domain_type == b.domain_type
         if (
             a.domain_type == b.domain_type
             and a.grids == b.grids
