@@ -412,7 +412,7 @@ def slow_test_buoyancy_flow_benchmark(
             return phase.saturation(domains) ** 2
 
         def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.TpfaAd:
-            return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
+            return pp.ad.TpfaAd(self.darcy_keyword, subdomains, nd=self.nd)
 
         def after_nonlinear_convergence(self) -> None:
             super().after_nonlinear_convergence()
@@ -442,7 +442,7 @@ def slow_test_buoyancy_flow_benchmark(
             g_constant = pp.GRAVITY_ACCELERATION
             val = self.units.convert_units(g_constant, "m*s^-2") * to_Mega
             size = np.sum([g.num_cells for g in subdomains]).astype(int)
-            gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
+            gravity_field = pp.wrap_as_dense_ad_array(val, size=size, grids=subdomains)
             gravity_field.set_name("gravity_field")
             return gravity_field
 

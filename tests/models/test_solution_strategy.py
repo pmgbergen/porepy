@@ -39,6 +39,7 @@ from porepy.applications.test_utils import models
 from porepy.applications.test_utils.models import add_mixin
 from porepy.applications.test_utils.vtk import compare_pvd_files, compare_vtu_files
 from porepy.models.metric import EuclideanMetric
+from porepy.numerics.ad.equation_system import GridEntity
 from porepy.numerics.solvers.convergence_check import (
     ConvergenceCriteria,
     ConvergenceStatus,

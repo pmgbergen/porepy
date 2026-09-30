@@ -76,7 +76,10 @@ class IntersectionPermeability(Permeability):
         # Use `fracture_permeability` as intersection permeability under the assumption
         # that they are equal. This is valid in the current benchmark case.
         permeability = pp.wrap_as_dense_ad_array(
-            self.solid.fracture_permeability, size, name="intersection permeability"
+            self.solid.fracture_permeability,
+            size=size,
+            name="intersection permeability",
+            grids=subdomains,
         )
         return self.isotropic_second_order_tensor(subdomains, permeability)
 
