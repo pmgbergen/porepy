@@ -3427,20 +3427,19 @@ class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
         # Boundary conditions on external boundaries.
         boundary_operator = self.combine_boundary_operators_mechanical_stress(domains)
         proj = pp.ad.MortarProjections(self.mdg, domains, interfaces, dim=self.nd)
-        # Mechanical stress is measured relative to the reference state, hense
-        # perturbation_from_reference.
+        # The mechanical stress is measured relative to the reference state, hence
+        # perturbation_from_reference. As in LinearElasticMechanicalStress, it is
+        # applied to the whole expression, including the boundary contribution, so
+        # that the mechanical stress vanishes in the reference state.
         stress = (
-            discr.stress_displacement()
-            @ self.displacement(domains).perturbation_from_reference()
+            discr.stress_displacement() @ self.displacement(domains)
             + discr.bound_stress() @ boundary_operator
             + discr.bound_stress()
             @ proj.mortar_to_primary_avg()
-            @ self.interface_displacement(interfaces).perturbation_from_reference()
-            + discr.stress_rotation()
-            @ self.rotation_stress(domains).perturbation_from_reference()
-            + discr.stress_total_pressure()
-            @ self.total_pressure(domains).perturbation_from_reference()
-        )
+            @ self.interface_displacement(interfaces)
+            + discr.stress_rotation() @ self.rotation_stress(domains)
+            + discr.stress_total_pressure() @ self.total_pressure(domains)
+        ).perturbation_from_reference()
         stress.set_name("mechanical_stress")
         return stress
 
