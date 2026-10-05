@@ -1,6 +1,4 @@
-from copy import deepcopy
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 import logging
@@ -19,8 +17,9 @@ SCHEDULE_INTERVAL_EQUILIBRATION = "100 years"
 
 RESIDUAL_RTOL = 1e-3
 """Maximum accepted residual relative to the effect of tolerable variable errors."""
-TRIAL_STEP_RTOL = 1e-3
-"""Maximum accepted Newton increment relative to variable tolerances."""
+TRIAL_STEP_RTOL = 1e-1
+"""Maximum accepted Newton increment relative to variable tolerances, i.e. the state is
+accepted if it is within 10% of the tolerances from the steady state."""
 
 
 def make_initialization_time_manager():
@@ -172,11 +171,14 @@ def steady_state_residual_ratios(
 
 
 def trial_step_ratios(
-    model: pp.PorePyModel, tolerance_vector: np.ndarray
+    model: pp.PorePyModel,
+    tolerance_vector: np.ndarray,
+    solver: pp.solvers.NewtonSolver | None = None,
 ) -> dict[str, float]:
     """Largest Newton increment per variable, relative to its tolerance, if one
     iteration was taken from the current state. The state is not changed."""
-    solver = make_nonlinear_solver()
+    if solver is None:
+        solver = make_nonlinear_solver()
     solver.linear_solver.initialize_with_model(model)
     increment, _ = solver.iteration(model)
     ratios = _safe_ratio(increment, tolerance_vector)
@@ -185,6 +187,43 @@ def trial_step_ratios(
         name: float(ratios[np.concatenate(list(domains_dofs.values()))].max())
         for name, domains_dofs in indexer.group_by_name().items()
     }
+
+
+def check_steady_state(
+    model: pp.PorePyModel,
+    tolerances: dict[str, float],
+    solver: pp.solvers.NewtonSolver | None = None,
+) -> tuple[dict[str, float], dict[str, float], dict[str, float]]:
+    """Check whether the current state of the model is a steady state.
+
+    The equations are evaluated as they are, so the previous time step must hold the
+    state under test: right after a converged time step the accumulation terms then
+    vanish and the residual is that of the steady problem.
+
+    Returns:
+        Relative residuals per equation (:func:`steady_state_residual_ratios`),
+        relative trial steps per variable (:func:`trial_step_ratios`), and the entries
+        of both that exceed :data:`RESIDUAL_RTOL` and :data:`TRIAL_STEP_RTOL`.
+
+    """
+    tolerance_vector = variable_tolerance_vector(model, tolerances)
+    residual_ratios = steady_state_residual_ratios(model, tolerance_vector)
+    trial_ratios = trial_step_ratios(model, tolerance_vector, solver)
+    failed = {
+        **{k: v for k, v in residual_ratios.items() if not v <= RESIDUAL_RTOL},
+        **{k: v for k, v in trial_ratios.items() if not v <= TRIAL_STEP_RTOL},
+    }
+    return residual_ratios, trial_ratios, failed
+
+
+def log_steady_state_ratios(
+    residual_ratios: dict[str, float], trial_ratios: dict[str, float]
+) -> None:
+    for name, ratios in [("residual", residual_ratios), ("trial step", trial_ratios)]:
+        logger.info(
+            f"Relative {name}: "
+            + ", ".join(f"{key}={value:.1e}" for key, value in ratios.items())
+        )
 
 
 @dataclass
@@ -217,82 +256,43 @@ class InitializationError(RuntimeError):
 
 
 class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
+    """Stops the initialization run once the model is in a steady state.
+
+    After each accepted time step, the previous time step equals the new state, so the
+    residual and a trial Newton step are those of the steady problem, see
+    :func:`check_steady_state`. This replaces comparing consecutive solutions, which
+    depends on the time step size.
+
+    Parameters:
+        tolerances: Absolute tolerances of variables, see
+            :func:`variable_tolerance_vector`.
+        earliest_stop_time: The criterion is not evaluated before this time.
+        solver: Solver used for trial steps. Created if not given.
+
+    """
+
     def __init__(
         self,
-        metric: pp.Metric,
         tolerances: dict[str, float],
         earliest_stop_time: float = 0,
-        default_tolerance: float = 1.0,
-        variable_tags: Optional[list[pp.solvers.VariableTag]] = None,
+        solver: pp.solvers.NewtonSolver | None = None,
     ) -> None:
-        self.metric = metric
         self.tolerances = tolerances
-        self.default_tolerance = default_tolerance
-        self.previous_solution: np.ndarray | None = None
-        self.variable_tags = variable_tags
         self.earliest_stop_time = earliest_stop_time
+        self.solver = solver if solver is not None else make_nonlinear_solver()
 
     def simulation_should_stop(
         self, model: pp.PorePyModel
     ) -> pp.ModelRunnerStatus | None:
-        variables = None
-        if self.variable_tags is not None:
-            variables = model.equation_system.variable_indexer.filter_by_tags(
-                model=model, tags=self.variable_tags
-            )
-
-        if self.previous_solution is None:
-            self.previous_solution = model.equation_system.get_variable_values(
-                variables=variables, time_step_index=0
-            )
+        if model.time_manager.time < self.earliest_stop_time:
             return None
-
-        current_solution = model.equation_system.get_variable_values(
-            variables=variables, time_step_index=0
+        residual_ratios, trial_ratios, failed = check_steady_state(
+            model, self.tolerances, self.solver
         )
-        norms = self.metric(current_solution - self.previous_solution)
-
-        self.previous_solution = current_solution
-
-        for unknown_key in set(self.tolerances).difference(norms):
-            logger.warning(
-                "SteadyStateEarlyStopCriterion has an unknown key that is ignored: "
-                f"{unknown_key}"
-            )
-
-        steady_state_data = {}
-        for key, norm in norms.items():
-            values = model.equation_system.get_variable_values(
-                variables=[key], time_step_index=0
-            )
-            equilibrated = norm < self.tolerances.get(key, self.default_tolerance)
-            steady_state_data[key] = {
-                "norm": norm,
-                "min": values.min(),
-                "max": values.max(),
-                "equilibrated": equilibrated,
-            }
-
-        log_steady_state_convergence(steady_state_data)
-        if (
-            all(variable["equilibrated"] for variable in steady_state_data.values())
-            and model.time_manager.time >= self.earliest_stop_time
-        ):
-            return SteadyStateModelRunnerSuccess()
-        return None
-
-
-def log_steady_state_convergence(steady_state_data: dict) -> None:
-    def signed(value: float) -> str:
-        return f"{'-' if value < 0 else ' '}{abs(value):.1e}"
-
-    max_symbols_offset = max(len(key) for key in steady_state_data)
-    for key, data in steady_state_data.items():
-        logger.info(
-            f"{key}:{' ' * (1 + max_symbols_offset - len(key))}"
-            f"min ={signed(data['min'])}, max ={signed(data['max'])}, "
-            f"Δ ={signed(data['norm'])}{', converged' if data['equilibrated'] else ''}"
-        )
+        log_steady_state_ratios(residual_ratios, trial_ratios)
+        if failed:
+            return None
+        return SteadyStateModelRunnerSuccess()
 
 
 def initialization_pipeline(model: pp.PorePyModel) -> pp.PorePyModel:
@@ -353,9 +353,7 @@ def initialization_pipeline(model: pp.PorePyModel) -> pp.PorePyModel:
         nonlinear_solver=nonlinear_solver,
         early_stop_criteria=[
             SteadyStateEarlyStopCriterion(
-                metric=pp.VariableBasedEuclideanMetric(model=model),
                 tolerances=tolerances,
-                default_tolerance=1e-3,
                 earliest_stop_time=1 * pp.YEAR,
             )
         ],
@@ -433,18 +431,8 @@ def initialization_pipeline(model: pp.PorePyModel) -> pp.PorePyModel:
 
     # Validate that the original equations are in equilibrium at the found state:
     # their residual is negligible, and a Newton step from the state would not change it.
-    tolerance_vector = variable_tolerance_vector(model, tolerances)
-    residual_ratios = steady_state_residual_ratios(model, tolerance_vector)
-    trial_ratios = trial_step_ratios(model, tolerance_vector)
-    for name, ratios in [("residual", residual_ratios), ("trial step", trial_ratios)]:
-        logger.info(
-            f"Relative {name}: "
-            + ", ".join(f"{key}={value:.1e}" for key, value in ratios.items())
-        )
-    failed = {
-        **{k: v for k, v in residual_ratios.items() if not v <= RESIDUAL_RTOL},
-        **{k: v for k, v in trial_ratios.items() if not v <= TRIAL_STEP_RTOL},
-    }
+    residual_ratios, trial_ratios, failed = check_steady_state(model, tolerances)
+    log_steady_state_ratios(residual_ratios, trial_ratios)
     if failed:
         raise InitializationError(
             "The original equations are not in equilibrium at the found state, "
