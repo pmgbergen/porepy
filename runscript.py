@@ -82,6 +82,26 @@ class SteadyStateModelRunnerSuccess(pp.ModelRunnerStatusSuccess):
     pass
 
 
+class InitializationError(RuntimeError):
+    """Raised if the initialization did not end in a verified steady state.
+
+    Attributes:
+        status: Status of the initialization run, if available.
+        residual_norms: Residual norms per equation, if they were evaluated.
+
+    """
+
+    def __init__(
+        self,
+        message: str,
+        status: pp.ModelRunnerStatus | None = None,
+        residual_norms: dict[str, float] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.status = status
+        self.residual_norms = residual_norms
+
+
 class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
     def __init__(
         self,
@@ -215,32 +235,48 @@ def initialization_pipeline(model: pp.PorePyModel) -> pp.PorePyModel:
         ],
     )
     try:
-        status = initialization_runner.run()
-    except RuntimeError as e:
-        status = e.args[0]
+        try:
+            status = initialization_runner.run()
+        except RuntimeError as e:
+            if not (e.args and isinstance(e.args[0], pp.ModelRunnerStatus)):
+                raise
+            status = e.args[0]
 
-    for matrix_domain, data in model.mdg.subdomains(dim=model.nd, return_data=True):
-        domains = [matrix_domain]
-        # Full stress at the steady state. Boundary reference values are not set yet,
-        # so the boundary contribution is included in absolute terms.
-        stress_val = model.equation_system.evaluate(model.stress(domains))
+        # The reference state is only overwritten if a steady state was found: reaching
+        # the final time or a failed time step is not an equilibrium.
+        if not isinstance(status, SteadyStateModelRunnerSuccess):
+            raise InitializationError(
+                f"Steady state was not reached: {status}. The model state is "
+                "not initialized.",
+                status=status,
+            )
 
-        pp.set_solution_values(
-            name=model.reference_stress_key,
-            values=stress_val,
-            data=data,
-            reference=True,
+        for matrix_domain, data in model.mdg.subdomains(
+            dim=model.nd, return_data=True
+        ):
+            domains = [matrix_domain]
+            # Full stress at the steady state. Boundary reference values are not set
+            # yet, so the boundary contribution is included in absolute terms.
+            stress_val = model.equation_system.evaluate(model.stress(domains))
+
+            pp.set_solution_values(
+                name=model.reference_stress_key,
+                values=stress_val,
+                data=data,
+                reference=True,
+            )
+
+        steady_state = model.equation_system.get_variable_values(time_step_index=0)
+        model.equation_system.set_variable_values(reference=True, values=steady_state)
+        model.equation_system.set_variable_values(
+            time_step_index=0, values=steady_state
         )
-
-    steady_state = model.equation_system.get_variable_values(time_step_index=0)
-    model.equation_system.set_variable_values(reference=True, values=steady_state)
-    model.equation_system.set_variable_values(time_step_index=0, values=steady_state)
-    model.equation_system.set_variable_values(iterate_index=0, values=steady_state)
-    # Anchor the boundary values at the steady state, so that the boundary
-    # contribution to mechanical_stress and displacement_divergence cancels there.
-    model.set_boundary_reference_values()
-
-    restore_original_model()
+        model.equation_system.set_variable_values(iterate_index=0, values=steady_state)
+        # Anchor the boundary values at the steady state, so that the boundary
+        # contribution to mechanical_stress and displacement_divergence cancels there.
+        model.set_boundary_reference_values()
+    finally:
+        restore_original_model()
 
     # Reset equations and rediscretize.
     for eq_name in list(model.equation_system.equations.keys()):
@@ -280,15 +316,24 @@ def initialization_pipeline(model: pp.PorePyModel) -> pp.PorePyModel:
     residual_metric = pp.EquationBasedEuclideanMetric(model=model)
     residual_norms = residual_metric(residual)
     residual_tol = 1e-9
-    for equation_name, norm in residual_norms.items():
-        if norm > residual_tol:
-            logger.warning(
+    failed = {
+        name: norm for name, norm in residual_norms.items() if not norm <= residual_tol
+    }
+    if failed:
+        for equation_name, norm in failed.items():
+            logger.error(
                 f"Equilibration failed for {equation_name = }, residual {norm = :.1e}."
             )
-    else:
-        logger.info(
-            "Initialization complete. The simulation initial and reference states are set to the found steady state."
+        raise InitializationError(
+            f"Residual of the original equations at the found steady state exceeds "
+            f"{residual_tol:.1e} for: {', '.join(failed)}.",
+            status=status,
+            residual_norms=residual_norms,
         )
+    logger.info(
+        "Initialization complete. The simulation initial and reference states are set "
+        "to the found steady state."
+    )
 
     # prepare_simulation is skipped in the main run, so export the initial state here.
     if model._is_time_dependent():
