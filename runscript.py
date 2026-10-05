@@ -17,6 +17,11 @@ logger = logging.getLogger(__name__)
 
 SCHEDULE_INTERVAL_EQUILIBRATION = "100 years"
 
+RESIDUAL_RTOL = 1e-3
+"""Maximum accepted residual relative to the effect of tolerable variable errors."""
+TRIAL_STEP_RTOL = 1e-3
+"""Maximum accepted Newton increment relative to variable tolerances."""
+
 
 def make_initialization_time_manager():
     return pp.TimeManager(
@@ -77,6 +82,111 @@ def make_solver_params() -> dict:
     }
 
 
+def make_nonlinear_solver() -> pp.solvers.NewtonSolver:
+    return pp.solvers.NewtonSolver(
+        params=make_solver_params(),
+        linear_solver=pp_solvers.IterativeLinearSolver(),
+    )
+
+
+def make_tolerances(model: pp.PorePyModel) -> dict[str, float]:
+    """Absolute tolerances of variables, i.e. the changes that are considered
+    negligible, in the units of the model. Variables without an entry are measured
+    relative to their magnitude, see :func:`variable_tolerance_vector`."""
+    return {
+        "pressure": model.units.convert_units(100, "Pa"),
+        "temperature": model.units.convert_units(1, "K"),
+        "u": model.units.convert_units(1e-2, "m"),
+    }
+
+
+# Variables whose magnitude can be tiny (e.g. a passive well carries no flux), so a
+# tolerance relative to their own magnitude is meaningless. They are measured relative
+# to the magnitude of a variable of the same kind.
+SCALE_LIKE = {
+    "well_flux": "interface_darcy_flux",
+    "well_enthalpy_flux": "interface_enthalpy_flux",
+}
+
+
+def variable_tolerance_vector(
+    model: pp.PorePyModel,
+    tolerances: dict[str, float],
+    relative_tolerance: float = 1e-2,
+) -> np.ndarray:
+    """Tolerance for each degree of freedom.
+
+    Variables given in ``tolerances`` use that absolute value. Others use
+    ``relative_tolerance`` times the largest magnitude of the variable (or of the
+    variable it is :data:`SCALE_LIKE`) in the current state, which makes the measure
+    independent of units.
+
+    """
+    state = model.equation_system.get_variable_values(iterate_index=0)
+    vector = np.zeros_like(state)
+    groups = {
+        name: np.concatenate(list(domains_dofs.values()))
+        for name, domains_dofs in (
+            model.equation_system.variable_indexer.group_by_name().items()
+        )
+    }
+    for name, indices in groups.items():
+        if name in tolerances:
+            vector[indices] = tolerances[name]
+            continue
+        reference = groups.get(SCALE_LIKE.get(name, name), indices)
+        if reference.size > 0 and indices.size > 0:
+            vector[indices] = relative_tolerance * np.abs(state[reference]).max()
+    return vector
+
+
+def _safe_ratio(values: np.ndarray, scale: np.ndarray) -> np.ndarray:
+    """|values| / scale, where 0 / 0 is 0 and x / 0 is infinity for x != 0."""
+    values = np.abs(values)
+    ratio = np.zeros_like(values)
+    positive = scale > 0
+    ratio[positive] = values[positive] / scale[positive]
+    ratio[~positive & (values > 0)] = np.inf
+    return ratio
+
+
+def steady_state_residual_ratios(
+    model: pp.PorePyModel, tolerance_vector: np.ndarray
+) -> dict[str, float]:
+    """Largest relative residual per equation, with the maximum norm.
+
+    The residual in each row is compared with the residual that a change of all
+    variables by their tolerance would produce in that row, ``|J| @ tolerance``. A
+    ratio of 1 thus means that the residual is as large as the effect of tolerable
+    errors in the variables. The measure is independent of the units of the equations.
+
+    """
+    system = model.equation_system.assemble()
+    assert system.matrix is not None
+    ratios = _safe_ratio(system.rhs, abs(system.matrix) @ tolerance_vector)
+    indexer = model.equation_system.equation_indexer
+    return {
+        name: float(ratios[np.concatenate(list(domains_dofs.values()))].max())
+        for name, domains_dofs in indexer.group_by_name().items()
+    }
+
+
+def trial_step_ratios(
+    model: pp.PorePyModel, tolerance_vector: np.ndarray
+) -> dict[str, float]:
+    """Largest Newton increment per variable, relative to its tolerance, if one
+    iteration was taken from the current state. The state is not changed."""
+    solver = make_nonlinear_solver()
+    solver.linear_solver.initialize_with_model(model)
+    increment, _ = solver.iteration(model)
+    ratios = _safe_ratio(increment, tolerance_vector)
+    indexer = model.equation_system.variable_indexer
+    return {
+        name: float(ratios[np.concatenate(list(domains_dofs.values()))].max())
+        for name, domains_dofs in indexer.group_by_name().items()
+    }
+
+
 @dataclass
 class SteadyStateModelRunnerSuccess(pp.ModelRunnerStatusSuccess):
     pass
@@ -87,7 +197,9 @@ class InitializationError(RuntimeError):
 
     Attributes:
         status: Status of the initialization run, if available.
-        residual_norms: Residual norms per equation, if they were evaluated.
+        residual_ratios: Relative residuals per equation, if they were evaluated, see
+            :func:`steady_state_residual_ratios`.
+        trial_step_ratios: Relative Newton increments per variable, if evaluated.
 
     """
 
@@ -95,11 +207,13 @@ class InitializationError(RuntimeError):
         self,
         message: str,
         status: pp.ModelRunnerStatus | None = None,
-        residual_norms: dict[str, float] | None = None,
+        residual_ratios: dict[str, float] | None = None,
+        trial_step_ratios: dict[str, float] | None = None,
     ) -> None:
         super().__init__(message)
         self.status = status
-        self.residual_norms = residual_norms
+        self.residual_ratios = residual_ratios
+        self.trial_step_ratios = trial_step_ratios
 
 
 class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
@@ -230,10 +344,8 @@ def initialization_pipeline(model: pp.PorePyModel) -> pp.PorePyModel:
     model.time_manager = make_initialization_time_manager()
     model.params["folder_name"] = initialization_folder_name
 
-    nonlinear_solver = pp.solvers.NewtonSolver(
-        params=make_solver_params(),
-        linear_solver=pp_solvers.IterativeLinearSolver(),
-    )
+    nonlinear_solver = make_nonlinear_solver()
+    tolerances = make_tolerances(model)
 
     # model.prepare_simulation()
     initialization_runner = pp.ModelRunner(
@@ -242,12 +354,7 @@ def initialization_pipeline(model: pp.PorePyModel) -> pp.PorePyModel:
         early_stop_criteria=[
             SteadyStateEarlyStopCriterion(
                 metric=pp.VariableBasedEuclideanMetric(model=model),
-                tolerances={
-                    "pressure": model.units.convert_units(100, "Pa"),  # 10
-                    "temperature": model.units.convert_units(1, "K"),  # 1e-2
-                    "u": model.units.convert_units(1e-2, "m"),
-                    "unknown_key": -1,
-                },
+                tolerances=tolerances,
                 default_tolerance=1e-3,
                 earliest_stop_time=1 * pp.YEAR,
             )
@@ -324,23 +431,28 @@ def initialization_pipeline(model: pp.PorePyModel) -> pp.PorePyModel:
             model.porosity(domains)
         ) - model.equation_system.evaluate(model.reference_porosity(domains))
 
-    residual = model.equation_system.assemble(evaluate_jacobian=False)
-    residual_metric = pp.EquationBasedEuclideanMetric(model=model)
-    residual_norms = residual_metric(residual)
-    residual_tol = 1e-9
+    # Validate that the original equations are in equilibrium at the found state:
+    # their residual is negligible, and a Newton step from the state would not change it.
+    tolerance_vector = variable_tolerance_vector(model, tolerances)
+    residual_ratios = steady_state_residual_ratios(model, tolerance_vector)
+    trial_ratios = trial_step_ratios(model, tolerance_vector)
+    for name, ratios in [("residual", residual_ratios), ("trial step", trial_ratios)]:
+        logger.info(
+            f"Relative {name}: "
+            + ", ".join(f"{key}={value:.1e}" for key, value in ratios.items())
+        )
     failed = {
-        name: norm for name, norm in residual_norms.items() if not norm <= residual_tol
+        **{k: v for k, v in residual_ratios.items() if not v <= RESIDUAL_RTOL},
+        **{k: v for k, v in trial_ratios.items() if not v <= TRIAL_STEP_RTOL},
     }
     if failed:
-        for equation_name, norm in failed.items():
-            logger.error(
-                f"Equilibration failed for {equation_name = }, residual {norm = :.1e}."
-            )
         raise InitializationError(
-            f"Residual of the original equations at the found steady state exceeds "
-            f"{residual_tol:.1e} for: {', '.join(failed)}.",
+            "The original equations are not in equilibrium at the found state, "
+            "relative residual / trial step too large for: "
+            + ", ".join(f"{k} ({v:.1e})" for k, v in failed.items()),
             status=status,
-            residual_norms=residual_norms,
+            residual_ratios=residual_ratios,
+            trial_step_ratios=trial_ratios,
         )
     logger.info(
         "Initialization complete. The simulation initial and reference states are set "
@@ -357,10 +469,7 @@ def run_main_simulation(model: pp.PorePyModel):
     runner = pp.ModelRunner(
         model=model,
         params={"prepare_simulation": False},
-        nonlinear_solver=pp.solvers.NewtonSolver(
-            params=make_solver_params(),
-            linear_solver=pp_solvers.IterativeLinearSolver(),
-        ),
+        nonlinear_solver=make_nonlinear_solver(),
     )
     status = runner.run()
     pass
