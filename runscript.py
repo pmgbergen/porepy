@@ -4,6 +4,7 @@ from typing import Optional
 
 import numpy as np
 import logging
+from pathlib import Path
 
 import pp_solvers
 import porepy as pp
@@ -163,13 +164,20 @@ def log_steady_state_convergence(steady_state_data: dict) -> None:
 def initialization_pipeline(model: pp.PorePyModel) -> pp.PorePyModel:
     original_model_class = model.__class__
     original_time_manager = model.time_manager
-    original_folder_name = model.params.get("folder_name")
+    original_folder_name = model.params["folder_name"]
+    initialization_folder_name = Path(original_folder_name).with_name(
+        Path(original_folder_name).name + "_initialization"
+    )
 
     def restore_original_model() -> None:
         model.__class__ = original_model_class
         model.time_manager = original_time_manager
-        if original_folder_name is not None:
-            model.params["folder_name"] = original_folder_name
+        model.params["folder_name"] = original_folder_name
+        # The exporter, the iteration exporter and the solver statistics were created
+        # in prepare_simulation with the initialization folder. Recreate them, so that
+        # the main simulation writes to the original folder.
+        model.set_nonlinear_solver_statistics()
+        model.initialize_data_saving()
 
     class InitializedModel(original_model_class):
         def shear_dilation_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -181,10 +189,7 @@ def initialization_pipeline(model: pp.PorePyModel) -> pp.PorePyModel:
 
     model.__class__ = InitializedModel
     model.time_manager = make_initialization_time_manager()
-    if original_folder_name is not None:
-        model.params["folder_name"] = f"{original_folder_name}_initialization"
-    else:
-        model.params["folder_name"] = "initialization"
+    model.params["folder_name"] = initialization_folder_name
 
     nonlinear_solver = pp.solvers.NewtonSolver(
         params=make_solver_params(),
@@ -284,6 +289,10 @@ def initialization_pipeline(model: pp.PorePyModel) -> pp.PorePyModel:
         logger.info(
             "Initialization complete. The simulation initial and reference states are set to the found steady state."
         )
+
+    # prepare_simulation is skipped in the main run, so export the initial state here.
+    if model._is_time_dependent():
+        model.save_data_time_step()
     return model
 
 
