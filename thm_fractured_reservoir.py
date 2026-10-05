@@ -6,9 +6,11 @@ number of diagonal plane fractures, all intersecting the horizontal fracture at 
 adjustable dip angle. A single vertical well penetrates the domain from the top
 surface down through the horizontal fracture; the well carries no injection or
 production protocol and is therefore hydraulically passive, exchanging fluid/heat
-with its surroundings only through the natural physics of the model (it keeps the
-same hydrostatic/thermal-gradient boundary conditions as the rest of the domain
-boundary at its top face).
+with its surroundings only through the natural physics of the model. Its top face
+(the only part of the well on the domain boundary) uses the same hydrostatic
+pressure Dirichlet condition as the rest of the domain boundary, but homogeneous
+Neumann (zero-flux) conditions for both the diffusive (Fourier) and advective
+(enthalpy) temperature fluxes.
 
 Gravity is enabled, and lithostatic mechanical / hydrostatic fluid boundary
 conditions are applied on all external boundaries via
@@ -23,6 +25,7 @@ lithostatic/hydrostatic equilibrium.
 """
 
 import logging
+from typing import Callable
 
 import numpy as np
 import pp_solvers
@@ -39,7 +42,6 @@ from porepy.applications.initial_conditions.model_initial_conditions import (
     InitialConditionThermalGradientTemperatureValues,
 )
 from porepy.applications.md_grids.model_geometries import SubsurfaceCuboidDomain
-from yura import SCHEDULE_INTERVAL_EQUILIBRATION, InitializationRunner
 
 logger = logging.getLogger(__name__)
 
@@ -67,8 +69,10 @@ class FracturedReservoirGeometry(SubsurfaceCuboidDomain):
               0.8).
             - horizontal_fracture_depth_fraction: Depth of the horizontal fracture,
               as a fraction of the domain z-size (default 0.5, i.e. mid-depth).
-            - diagonal_fracture_half_length: Half-length of each diagonal fracture in
-              its dip direction, as a fraction of the domain z-size (default 0.3).
+            - diagonal_fracture_half_height: Vertical half-extent of each diagonal
+              fracture, as a fraction of the domain z-size (default 0.3). With the
+              default mid-depth horizontal fracture, the diagonal fractures span
+              0.2 to 0.8 of the domain z-size.
             - diagonal_fracture_half_width: Half-width of each diagonal fracture
               along the (horizontal) strike direction, as a fraction of the domain
               y-size (default 0.3).
@@ -85,7 +89,7 @@ class FracturedReservoirGeometry(SubsurfaceCuboidDomain):
             "diagonal_fracture_dip_angle": np.pi / 3,
             "horizontal_fracture_extent": 0.8,
             "horizontal_fracture_depth_fraction": 0.5,
-            "diagonal_fracture_half_length": 0.3,
+            "diagonal_fracture_half_height": 0.3,
             "diagonal_fracture_half_width": 0.3,
             "well_penetration_fraction": 0.15,
         }
@@ -123,17 +127,12 @@ class FracturedReservoirGeometry(SubsurfaceCuboidDomain):
         # half-step offset so that, for the default even fracture count, no fracture
         # is centered exactly below the well (which sits at the domain center).
         x_min_frac, x_max_frac = cx - half_size, cx + half_size
-        spacing = (x_max_frac - x_min_frac) / max(num_diagonal, 1)
         fractions = (np.arange(num_diagonal) + 0.5) / max(num_diagonal, 1)
         x_centers = x_min_frac + fractions * (x_max_frac - x_min_frac)
 
-        # Cap the fracture half-length (in its dip direction) so that its horizontal
-        # (x) footprint stays within the gap to its neighbors and to the well,
-        # avoiding incidental intersections beyond the intended horizontal-fracture
-        # crossing. The requested "size" parameter is still respected as an upper
-        # bound.
-        max_half_length = 0.4 * spacing / max(cos_t, 0.05)
-        half_length = min(params["diagonal_fracture_half_length"] * dz, max_half_length)
+        # Half-length in the dip direction chosen such that the vertical (z) extent
+        # of each fracture is +- diagonal_fracture_half_height * dz around z_frac.
+        half_length = params["diagonal_fracture_half_height"] * dz / max(sin_t, 0.05)
         for i, x_i in enumerate(x_centers):
             # Local rectangle corners in (u, v), u along the dip direction, v along
             # the (horizontal) strike direction.
@@ -149,7 +148,6 @@ class FracturedReservoirGeometry(SubsurfaceCuboidDomain):
             fractures.append(pp.PlaneFracture(diagonal_pts, index=i + 1))
 
         self._fractures = fractures
-        # self._fractures = []
 
     def set_wells(self) -> None:
         """Set a single vertical well penetrating the horizontal fracture.
@@ -168,7 +166,6 @@ class FracturedReservoirGeometry(SubsurfaceCuboidDomain):
             tags={"well_name": "observation_well"},
         )
         self._wells = [well]
-        # self._wells = []
 
     def well_meshing_arguments(self) -> dict:
         *_, dz = self.domain_sizes()
@@ -179,9 +176,47 @@ class FracturedReservoirGeometry(SubsurfaceCuboidDomain):
         return "simplex"
 
 
+class WellZeroNeumannTemperatureBC:
+    """Overrides the well's temperature boundary conditions to be homogeneous Neumann
+    (zero diffusive and advective flux), instead of the Dirichlet conditions the well
+    otherwise inherits (at its top face) from the rest of the domain boundary.
+
+    """
+
+    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
+    """Function returning the domain boundary sides of a given grid."""
+    is_well_grid: Callable[[pp.Grid], bool]
+    """Function checking whether a subdomain grid is a well."""
+
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        if self.is_well_grid(sd):
+            boundary_faces = self.domain_boundary_sides(sd).all_bf
+            return pp.BoundaryCondition(sd, boundary_faces, "neu")
+        return super().bc_type_fourier_flux(sd)  # type: ignore[misc]
+
+    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        if self.is_well_grid(sd):
+            boundary_faces = self.domain_boundary_sides(sd).all_bf
+            return pp.BoundaryCondition(sd, boundary_faces, "neu")
+        return super().bc_type_enthalpy_flux(sd)  # type: ignore[misc]
+
+    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        if self.is_well_grid(sd):
+            boundary_faces = self.domain_boundary_sides(sd).all_bf
+            return pp.BoundaryCondition(sd, boundary_faces, "neu")
+        return super().bc_type_enthalpy_flux(sd)  # type: ignore[misc]
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        if self.is_well_grid(sd):
+            boundary_faces = self.domain_boundary_sides(sd).all_bf
+            return pp.BoundaryCondition(sd, boundary_faces, "neu")
+        return super().bc_type_enthalpy_flux(sd)  # type: ignore[misc]
+
+
 class ThmFracturedReservoir(  # type: ignore[misc]
     pp.constitutive_laws.GravityForce,
     pp.constitutive_laws.CubicLawPermeability,
+    WellZeroNeumannTemperatureBC,
     HydrostaticBoundaryPressureValues,
     ThermalGradientBoundaryTemperatureValues,
     BoundaryConditionsMechanicsNeumann,
@@ -208,6 +243,15 @@ def set_model_params() -> dict:
             "normal_permeability": 1.0e-14,  # [m^2]
             "residual_aperture": 1e-4,  # [m]
             "well_radius": 0.1,  # [m]
+            # YZ: increase diffusion to speed up equilibrating????
+            # "thermal_conductivity": 1e3,
+        }
+    )
+    fluid_values = pp.fluid_values.water.copy()
+    fluid_values.update(
+        {
+            # YZ: increase diffusion to speed up equilibrating????
+            # "thermal_conductivity": 1e3,
         }
     )
 
@@ -220,48 +264,18 @@ def set_model_params() -> dict:
                 intervals=[
                     pp.time_stepper.TimeInterval.create(
                         t_start=0,
-                        dt_start=pp.SECOND,
-                        constraints=[pp.time_stepper.TargetNonlinearIterations()],
-                        name="2 seconds",
-                    ),
-                    pp.time_stepper.TimeInterval.create(
-                        t_start=2 * pp.SECOND,
-                        dt_start=pp.HOUR,
-                        constraints=[pp.time_stepper.TargetNonlinearIterations()],
-                        name="2 hours",
-                    ),
-                    pp.time_stepper.TimeInterval.create(
-                        t_start=2 * pp.HOUR,
                         dt_start=pp.DAY,
                         constraints=[pp.time_stepper.TargetNonlinearIterations()],
-                        name="2 days",
-                    ),
-                    pp.time_stepper.TimeInterval.create(
-                        t_start=2 * pp.DAY,
-                        dt_start=pp.WEEK,
-                        constraints=[pp.time_stepper.TargetNonlinearIterations()],
-                        name="2 weeks",
-                    ),
-                    pp.time_stepper.TimeInterval.create(
-                        t_start=2 * pp.WEEK,
-                        dt_start=4 * pp.WEEK,
-                        constraints=[pp.time_stepper.TargetNonlinearIterations()],
-                        name="2 months",
-                    ),
-                    pp.time_stepper.TimeInterval.create(
-                        t_start=8 * pp.WEEK,
-                        dt_start=pp.YEAR,
-                        constraints=[pp.time_stepper.TargetNonlinearIterations()],
-                        name=SCHEDULE_INTERVAL_EQUILIBRATION,
+                        name="injection",
                     ),
                 ],
-                t_end=100 * pp.YEAR,
+                t_end=31 * pp.DAY,
             )
         ),
         "lithostatic_stress_multipliers": np.array([0.8, 1.2, 1.0]),
         "material_constants": {
             "solid": pp.SolidConstants(**solid_values),  # type: ignore[arg-type]
-            "fluid": pp.FluidComponent(**pp.fluid_values.water),  # type: ignore[arg-type]
+            "fluid": pp.FluidComponent(**fluid_values),  # type: ignore[arg-type]
             "numerical": pp.NumericalConstants(characteristic_displacement=1e-2),
         },
         "datum_pressure": 1e6,
@@ -279,10 +293,10 @@ def set_model_params() -> dict:
         },
         "fracture_params": {
             # Controlled parameter: number of diagonal fractures.
-            "num_diagonal_fractures": 0,
+            "num_diagonal_fractures": 1,  # <-------------------------------------------
             # Adjustable parameter: dip angle [rad] of diagonal fractures relative to
             # the horizontal fracture.
-            "diagonal_fracture_dip_angle": np.pi / 3,
+            "diagonal_fracture_dip_angle": np.pi / 10,
         },
         "domain_sizes": domain_sizes,
         "adaptive_indicator_scaling": 1,
@@ -304,84 +318,84 @@ def set_solver_params() -> dict:
     }
 
 
-def run_example() -> pp.PorePyModel:
-    """Run the fractured reservoir THM example and return the model."""
-    model = ThmFracturedReservoir(set_model_params())
+# def run_example() -> pp.PorePyModel:
+#     """Run the fractured reservoir THM example and return the model."""
+#     model = ThmFracturedReservoir(set_model_params())
 
-    nonlinear_solver = pp.solvers.NewtonSolver(
-        params=set_solver_params(),
-        linear_solver=pp_solvers.IterativeLinearSolver(),
-    )
-    # nonlinear_solver = pp.solvers.SequentialNonlinearSolver(
-    #     max_iterations=25,
-    #     subsolvers=[
-    #         pp.solvers.NewtonSolver(
-    #             params=set_solver_params(),
-    #             linear_solver=pp_solvers.IterativeLinearSolver(
-    #                 configuration_factory=pp_solvers.th_factory,
-    #             ),
-    #             equation_tags=[
-    #                 pp.solvers.DefaultEquationTags.mass_balance,
-    #                 pp.solvers.DefaultEquationTags.interface_darcy_flux,
-    #                 pp.solvers.DefaultEquationTags.well_flux,
-    #                 pp.solvers.DefaultEquationTags.energy_balance,
-    #                 pp.solvers.DefaultEquationTags.interface_fourier_flux,
-    #                 pp.solvers.DefaultEquationTags.interface_enthalpy_flux,
-    #                 pp.solvers.DefaultEquationTags.well_enthalpy_flux,
-    #             ],
-    #             variable_tags=[
-    #                 pp.solvers.DefaultVariableTags.pressure,
-    #                 pp.solvers.DefaultVariableTags.interface_darcy_flux,
-    #                 pp.solvers.DefaultVariableTags.well_flux,
-    #                 pp.solvers.DefaultVariableTags.temperature,
-    #                 pp.solvers.DefaultVariableTags.interface_fourier_flux,
-    #                 pp.solvers.DefaultVariableTags.interface_enthalpy_flux,
-    #                 pp.solvers.DefaultVariableTags.well_enthalpy_flux,
-    #             ],
-    #         ),
-    #         pp.solvers.NewtonSolver(
-    #             params=set_solver_params(),
-    #             linear_solver=pp_solvers.IterativeLinearSolver(
-    #                 configuration_factory=pp_solvers.momentum_balance_factory
-    #             ),
-    #             equation_tags=[
-    #                 pp.solvers.DefaultEquationTags.momentum_balance,
-    #                 pp.solvers.DefaultEquationTags.interface_force_balance,
-    #                 pp.solvers.DefaultEquationTags.normal_fracture_deformation,
-    #                 pp.solvers.DefaultEquationTags.tangential_fracture_deformation,
-    #             ],
-    #             variable_tags=[
-    #                 pp.solvers.DefaultVariableTags.displacement,
-    #                 pp.solvers.DefaultVariableTags.interface_displacement,
-    #                 pp.solvers.DefaultVariableTags.contact_traction,
-    #             ],
-    #         ),
-    #     ],
-    # )
+#     nonlinear_solver = pp.solvers.NewtonSolver(
+#         params=set_solver_params(),
+#         linear_solver=pp_solvers.IterativeLinearSolver(),
+#     )
+#     # nonlinear_solver = pp.solvers.SequentialNonlinearSolver(
+#     #     max_iterations=25,
+#     #     subsolvers=[
+#     #         pp.solvers.NewtonSolver(
+#     #             params=set_solver_params(),
+#     #             linear_solver=pp_solvers.IterativeLinearSolver(
+#     #                 configuration_factory=pp_solvers.th_factory,
+#     #             ),
+#     #             equation_tags=[
+#     #                 pp.solvers.DefaultEquationTags.mass_balance,
+#     #                 pp.solvers.DefaultEquationTags.interface_darcy_flux,
+#     #                 pp.solvers.DefaultEquationTags.well_flux,
+#     #                 pp.solvers.DefaultEquationTags.energy_balance,
+#     #                 pp.solvers.DefaultEquationTags.interface_fourier_flux,
+#     #                 pp.solvers.DefaultEquationTags.interface_enthalpy_flux,
+#     #                 pp.solvers.DefaultEquationTags.well_enthalpy_flux,
+#     #             ],
+#     #             variable_tags=[
+#     #                 pp.solvers.DefaultVariableTags.pressure,
+#     #                 pp.solvers.DefaultVariableTags.interface_darcy_flux,
+#     #                 pp.solvers.DefaultVariableTags.well_flux,
+#     #                 pp.solvers.DefaultVariableTags.temperature,
+#     #                 pp.solvers.DefaultVariableTags.interface_fourier_flux,
+#     #                 pp.solvers.DefaultVariableTags.interface_enthalpy_flux,
+#     #                 pp.solvers.DefaultVariableTags.well_enthalpy_flux,
+#     #             ],
+#     #         ),
+#     #         pp.solvers.NewtonSolver(
+#     #             params=set_solver_params(),
+#     #             linear_solver=pp_solvers.IterativeLinearSolver(
+#     #                 configuration_factory=pp_solvers.momentum_balance_factory
+#     #             ),
+#     #             equation_tags=[
+#     #                 pp.solvers.DefaultEquationTags.momentum_balance,
+#     #                 pp.solvers.DefaultEquationTags.interface_force_balance,
+#     #                 pp.solvers.DefaultEquationTags.normal_fracture_deformation,
+#     #                 pp.solvers.DefaultEquationTags.tangential_fracture_deformation,
+#     #             ],
+#     #             variable_tags=[
+#     #                 pp.solvers.DefaultVariableTags.displacement,
+#     #                 pp.solvers.DefaultVariableTags.interface_displacement,
+#     #                 pp.solvers.DefaultVariableTags.contact_traction,
+#     #             ],
+#     #         ),
+#     #     ],
+#     # )
 
-    # nonlinear_solver = pp.solvers.NewtonSolver(
-    #     params=set_solver_params(),
-    #     linear_solver=pp_solvers.IterativeLinearSolver(
-    #         configuration_factory=pp_solvers.momentum_balance_factory
-    #     ),
-    #     equation_tags=[
-    #         pp.solvers.DefaultEquationTags.momentum_balance,
-    #         pp.solvers.DefaultEquationTags.interface_force_balance,
-    #         pp.solvers.DefaultEquationTags.normal_fracture_deformation,
-    #         pp.solvers.DefaultEquationTags.tangential_fracture_deformation,
-    #     ],
-    #     variable_tags=[
-    #         pp.solvers.DefaultVariableTags.displacement,
-    #         pp.solvers.DefaultVariableTags.interface_displacement,
-    #         pp.solvers.DefaultVariableTags.contact_traction,
-    #     ],
-    # )
+#     # nonlinear_solver = pp.solvers.NewtonSolver(
+#     #     params=set_solver_params(),
+#     #     linear_solver=pp_solvers.IterativeLinearSolver(
+#     #         configuration_factory=pp_solvers.momentum_balance_factory
+#     #     ),
+#     #     equation_tags=[
+#     #         pp.solvers.DefaultEquationTags.momentum_balance,
+#     #         pp.solvers.DefaultEquationTags.interface_force_balance,
+#     #         pp.solvers.DefaultEquationTags.normal_fracture_deformation,
+#     #         pp.solvers.DefaultEquationTags.tangential_fracture_deformation,
+#     #     ],
+#     #     variable_tags=[
+#     #         pp.solvers.DefaultVariableTags.displacement,
+#     #         pp.solvers.DefaultVariableTags.interface_displacement,
+#     #         pp.solvers.DefaultVariableTags.contact_traction,
+#     #     ],
+#     # )
 
-    model.prepare_simulation()
-    initialization_runner = InitializationRunner(
-        model, nonlinear_solver=nonlinear_solver
-    )
-    status = initialization_runner.run()
+#     model.prepare_simulation()
+#     initialization_runner = InitializationRunner(
+#         model, nonlinear_solver=nonlinear_solver
+#     )
+#     status = initialization_runner.run()
 
 
 if __name__ == "__main__":
@@ -391,4 +405,4 @@ if __name__ == "__main__":
         logging.WARNING
     )
     logging.getLogger("pp_solvers.porepy_integration").setLevel(logging.WARNING)
-    run_example()
+    # run_example()

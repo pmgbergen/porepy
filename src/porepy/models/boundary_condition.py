@@ -134,6 +134,29 @@ class BoundaryConditionMixin(pp.PorePyModel):
             vals = function(bg)
             pp.set_solution_values(name=name, values=vals, data=data, iterate_index=0)
 
+    def set_boundary_reference_values(self) -> None:
+        """Store the current boundary values as the reference state on boundary grids.
+
+        All values stored at ``iterate_index=0`` in the boundary grid data (boundary
+        condition values and the Dirichlet/Neumann/Robin filters) are copied to the
+        reference values. This makes boundary operators support
+        :meth:`~porepy.numerics.ad.operators.Operator.perturbation_from_reference`,
+        such that e.g. ``discr.bound_stress() @ bc_operator`` vanishes as a
+        perturbation when the boundary values equal their reference values.
+
+        Not called by default: without stored reference values, boundary operators
+        evaluate to zero at reference, i.e. boundary values act in absolute terms. Call
+        it to anchor the boundary reference state, e.g. after an initialization run
+        which found a steady state. Must be called after the equations are set, so
+        that the boundary condition type filters are present.
+
+        """
+        for _, data in self.mdg.boundaries(return_data=True):
+            for name in data.get(pp.ITERATE_SOLUTIONS, {}):
+                pp.shift_solution_values(
+                    name=name, data=data, location=pp.REFERENCE_SOLUTIONS
+                )
+
     def create_boundary_operator(
         self, name: str, domains: Sequence[pp.BoundaryGrid], dim: int = 1
     ) -> pp.ad.TimeDependentDenseArray:

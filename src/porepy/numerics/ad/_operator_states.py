@@ -456,5 +456,8 @@ def _get_reference(op: Operator) -> Operator:
         return op
     else:
         new_op = copy.copy(op)
+        # The key is composed from the children's keys, which change. A key cached on
+        # the original would make the copy indistinguishable from it during evaluation.
+        new_op._cached_key = None
         new_op.children = [_get_reference(child) for child in op.children]
         return new_op

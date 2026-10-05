@@ -29,7 +29,6 @@ __all__ = [
     "ConvergenceStatusHistory",
     "ConvergenceInfo",
     "ConvergenceInfoCollection",
-    "ConvergenceMetricType",
     "ConvergenceInfoHistory",
     "ConvergenceCriterion",
     "DivergenceCriterion",
@@ -189,13 +188,6 @@ ConvergenceInfo = float | dict[str, float]
 ConvergenceInfoCollection = dict[str, ConvergenceInfo]
 """Collection of convergence information for a collection of criteria."""
 
-ConvergenceMetricType = Callable[[np.ndarray], float | dict]
-"""Type annotation for a convergence metric function. It takes an array and returns
-either a single float or a dictionary of keys (e.g. equation / variable names) to float
-values.
-
-"""
-
 
 class ConvergenceInfoHistory(dict[str, list[float] | dict[str, list[float]]]):
     """Collection of convergence information with list at the leafs."""
@@ -344,7 +336,7 @@ class AbsoluteCriterion:
     def __init__(
         self,
         tol: float,
-        metric: ConvergenceMetricType,
+        metric: pp.Metric,
     ) -> None:
         self.tol = tol
         """Tolerance for convergence - criterion in active if set to `np.inf`."""
@@ -417,7 +409,7 @@ class RelativeCriterion:
     def __init__(
         self,
         tol: float,
-        metric: ConvergenceMetricType,
+        metric: pp.Metric,
         reference_value: ConvergenceInfo | None = None,
     ) -> None:
         self.tol = tol
@@ -558,7 +550,7 @@ class CombinedCriterion:
         self,
         atol: float,
         rtol: float,
-        metric: ConvergenceMetricType,
+        metric: pp.Metric,
         reference_value: ConvergenceInfo | None = None,
     ) -> None:
         self.atol = atol
@@ -1004,7 +996,7 @@ def assemble_default_divergence_criteria(
     max_iterations: int,
     inc_div_atol: float,
     res_div_atol: float,
-    metric: ConvergenceMetricType,
+    metric: pp.Metric,
 ) -> DivergenceCriteria:
     """A convenience factory for the default divergence criteria. Returns different
     criteria based on whether the problem is nonlinear.
@@ -1041,7 +1033,7 @@ def assemble_default_convergence_criteria(
     inc_rtol: float,
     res_atol: float,
     res_rtol: float,
-    metric: ConvergenceMetricType,
+    metric: pp.Metric,
 ) -> ConvergenceCriteria:
     """A convenience factory for the default convergence criteria. Returns different
     criteria based on whether the problem is nonlinear.
