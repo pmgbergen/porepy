@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import warnings
-from abc import ABC
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional, cast
 
@@ -27,6 +27,7 @@ __all__ = [
     "ModelRunnerStatusSuccess",
     "ModelRunnerStatusFailure",
     "ModelRunner",
+    "EarlyStopCriterion",
 ]
 
 # Module-wide logger
@@ -68,6 +69,12 @@ class ModelRunnerStatusFailure(ModelRunnerStatus):
 
     reason: str
     "Reason why the model runner failed."
+
+
+class EarlyStopCriterion(ABC):
+    @abstractmethod
+    def simulation_should_stop(self, model: pp.PorePyModel) -> ModelRunnerStatus | None:
+        pass
 
 
 def run_stationary_model(model, params: dict) -> None:
@@ -159,6 +166,7 @@ class ModelRunner:
             may exploit model's linearity and apply shortcuts for it (e.g. avoid
             expensive convergence checks). The reverse is also true: You can pass a
             customized solver that treats the problem as linear even if it is not.
+        early_stop_criteria: TODO YZ
 
     """
 
@@ -168,6 +176,7 @@ class ModelRunner:
         params: Optional[dict] = None,
         time_stepper: Optional[TimeStepper] = None,
         nonlinear_solver: Optional[pp.solvers.NonlinearSolverBase] = None,
+        early_stop_criteria: Optional[list[EarlyStopCriterion]] = None,
     ) -> None:
         self.params = params if isinstance(params, dict) else {}
         """Parameters passed at instantiation."""
@@ -206,6 +215,11 @@ class ModelRunner:
             )
         )
         """Solver instance."""
+
+        if early_stop_criteria is None:
+            early_stop_criteria = []
+        self.early_stop_criteria: list[EarlyStopCriterion] = early_stop_criteria
+        """TODO YZ"""
 
         if self._is_time_dependent:
             self.init_time_progressbar()
@@ -281,6 +295,7 @@ class ModelRunner:
 
     def _run_stationary(self) -> ModelRunnerStatus:
         """Run a stationary model."""
+        # TODO YZ: model.before_time_step is never called...
         # Perform stationary solve.
         convergence_status = self.solver.solve(self.model)
 
@@ -316,6 +331,12 @@ class ModelRunner:
                 if isinstance(time_step_status, TimeStepperStatusFailure):
                     logger.error(f"Time stepping failed: {time_step_status.reason}")
                     return ModelRunnerStatusFailure(reason=time_step_status.reason)
+
+                # TODO YZ
+                for criterion in self.early_stop_criteria:
+                    early_stop_status = criterion.simulation_should_stop(self.model)
+                    if early_stop_status is not None:
+                        return early_stop_status
 
             # Conclude the simulation status.
             if self.model.time_manager.final_time_reached():

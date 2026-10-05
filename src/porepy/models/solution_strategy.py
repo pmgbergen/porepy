@@ -143,7 +143,7 @@ class SolutionStrategy(pp.PorePyModel):
         to construct.
         """
 
-    def prepare_simulation(self) -> None:
+    def prepare_simulation(self, ) -> None:
         """Run at the start of simulation. Used for initialization etc."""
         # Set the material and geometry of the problem. The geometry method must be
         # implemented in a ModelGeometry class.

@@ -3169,15 +3169,16 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
         # stress on the external boundaries, and the stress on the interfaces. The
         # latter is found by projecting the displacement on the interfaces to the
         # subdomains, and let these act as Dirichlet boundary conditions on the
-        # subdomains. It is measured relative to the reference state, hense
-        # perturbation_from_reference.
+        # subdomains. It is measured relative to the reference state, hence
+        # perturbation_from_reference. This includes the boundary values, so that the
+        # mechanical stress vanishes in the reference state.
         stress = (
-            discr.stress() @ self.displacement(domains).perturbation_from_reference()
+            discr.stress() @ self.displacement(domains)
             + discr.bound_stress() @ boundary_operator
             + discr.bound_stress()
             @ proj.mortar_to_primary_avg()
-            @ self.interface_displacement(interfaces).perturbation_from_reference()
-        )
+            @ self.interface_displacement(interfaces)
+        ).perturbation_from_reference()
         stress.set_name("mechanical_stress")
         return stress
 
@@ -5164,8 +5165,8 @@ class PoroMechanicsPorosity(pp.PorePyModel):
         # Add contributions to poromechanics porosity
         phi = (
             self.reference_porosity(subdomains)
-            # + self.porosity_change_from_pressure(subdomains)
-            # + self.porosity_change_from_displacement(subdomains)
+            + self.porosity_change_from_pressure(subdomains)
+            + self.porosity_change_from_displacement(subdomains)
         )
 
         if not isinstance(self.stress_discretization(subdomains), pp.ad.TpsaAd):
@@ -5438,7 +5439,7 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
         # Inherit poromechanical porosity from base class.
         phi = super().matrix_porosity(subdomains)
         # Add thermal contribution.
-        # phi += self.porosity_change_from_temperature(subdomains)
+        phi += self.porosity_change_from_temperature(subdomains)
         phi.set_name("Thermoporomechanics porosity")
         return phi
 

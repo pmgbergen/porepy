@@ -826,16 +826,15 @@ class InitialConditionsMomentumBalance(pp.InitialConditionMixin):
         """
         super().initial_condition()
 
-        for sd, data in self.mdg.subdomains(return_data=True):
-            # The stress, and hence the reference stress, is only defined on subdomains
-            # of ambient dimension.
-            if sd.dim == self.nd:
-                pp.set_solution_values(
-                    name=self.reference_stress_key,
-                    values=self.ic_values_reference_stress(sd),
-                    data=data,
-                    reference=True,
-                )
+        # The stress, and hence the reference stress, is only defined on subdomains
+        # of ambient dimension.
+        for sd, data in self.mdg.subdomains(return_data=True, dim=self.nd):
+            pp.set_solution_values(
+                name=self.reference_stress_key,
+                values=self.ic_values_reference_stress(sd),
+                data=data,
+                reference=True,
+            )
 
     def ic_values_reference_stress(self, sd: pp.Grid) -> np.ndarray:
         """Values for the reference stress on the matrix grid.

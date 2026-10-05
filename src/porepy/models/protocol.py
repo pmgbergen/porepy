@@ -1012,6 +1012,12 @@ else:
 
             """
 
+        def set_boundary_reference_values(self) -> None:
+            """Store the current boundary values as the reference state on boundary
+            grids.
+
+            """
+
         def update_boundary_condition(
             self,
             name: str,
