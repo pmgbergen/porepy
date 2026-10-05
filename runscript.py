@@ -185,6 +185,15 @@ def initialization_pipeline(model: pp.PorePyModel) -> pp.PorePyModel:
     original_model_class = model.__class__
     original_time_manager = model.time_manager
     original_folder_name = model.params["folder_name"]
+    # Time at which boundary conditions and sources are evaluated during initialization.
+    # The initialization clock runs far beyond the simulation's start, but the reference
+    # state must match the data seen by the first time step of the main simulation. This
+    # is the first target time rather than the start time, since e.g. lithostatic
+    # boundary conditions are different at the initial time itself.
+    data_time = model.params.get(
+        "initialization_data_time",
+        original_time_manager.time + original_time_manager.dt,
+    )
     initialization_folder_name = Path(original_folder_name).with_name(
         Path(original_folder_name).name + "_initialization"
     )
@@ -206,6 +215,16 @@ def initialization_pipeline(model: pp.PorePyModel) -> pp.PorePyModel:
         def matrix_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
             ones = np.ones(sum(sd.num_cells for sd in subdomains))
             return self.reference_porosity(subdomains) * pp.ad.DenseArray(ones)
+
+        def update_time_dependent_ad_arrays(self) -> None:
+            # Time dependent data (boundary values, sources) is frozen at data_time,
+            # while the clock of the time manager advances to find the steady state.
+            clock_time = self.time_manager.time
+            self.time_manager.time = data_time
+            try:
+                super().update_time_dependent_ad_arrays()
+            finally:
+                self.time_manager.time = clock_time
 
     model.__class__ = InitializedModel
     model.time_manager = make_initialization_time_manager()
