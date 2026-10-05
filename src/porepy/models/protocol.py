@@ -656,6 +656,9 @@ else:
         def prepare_simulation(self) -> None:
             """Run at the start of simulation. Used for initialization etc."""
 
+        def rebuild_equations(self) -> None:
+            """Set the equations and discretize them, discarding any previous ones."""
+
         def set_materials(self) -> None:
             """Set material parameters.
 

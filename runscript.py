@@ -297,15 +297,8 @@ def initialization_pipeline(model: pp.PorePyModel) -> pp.PorePyModel:
     finally:
         restore_original_model()
 
-    # Reset equations and rediscretize.
-    for eq_name in list(model.equation_system.equations.keys()):
-        model.equation_system.remove_equation(eq_name)
-
-    # Parts of model.prepare_simulation
-    model.set_equations()
-    model.update_discretization_parameters()
-    model.discretize()
-    model.set_nonlinear_discretizations()
+    # Discard the equations of the initialization model and set the original ones.
+    model.rebuild_equations()
 
     for domain in model.mdg.subdomains(dim=model.nd):
         boundary_faces = domain.get_all_boundary_faces()

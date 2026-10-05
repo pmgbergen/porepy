@@ -143,7 +143,7 @@ class SolutionStrategy(pp.PorePyModel):
         to construct.
         """
 
-    def prepare_simulation(self, ) -> None:
+    def prepare_simulation(self) -> None:
         """Run at the start of simulation. Used for initialization etc."""
         # Set the material and geometry of the problem. The geometry method must be
         # implemented in a ModelGeometry class.
@@ -173,15 +173,36 @@ class SolutionStrategy(pp.PorePyModel):
         # Initialize time dependent ad arrays, including those for boundary values.
         self.update_time_dependent_ad_arrays()
         self.reset_state_from_file()
-        self.set_equations()
-
-        self.update_discretization_parameters()
-        self.discretize()
-        self.set_nonlinear_discretizations()
+        self.rebuild_equations()
 
         # Export initial condition (only if time-dependent).
         if self._is_time_dependent():
             self.save_data_time_step()
+
+    def rebuild_equations(self) -> None:
+        """Set the equations and discretize them, discarding any previous ones.
+
+        Can be called after the equations were set, e.g. after changing constitutive
+        laws, to obtain a consistent equation system. Variables and their values are
+        not affected. The method:
+
+        1. Removes all equations from the equation system.
+        2. Clears the lists of nonlinear discretizations and the operator cache, since
+           they hold operators created for the removed equations.
+        3. Sets the equations, updates discretization parameters, discretizes and sets
+           the nonlinear discretizations.
+
+        """
+        for equation_name in list(self.equation_system.equations.keys()):
+            self.equation_system.remove_equation(equation_name)
+        self._nonlinear_discretizations.clear()
+        self._nonlinear_diffusive_flux_discretizations.clear()
+        self._operator_cache.clear()
+
+        self.set_equations()
+        self.update_discretization_parameters()
+        self.discretize()
+        self.set_nonlinear_discretizations()
 
     def initialize_previous_iterate_and_time_step_values(self) -> None:
         """Method to be called after initial values are set at ``iterate_index=0`` in

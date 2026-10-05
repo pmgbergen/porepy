@@ -511,3 +511,64 @@ def test_linear_or_nonlinear_model(params: dict):
 
     model = models.model(model_type=model_name, dim=2, num_fracs=num_fracs)
     assert model._is_nonlinear_problem() == is_nonlinear
+
+
+class ConstantPorosityTest(pp.PorePyModel):
+    """Alters a constitutive law, as done by temporarily swapping the model class."""
+
+    def matrix_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        ones = pp.ad.DenseArray(np.ones(sum(sd.num_cells for sd in subdomains)))
+        return self.reference_porosity(subdomains) * ones
+
+
+def test_rebuild_equations_after_class_swap():
+    """After temporarily swapping the model class, rebuild_equations() must yield the
+    same equation system as a model that was never altered: no stale operators from the
+    swapped class should remain in the nonlinear discretizations or the operator cache.
+
+    """
+    params = {
+        "fracture_indices": [0, 1],
+        "cartesian": True,
+        "material_constants": {"fluid": pp.FluidComponent(compressibility=1.0)},
+        "times_to_export": [],
+    }
+    model_class = models.Thermoporomechanics
+    altered_class = models.add_mixin(ConstantPorosityTest, model_class)
+
+    pristine = model_class(copy.deepcopy(params))
+    pristine.prepare_simulation()
+
+    swapped = model_class(copy.deepcopy(params))
+    swapped.__class__ = altered_class
+    swapped.prepare_simulation()
+    swapped.__class__ = model_class
+
+    def set_state(model: pp.PorePyModel) -> None:
+        rng = np.random.default_rng(0)
+        values = rng.random(model.equation_system.num_dofs())
+        model.equation_system.set_variable_values(values, iterate_index=0)
+        model.update_derived_quantities()
+
+    def assemble(model: pp.PorePyModel):
+        set_state(model)
+        system = model.equation_system.assemble()
+        assert system.matrix is not None
+        return system.matrix, system.rhs
+
+    jac_pristine, res_pristine = assemble(pristine)
+
+    # Sanity check: the swapped model's equations differ, so the test is meaningful.
+    jac_stale, res_stale = assemble(swapped)
+    assert not np.allclose(res_stale, res_pristine)
+
+    swapped.rebuild_equations()
+    assert len(swapped.nonlinear_discretizations) == len(
+        pristine.nonlinear_discretizations
+    )
+    assert len(swapped.nonlinear_diffusive_flux_discretizations) == len(
+        pristine.nonlinear_diffusive_flux_discretizations
+    )
+    jac, res = assemble(swapped)
+    assert np.allclose(res, res_pristine)
+    assert abs(jac - jac_pristine).max() < 1e-12 * max(1.0, abs(jac_pristine).max())
