@@ -390,12 +390,10 @@ def initialization_pipeline(model: pp.PorePyModel) -> pp.PorePyModel:
                 reference=True,
             )
 
-        steady_state = model.equation_system.get_variable_values(time_step_index=0)
+        steady_state = model.equation_system.get_variable_values(iterate_index=0)
         model.equation_system.set_variable_values(reference=True, values=steady_state)
-        model.equation_system.set_variable_values(
-            time_step_index=0, values=steady_state
-        )
-        model.equation_system.set_variable_values(iterate_index=0, values=steady_state)
+        # Copy the state to all stored iterates and time steps.
+        model.initialize_previous_iterate_and_time_step_values()
         # Anchor the boundary values at the steady state, so that the boundary
         # contribution to mechanical_stress and displacement_divergence cancels there.
         model.set_boundary_reference_values()
@@ -404,6 +402,8 @@ def initialization_pipeline(model: pp.PorePyModel) -> pp.PorePyModel:
 
     # Discard the equations of the initialization model and set the original ones.
     model.rebuild_equations()
+    # Fluxes, upwind discretizations etc. of the original equations depend on the state.
+    model.update_derived_quantities()
 
     for domain in model.mdg.subdomains(dim=model.nd):
         boundary_faces = domain.get_all_boundary_faces()
