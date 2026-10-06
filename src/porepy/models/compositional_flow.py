@@ -472,6 +472,19 @@ class EnthalpyBasedEnergyBalanceEquations(
         return op
 
     def enthalpy_flux(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """Enthalpy flux, extended to the fractional flow setting and to buoyancy
+        effects.
+
+        If buoyancy effects are enabled (parameter ``'enable_buoyancy_effects'``), the
+        :attr:`enthalpy_buoyancy` is added to the flux on subdomains.
+
+        Parameters:
+            subdomains: List of subdomains or boundary grids.
+
+        Returns:
+            Operator representing the enthalpy flux.
+
+        """
         if len(subdomains) == 0:
             return pp.wrap_as_dense_ad_array(0, size=0, grids=[], name="enthalpy_flux")
 
@@ -490,6 +503,18 @@ class EnthalpyBasedEnergyBalanceEquations(
         return flux
 
     def energy_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Energy source term, extended to buoyancy effects.
+
+        If buoyancy effects are enabled (parameter ``'enable_buoyancy_effects'``), the
+        :attr:`enthalpy_buoyancy_jump` is added to the source term of the parent class.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Operator representing the energy source term.
+
+        """
         source = super().energy_source(subdomains)
         buoyancy_condition: bool = self.params.get("enable_buoyancy_effects", False)
         if buoyancy_condition:
@@ -1796,6 +1821,13 @@ class SolutionStrategyExtendedFluidMassAndEnergy(
     """
 
     def __init__(self, params: Optional[dict] = None) -> None:
+        """Initialize the solution strategy and set the name of the enthalpy variable
+        and the enthalpy keyword.
+
+        Parameters:
+            params: Model parameters, passed on to the parent class.
+
+        """
         super().__init__(params)
 
         self.enthalpy_variable: str = "enthalpy"
