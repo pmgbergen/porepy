@@ -13,6 +13,7 @@ The lists are sorted on PR numbers.
 ## Unreleased
 
 ### Changes
+PR 1783: Introduce DiagonalAdArray class. Not yet used in other the code base.
 PR 1782: Rename module containing AdArray class.
 PR 1781: Add documentation for devcontainers to Readme.
 PR 1776: SPEED: Faster geometry computation on 3d simplex grids.
