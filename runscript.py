@@ -96,14 +96,8 @@ def make_tolerances(model: pp.PorePyModel) -> dict[str, float]:
     }
 
 
-def make_residual_tolerances(model: pp.PorePyModel) -> dict[str, float]:
-    """Tolerances of the residual of equations, in the units of the model. Equations
-    without an entry use :data:`DEFAULT_TOLERANCE`."""
-    return {
-        "mass_balance_equation": model.units.convert_units(1e-5, "Pa"),
-        "momentum_balance_equation": model.units.convert_units(1e-2, "m"),
-        "energy_balance_equation": model.units.convert_units(1e-2, "K"),
-    }
+RESIDUAL_TOLERANCE = 1e-8
+"""Absolute tolerance, in model units, of the residual of all equations."""
 
 
 def check_tolerances(
@@ -111,13 +105,14 @@ def check_tolerances(
     values: np.ndarray,
     tolerances: dict[str, float],
     name: str,
+    default_tolerance: float = DEFAULT_TOLERANCE,
 ) -> dict[str, float]:
     """Log and check the norm of each variable or equation against its tolerance.
 
     Parameters:
         metric: Computes the norm of each variable or equation block of ``values``.
         values: Rate of change of all variables, or residual of all equations.
-        tolerances: Absolute tolerance by name. Others use :data:`DEFAULT_TOLERANCE`.
+        tolerances: Absolute tolerance by name. Others use ``default_tolerance``.
         name: What the values are, for logging.
 
     Returns:
@@ -132,7 +127,7 @@ def check_tolerances(
     failed = {
         key: norm
         for key, norm in norms.items()
-        if norm >= tolerances.get(key, DEFAULT_TOLERANCE)
+        if norm >= tolerances.get(key, default_tolerance)
     }
     max_symbols_offset = max(len(key) for key in norms)
     for key, norm in norms.items():
@@ -162,7 +157,7 @@ class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
     Parameters:
         rate_tolerances: Tolerances of the rate of change of variables, see
             :func:`make_tolerances`.
-        residual_tolerances: Tolerances of the residual of equations.
+        residual_tolerance: Tolerance of the residual of all equations.
         earliest_stop_time: The simulation is not stopped before this time.
 
     """
@@ -170,11 +165,11 @@ class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
     def __init__(
         self,
         rate_tolerances: dict[str, float],
-        residual_tolerances: dict[str, float],
+        residual_tolerance: float,
         earliest_stop_time: float = 0,
     ) -> None:
         self.rate_tolerances = rate_tolerances
-        self.residual_tolerances = residual_tolerances
+        self.residual_tolerance = residual_tolerance
         self.earliest_stop_time = earliest_stop_time
         self.previous: tuple[np.ndarray, float] | None = None
         """State and time at the previous call."""
@@ -197,8 +192,9 @@ class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
         failed_residual = check_tolerances(
             pp.EquationBasedEuclideanMetric(model),
             model.equation_system.assemble(evaluate_jacobian=False),
-            self.residual_tolerances,
+            {},
             "residual",
+            self.residual_tolerance,
         )
         if failed_rate or failed_residual or time < self.earliest_stop_time:
             return None
@@ -439,7 +435,7 @@ def _run_to_steady_state(
     storage: ModelStateStorage,
     nonlinear_solver: pp.solvers.NewtonSolver,
     rate_tolerances: dict[str, float],
-    residual_tolerances: dict[str, float],
+    residual_tolerance: float,
 ) -> None:
     """Time step the prepared initialization model to a steady state, and save it.
 
@@ -454,7 +450,7 @@ def _run_to_steady_state(
         early_stop_criteria=[
             SteadyStateEarlyStopCriterion(
                 rate_tolerances=rate_tolerances,
-                residual_tolerances=residual_tolerances,
+                residual_tolerance=residual_tolerance,
                 earliest_stop_time=1 * pp.YEAR,
             )
         ],
@@ -476,16 +472,15 @@ def _run_to_steady_state(
     storage.save_state(model)
 
 
-def validate_steady_state(
-    model: pp.PorePyModel, residual_tolerances: dict[str, float]
-) -> bool:
+def validate_steady_state(model: pp.PorePyModel, residual_tolerance: float) -> bool:
     """Check that the residual of the equations of the model is below the tolerances
     at its current state."""
     failed = check_tolerances(
         pp.EquationBasedEuclideanMetric(model),
         model.equation_system.assemble(evaluate_jacobian=False),
-        residual_tolerances,
+        {},
         "residual",
+        residual_tolerance,
     )
     if failed:
         logger.warning(
@@ -498,7 +493,7 @@ def validate_steady_state(
 def initialization_pipeline(
     model: pp.PorePyModel,
     rate_tolerances: dict[str, float],
-    residual_tolerances: dict[str, float],
+    residual_tolerance: float = RESIDUAL_TOLERANCE,
     nonlinear_solver: pp.solvers.NewtonSolver | None = None,
     storage: ModelStateStorage | None = None,
 ) -> pp.PorePyModel:
@@ -513,7 +508,7 @@ def initialization_pipeline(
         model: The model.
         rate_tolerances: Tolerances of the rate of change of variables, see
             :func:`make_tolerances`.
-        residual_tolerances: Tolerances of the residual of equations.
+        residual_tolerance: Tolerance of the residual of all equations.
         nonlinear_solver: Solver for the time steps. Defaults to
             :func:`make_nonlinear_solver`.
         storage: Where to save the steady state. Defaults to a file in the simulation
@@ -541,7 +536,7 @@ def initialization_pipeline(
             logger.warning(f"{e} It is discarded.")
             storage.discard()
             return False
-        if not validate_steady_state(model, residual_tolerances):
+        if not validate_steady_state(model, residual_tolerance):
             storage.discard()
             # Reset the model state.
             model.prepare_simulation()
@@ -556,14 +551,14 @@ def initialization_pipeline(
                 storage,
                 nonlinear_solver,
                 rate_tolerances,
-                residual_tolerances,
+                residual_tolerance,
             )
 
     # Check that the full model, with the nonlinearities that were disabled, is in a
     # steady state.
     model.prepare_simulation()
     storage.load_state(model)
-    if not validate_steady_state(model, residual_tolerances):
+    if not validate_steady_state(model, residual_tolerance):
         storage.discard()
         raise InitializationError(
             "The model is not in a steady state at the found state."
@@ -598,7 +593,6 @@ if __name__ == "__main__":
     model = initialization_pipeline(
         model,
         rate_tolerances=make_tolerances(model),
-        residual_tolerances=make_residual_tolerances(model),
     )
 
     run_main_simulation(model)
