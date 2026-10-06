@@ -245,6 +245,7 @@ class TestGeometry:
                 # to test that a zero matrix is returned.
                 attr_list = ["cell_centers"]
                 dim_list = [nd]
+                entity_list = [pp.ad.GridEntity.cells]
             else:
                 # All relevant attributes for subdomain grids
                 attr_list = [
@@ -256,12 +257,22 @@ class TestGeometry:
                 ]
                 # List of dimensions, corresponding to the order in attr_list.
                 dim_list = [nd, nd, nd, 1, 1]
+                # The grid entity each attribute above is actually defined on.
+                entity_list = [
+                    pp.ad.GridEntity.cells,
+                    pp.ad.GridEntity.faces,
+                    pp.ad.GridEntity.faces,
+                    pp.ad.GridEntity.cells,
+                    pp.ad.GridEntity.faces,
+                ]
 
-            # Loop over attributes and corresponding dimensions.
-            for attr, dim in zip(attr_list, dim_list):
+            # Loop over attributes, corresponding dimensions and grid entities.
+            for attr, dim, grid_entity in zip(attr_list, dim_list, entity_list):
                 # Get hold of the wrapped attribute and the wrapping.
                 wrapped_value = equation_system.evaluate(
-                    geometry_model.wrap_grid_attribute(grids, attr, dim=dim)
+                    geometry_model.wrap_grid_attribute(
+                        grids, attr, dim=dim, grid_entity=grid_entity
+                    )
                 )
 
                 # Check that the wrapped attribute is a matrix.
@@ -507,7 +518,12 @@ class TestGeometry:
         # Left multiply with dim-vector defined on the interface. This should give a
         # vector of length dim * num_intf_cells.
         size = dim * sum([intf.num_cells for intf in interfaces])
-        dim_vec = pp.ad.DenseArray(np.ones(size))
+        dim_vec_space = pp.ad.OperatorSpace.from_domains(
+            interfaces, {pp.ad.GridEntity.cells: dim}
+        )
+        dim_vec = pp.ad.DenseArray(
+            np.ones(size), source=dim_vec_space, target=dim_vec_space
+        )
 
         # Left multiply with the normal operator; in essense this extracts the normal
         # vector (in the geometric sense) as a vector (in the algebraic sense).
@@ -554,9 +570,6 @@ class TestGeometry:
 
         # Count the number of cells
         num_subdomain_cells = sum([sd.num_cells for sd in subdomains])
-        num_cells_total = num_subdomain_cells + sum(
-            [intf.num_cells for intf in interfaces]
-        )
 
         # Make an equation system, which is needed for parsing of the Ad operator
         # representations of the geometry.
@@ -566,37 +579,43 @@ class TestGeometry:
         # is just a shallow wrapper around the former). Loop over dimension of the basis
         # vectors and of dimensions, construct the basis vectors and check that they
         # have the expected components.
-        for basis_dim in range(dim + 1):
-            for i in range(basis_dim):
-                # Consider both subdomains and interfaces here, since the method allows
-                # it.
-                num_cells = sum([sd.num_cells for sd in subdomains + interfaces])
-                e_i = projection_matrix_from_array_slicers(
-                    equation_system.evaluate(
-                        geometry_model.e_i(subdomains + interfaces, i=i, dim=basis_dim)
-                    ),
-                    num_cells,
-                )
-                # Expected values
-                rows = np.arange(i, num_cells_total * basis_dim, basis_dim)
-                cols = np.arange(num_cells_total)
-                data = np.ones(num_cells_total)
-                mat = sps.coo_matrix(
-                    (data, (rows, cols)),
-                    shape=(num_cells_total * basis_dim, num_cells_total),
-                )
-                assert np.allclose((mat - e_i).data, 0)
-
-                if basis_dim == dim:
-                    # the dimension of the basis vector space is not specified, the
-                    # value should be the same as for basis_dim = dim.
-                    e_None = projection_matrix_from_array_slicers(
+        # The grids passed to e_i must all be of the same type, so subdomains and
+        # interfaces are covered separately.
+        for grids in (subdomains, interfaces):
+            num_cells = sum([g.num_cells for g in grids])
+            for basis_dim in range(dim + 1):
+                for i in range(basis_dim):
+                    e_i = projection_matrix_from_array_slicers(
                         equation_system.evaluate(
-                            geometry_model.e_i(subdomains + interfaces, i=i, dim=dim)
+                            geometry_model.e_i(grids, i=i, dim=basis_dim)
                         ),
                         num_cells,
                     )
-                    assert np.allclose((e_None - e_i).data, 0)
+                    # Expected values
+                    rows = np.arange(i, num_cells * basis_dim, basis_dim)
+                    cols = np.arange(num_cells)
+                    data = np.ones(num_cells)
+                    mat = sps.coo_matrix(
+                        (data, (rows, cols)),
+                        shape=(num_cells * basis_dim, num_cells),
+                    )
+                    assert np.allclose((mat - e_i).data, 0)
+
+                    if basis_dim == dim:
+                        # the dimension of the basis vector space is not specified, the
+                        # value should be the same as for basis_dim = dim.
+                        e_None = projection_matrix_from_array_slicers(
+                            equation_system.evaluate(
+                                geometry_model.e_i(grids, i=i, dim=dim)
+                            ),
+                            num_cells,
+                        )
+                        assert np.allclose((e_None - e_i).data, 0)
+
+        # Mixing grid types is not permissible, since the resulting operator space
+        # would have no well-defined domain type.
+        with pytest.raises(ValueError):
+            geometry_model.e_i(subdomains + interfaces, i=0, dim=dim)
 
         # Next, test the methods to extract normal and tangential components. The normal
         # component is straightforward, the tangential component requires a bit of work

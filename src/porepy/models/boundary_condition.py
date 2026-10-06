@@ -135,7 +135,7 @@ class BoundaryConditionMixin(pp.PorePyModel):
             pp.set_solution_values(name=name, values=vals, data=data, iterate_index=0)
 
     def create_boundary_operator(
-        self, name: str, domains: Sequence[pp.BoundaryGrid]
+        self, name: str, domains: Sequence[pp.BoundaryGrid], dim: int = 1
     ) -> pp.ad.TimeDependentDenseArray:
         """Creates an operator on boundary grids.
 
@@ -155,7 +155,12 @@ class BoundaryConditionMixin(pp.PorePyModel):
         """
         if not all(isinstance(x, pp.BoundaryGrid) for x in domains):
             raise ValueError("Domains must consist entirely of the boundary grids.")
-        return pp.ad.TimeDependentDenseArray(name=name, domains=domains)
+        return pp.ad.TimeDependentDenseArray(
+            name=name,
+            domains=domains,
+            dof_info={pp.ad.GridEntity.cells: dim},
+            domain_type=pp.ad.DomainType.boundary_grids,
+        )
 
     def _combine_boundary_operators(
         self,
@@ -187,6 +192,29 @@ class BoundaryConditionMixin(pp.PorePyModel):
         """
         boundary_grids = self.subdomains_to_boundary_grids(subdomains)
 
+        if len(boundary_grids) == 0:
+            # There are no boundary grids (the subdomains are empty, or all of them are
+            # zero-dimensional), hence there are no boundary conditions to represent.
+            # Do not call the operator functions: They would interpret the empty list
+            # as a list of subdomains, which for operators that call this method from
+            # their subdomain branch would lead to infinite recursion.
+            empty_space = pp.ad.OperatorSpace.from_domains(
+                [],
+                {pp.ad.GridEntity.cells: dim},
+                domain_type=pp.ad.DomainType.boundary_grids,
+            )
+            empty_boundary_values = pp.ad.DenseArray(
+                np.zeros(0), source=empty_space, target=empty_space
+            )
+            result = (
+                pp.ad.BoundaryProjection(
+                    self.mdg, subdomains=subdomains, dim=dim
+                ).boundary_to_subdomain
+                @ empty_boundary_values
+            )
+            result.set_name(name)
+            return result
+
         # Create dictionaries to hold the Dirichlet and Neumann operators and filters
         operators = {
             "dirichlet": dirichlet_operator(boundary_grids),
@@ -194,10 +222,16 @@ class BoundaryConditionMixin(pp.PorePyModel):
         }
         filters = {
             "dirichlet": pp.ad.TimeDependentDenseArray(
-                name=(name + "_filter_dir"), domains=boundary_grids
+                name=(name + "_filter_dir"),
+                domains=boundary_grids,
+                dof_info={pp.ad.GridEntity.cells: dim},
+                domain_type=pp.ad.DomainType.boundary_grids,
             ),
             "neumann": pp.ad.TimeDependentDenseArray(
-                name=(name + "_filter_neu"), domains=boundary_grids
+                name=(name + "_filter_neu"),
+                domains=boundary_grids,
+                dof_info={pp.ad.GridEntity.cells: dim},
+                domain_type=pp.ad.DomainType.boundary_grids,
             ),
         }
 
@@ -206,7 +240,10 @@ class BoundaryConditionMixin(pp.PorePyModel):
         if robin_operator is not None:
             operators["robin"] = robin_operator(boundary_grids)
             filters["robin"] = pp.ad.TimeDependentDenseArray(
-                name=(name + "_filter_rob"), domains=boundary_grids
+                name=(name + "_filter_rob"),
+                domains=boundary_grids,
+                dof_info={pp.ad.GridEntity.cells: dim},
+                domain_type=pp.ad.DomainType.boundary_grids,
             )
 
         # Adding bc_type function to local storage to evaluate it before every time step

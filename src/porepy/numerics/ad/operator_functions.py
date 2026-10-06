@@ -25,6 +25,7 @@ import porepy as pp
 from porepy.numerics.ad.forward_mode import AdArray
 
 from .functions import FloatType
+from .operator_space import OperatorSpace
 from .operators import Operations, Operator
 
 __all__ = [
@@ -57,6 +58,9 @@ class AbstractFunction(Operator):
 
     Parameters:
         name: Name of this instance as an AD operator.
+        source: Algebraic source space of this function.
+        target: Algebraic target space of this function. Defaults to ``source`` if not
+            given.
 
     """
 
@@ -66,19 +70,23 @@ class AbstractFunction(Operator):
     def __init__(
         self,
         name: Optional[str] = None,
-        domains: Optional[pp.GridLikeSequence] = None,
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
+        *,
+        source: OperatorSpace,
+        target: Optional[OperatorSpace] = None,
         **kwargs,  # Left for inheritance for more complex functions
     ) -> None:
         # NOTE Constructor is overwritten to have a consistent signature
         # But the operation is always overwritten to point to evaluate.
         # Done for reasons of multiple inheritance.
+
         super().__init__(
             name=name,
-            domains=domains,
             operation=pp.ad.operators.Operations.evaluate,
             children=children,
+            source=source,
+            target=target,
         )
 
     def __call__(self, *args: pp.ad.Operator) -> pp.ad.Operator:
@@ -98,12 +106,12 @@ class AbstractFunction(Operator):
         assert len(args) > 0, (
             "Operator functions must be called with at least 1 argument."
         )
-
         op = Operator(
             name=f"{self.name}{[a.name for a in args]}",
-            # domains=self.domains,
             operation=pp.ad.operators.Operations.evaluate,
             children=args,
+            source=self._source,
+            target=self._target,
         )
         # Assigning the functional representation by the implementation of this instance
         op.func = self.func  # type: ignore
@@ -262,8 +270,12 @@ class DiagonalJacobianFunction(AbstractFunction):
         self,
         multipliers: float | list[float],
         name: str,
+        *,
+        source: OperatorSpace,
+        target: Optional[OperatorSpace] = None,
     ):
-        super().__init__(name=name)
+
+        super().__init__(name=name, source=source, target=target)
         # check and format input for further use
         if isinstance(multipliers, list):
             self._multipliers = [float(val) for val in multipliers]
@@ -300,11 +312,20 @@ class Function(AbstractFunction):
     Paramters:
         func: A callable returning a numpy array for numpy array arguments, and an
             Ad array for arguments containing Ad arrays.
+        source: The source of the function.
+        target: The target of the function. If not given (or explicitly ``None``),
+            defaults to ``source``.
 
     """
 
-    def __init__(self, func: Callable[..., FloatType], name: str) -> None:
-        super().__init__(name=name)
+    def __init__(
+        self,
+        func: Callable[..., FloatType],
+        name: str,
+        source: OperatorSpace,
+        target: Optional[OperatorSpace] = None,
+    ) -> None:
+        super().__init__(name=name, source=source, target=target)
 
         self._func: Callable[..., float | np.ndarray | AdArray] = func
         """Reference to the callable passed at instantiation."""
@@ -369,7 +390,12 @@ class InterpolatedFunction(AbstractFunction):
         order: int = 1,
         preval: bool = False,
     ):
-        super().__init__(name=name)
+        # For now, use unclear() for source and target, since the function is not aware
+        # of the grid/dof context of its arguments. This should be improved if this
+        # code is brought back to shape at some point.
+        source = OperatorSpace.unclear()
+        target = OperatorSpace.unclear()
+        super().__init__(name=name, source=source, target=target)
 
         ### PUBLIC
         self.order: int = order
