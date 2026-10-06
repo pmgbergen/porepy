@@ -227,6 +227,51 @@ def log_steady_state_ratios(
         )
 
 
+def log_steady_state_convergence(
+    model: pp.PorePyModel,
+    state: np.ndarray,
+    rates: np.ndarray | None,
+    trial_ratios: dict[str, float] | None,
+) -> None:
+    """Log the range and the rate of change of each variable.
+
+    Parameters:
+        model: The model.
+        state: Current values of all variables.
+        rates: Absolute rate of change of all variables, in units per second, or None
+            if it is not known yet.
+        trial_ratios: Distance to the steady state relative to the tolerance for each
+            variable (:func:`trial_step_ratios`), if it was evaluated. A variable is
+            marked as converged if it is below :data:`TRIAL_STEP_RTOL`.
+
+    """
+
+    def signed(value: float) -> str:
+        return f"{'-' if value < 0 else ' '}{abs(value):.1e}"
+
+    groups = {
+        name: np.concatenate(list(domains_dofs.values()))
+        for name, domains_dofs in (
+            model.equation_system.variable_indexer.group_by_name().items()
+        )
+    }
+    max_symbols_offset = max(len(key) for key in groups)
+    for key, indices in groups.items():
+        if indices.size == 0:
+            continue
+        line = (
+            f"{key}:{' ' * (1 + max_symbols_offset - len(key))}"
+            f"min ={signed(state[indices].min())}, max ={signed(state[indices].max())}"
+        )
+        if rates is not None:
+            line += f", rate ={signed(rates[indices].max())}/s"
+        if trial_ratios is not None:
+            ratio = trial_ratios[key]
+            line += f", distance ={signed(ratio)}"
+            line += ", converged" if ratio <= TRIAL_STEP_RTOL else ""
+        logger.info(line)
+
+
 @dataclass
 class SteadyStateModelRunnerSuccess(pp.ModelRunnerStatusSuccess):
     pass
@@ -281,16 +326,32 @@ class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
         self.tolerances = tolerances
         self.earliest_stop_time = earliest_stop_time
         self.solver = solver if solver is not None else make_nonlinear_solver()
+        self.previous: tuple[np.ndarray, float] | None = None
+        """State and time at the previous call, to compute rates of change."""
 
     def simulation_should_stop(
         self, model: pp.PorePyModel
     ) -> pp.ModelRunnerStatus | None:
-        if model.time_manager.time < self.earliest_stop_time:
-            return None
-        residual_ratios, trial_ratios, failed = check_steady_state(
-            model, self.tolerances, self.solver
-        )
-        log_steady_state_ratios(residual_ratios, trial_ratios)
+        state = model.equation_system.get_variable_values(iterate_index=0)
+        time = model.time_manager.time
+        rates = None
+        if self.previous is not None and time > self.previous[1]:
+            rates = np.abs(state - self.previous[0]) / (time - self.previous[1])
+        self.previous = (state, time)
+
+        # The check needs a linear solve, so it is only done when the state may be close
+        # to a steady state.
+        failed = {"not evaluated": np.inf}
+        trial_ratios = None
+        if time >= self.earliest_stop_time:
+            residual_ratios, trial_ratios, failed = check_steady_state(
+                model, self.tolerances, self.solver
+            )
+            logger.info(
+                "Relative residual: "
+                + ", ".join(f"{k}={v:.1e}" for k, v in residual_ratios.items())
+            )
+        log_steady_state_convergence(model, state, rates, trial_ratios)
         if failed:
             return None
         return SteadyStateModelRunnerSuccess()
@@ -515,7 +576,7 @@ class _InitializationSettings:
         # initial time itself.
         data_time = model.params.get(
             "initialization_data_time",
-            self.original_time_manager.time + self.original_time_manager.dt,
+            self.original_time_manager.time_init + self.original_time_manager.dt_init,
         )
 
         class InitializedModel(self.original_class):  # type: ignore[name-defined]
@@ -629,6 +690,7 @@ def _validate_original_model(
 
 def initialization_pipeline(
     model: pp.PorePyModel,
+    tolerances: dict[str, float],
     storage: SteadyStateStorage | None = None,
 ) -> pp.PorePyModel:
     """Initialize an unprepared model to a steady state.
@@ -652,13 +714,13 @@ def initialization_pipeline(
             Path(model.params["folder_name"]) / "steady_state.npz"
         )
     settings = _InitializationSettings(model)
-    tolerances = make_tolerances(model)
 
+    model.prepare_simulation()
+    
     loaded = False
     snapshot = None
     settings.enter(model_is_prepared=False)
     try:
-        model.prepare_simulation()
         if storage.exists():
             snapshot = storage.snapshot(model)
             try:
@@ -731,7 +793,10 @@ if __name__ == "__main__":
     logging.getLogger("pp_solvers.porepy_integration").setLevel(logging.WARNING)
     model = ThmFracturedReservoir(set_model_params())
 
-    model = initialization_pipeline(model)
+    model = initialization_pipeline(
+        model,
+        tolerances=make_tolerances(model),
+    )
 
     run_main_simulation(model)
 
