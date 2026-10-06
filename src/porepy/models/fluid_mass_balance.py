@@ -228,7 +228,10 @@ class FluidMassBalanceEquations(pp.BalanceEquation):
             Operator representing the fluid flux.
 
         """
-        if len(domains) > 0 and all(isinstance(d, pp.BoundaryGrid) for d in domains):
+        if len(domains) == 0:
+            return pp.wrap_as_dense_ad_array(0, size=0, grids=[], name="fluid_flux")
+
+        if all(isinstance(d, pp.BoundaryGrid) for d in domains):
             return self.create_boundary_operator(
                 name=self.bc_data_fluid_flux_key,
                 domains=cast(Sequence[pp.BoundaryGrid], domains),

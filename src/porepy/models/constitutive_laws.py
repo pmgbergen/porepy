@@ -1005,8 +1005,10 @@ class DarcysLaw(pp.PorePyModel):
             Face-wise Darcy flux in cubic meters per second.
 
         """
+        if len(domains) == 0:
+            return pp.wrap_as_dense_ad_array(0, size=0, grids=[], name="Darcy_flux")
 
-        if len(domains) > 0 and all([isinstance(g, pp.BoundaryGrid) for g in domains]):
+        if all([isinstance(g, pp.BoundaryGrid) for g in domains]):
             return self.create_boundary_operator(
                 name=self.bc_data_darcy_flux_key,
                 domains=cast(Sequence[pp.BoundaryGrid], domains),
@@ -1261,7 +1263,10 @@ class AdTpfaFlux(pp.PorePyModel):
         # the dp factor is easily overlooked when comparing a computed and a 'known'
         # value, resulting in frustration.
 
-        if len(domains) > 0 and all([isinstance(g, pp.BoundaryGrid) for g in domains]):
+        if len(domains) == 0:
+            return pp.wrap_as_dense_ad_array(0, size=0, grids=[], name=flux_name)
+
+        if all([isinstance(g, pp.BoundaryGrid) for g in domains]):
             domains = cast(Sequence[pp.BoundaryGrid], domains)
             return self.create_boundary_operator(
                 name=flux_name,
@@ -2505,8 +2510,10 @@ class FouriersLaw(pp.PorePyModel):
             An Ad-operator representing the Fourier flux on the subdomains.
 
         """
+        if len(subdomains) == 0:
+            return pp.wrap_as_dense_ad_array(0, size=0, grids=[], name="Fourier_flux")
 
-        if len(subdomains) == 0 or isinstance(subdomains[0], pp.BoundaryGrid):
+        if isinstance(subdomains[0], pp.BoundaryGrid):
             # Given Neumann data prescribed for Fourier flux on boundary.
             domains = cast(Sequence[pp.BoundaryGrid], subdomains)
             return self.create_boundary_operator(
@@ -3114,7 +3121,12 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
             Ad operator representing the mechanical stress on the faces of the grids.
 
         """
-        if len(domains) > 0 and all(isinstance(d, pp.BoundaryGrid) for d in domains):
+        if len(domains) == 0:
+            return pp.wrap_as_dense_ad_array(
+                0, size=0, grids=[], name="mechanical_stress"
+            )
+
+        if all(isinstance(d, pp.BoundaryGrid) for d in domains):
             domains = cast(Sequence[pp.BoundaryGrid], domains)
             return self.create_boundary_operator(
                 name=self.stress_keyword, domains=domains, dim=self.nd
@@ -3315,7 +3327,12 @@ class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
             Operator for the stress.
 
         """
-        if len(domains) > 0 and all(isinstance(d, pp.BoundaryGrid) for d in domains):
+        if len(domains) == 0:
+            return pp.wrap_as_dense_ad_array(
+                0, size=0, grids=[], name="mechanical_stress"
+            )
+
+        if all(isinstance(d, pp.BoundaryGrid) for d in domains):
             return self.create_boundary_operator(
                 name=self.stress_keyword,  # type: ignore[call-arg]
                 domains=cast(  # type: ignore[call-arg]
@@ -3358,6 +3375,7 @@ class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
             + discr.stress_rotation() @ self.rotation_stress(domains)
             + discr.stress_total_pressure() @ self.total_pressure(domains)
         )
+        stress.set_name("mechanical_stress")
         return stress
 
     def stress_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.TpsaAd:
@@ -3387,7 +3405,10 @@ class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
             Operator for the total rotation.
 
         """
-        if len(domains) > 0 and all(isinstance(d, pp.BoundaryGrid) for d in domains):
+        if len(domains) == 0:
+            return pp.wrap_as_dense_ad_array(0, size=0, grids=[], name="total_rotation")
+
+        if all(isinstance(d, pp.BoundaryGrid) for d in domains):
             # The boundary condition for this term is posed in terms of the displacement
             # variable (or stresses).
             return self.create_boundary_operator(
@@ -3421,7 +3442,7 @@ class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
         interfaces = self.subdomains_to_interfaces(domains, [1])
         proj = pp.ad.MortarProjections(self.mdg, domains, interfaces, dim=self.nd)
 
-        return (
+        rotation = (
             discr.rotation_displacement() @ self.displacement(domains)
             + discr.rotation_rotation() @ self.rotation_stress(domains)
             + discr.bound_rotation_displacement() @ boundary_operator
@@ -3429,6 +3450,8 @@ class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
             @ proj.mortar_to_primary_avg()
             @ self.interface_displacement(interfaces)
         )
+        rotation.set_name("total_rotation")
+        return rotation
 
     def solid_mass_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Operator for the solid mass flux through a face.
@@ -3444,7 +3467,12 @@ class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
             Operator for the solid mass flux.
 
         """
-        if len(domains) > 0 and all(isinstance(d, pp.BoundaryGrid) for d in domains):
+        if len(domains) == 0:
+            return pp.wrap_as_dense_ad_array(
+                0, size=0, grids=[], name="solid_mass_flux"
+            )
+
+        if all(isinstance(d, pp.BoundaryGrid) for d in domains):
             # The boundary condition for this term is posed in terms of the displacement
             # variable (or stresses).
             return self.create_boundary_operator(
@@ -3487,6 +3515,7 @@ class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
             @ proj.mortar_to_primary_avg()
             @ self.interface_displacement(interfaces)
         )
+        mass_flux.set_name("solid_mass_flux")
         return mass_flux
 
     def first_lame_parameter(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:

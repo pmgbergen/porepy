@@ -441,10 +441,12 @@ class EnthalpyBasedEnergyBalanceEquations(
 
         op: pp.ad.Operator | pp.ad.TimeDependentDenseArray
 
-        if (
-            is_fractional_flow(self)
-            and len(domains) > 0
-            and all([isinstance(g, pp.BoundaryGrid) for g in domains])
+        if len(domains) == 0:
+            op = pp.wrap_as_dense_ad_array(
+                0, size=0, grids=[], name="advected_enthalpy"
+            )
+        elif is_fractional_flow(self) and all(
+            [isinstance(g, pp.BoundaryGrid) for g in domains]
         ):
             op = self.create_boundary_operator(
                 self.bc_data_fractional_flow_energy_key,
@@ -460,19 +462,20 @@ class EnthalpyBasedEnergyBalanceEquations(
                     for phase in self.fluid.phases
                 ],
             )
-            op.set_name("advected_enthalpy")
         else:
             # If the fractional-flow framework is not used, the weight corresponds to
             # the advected enthalpy and a super call is performed (where the respective
             # term is implemented).
             op = super().advection_weight_energy_balance(domains)
 
+        op.set_name("advected_enthalpy")
         return op
 
     def enthalpy_flux(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        on_boundary = len(subdomains) > 0 and all(
-            isinstance(d, pp.BoundaryGrid) for d in subdomains
-        )
+        if len(subdomains) == 0:
+            return pp.wrap_as_dense_ad_array(0, size=0, grids=[], name="enthalpy_flux")
+
+        on_boundary = all(isinstance(d, pp.BoundaryGrid) for d in subdomains)
         if on_boundary and is_fractional_flow(self):
             flux = self.advection_weight_energy_balance(subdomains) * self.darcy_flux(
                 subdomains
@@ -698,10 +701,12 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
 
         op: pp.ad.Operator | pp.ad.TimeDependentDenseArray
 
-        if (
-            is_fractional_flow(self)
-            and len(domains) > 0
-            and all([isinstance(g, pp.BoundaryGrid) for g in domains])
+        if len(domains) == 0:
+            op = pp.wrap_as_dense_ad_array(
+                0, size=0, grids=[], name="advected_component_mass"
+            )
+        elif is_fractional_flow(self) and all(
+            [isinstance(g, pp.BoundaryGrid) for g in domains]
         ):
             op = self.create_boundary_operator(
                 self.bc_data_fractional_flow_component_key(component),
@@ -737,7 +742,12 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
             returned as an AD operator.
 
         """
-        if len(domains) > 0 and all(isinstance(d, pp.BoundaryGrid) for d in domains):
+        if len(domains) == 0:
+            return pp.wrap_as_dense_ad_array(
+                0, size=0, grids=[], name=f"component_flux_{component.name}"
+            )
+
+        if all(isinstance(d, pp.BoundaryGrid) for d in domains):
             if is_fractional_flow(self):
                 return self.advection_weight_component_mass_balance(
                     component, domains

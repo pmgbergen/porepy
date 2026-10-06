@@ -450,9 +450,10 @@ class VariablesMomentumBalance(VariableMixin):
                 grids
 
         """
-        if len(domains) > 0 and all(
-            isinstance(grid, pp.BoundaryGrid) for grid in domains
-        ):
+        if len(domains) == 0:
+            return self.equation_system.md_variable(self.displacement_variable, [])
+
+        if all(isinstance(grid, pp.BoundaryGrid) for grid in domains):
             domains = cast(Sequence[pp.BoundaryGrid], domains)
             return self.create_boundary_operator(
                 name=self.displacement_variable, domains=domains, dim=self.nd
