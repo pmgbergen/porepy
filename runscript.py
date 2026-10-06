@@ -1,4 +1,3 @@
-import copy
 from dataclasses import dataclass
 
 import numpy as np
@@ -162,8 +161,8 @@ def steady_state_residual_ratios(
 
     """
     system = model.equation_system.assemble()
-    assert system.matrix is not None
-    ratios = _safe_ratio(system.rhs, abs(system.matrix) @ tolerance_vector)
+    matrix = abs(system.matrix)  # type: ignore[arg-type]
+    ratios = _safe_ratio(system.rhs, matrix @ tolerance_vector)
     indexer = model.equation_system.equation_indexer
     return {
         name: float(ratios[np.concatenate(list(domains_dofs.values()))].max())
@@ -278,27 +277,7 @@ class SteadyStateModelRunnerSuccess(pp.ModelRunnerStatusSuccess):
 
 
 class InitializationError(RuntimeError):
-    """Raised if the initialization did not end in a verified steady state.
-
-    Attributes:
-        status: Status of the initialization run, if available.
-        residual_ratios: Relative residuals per equation, if they were evaluated, see
-            :func:`steady_state_residual_ratios`.
-        trial_step_ratios: Relative Newton increments per variable, if evaluated.
-
-    """
-
-    def __init__(
-        self,
-        message: str,
-        status: pp.ModelRunnerStatus | None = None,
-        residual_ratios: dict[str, float] | None = None,
-        trial_step_ratios: dict[str, float] | None = None,
-    ) -> None:
-        super().__init__(message)
-        self.status = status
-        self.residual_ratios = residual_ratios
-        self.trial_step_ratios = trial_step_ratios
+    """Raised if the initialization did not end in a verified steady state."""
 
 
 class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
@@ -361,8 +340,9 @@ class SteadyStateMismatch(ValueError):
     """The saved steady state does not match the model."""
 
 
-class SteadyStateStorage:
-    """Saves the arrays that define a steady state of a model, and loads them back.
+class ModelStateStorage:
+    """Saves the arrays that define the state of a model, and loads them back. Whether
+    the state is a steady state is not checked here.
 
     The arrays are:
 
@@ -505,55 +485,25 @@ class SteadyStateStorage:
         es.set_variable_values(iterate_index=0, values=arrays["variables"])
         # Copy the state to all stored iterates and time steps.
         model.initialize_previous_iterate_and_time_step_values()
+        # Boundary values are the state of the boundary grids. They are also the
+        # reference values of the boundary operators.
         for j, (_, data) in enumerate(self._boundaries(model)):
             for name in data.get(pp.ITERATE_SOLUTIONS, {}):
-                pp.set_solution_values(
-                    name=name,
-                    values=arrays[f"boundary_{j}_{name}"].copy(),
-                    data=data,
-                    reference=True,
-                )
-
-    def apply_current_state(self, model: pp.PorePyModel) -> None:
-        """Set the current state of the model as its reference state."""
-        self._apply_state(model, self.capture_state(model))
-
-    def snapshot(self, model: pp.PorePyModel) -> dict:
-        """Copy everything that :meth:`load_state` modifies, for :meth:`restore`."""
-        es = model.equation_system
-        return {
-            "iterate": es.get_variable_values(iterate_index=0),
-            "reference": es.get_variable_values(reference=True),
-            "data": [
-                copy.deepcopy(data.get(pp.REFERENCE_SOLUTIONS))
-                for _, data in self._all_data(model)
-            ],
-        }
-
-    def restore(self, model: pp.PorePyModel, snapshot: dict) -> None:
-        """Undo :meth:`load_state` and :meth:`apply_current_state`."""
-        es = model.equation_system
-        es.set_variable_values(reference=True, values=snapshot["reference"])
-        es.set_variable_values(iterate_index=0, values=snapshot["iterate"])
-        model.initialize_previous_iterate_and_time_step_values()
-        for (_, data), reference in zip(self._all_data(model), snapshot["data"]):
-            if reference is None:
-                data.pop(pp.REFERENCE_SOLUTIONS, None)
-            else:
-                data[pp.REFERENCE_SOLUTIONS] = copy.deepcopy(reference)
-
-    @staticmethod
-    def _all_data(model: pp.PorePyModel) -> list[tuple[object, dict]]:
-        return [
-            *model.mdg.subdomains(return_data=True),
-            *model.mdg.interfaces(return_data=True),
-            *model.mdg.boundaries(return_data=True),
-        ]
+                values = arrays[f"boundary_{j}_{name}"]
+                for kwargs in [
+                    {"reference": True},
+                    {"iterate_index": 0},
+                    {"time_step_index": 0},
+                ]:
+                    pp.set_solution_values(
+                        name=name, values=values.copy(), data=data, **kwargs
+                    )
+        model.update_derived_quantities()
 
 
-class _InitializationSettings:
-    """Temporarily replaces the model class, time manager and output folder with those
-    used for initialization.
+class _InitializationContext:
+    """Context manager that temporarily replaces the model class, time manager and
+    output folder with those used for initialization.
 
     The initialization model sets shear dilation to zero and porosity to its reference
     value, and evaluates time-dependent data (boundary values, sources) at a fixed time.
@@ -604,29 +554,20 @@ class _InitializationSettings:
 
         self.initialized_class = InitializedModel
 
-    def _reset_data_saving(self) -> None:
-        # The exporter, the iteration exporter and the solver statistics are created
-        # with the folder of the time of creation.
-        self.model.set_nonlinear_solver_statistics()
-        self.model.initialize_data_saving()
-
-    def enter(self, model_is_prepared: bool) -> None:
+    def __enter__(self) -> None:
         self.model.__class__ = self.initialized_class
         self.model.time_manager = make_initialization_time_manager()
         self.model.params["folder_name"] = self.folder_name
-        if model_is_prepared:
-            self._reset_data_saving()
 
-    def exit(self) -> None:
+    def __exit__(self, *args: object) -> None:
         self.model.__class__ = self.original_class
         self.model.time_manager = self.original_time_manager
         self.model.params["folder_name"] = self.original_folder_name
-        self._reset_data_saving()
 
 
 def _run_to_steady_state(
     model: pp.PorePyModel,
-    storage: SteadyStateStorage,
+    storage: ModelStateStorage,
     tolerances: dict[str, float],
 ) -> None:
     """Time step the prepared initialization model to a steady state, and set the
@@ -639,7 +580,7 @@ def _run_to_steady_state(
     runner = pp.ModelRunner(
         model,
         params={"prepare_simulation": False},
-        nonlinear_solver=make_nonlinear_solver(),
+        nonlinear_solver=make_nonlinear_solver(),  # TODO YZ: Should be injected.
         early_stop_criteria=[
             SteadyStateEarlyStopCriterion(
                 tolerances=tolerances,
@@ -654,123 +595,96 @@ def _run_to_steady_state(
             raise
         status = e.args[0]
 
-    # The reference state is only overwritten if a steady state was found: reaching
-    # the final time or a failed time step is not an equilibrium.
+    # Only a steady state is saved: reaching the final time or a failed time step is
+    # not an equilibrium.
     if not isinstance(status, SteadyStateModelRunnerSuccess):
         raise InitializationError(
             f"Steady state was not reached: {status}. The model state is "
-            "not initialized.",
-            status=status,
+            "not initialized."
         )
-    storage.apply_current_state(model)
+    storage.save_state(model)
 
 
-def _validate_original_model(
-    model: pp.PorePyModel, tolerances: dict[str, float]
-) -> InitializationError | None:
-    """Check that the original equations are in equilibrium at the current state:
+def validate_steady_state(model: pp.PorePyModel, tolerances: dict[str, float]) -> bool:
+    """Check that the equations of the model are in equilibrium at its current state:
     their residual is negligible, and a Newton step from the state would not change it.
-
-    Returns:
-        An error describing the failure, or None if the state is a steady state.
 
     """
     residual_ratios, trial_ratios, failed = check_steady_state(model, tolerances)
     log_steady_state_ratios(residual_ratios, trial_ratios)
     if failed:
-        return InitializationError(
-            "The original equations are not in equilibrium at the found state, "
-            "relative residual / trial step too large for: "
-            + ", ".join(f"{k} ({v:.1e})" for k, v in failed.items()),
-            residual_ratios=residual_ratios,
-            trial_step_ratios=trial_ratios,
+        logger.warning(
+            "Not a steady state, relative residual / trial step too large for: "
+            + ", ".join(f"{k} ({v:.1e})" for k, v in failed.items())
         )
-    return None
+    return not failed
 
 
 def initialization_pipeline(
     model: pp.PorePyModel,
     tolerances: dict[str, float],
-    storage: SteadyStateStorage | None = None,
+    storage: ModelStateStorage | None = None,
 ) -> pp.PorePyModel:
-    """Initialize an unprepared model to a steady state.
+    """Initialize a model to a steady state.
 
     If a steady state was saved before, it is loaded, and used if it is consistent with
-    the model and verified to be a steady state of the original equations. Otherwise it
-    is discarded and the steady state is found by time stepping and saved.
+    the model and verified to be a steady state. Otherwise it is found by time stepping
+    with a simplified model, and saved. The state is then set in the original model and
+    verified there.
 
     Parameters:
-        model: Model that has not been prepared.
+        model: The model.
+        tolerances: Absolute tolerances of variables, see
+            :func:`variable_tolerance_vector`.
         storage: Where to save the steady state. Defaults to a file in the simulation
             folder.
 
     Raises:
-        InitializationError: If no verified steady state was found. The model should be
-            discarded then.
+        InitializationError: If no verified steady state was found.
 
     """
     if storage is None:
-        storage = SteadyStateStorage(
+        storage = ModelStateStorage(
             Path(model.params["folder_name"]) / "steady_state.npz"
         )
-    settings = _InitializationSettings(model)
+    init_context = _InitializationContext(model)
 
-    model.prepare_simulation()
-    
-    loaded = False
-    snapshot = None
-    settings.enter(model_is_prepared=False)
-    try:
-        if storage.exists():
-            snapshot = storage.snapshot(model)
-            try:
-                storage.load_state(model)
-                loaded = True
-                logger.info(f"Loaded steady state from {storage.path}.")
-            except SteadyStateMismatch as e:
-                logger.warning(f"{e} It is discarded.")
-                storage.discard()
-        if not loaded:
-            _run_to_steady_state(model, storage, tolerances)
-    finally:
-        settings.exit()
-
-    # Discard the equations of the initialization model and set the original ones.
-    model.rebuild_equations()
-    # Fluxes, upwind discretizations etc. of the original equations depend on the state.
-    model.update_derived_quantities()
-    error = _validate_original_model(model, tolerances)
-
-    if error is not None and loaded:
-        logger.warning(f"The loaded steady state is not a steady state: {error}")
-        storage.discard()
-        # Go back to the prepared model, and find the steady state.
-        assert snapshot is not None
-        settings.enter(model_is_prepared=True)
+    def load_steady_state() -> bool:
+        if not storage.exists():
+            return False
+        logger.info(f"Trying to load steady state from {storage.path}.")
         try:
-            model.rebuild_equations()
-            storage.restore(model, snapshot)
-            model.update_derived_quantities()
-            _run_to_steady_state(model, storage, tolerances)
-        finally:
-            settings.exit()
-        model.rebuild_equations()
-        model.update_derived_quantities()
-        error = _validate_original_model(model, tolerances)
-        loaded = False
+            storage.load_state(model)
+        except SteadyStateMismatch as e:
+            logger.warning(f"{e} It is discarded.")
+            storage.discard()
+            return False
+        if not validate_steady_state(model, tolerances):
+            storage.discard()
+            # Reset the model state.
+            model.prepare_simulation()
+            return False
+        return True
 
-    if error is not None:
-        raise error
-    if not loaded:
-        storage.save_state(model)
+    with init_context:
+        model.prepare_simulation()
+        if not load_steady_state():
+            _run_to_steady_state(model, storage, tolerances)
+
+    # Check that the full model, with the nonlinearities that were disabled, is in a
+    # steady state.
+    model.prepare_simulation()
+    storage.load_state(model)
+    if not validate_steady_state(model, tolerances):
+        storage.discard()
+        raise InitializationError(
+            "The model is not in a steady state at the found state."
+        )
+
     logger.info(
         "Initialization complete. The simulation initial and reference states are set "
         "to the found steady state."
     )
-
-    # prepare_simulation is skipped in the main run, so export the initial state here.
-    if model._is_time_dependent():
-        model.save_data_time_step()
     return model
 
 

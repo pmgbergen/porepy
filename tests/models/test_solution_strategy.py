@@ -524,10 +524,11 @@ class ConstantPorosityTest(pp.PorePyModel):
         return self.reference_porosity(subdomains) * ones
 
 
-def test_rebuild_equations_after_class_swap():
-    """After temporarily swapping the model class, rebuild_equations() must yield the
-    same equation system as a model that was never altered: no stale operators from the
-    swapped class should remain in the nonlinear discretizations or the operator cache.
+def test_prepare_simulation_twice_after_class_swap():
+    """After temporarily swapping the model class, preparing the simulation again must
+    yield the same equation system as a model that was never altered: no stale
+    operators from the swapped class should remain in the nonlinear discretizations or
+    the operator cache.
 
     """
     params = {
@@ -565,7 +566,7 @@ def test_rebuild_equations_after_class_swap():
     jac_stale, res_stale = assemble(swapped)
     assert not np.allclose(res_stale, res_pristine)
 
-    swapped.rebuild_equations()
+    swapped.prepare_simulation()
     assert len(swapped.nonlinear_discretizations) == len(
         pristine.nonlinear_discretizations
     )
