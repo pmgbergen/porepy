@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import numpy as np
 import logging
 from pathlib import Path
+from typing import Callable
 
 import pp_solvers
 import porepy as pp
@@ -14,11 +15,6 @@ logger = logging.getLogger(__name__)
 
 
 SCHEDULE_INTERVAL_EQUILIBRATION = "100 years"
-
-CHANGE_PERIOD = pp.YEAR
-"""Period over which the change of variables is measured, to compare it with
-tolerances."""
-
 
 def make_initialization_time_manager():
     return pp.TimeManager(
@@ -87,13 +83,13 @@ def make_nonlinear_solver() -> pp.solvers.NewtonSolver:
 
 
 DEFAULT_TOLERANCE = 1e-3
-"""Absolute tolerance, in model units, of variables without an explicit tolerance."""
+"""Absolute tolerance, in model units, of variables and equations without an explicit
+tolerance."""
 
 
 def make_tolerances(model: pp.PorePyModel) -> dict[str, float]:
-    """Tolerances of variables: changes during :data:`CHANGE_PERIOD` that are considered
-    negligible, in the units of the model. Other variables use
-    :data:`DEFAULT_TOLERANCE`."""
+    """Tolerances of the rate of change of variables, in the units of the model per
+    second. Variables without an entry use :data:`DEFAULT_TOLERANCE`."""
     return {
         "pressure": model.units.convert_units(100, "Pa") / pp.YEAR,
         "temperature": model.units.convert_units(1, "K") / pp.YEAR,
@@ -101,74 +97,41 @@ def make_tolerances(model: pp.PorePyModel) -> dict[str, float]:
     }
 
 
-# def change_over_period(
-#     model: pp.PorePyModel,
-#     solver: pp.solvers.NewtonSolver,
-#     period: float = CHANGE_PERIOD,
-# ) -> np.ndarray:
-#     """Change of all variables during a time step of length ``period``.
-
-#     It is the first Newton increment of that time step. Right after a converged time
-#     step the previous time step equals the current state, so the increment vanishes in
-#     a steady state. The state of the model is not changed.
-
-#     """
-#     solver.linear_solver.initialize_with_model(model)
-#     model.ad_time_step.set_value(period)
-#     try:
-#         increment, _ = solver.iteration(model)
-#     finally:
-#         model.ad_time_step.set_value(model.time_manager.dt)
-#     return increment
-
-
-def check_steady_state(
-    model: pp.PorePyModel,
+def check_tolerances(
+    metric: pp.Metric,
+    values: np.ndarray,
     tolerances: dict[str, float],
-    variable_change: np.ndarray,
-    default_tolerance: float = DEFAULT_TOLERANCE,
-) -> tuple[dict[str, float], dict[str, float]]:
-    """Check whether the change of each variable is below its tolerance.
+    name: str,
+) -> dict[str, float]:
+    """Log and check the norm of each variable or equation against its tolerance.
 
     Parameters:
-        model: The model.
-        tolerances: Absolute tolerance of variables, by name.
-        variable_change: Change of all variables, see :func:`change_over_period`.
-        default_tolerance: Tolerance of variables not in ``tolerances``.
+        metric: Computes the norm of each variable or equation block of ``values``.
+        values: Rate of change of all variables, or residual of all equations.
+        tolerances: Absolute tolerance by name. Others use :data:`DEFAULT_TOLERANCE`.
+        name: What the values are, for logging.
 
     Returns:
-        The norm of the change of each variable, and those that exceed the tolerance.
+        The norms that exceed the tolerance, by name.
 
     """
-    norms = {}
-    failed = {}
-    for (
-        name,
-        domains_dofs,
-    ) in model.equation_system.variable_indexer.group_by_name().items():
-        indices = np.concatenate(list(domains_dofs.values()))
-        norm = np.linalg.norm(variable_change[indices])
-        norms[name] = norm
-        if norm >= tolerances.get(name, default_tolerance):
-            failed[name] = norm
-    return norms, failed
-
-
-def log_steady_state_convergence(
-    norms: dict[str, float],
-    failed: dict[str, float],
-) -> None:
-    """Log the range and the change during :data:`CHANGE_PERIOD` of each variable."""
 
     def signed(value: float) -> str:
         return f"{'-' if value < 0 else ' '}{abs(value):.1e}"
 
+    norms = metric(values)
+    failed = {
+        key: norm
+        for key, norm in norms.items()
+        if norm >= tolerances.get(key, DEFAULT_TOLERANCE)
+    }
     max_symbols_offset = max(len(key) for key in norms)
-    for key, indices in norms.items():
+    for key, norm in norms.items():
         logger.info(
             f"{key}:{' ' * (1 + max_symbols_offset - len(key))}"
-            f"rate ={signed(norms[key])}{'' if key in failed else ', converged'}"
+            f"{name} ={signed(norm)}{'' if key in failed else ', converged'}"
         )
+    return failed
 
 
 @dataclass
@@ -181,13 +144,17 @@ class InitializationError(RuntimeError):
 
 
 class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
-    """Stops the initialization run once the variables change less than their
-    tolerances during :data:`CHANGE_PERIOD`, see :func:`check_steady_state`.
+    """Stops the initialization run once both the rate of change of the variables and
+    the residual of the equations are below their tolerances.
+
+    After an accepted time step, the previous time step equals the new state, so the
+    residual is that of the steady problem.
 
     Parameters:
-        tolerances: Absolute tolerances of variables.
+        rate_tolerances: Tolerances of the rate of change of variables, see
+            :func:`make_tolerances`.
+        residual_tolerances: Tolerances of the residual of equations.
         earliest_stop_time: The simulation is not stopped before this time.
-        solver: Solver used to compute the change of variables. Created if not given.
 
     """
 
@@ -200,23 +167,31 @@ class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
         self.rate_tolerances = rate_tolerances
         self.residual_tolerances = residual_tolerances
         self.earliest_stop_time = earliest_stop_time
-        self.previous_state = None
+        self.previous: tuple[np.ndarray, float] | None = None
+        """State and time at the previous call."""
 
     def simulation_should_stop(
         self, model: pp.PorePyModel
     ) -> pp.ModelRunnerStatus | None:
         state = model.equation_system.get_variable_values(iterate_index=0)
-        rate = None
-        if self.previous_state is not None:
-            rate = (
-                state - self.previous_state
-            ) / model.time_manager.dt  # TODO YZ: this dt is incorrect.
-        self.previous_state = state
-        failed = {"not_checked": np.inf}
-        if rate is not None:
-            norms, failed = check_steady_state(model, self.rate_tolerances, rate)
-            log_steady_state_convergence(norms, failed)
-        if failed or model.time_manager.time < self.earliest_stop_time:
+        time = model.time_manager.time
+        previous, self.previous = self.previous, (state, time)
+        if previous is None:
+            return None
+        rate = (state - previous[0]) / (time - previous[1])
+        failed_rate = check_tolerances(
+            pp.VariableBasedEuclideanMetric(model),
+            rate,
+            self.rate_tolerances,
+            "rate",
+        )
+        failed_residual = check_tolerances(
+            pp.EquationBasedEuclideanMetric(model),
+            model.equation_system.assemble(evaluate_jacobian=False),
+            self.residual_tolerances,
+            "residual",
+        )
+        if failed_rate or failed_residual or time < self.earliest_stop_time:
             return None
         return SteadyStateModelRunnerSuccess()
 
@@ -453,10 +428,11 @@ class _InitializationContext:
 def _run_to_steady_state(
     model: pp.PorePyModel,
     storage: ModelStateStorage,
-    tolerances: dict[str, float],
+    nonlinear_solver: pp.solvers.NewtonSolver,
+    rate_tolerances: dict[str, float],
+    residual_tolerances: dict[str, float],
 ) -> None:
-    """Time step the prepared initialization model to a steady state, and set the
-    steady state as the reference state.
+    """Time step the prepared initialization model to a steady state, and save it.
 
     Raises:
         InitializationError: If a steady state was not reached.
@@ -465,10 +441,11 @@ def _run_to_steady_state(
     runner = pp.ModelRunner(
         model,
         params={"prepare_simulation": False},
-        nonlinear_solver=make_nonlinear_solver(),  # TODO YZ: Should be injected.
+        nonlinear_solver=nonlinear_solver,
         early_stop_criteria=[
             SteadyStateEarlyStopCriterion(
-                rate_tolerances=tolerances,
+                rate_tolerances=rate_tolerances,
+                residual_tolerances=residual_tolerances,
                 earliest_stop_time=1 * pp.YEAR,
             )
         ],
@@ -490,18 +467,31 @@ def _run_to_steady_state(
     storage.save_state(model)
 
 
-def validate_steady_state(model: pp.PorePyModel, tolerances: dict[str, float]) -> bool:
-    """Check that the variables of the model do not change during
-    :data:`CHANGE_PERIOD` from its current state."""
-    # change = change_over_period(model, make_nonlinear_solver())
-    model.equation_system.assemble(evaluate_jacobian=False)
-    norms, failed = check_steady_state(model, tolerances, change)
-    log_steady_state_convergence(
-        model, model.equation_system.get_variable_values(iterate_index=0), norms, failed
+def validate_steady_state(
+    model: pp.PorePyModel,
+    nonlinear_solver: pp.solvers.NewtonSolver,
+    rate_tolerances: dict[str, float],
+    dt: float,
+) -> bool:
+    """Check that the variables of the model change slower than their tolerances from
+    the current state.
+
+    The rate is the first Newton increment of a time step of size ``dt``, divided by
+    ``dt``. A small ``dt`` amplifies the error of the linear solver in the rate.
+
+    """
+    nonlinear_solver.linear_solver.initialize_with_model(model)
+    model.ad_time_step.set_value(dt)
+    increment, _ = nonlinear_solver.iteration(model)
+    failed = check_tolerances(
+        pp.VariableBasedEuclideanMetric(model),
+        increment / dt,
+        rate_tolerances,
+        "rate",
     )
     if failed:
         logger.warning(
-            "Not a steady state, change is too large for: "
+            "Not a steady state, rate is too large for: "
             + ", ".join(f"{k} ({v:.1e})" for k, v in failed.items())
         )
     return not failed
@@ -509,7 +499,9 @@ def validate_steady_state(model: pp.PorePyModel, tolerances: dict[str, float]) -
 
 def initialization_pipeline(
     model: pp.PorePyModel,
-    tolerances: dict[str, float],
+    rate_tolerances: dict[str, float],
+    residual_tolerances: dict[str, float],
+    make_solver: Callable[[], pp.solvers.NewtonSolver] = make_nonlinear_solver,
     storage: ModelStateStorage | None = None,
 ) -> pp.PorePyModel:
     """Initialize a model to a steady state.
@@ -521,7 +513,11 @@ def initialization_pipeline(
 
     Parameters:
         model: The model.
-        tolerances: Tolerances of variables, see :func:`make_tolerances`.
+        rate_tolerances: Tolerances of the rate of change of variables, see
+            :func:`make_tolerances`.
+        residual_tolerances: Tolerances of the residual of equations.
+        make_solver: Creates the nonlinear solver. A solver depends on the equations
+            of the model, so it is created again each time the model is prepared.
         storage: Where to save the steady state. Defaults to a file in the simulation
             folder.
 
@@ -534,6 +530,8 @@ def initialization_pipeline(
             Path(model.params["folder_name"]) / "steady_state.npz"
         )
     init_context = _InitializationContext(model)
+    # The first time step of the simulation.
+    dt = init_context.original_time_manager.dt
 
     def load_steady_state() -> bool:
         if not storage.exists():
@@ -545,7 +543,7 @@ def initialization_pipeline(
             logger.warning(f"{e} It is discarded.")
             storage.discard()
             return False
-        if not validate_steady_state(model, tolerances):
+        if not validate_steady_state(model, make_solver(), rate_tolerances, dt):
             storage.discard()
             # Reset the model state.
             model.prepare_simulation()
@@ -555,15 +553,19 @@ def initialization_pipeline(
     with init_context:
         model.prepare_simulation()
         if not load_steady_state():
-            _run_to_steady_state(model, storage, tolerances)
-
-        initialization_steady_state_residual = model.equation_system.assemble(evaluate_jacobian=False)
+            _run_to_steady_state(
+                model,
+                storage,
+                make_solver(),
+                rate_tolerances,
+                residual_tolerances,
+            )
 
     # Check that the full model, with the nonlinearities that were disabled, is in a
     # steady state.
     model.prepare_simulation()
     storage.load_state(model)
-    if not validate_steady_state(model, tolerances):
+    if not validate_steady_state(model, make_solver(), rate_tolerances, dt):
         storage.discard()
         raise InitializationError(
             "The model is not in a steady state at the found state."
@@ -597,7 +599,8 @@ if __name__ == "__main__":
 
     model = initialization_pipeline(
         model,
-        tolerances=make_tolerances(model),
+        rate_tolerances=make_tolerances(model),
+        residual_tolerances={},
     )
 
     run_main_simulation(model)
