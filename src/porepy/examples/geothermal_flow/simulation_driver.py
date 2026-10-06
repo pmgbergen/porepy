@@ -46,8 +46,11 @@ from porepy.examples.geothermal_flow.solver_configuration.line_search_armijo imp
     NewtonAndersonArmijoSolver,
 )
 
-# from .benchmark.flow_model import BenchmarkThreePhaseFlowModel
-from .benchmark.flow_model import BenchmarkThreePhaseFlowModel
+from .benchmark.flow_model import (
+    BenchmarkThreePhaseFlowModelCFF, 
+    BenchmarkThreePhaseFlowModelCF
+)
+
 from .vtk_sampler import VTKSampler
 
 ### This requires PETSC
@@ -130,7 +133,11 @@ def build_material_constants(config: dict[str, Any]) -> dict[str, Any]:
 def create_model_class(config: dict[str, Any]) -> type[pp.PorePyModel]:
     """Create the case-specific model class from geometry, BC, IC, and physics settings."""
     if is_benchmark_config(config):
-        return BenchmarkThreePhaseFlowModel
+        use_fractional_flow = bool(
+            config["model"].get("fractional_flow", False))
+        if use_fractional_flow:
+            return BenchmarkThreePhaseFlowModelCFF
+        return BenchmarkThreePhaseFlowModelCF
 
     geometry_cls = GEOMETRIES[config["geometry"]]
     solver_cfg = config["solver"]
@@ -184,6 +191,12 @@ def create_model_class(config: dict[str, Any]) -> type[pp.PorePyModel]:
             # Physical simulation times, in seconds, corresponding to exported VTU files.
             self.pvd_times_seconds: list[float] = []
             super().prepare_simulation()
+            # Locally eliminated variables (saturations, partial fractions, temperature) receive
+            # only iterate values during set-up, so their previous-time values would start at zero
+            # (temperature at its raw initial value). Store the initial state as the previous time
+            # step too, so the first step is measured against it.
+            # es = self.equation_system
+            # es.set_variable_values(es.get_variable_values(iterate_index=0), time_step_index=0)
 
         def save_data_time_step(self) -> None:
             """Save one VTU time step and store its cumulative physical time."""
