@@ -3,7 +3,6 @@ from dataclasses import dataclass
 import numpy as np
 import logging
 from pathlib import Path
-from typing import Callable
 
 import pp_solvers
 import porepy as pp
@@ -94,6 +93,16 @@ def make_tolerances(model: pp.PorePyModel) -> dict[str, float]:
         "pressure": model.units.convert_units(100, "Pa") / pp.YEAR,
         "temperature": model.units.convert_units(1, "K") / pp.YEAR,
         "u": model.units.convert_units(1e-2, "m") / pp.YEAR,
+    }
+
+
+def make_residual_tolerances(model: pp.PorePyModel) -> dict[str, float]:
+    """Tolerances of the residual of equations, in the units of the model. Equations
+    without an entry use :data:`DEFAULT_TOLERANCE`."""
+    return {
+        "mass_balance_equation": model.units.convert_units(1e-5, "Pa"),
+        "momentum_balance_equation": model.units.convert_units(1e-2, "m"),
+        "energy_balance_equation": model.units.convert_units(1e-2, "K"),
     }
 
 
@@ -468,30 +477,19 @@ def _run_to_steady_state(
 
 
 def validate_steady_state(
-    model: pp.PorePyModel,
-    nonlinear_solver: pp.solvers.NewtonSolver,
-    rate_tolerances: dict[str, float],
-    dt: float,
+    model: pp.PorePyModel, residual_tolerances: dict[str, float]
 ) -> bool:
-    """Check that the variables of the model change slower than their tolerances from
-    the current state.
-
-    The rate is the first Newton increment of a time step of size ``dt``, divided by
-    ``dt``. A small ``dt`` amplifies the error of the linear solver in the rate.
-
-    """
-    nonlinear_solver.linear_solver.initialize_with_model(model)
-    model.ad_time_step.set_value(dt)
-    increment, _ = nonlinear_solver.iteration(model)
+    """Check that the residual of the equations of the model is below the tolerances
+    at its current state."""
     failed = check_tolerances(
-        pp.VariableBasedEuclideanMetric(model),
-        increment / dt,
-        rate_tolerances,
-        "rate",
+        pp.EquationBasedEuclideanMetric(model),
+        model.equation_system.assemble(evaluate_jacobian=False),
+        residual_tolerances,
+        "residual",
     )
     if failed:
         logger.warning(
-            "Not a steady state, rate is too large for: "
+            "Not a steady state, residual is too large for: "
             + ", ".join(f"{k} ({v:.1e})" for k, v in failed.items())
         )
     return not failed
@@ -501,7 +499,7 @@ def initialization_pipeline(
     model: pp.PorePyModel,
     rate_tolerances: dict[str, float],
     residual_tolerances: dict[str, float],
-    make_solver: Callable[[], pp.solvers.NewtonSolver] = make_nonlinear_solver,
+    nonlinear_solver: pp.solvers.NewtonSolver | None = None,
     storage: ModelStateStorage | None = None,
 ) -> pp.PorePyModel:
     """Initialize a model to a steady state.
@@ -516,8 +514,8 @@ def initialization_pipeline(
         rate_tolerances: Tolerances of the rate of change of variables, see
             :func:`make_tolerances`.
         residual_tolerances: Tolerances of the residual of equations.
-        make_solver: Creates the nonlinear solver. A solver depends on the equations
-            of the model, so it is created again each time the model is prepared.
+        nonlinear_solver: Solver for the time steps. Defaults to
+            :func:`make_nonlinear_solver`.
         storage: Where to save the steady state. Defaults to a file in the simulation
             folder.
 
@@ -529,9 +527,9 @@ def initialization_pipeline(
         storage = ModelStateStorage(
             Path(model.params["folder_name"]) / "steady_state.npz"
         )
+    if nonlinear_solver is None:
+        nonlinear_solver = make_nonlinear_solver()
     init_context = _InitializationContext(model)
-    # The first time step of the simulation.
-    dt = init_context.original_time_manager.dt
 
     def load_steady_state() -> bool:
         if not storage.exists():
@@ -543,7 +541,7 @@ def initialization_pipeline(
             logger.warning(f"{e} It is discarded.")
             storage.discard()
             return False
-        if not validate_steady_state(model, make_solver(), rate_tolerances, dt):
+        if not validate_steady_state(model, residual_tolerances):
             storage.discard()
             # Reset the model state.
             model.prepare_simulation()
@@ -556,7 +554,7 @@ def initialization_pipeline(
             _run_to_steady_state(
                 model,
                 storage,
-                make_solver(),
+                nonlinear_solver,
                 rate_tolerances,
                 residual_tolerances,
             )
@@ -565,7 +563,7 @@ def initialization_pipeline(
     # steady state.
     model.prepare_simulation()
     storage.load_state(model)
-    if not validate_steady_state(model, make_solver(), rate_tolerances, dt):
+    if not validate_steady_state(model, residual_tolerances):
         storage.discard()
         raise InitializationError(
             "The model is not in a steady state at the found state."
@@ -600,7 +598,7 @@ if __name__ == "__main__":
     model = initialization_pipeline(
         model,
         rate_tolerances=make_tolerances(model),
-        residual_tolerances={},
+        residual_tolerances=make_residual_tolerances(model),
     )
 
     run_main_simulation(model)
