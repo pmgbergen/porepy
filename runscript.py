@@ -1,3 +1,4 @@
+import copy
 from dataclasses import dataclass
 
 import numpy as np
@@ -295,67 +296,289 @@ class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
         return SteadyStateModelRunnerSuccess()
 
 
-def initialization_pipeline(model: pp.PorePyModel) -> pp.PorePyModel:
-    original_model_class = model.__class__
-    original_time_manager = model.time_manager
-    original_folder_name = model.params["folder_name"]
-    # Time at which boundary conditions and sources are evaluated during initialization.
-    # The initialization clock runs far beyond the simulation's start, but the reference
-    # state must match the data seen by the first time step of the main simulation. This
-    # is the first target time rather than the start time, since e.g. lithostatic
-    # boundary conditions are different at the initial time itself.
-    data_time = model.params.get(
-        "initialization_data_time",
-        original_time_manager.time + original_time_manager.dt,
-    )
-    initialization_folder_name = Path(original_folder_name).with_name(
-        Path(original_folder_name).name + "_initialization"
-    )
+class SteadyStateMismatch(ValueError):
+    """The saved steady state does not match the model."""
 
-    def restore_original_model() -> None:
-        model.__class__ = original_model_class
-        model.time_manager = original_time_manager
-        model.params["folder_name"] = original_folder_name
-        # The exporter, the iteration exporter and the solver statistics were created
-        # in prepare_simulation with the initialization folder. Recreate them, so that
-        # the main simulation writes to the original folder.
-        model.set_nonlinear_solver_statistics()
-        model.initialize_data_saving()
 
-    class InitializedModel(original_model_class):
-        def shear_dilation_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            return pp.ad.Scalar(0)
+class SteadyStateStorage:
+    """Saves the arrays that define a steady state of a model, and loads them back.
 
-        def matrix_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            space = pp.ad.OperatorSpace.from_domains(subdomains)
-            ones = pp.ad.DenseArray(
-                np.ones(sum(sd.num_cells for sd in subdomains)),
-                source=space,
-                target=space,
+    The arrays are:
+
+    - the values of all variables, together with their names and sizes,
+    - the reference stress of each matrix subdomain,
+    - the boundary values of each boundary grid, which are the reference values of the
+      boundary operators.
+
+    All variable values (including the reference values) are set to the saved state
+    when loading. The file is a numpy ``.npz`` archive.
+
+    Parameters:
+        path: File to save to and load from, usually in the simulation folder.
+
+    """
+
+    def __init__(self, path: Path | str) -> None:
+        self.path = Path(path)
+
+    def exists(self) -> bool:
+        return self.path.is_file()
+
+    def discard(self) -> None:
+        """Delete the saved state."""
+        self.path.unlink(missing_ok=True)
+
+    @staticmethod
+    def _variable_layout(model: pp.PorePyModel) -> tuple[np.ndarray, np.ndarray]:
+        groups = model.equation_system.variable_indexer.group_by_name()
+        names = np.array(list(groups))
+        sizes = np.array([sum(i.size for i in g.values()) for g in groups.values()])
+        return names, sizes
+
+    @staticmethod
+    def _matrix_subdomains(model: pp.PorePyModel) -> list[tuple[pp.Grid, dict]]:
+        return list(model.mdg.subdomains(dim=model.nd, return_data=True))
+
+    @staticmethod
+    def _boundaries(model: pp.PorePyModel) -> list[tuple[pp.BoundaryGrid, dict]]:
+        return list(model.mdg.boundaries(return_data=True))
+
+    def capture_state(self, model: pp.PorePyModel) -> dict[str, np.ndarray]:
+        """Collect the arrays defining the current state of the model.
+
+        The stress is the total stress. It is the reference stress once the reference
+        state is set, and it is independent of whether the boundary values are already
+        stored as reference values.
+
+        """
+        names, sizes = self._variable_layout(model)
+        arrays: dict[str, np.ndarray] = {
+            "variables": model.equation_system.get_variable_values(iterate_index=0),
+            "variable_names": names,
+            "variable_sizes": sizes,
+        }
+        for i, (sd, _) in enumerate(self._matrix_subdomains(model)):
+            arrays[f"reference_stress_{i}"] = np.asarray(
+                model.equation_system.evaluate(model.stress([sd]))
             )
-            return self.reference_porosity(subdomains) * ones
+        for j, (_, data) in enumerate(self._boundaries(model)):
+            for name, values in data.get(pp.ITERATE_SOLUTIONS, {}).items():
+                arrays[f"boundary_{j}_{name}"] = np.array(values[0])
+        return arrays
 
-        def update_time_dependent_ad_arrays(self) -> None:
-            # Time dependent data (boundary values, sources) is frozen at data_time,
-            # while the clock of the time manager advances to find the steady state.
-            clock_time = self.time_manager.time
-            self.time_manager.time = data_time
-            try:
-                super().update_time_dependent_ad_arrays()
-            finally:
-                self.time_manager.time = clock_time
+    def save_state(self, model: pp.PorePyModel) -> None:
+        """Save the state of the model."""
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(self.path, **self.capture_state(model))  # type: ignore[arg-type]
+        logger.info(f"Saved steady state to {self.path}.")
 
-    model.__class__ = InitializedModel
-    model.time_manager = make_initialization_time_manager()
-    model.params["folder_name"] = initialization_folder_name
+    def load_state(self, model: pp.PorePyModel) -> None:
+        """Load the saved state into the model and set it as the reference state.
 
-    nonlinear_solver = make_nonlinear_solver()
-    tolerances = make_tolerances(model)
+        Raises:
+            SteadyStateMismatch: If the arrays are inconsistent with the model, i.e.
+                variable layout, array shapes or the set of boundary arrays differ, or
+                the values are not finite. The model is not changed in that case.
 
-    # model.prepare_simulation()
-    initialization_runner = pp.ModelRunner(
+        """
+        try:
+            with np.load(self.path) as archive:
+                arrays = {key: archive[key] for key in archive.files}
+        except (OSError, ValueError) as e:
+            raise SteadyStateMismatch(f"Cannot read {self.path}: {e}") from e
+        self._check_consistency(model, arrays)
+        self._apply_state(model, arrays)
+
+    def _check_consistency(
+        self, model: pp.PorePyModel, arrays: dict[str, np.ndarray]
+    ) -> None:
+        def fail(message: str) -> None:
+            raise SteadyStateMismatch(f"Saved steady state is inconsistent: {message}")
+
+        names, sizes = self._variable_layout(model)
+        for key in ["variables", "variable_names", "variable_sizes"]:
+            if key not in arrays:
+                fail(f"missing '{key}'")
+        if not (
+            np.array_equal(arrays["variable_names"], names)
+            and np.array_equal(arrays["variable_sizes"], sizes)
+        ):
+            fail("variable names or sizes differ")
+        if arrays["variables"].shape != (model.equation_system.num_dofs(),):
+            fail("number of degrees of freedom differs")
+
+        for i, (sd, _) in enumerate(self._matrix_subdomains(model)):
+            saved = arrays.get(f"reference_stress_{i}")
+            if saved is None or saved.shape != (sd.num_faces * model.nd,):
+                fail(f"reference stress of matrix subdomain {i}")
+
+        expected = {"variables", "variable_names", "variable_sizes"}
+        expected |= {
+            f"reference_stress_{i}" for i in range(len(self._matrix_subdomains(model)))
+        }
+        for j, (_, data) in enumerate(self._boundaries(model)):
+            for name, values in data.get(pp.ITERATE_SOLUTIONS, {}).items():
+                key = f"boundary_{j}_{name}"
+                expected.add(key)
+                if key not in arrays or arrays[key].shape != np.shape(values[0]):
+                    fail(f"boundary array {key}")
+        if set(arrays) != expected:
+            fail(f"unexpected arrays {sorted(set(arrays) ^ expected)}")
+        floats = [a for a in arrays.values() if a.dtype.kind == "f"]
+        if not all(np.all(np.isfinite(a)) for a in floats):
+            fail("values are not finite")
+
+    def _apply_state(
+        self, model: pp.PorePyModel, arrays: dict[str, np.ndarray]
+    ) -> None:
+        """Set the arrays as the state and as the reference state of the model."""
+        for i, (_, data) in enumerate(self._matrix_subdomains(model)):
+            pp.set_solution_values(
+                name=model.reference_stress_key,
+                values=arrays[f"reference_stress_{i}"].copy(),
+                data=data,
+                reference=True,
+            )
+        es = model.equation_system
+        es.set_variable_values(reference=True, values=arrays["variables"])
+        es.set_variable_values(iterate_index=0, values=arrays["variables"])
+        # Copy the state to all stored iterates and time steps.
+        model.initialize_previous_iterate_and_time_step_values()
+        for j, (_, data) in enumerate(self._boundaries(model)):
+            for name in data.get(pp.ITERATE_SOLUTIONS, {}):
+                pp.set_solution_values(
+                    name=name,
+                    values=arrays[f"boundary_{j}_{name}"].copy(),
+                    data=data,
+                    reference=True,
+                )
+
+    def apply_current_state(self, model: pp.PorePyModel) -> None:
+        """Set the current state of the model as its reference state."""
+        self._apply_state(model, self.capture_state(model))
+
+    def snapshot(self, model: pp.PorePyModel) -> dict:
+        """Copy everything that :meth:`load_state` modifies, for :meth:`restore`."""
+        es = model.equation_system
+        return {
+            "iterate": es.get_variable_values(iterate_index=0),
+            "reference": es.get_variable_values(reference=True),
+            "data": [
+                copy.deepcopy(data.get(pp.REFERENCE_SOLUTIONS))
+                for _, data in self._all_data(model)
+            ],
+        }
+
+    def restore(self, model: pp.PorePyModel, snapshot: dict) -> None:
+        """Undo :meth:`load_state` and :meth:`apply_current_state`."""
+        es = model.equation_system
+        es.set_variable_values(reference=True, values=snapshot["reference"])
+        es.set_variable_values(iterate_index=0, values=snapshot["iterate"])
+        model.initialize_previous_iterate_and_time_step_values()
+        for (_, data), reference in zip(self._all_data(model), snapshot["data"]):
+            if reference is None:
+                data.pop(pp.REFERENCE_SOLUTIONS, None)
+            else:
+                data[pp.REFERENCE_SOLUTIONS] = copy.deepcopy(reference)
+
+    @staticmethod
+    def _all_data(model: pp.PorePyModel) -> list[tuple[object, dict]]:
+        return [
+            *model.mdg.subdomains(return_data=True),
+            *model.mdg.interfaces(return_data=True),
+            *model.mdg.boundaries(return_data=True),
+        ]
+
+
+class _InitializationSettings:
+    """Temporarily replaces the model class, time manager and output folder with those
+    used for initialization.
+
+    The initialization model sets shear dilation to zero and porosity to its reference
+    value, and evaluates time-dependent data (boundary values, sources) at a fixed time.
+
+    """
+
+    def __init__(self, model: pp.PorePyModel) -> None:
+        self.model = model
+        self.original_class = model.__class__
+        self.original_time_manager = model.time_manager
+        self.original_folder_name = model.params["folder_name"]
+        self.folder_name = Path(self.original_folder_name).with_name(
+            Path(self.original_folder_name).name + "_initialization"
+        )
+        # Time at which boundary conditions and sources are evaluated during
+        # initialization. The initialization clock runs far beyond the simulation's
+        # start, but the reference state must match the data seen by the first time
+        # step of the main simulation. This is the first target time rather than the
+        # start time, since e.g. lithostatic boundary conditions are different at the
+        # initial time itself.
+        data_time = model.params.get(
+            "initialization_data_time",
+            self.original_time_manager.time + self.original_time_manager.dt,
+        )
+
+        class InitializedModel(self.original_class):  # type: ignore[name-defined]
+            def shear_dilation_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+                return pp.ad.Scalar(0)
+
+            def matrix_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+                space = pp.ad.OperatorSpace.from_domains(subdomains)
+                ones = pp.ad.DenseArray(
+                    np.ones(sum(sd.num_cells for sd in subdomains)),
+                    source=space,
+                    target=space,
+                )
+                return self.reference_porosity(subdomains) * ones
+
+            def update_time_dependent_ad_arrays(self) -> None:
+                # Time dependent data is frozen at data_time, while the clock of the
+                # time manager advances to find the steady state.
+                clock_time = self.time_manager.time
+                self.time_manager.time = data_time
+                try:
+                    super().update_time_dependent_ad_arrays()
+                finally:
+                    self.time_manager.time = clock_time
+
+        self.initialized_class = InitializedModel
+
+    def _reset_data_saving(self) -> None:
+        # The exporter, the iteration exporter and the solver statistics are created
+        # with the folder of the time of creation.
+        self.model.set_nonlinear_solver_statistics()
+        self.model.initialize_data_saving()
+
+    def enter(self, model_is_prepared: bool) -> None:
+        self.model.__class__ = self.initialized_class
+        self.model.time_manager = make_initialization_time_manager()
+        self.model.params["folder_name"] = self.folder_name
+        if model_is_prepared:
+            self._reset_data_saving()
+
+    def exit(self) -> None:
+        self.model.__class__ = self.original_class
+        self.model.time_manager = self.original_time_manager
+        self.model.params["folder_name"] = self.original_folder_name
+        self._reset_data_saving()
+
+
+def _run_to_steady_state(
+    model: pp.PorePyModel,
+    storage: SteadyStateStorage,
+    tolerances: dict[str, float],
+) -> None:
+    """Time step the prepared initialization model to a steady state, and set the
+    steady state as the reference state.
+
+    Raises:
+        InitializationError: If a steady state was not reached.
+
+    """
+    runner = pp.ModelRunner(
         model,
-        nonlinear_solver=nonlinear_solver,
+        params={"prepare_simulation": False},
+        nonlinear_solver=make_nonlinear_solver(),
         early_stop_criteria=[
             SteadyStateEarlyStopCriterion(
                 tolerances=tolerances,
@@ -364,89 +587,120 @@ def initialization_pipeline(model: pp.PorePyModel) -> pp.PorePyModel:
         ],
     )
     try:
-        try:
-            status = initialization_runner.run()
-        except RuntimeError as e:
-            if not (e.args and isinstance(e.args[0], pp.ModelRunnerStatus)):
-                raise
-            status = e.args[0]
+        status = runner.run()
+    except RuntimeError as e:
+        if not (e.args and isinstance(e.args[0], pp.ModelRunnerStatus)):
+            raise
+        status = e.args[0]
 
-        # The reference state is only overwritten if a steady state was found: reaching
-        # the final time or a failed time step is not an equilibrium.
-        if not isinstance(status, SteadyStateModelRunnerSuccess):
-            raise InitializationError(
-                f"Steady state was not reached: {status}. The model state is "
-                "not initialized.",
-                status=status,
-            )
+    # The reference state is only overwritten if a steady state was found: reaching
+    # the final time or a failed time step is not an equilibrium.
+    if not isinstance(status, SteadyStateModelRunnerSuccess):
+        raise InitializationError(
+            f"Steady state was not reached: {status}. The model state is "
+            "not initialized.",
+            status=status,
+        )
+    storage.apply_current_state(model)
 
-        for matrix_domain, data in model.mdg.subdomains(
-            dim=model.nd, return_data=True
-        ):
-            domains = [matrix_domain]
-            # Full stress at the steady state. Boundary reference values are not set
-            # yet, so the boundary contribution is included in absolute terms.
-            stress_val = model.equation_system.evaluate(model.stress(domains))
 
-            pp.set_solution_values(
-                name=model.reference_stress_key,
-                values=stress_val,
-                data=data,
-                reference=True,
-            )
+def _validate_original_model(
+    model: pp.PorePyModel, tolerances: dict[str, float]
+) -> InitializationError | None:
+    """Check that the original equations are in equilibrium at the current state:
+    their residual is negligible, and a Newton step from the state would not change it.
 
-        steady_state = model.equation_system.get_variable_values(iterate_index=0)
-        model.equation_system.set_variable_values(reference=True, values=steady_state)
-        # Copy the state to all stored iterates and time steps.
-        model.initialize_previous_iterate_and_time_step_values()
-        # Anchor the boundary values at the steady state, so that the boundary
-        # contribution to mechanical_stress and displacement_divergence cancels there.
-        model.set_boundary_reference_values()
+    Returns:
+        An error describing the failure, or None if the state is a steady state.
+
+    """
+    residual_ratios, trial_ratios, failed = check_steady_state(model, tolerances)
+    log_steady_state_ratios(residual_ratios, trial_ratios)
+    if failed:
+        return InitializationError(
+            "The original equations are not in equilibrium at the found state, "
+            "relative residual / trial step too large for: "
+            + ", ".join(f"{k} ({v:.1e})" for k, v in failed.items()),
+            residual_ratios=residual_ratios,
+            trial_step_ratios=trial_ratios,
+        )
+    return None
+
+
+def initialization_pipeline(
+    model: pp.PorePyModel,
+    storage: SteadyStateStorage | None = None,
+) -> pp.PorePyModel:
+    """Initialize an unprepared model to a steady state.
+
+    If a steady state was saved before, it is loaded, and used if it is consistent with
+    the model and verified to be a steady state of the original equations. Otherwise it
+    is discarded and the steady state is found by time stepping and saved.
+
+    Parameters:
+        model: Model that has not been prepared.
+        storage: Where to save the steady state. Defaults to a file in the simulation
+            folder.
+
+    Raises:
+        InitializationError: If no verified steady state was found. The model should be
+            discarded then.
+
+    """
+    if storage is None:
+        storage = SteadyStateStorage(
+            Path(model.params["folder_name"]) / "steady_state.npz"
+        )
+    settings = _InitializationSettings(model)
+    tolerances = make_tolerances(model)
+
+    loaded = False
+    snapshot = None
+    settings.enter(model_is_prepared=False)
+    try:
+        model.prepare_simulation()
+        if storage.exists():
+            snapshot = storage.snapshot(model)
+            try:
+                storage.load_state(model)
+                loaded = True
+                logger.info(f"Loaded steady state from {storage.path}.")
+            except SteadyStateMismatch as e:
+                logger.warning(f"{e} It is discarded.")
+                storage.discard()
+        if not loaded:
+            _run_to_steady_state(model, storage, tolerances)
     finally:
-        restore_original_model()
+        settings.exit()
 
     # Discard the equations of the initialization model and set the original ones.
     model.rebuild_equations()
     # Fluxes, upwind discretizations etc. of the original equations depend on the state.
     model.update_derived_quantities()
+    error = _validate_original_model(model, tolerances)
 
-    for domain in model.mdg.subdomains(dim=model.nd):
-        boundary_faces = domain.get_all_boundary_faces()
-        internal_faces = domain.get_internal_faces()
-        domains = [domain]
+    if error is not None and loaded:
+        logger.warning(f"The loaded steady state is not a steady state: {error}")
+        storage.discard()
+        # Go back to the prepared model, and find the steady state.
+        assert snapshot is not None
+        settings.enter(model_is_prepared=True)
+        try:
+            model.rebuild_equations()
+            storage.restore(model, snapshot)
+            model.update_derived_quantities()
+            _run_to_steady_state(model, storage, tolerances)
+        finally:
+            settings.exit()
+        model.rebuild_equations()
+        model.update_derived_quantities()
+        error = _validate_original_model(model, tolerances)
+        loaded = False
 
-        stress = model.equation_system.evaluate(
-            model.stress(domains),
-        ).reshape((model.nd, -1), order="F")
-        reference_stress = model.equation_system.evaluate(
-            model.reference_stress(domains)
-        ).reshape((model.nd, -1), order="F")
-        mechanical_stress = model.equation_system.evaluate(
-            model.mechanical_stress(domains)
-        ).reshape((model.nd, -1), order="F")
-        pressure_stress = model.equation_system.evaluate(
-            model.pressure_stress(domains)
-        ).reshape((model.nd, -1), order="F")
-        thermal_stress = model.equation_system.evaluate(
-            model.thermal_stress(domains)
-        ).reshape((model.nd, -1), order="F")
-        diff = model.equation_system.evaluate(
-            model.porosity(domains)
-        ) - model.equation_system.evaluate(model.reference_porosity(domains))
-
-    # Validate that the original equations are in equilibrium at the found state:
-    # their residual is negligible, and a Newton step from the state would not change it.
-    residual_ratios, trial_ratios, failed = check_steady_state(model, tolerances)
-    log_steady_state_ratios(residual_ratios, trial_ratios)
-    if failed:
-        raise InitializationError(
-            "The original equations are not in equilibrium at the found state, "
-            "relative residual / trial step too large for: "
-            + ", ".join(f"{k} ({v:.1e})" for k, v in failed.items()),
-            status=status,
-            residual_ratios=residual_ratios,
-            trial_step_ratios=trial_ratios,
-        )
+    if error is not None:
+        raise error
+    if not loaded:
+        storage.save_state(model)
     logger.info(
         "Initialization complete. The simulation initial and reference states are set "
         "to the found steady state."
