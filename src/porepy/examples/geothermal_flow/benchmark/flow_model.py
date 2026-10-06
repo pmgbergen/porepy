@@ -21,7 +21,10 @@ import numpy as np
 from ..io_utils import as_float
 import porepy as pp
 import porepy.models.compositional_flow as cf
-from porepy.models.compositional_flow import CompositionalFractionalFlowTemplate
+from porepy.models.compositional_flow import (
+    CompositionalFlowTemplate,
+    CompositionalFractionalFlowTemplate,
+)
 
 from ..model_configuration.constitutive_description.mixture_constitutive_description import (
     ComponentSystem,
@@ -589,13 +592,54 @@ class BenchmarkThreePhaseInitialConditions(pp.PorePyModel):
 # =============================================================================
 # Secondary equations and flow model
 # =============================================================================
-
-
 class BenchmarkThreePhaseSecondaryEquations(SecondaryEquations):
     """Three-phase H2O--NaCl secondary-equation configuration."""
 
     component_system = ComponentSystem.WATER_SALT
     phase_mode = PhaseMode.THREE_PHASE
+
+    def relative_permeability(
+        self,
+        phase: pp.Phase,
+        domains: pp.SubdomainsOrBoundaries,
+    ) -> pp.ad.Operator:
+        """Return phase relative permeability.
+
+        The halite phase is immobile. The reference liquid phase uses residual
+        liquid saturation r_l = 0.3, while the vapor phase uses r_v = 0.
+        """
+        epsilon = pp.ad.Scalar(0.0)
+
+        halite_phase = [p for p in self.fluid.phases if p.name == "halite"]
+        if len(halite_phase) != 1:
+            raise ValueError("Expected exactly one halite phase.")
+
+        maximum = pp.ad.Function(pp.ad.maximum, "maximum_function")
+        saturation = phase.saturation(domains)
+
+        residual_liquid = pp.ad.Scalar(
+            self.params.get("relative_permeability", {}).get(
+                "residual_liquid_saturation",
+                0.3,
+            )
+        )
+        residual_vapor = pp.ad.Scalar(
+            self.params.get("relative_permeability", {}).get(
+                "residual_vapor_saturation",
+                0.0,
+            )
+        )
+
+        if phase.name == "halite":
+            return pp.ad.Scalar(0.0) * saturation
+
+        if phase == self.fluid.reference_phase:
+            s_eff = (saturation - residual_liquid) / (
+                1.0 - residual_liquid - residual_vapor
+            )
+            return maximum(s_eff, epsilon)
+
+        return (saturation - residual_vapor) / (1.0 - residual_liquid - residual_vapor)
 
 
 class BenchmarkPorosityWithHaliteMixin(pp.PorePyModel):
@@ -680,7 +724,7 @@ class SolverStatisticsMixin(pp.PorePyModel):
         print("Benchmark PVD output written.")
 
 
-class BenchmarkThreePhaseFlowModel(
+class BenchmarkThreePhaseFlowModelCFF(
     SolverStatisticsMixin,
     BenchmarkPorosityWithHaliteMixin,
     BenchmarkPermeabilityWithHaliteMixin,
@@ -692,47 +736,26 @@ class BenchmarkThreePhaseFlowModel(
     CompositionalFractionalFlowTemplate,
     VTKSamplerMixin,
 ):
-    """Complete benchmark model for the 1D CSMP--PorePy comparison."""
+    
+    """Complete benchmark model for the 1D CSMP--PorePy comparison with fractional compositional 
+    flow formulation.
 
-    def relative_permeability(
-        self,
-        phase: pp.Phase,
-        domains: pp.SubdomainsOrBoundaries,
-    ) -> pp.ad.Operator:
-        """Return phase relative permeability.
+    """
 
-        The halite phase is immobile. The reference liquid phase uses residual
-        liquid saturation r_l = 0.3, while the vapor phase uses r_v = 0.
-        """
-        epsilon = pp.ad.Scalar(0.0)
 
-        halite_phase = [p for p in self.fluid.phases if p.name == "halite"]
-        if len(halite_phase) != 1:
-            raise ValueError("Expected exactly one halite phase.")
-
-        maximum = pp.ad.Function(pp.ad.maximum, "maximum_function")
-        saturation = phase.saturation(domains)
-
-        residual_liquid = pp.ad.Scalar(
-            self.params.get("relative_permeability", {}).get(
-                "residual_liquid_saturation",
-                0.3,
-            )
-        )
-        residual_vapor = pp.ad.Scalar(
-            self.params.get("relative_permeability", {}).get(
-                "residual_vapor_saturation",
-                0.0,
-            )
-        )
-
-        if phase.name == "halite":
-            return pp.ad.Scalar(0.0) * saturation
-
-        if phase == self.fluid.reference_phase:
-            s_eff = (saturation - residual_liquid) / (
-                1.0 - residual_liquid - residual_vapor
-            )
-            return maximum(s_eff, epsilon)
-
-        return (saturation - residual_vapor) / (1.0 - residual_liquid - residual_vapor)
+class BenchmarkThreePhaseFlowModelCF(
+    SolverStatisticsMixin,
+    BenchmarkPorosityWithHaliteMixin,
+    BenchmarkPermeabilityWithHaliteMixin,
+    BenchmarkHorizontalGeometry,
+    BenchmarkThreePhaseBoundaryConditions,
+    BenchmarkThreePhaseInitialConditions,
+    FluidMixture,
+    BenchmarkThreePhaseSecondaryEquations,
+    CompositionalFlowTemplate,
+    VTKSamplerMixin,
+):
+    """Complete benchmark model for the 1D CSMP--PorePy comparison with standard compositional 
+    flow formulation.
+    
+    """
