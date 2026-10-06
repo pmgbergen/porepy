@@ -1,2 +1,3 @@
 *.vtk
 !model_configuration/constitutive_description/driesner_vtk_files/*.vtk
+model_configuration/constitutive_description/driesner_vtk_files/*_original.vtk

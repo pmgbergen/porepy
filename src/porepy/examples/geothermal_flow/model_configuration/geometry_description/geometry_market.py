@@ -24,13 +24,13 @@ class SimpleGeometryHorizontal(Geometry):
     The start of domain serve as inlet and end of domain serves as the outlet
     """
 
-    _dist_from_ref_point: float = 5.0
-    _inlet_centre: np.ndarray = np.array([0.0, 5.0, 0.0])
-    _outlet_centre: np.ndarray = np.array([2000.0, 5.0, 0.0])
+    _dist_from_ref_point: float = 15.0 #endret fra 5 til 15 for å se hvordan det oppfører seg i 2D
+    _inlet_centre: np.ndarray = np.array([0.0, 15.0, 0.0]) #endret fra 5 til 15 
+    _outlet_centre: np.ndarray = np.array([2000.0, 15.0, 0.0])
 
     def set_domain(self) -> None:
         x_length = self.units.convert_units(2000.0, "m")
-        y_length = self.units.convert_units(10.0, "m")
+        y_length = self.units.convert_units(30.0, "m") #endret til 30 m for å se hvordan det oppfører seg i 2D
         box: dict[str, pp.number] = {"xmax": x_length, "ymax": y_length}
         self._domain = pp.Domain(box)
 
@@ -38,7 +38,7 @@ class SimpleGeometryHorizontal(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(10.0, "m")
+        cell_size = self.units.convert_units(5.0, "m") #modifisert sørrelse til 5
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -65,48 +65,3 @@ class SimpleGeometryHorizontal(Geometry):
         return inlet_facets, outlet_facets
 
 
-class SimpleGeometryHorizontal(Geometry):
-    """A class to represent a simple 1D geometry for a simulation domain.
-    The start of domain serve as inlet and end of domain serves as the outlet
-    """
-
-    _dist_from_ref_point: float = 15.0
-    _inlet_centre: np.ndarray = np.array([0.0, 15.0, 0.0])
-    _outlet_centre: np.ndarray = np.array([100.0, 15.0, 0.0])
-
-    def set_domain(self) -> None:
-        x_length = self.units.convert_units(100.0, "m")
-        y_length = self.units.convert_units(30.0, "m")
-        box: dict[str, pp.number] = {"xmax": x_length, "ymax": y_length}
-        self._domain = pp.Domain(box)
-
-    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
-        return self.params.get("grid_type", "cartesian")
-
-    def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(10.0, "m")
-        mesh_args: dict[str, float] = {"cell_size": cell_size}
-        return mesh_args
-
-    def get_inlet_outlet_sides(
-        self, sd: pp.Grid | pp.BoundaryGrid
-    ) -> tuple[np.ndarray, np.ndarray]:
-        if isinstance(sd, pp.Grid):
-            face_centers = sd.face_centers.T
-        elif isinstance(sd, pp.BoundaryGrid):
-            face_centers = sd.cell_centers.T
-        else:
-            raise ValueError("Type not expected.")
-        boundary_faces = self.domain_boundary_sides(sd)
-        bf_indices = boundary_faces.all_bf
-
-        def find_facets(center: np.ndarray) -> np.ndarray:
-            logical = Geometry.harvest_sphere_members(
-                center, self._dist_from_ref_point, face_centers[bf_indices]
-            )
-            return bf_indices[logical]
-
-        inlet_facets = find_facets(self._inlet_centre)
-        outlet_facets = find_facets(self._outlet_centre)
-        return inlet_facets, outlet_facets
-    

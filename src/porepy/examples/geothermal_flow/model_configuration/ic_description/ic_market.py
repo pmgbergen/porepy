@@ -16,7 +16,7 @@ class ICSinglePhaseHighPressure(pp.PorePyModel):
         """
         p_inlet = 35.0e6
         p_outlet = 5.0e6
-        domain_length = 100.0  # in m
+        domain_length = 2000.0  # in m
         cell_centers_x = sd.cell_centers[0]
         pressure_gradient = (p_outlet - p_inlet) / domain_length
         p_init = p_inlet + pressure_gradient * cell_centers_x

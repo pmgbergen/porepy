@@ -75,6 +75,16 @@ material_constants = {"solid": solid_constants}
 def create_dynamic_model(BC, IC, FlowModel):
     """Create a geothermal model class with specific BC, IC, and Flow Model."""
     class GeothermalSimulationFlowModel(ModelGeometry, BC, IC, FlowModel):
+        #had an issue with the initial values of local eliminations (e.g. s_gas) being set only at iterate_index=0, which caused the first time step to start from s_gas = 0.
+        #This method ensures that these values are copied to all iterate and time step indices.
+        def set_equations(self) -> None:
+            """Local eliminations (e.g. s_gas) set their initial values only at
+            iterate_index=0, after the time step values were initialized. Copy them to
+            all iterate and time step indices, otherwise the first time step starts
+            from s_gas = 0."""
+            super().set_equations()
+            self.initialize_previous_iterate_and_time_step_values()
+
         def compute_residual_norm_old(
             self, residual: Optional[np.ndarray], reference_residual: np.ndarray
         ) -> float:
@@ -168,7 +178,7 @@ def run_simulation(
     model = GeothermalModel(params)
     # Load VTK files
     if correl_vtk_ptz is None:
-        correl_vtk_ptz = VTK_DIR / "XTP_l2_modified.vtk"
+        correl_vtk_ptz = VTK_DIR / "XTP_l2_original.vtk"
     brine_vtk_sampler_phz = VTKSampler(correl_vtk_phz)
     brine_vtk_sampler_phz.conversion_factors = (1.0, 1.0e-3, 1.0e-5) # (z,h,p)
     model.vtk_sampler = brine_vtk_sampler_phz
@@ -210,7 +220,7 @@ def run_simulation(
 # ------------------------------------------------------
 
 # Define file paths for VTK files used for thermodynamic property sampling
-correl_vtk_phz_2 = VTK_DIR / "XHP_l2_modified.vtk"
+correl_vtk_phz_2 = VTK_DIR / "XHP_l2_original.vtk"
 
 for case_name, config in SIMULATION_CASES.items():
     run_simulation(case_name, config, correl_vtk_phz=correl_vtk_phz_2)
