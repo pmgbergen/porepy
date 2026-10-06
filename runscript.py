@@ -88,10 +88,14 @@ def make_nonlinear_solver() -> pp.solvers.NewtonSolver:
     )
 
 
+DEFAULT_TOLERANCE = 1e-3
+"""Absolute tolerance, in model units, of variables without an explicit tolerance."""
+
+
 def make_tolerances(model: pp.PorePyModel) -> dict[str, float]:
     """Absolute tolerances of variables, i.e. the changes that are considered
-    negligible, in the units of the model. Variables without an entry are measured
-    relative to their magnitude, see :func:`variable_tolerance_vector`."""
+    negligible, in the units of the model. Other variables use
+    :data:`DEFAULT_TOLERANCE`."""
     return {
         "pressure": model.units.convert_units(100, "Pa"),
         "temperature": model.units.convert_units(1, "K"),
@@ -99,43 +103,22 @@ def make_tolerances(model: pp.PorePyModel) -> dict[str, float]:
     }
 
 
-# Variables whose magnitude can be tiny (e.g. a passive well carries no flux), so a
-# tolerance relative to their own magnitude is meaningless. They are measured relative
-# to the magnitude of a variable of the same kind.
-SCALE_LIKE = {
-    "well_flux": "interface_darcy_flux",
-    "well_enthalpy_flux": "interface_enthalpy_flux",
-}
-
-
 def variable_tolerance_vector(
     model: pp.PorePyModel,
     tolerances: dict[str, float],
-    relative_tolerance: float = 1e-2,
+    default_tolerance: float = DEFAULT_TOLERANCE,
 ) -> np.ndarray:
-    """Tolerance for each degree of freedom.
+    """Absolute tolerance for each degree of freedom.
 
-    Variables given in ``tolerances`` use that absolute value. Others use
-    ``relative_tolerance`` times the largest magnitude of the variable (or of the
-    variable it is :data:`SCALE_LIKE`) in the current state, which makes the measure
-    independent of units.
+    Variables given in ``tolerances`` use that value, others use ``default_tolerance``.
 
     """
-    state = model.equation_system.get_variable_values(iterate_index=0)
-    vector = np.zeros_like(state)
-    groups = {
-        name: np.concatenate(list(domains_dofs.values()))
-        for name, domains_dofs in (
-            model.equation_system.variable_indexer.group_by_name().items()
-        )
-    }
-    for name, indices in groups.items():
+    vector = np.full(model.equation_system.num_dofs(), default_tolerance)
+    for name, domains_dofs in (
+        model.equation_system.variable_indexer.group_by_name().items()
+    ):
         if name in tolerances:
-            vector[indices] = tolerances[name]
-            continue
-        reference = groups.get(SCALE_LIKE.get(name, name), indices)
-        if reference.size > 0 and indices.size > 0:
-            vector[indices] = relative_tolerance * np.abs(state[reference]).max()
+            vector[np.concatenate(list(domains_dofs.values()))] = tolerances[name]
     return vector
 
 
