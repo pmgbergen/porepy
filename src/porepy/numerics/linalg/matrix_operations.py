@@ -5,6 +5,7 @@ module for operations on sparse matrices
 from __future__ import annotations
 
 import warnings
+from functools import lru_cache
 from typing import Literal, Optional, Union, cast, overload
 
 import networkx as nx
@@ -12,12 +13,6 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-# try:
-#     from numba import njit, prange
-
-#     numba_available = True
-# except ImportError:
-#     numba_available = False
 
 try:
     from numba import njit, prange
@@ -26,69 +21,82 @@ try:
 except ImportError:
     numba_available = False
 
-
 if numba_available:
 
-    @njit(
-        "f8[::1](b1,f8[::1],i4[::1],i4[::1],i4[::1])",
-        cache=True,
-        parallel=True,
-    )
-    def _inv_compiled_function(is_csr_q, data, indices, indptr, sz):
-        """Numba function inverting each diagonal block of a block-diagonal matrix.
+    @lru_cache(maxsize=None)
+    def _get_inv_compiled_function():
+        """Build and cache the Numba-compiled block-inverse function.
 
-        Defined at module scope so it compiles once and is reused. (Nesting it inside
-        the caller registered a new compiled module with llvmlite on every call;
-        llvmlite retains all of them, causing unbounded native-memory growth under
-        repeated calls.) Compilation is left lazy. Expects ``data`` as C-contiguous
-        float64 and ``indices``/``indptr``/``sz`` as C-contiguous int32, with ``sz``
-        the per-block sizes prepended by a zero so ``cumsum(sz)`` gives block offsets.
+        The function is compiled on first use and reused on subsequent calls,
+        which keeps importing PorePy fast and avoids recompiling the function
+        on every inversion.
 
-        Returns the flattened, row-major non-zeros of the block-wise inverse.
+        Returns:
+            The compiled block-inverse function.
+
         """
 
-        idx_blocks = np.cumsum(sz).astype(np.int32)
-        idx_inv_blocks = np.cumsum(np.square(sz)).astype(np.int32)
-        idx_nnz = np.searchsorted(indices, idx_blocks).astype(np.int32)
+        @njit("f8[::1](b1,f8[::1],i4[::1],i4[::1],i4[::1])", cache=True, parallel=True)
+        def inv_compiled_function(is_csr_q, data, indices, indptr, sz):
 
-        if is_csr_q:
-            cols = indices
-            row_reps = indptr[1 : indptr.size] - indptr[0 : indptr.size - 1]
-        else:
-            rows = indices
-            col_reps = indptr[1 : indptr.size] - indptr[0 : indptr.size - 1]
+            # Construction of simple data structures (low complexity). Indices for block
+            # positions, flattened inverse block positions and nonzeros. Expanded block
+            # positions.
+            idx_blocks = np.cumsum(sz).astype(np.int32)
+            # Expanded nonzero positions for flattened inverse blocks
+            idx_inv_blocks = np.cumsum(np.square(sz)).astype(np.int32)
+            # Nonzero positions for the given matrix data (i.e. a.data)
+            idx_nnz = np.searchsorted(indices, idx_blocks).astype(np.int32)
 
-        v = np.zeros(idx_inv_blocks[-1])
-
-        for ib in prange(sz.size - 1):
-            v_range = np.arange(idx_inv_blocks[ib], idx_inv_blocks[ib + 1])
-            flat_block = v[v_range]
-            idx_shift = idx_blocks[ib]
-            idx_block = idx_blocks[np.array([ib, ib + 1])]
-
+            # Retrieve global indices (low complexity)
             if is_csr_q:
-                l_row = (
-                    np.repeat(
-                        np.arange(idx_block[0], idx_block[1]),
-                        row_reps[idx_block[0] : idx_block[1]],
-                    ).astype(np.int32)
-                    - idx_shift
-                )
-                l_col = cols[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
+                cols = indices
+                row_reps = indptr[1 : indptr.size] - indptr[0 : indptr.size - 1]
             else:
-                l_row = rows[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
-                l_col = (
-                    np.repeat(
-                        np.arange(idx_block[0], idx_block[1]),
-                        col_reps[idx_block[0] : idx_block[1]],
-                    ).astype(np.int32)
-                    - idx_shift
-                )
-            sequence_ij = l_row * sz[ib + 1] + l_col
-            flat_block[sequence_ij] = data[idx_nnz[ib] : idx_nnz[ib + 1]]
-            dense_block = np.reshape(flat_block, (sz[ib + 1], sz[ib + 1]))
-            v[v_range] = np.ravel(np.linalg.inv(dense_block))
-        return v
+                rows = indices
+                col_reps = indptr[1 : indptr.size] - indptr[0 : indptr.size - 1]
+
+            # flattened nonzero values of the dense inverse (low complexity)
+            # Numba np.zeros support ensures v is a contiguous array (C-contiguous)
+            v = np.zeros(idx_inv_blocks[-1])
+
+            for ib in prange(sz.size - 1):
+                v_range = np.arange(idx_inv_blocks[ib], idx_inv_blocks[ib + 1])
+                flat_block = v[v_range]
+                # Retrieve global block position
+                idx_shift = idx_blocks[ib]
+                idx_block = idx_blocks[np.array([ib, ib + 1])]
+
+                # Transform from global to local rows and cols positions
+                if is_csr_q:
+                    l_row = (
+                        np.repeat(
+                            np.arange(idx_block[0], idx_block[1]),
+                            row_reps[idx_block[0] : idx_block[1]],
+                        ).astype(np.int32)
+                        - idx_shift
+                    )
+                    l_col = cols[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
+                else:
+                    l_row = rows[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
+                    l_col = (
+                        np.repeat(
+                            np.arange(idx_block[0], idx_block[1]),
+                            col_reps[idx_block[0] : idx_block[1]],
+                        ).astype(np.int32)
+                        - idx_shift
+                    )
+                # Construct flattened local positions (major order of non-zeros)
+                sequence_ij = l_row * sz[ib + 1] + l_col
+                # Assigning flattened positions directly from the matrix data (a.data)
+                flat_block[sequence_ij] = data[idx_nnz[ib] : idx_nnz[ib + 1]]
+                # Reshape flattened block to squared dense block of size[ib]
+                dense_block = np.reshape(flat_block, (sz[ib + 1], sz[ib + 1]))
+                # Perform inversion and assigning values from a 1-D ravelled array
+                v[v_range] = np.ravel(np.linalg.inv(dense_block))
+            return v
+
+        return inv_compiled_function
 
 
 def zero_columns(A: sps.csc_matrix, cols: np.ndarray) -> None:
@@ -402,24 +410,23 @@ def slice_sparse_matrix(A: sps.spmatrix, ind: np.ndarray | int) -> sps.spmatrix:
     # The slicing will be done based on a numpy array of indices (row and column for csr
     # and csc, respectively). The provided index can be an array of booleans, or a
     # single integer. Convert these to numpy arrays of indices.
-    if np.asarray(ind).dtype == "bool":
-        ind = np.where(ind)[0]
-    if isinstance(ind, int):
-        ind = np.array([ind])
+    ind_arr = np.asarray(ind)
+    if ind_arr.dtype == "bool":
+        ind_arr = np.where(ind_arr)[0]
 
     # Dimension of the sliced matrix along the axis of the slicing.
-    N = ind.size
+    N = ind_arr.size
     # Expand the indices along the compressed axis. To understand this command, it is
     # necessary to be familiar with the compressed storage format.
     ind_slice = pp.array_operations.expand_index_pointers(
-        A.indptr[ind], A.indptr[ind + 1]
+        A.indptr[ind_arr], A.indptr[ind_arr + 1]
     )
     # Pick out the subset of the indices from A that are also in the slice.
     indices = A.indices[ind_slice]
     # Make a new indptr array and fill it with the relevant parts of the original indptr
     # array.
-    indptr = np.zeros(ind.size + 1)
-    indptr[1:] = np.cumsum(A.indptr[ind + 1] - A.indptr[ind])
+    indptr = np.zeros(ind_arr.size + 1)
+    indptr[1:] = np.cumsum(A.indptr[ind_arr + 1] - A.indptr[ind_arr])
     # Data can be extracted directly from the data array of A.
     data = A.data[ind_slice]
 
@@ -1064,6 +1071,9 @@ def _csx_matrix_from_sparse_blocks(
     # Calculate the size of the block matrix.
     num_rows = sum([m.shape[0] for m in blocks])
     num_cols = sum([m.shape[1] for m in blocks])
+    tot_size = sum([m.data.size for m in blocks])
+
+    _safe_data_types_of_index_arrays(blocks, max(num_rows, num_cols), tot_size)
 
     # CSC and CSR matrices are constructed and operated on in a very similar way; the
     # difference is in which dimension the indices represent. We need this to get the
@@ -1086,6 +1096,47 @@ def _csx_matrix_from_sparse_blocks(
         shape=(num_rows, num_cols),
     )
     return block_mat
+
+
+def _safe_data_types_of_index_arrays(
+    blocks: list[sps.spmatrix], max_size: int, tot_size: int
+) -> None:
+    """Helper function to ensure the data types of a set of matrices.
+
+    This is needed to guard against cases where the indices of individual matrices
+    can be represented in reduced precision (int16 or int32), but where the stacked
+    matrix require higher precision.
+
+    Parameters:
+        blocks: List of matrices to be converted. The matrices are modified in place.
+        max_int: Maximum of the number of rows and columns.
+        tot_size: Total number of non-zero elements in the stacked matrix.
+
+    """
+    # Use a small buffer to avoid overflow issues when close to the maximum size.
+    buffer = 10
+
+    # For mypy.
+    dtype_indices: type[np.integer]
+    dtype_indptr: type[np.integer]
+
+    if max_size < np.iinfo(np.int16).max - buffer:
+        dtype_indices = np.int16
+    elif max_size < np.iinfo(np.int32).max - buffer:
+        dtype_indices = np.int32
+    else:
+        dtype_indices = np.int64
+
+    if tot_size < np.iinfo(np.int16).max - buffer:
+        dtype_indptr = np.int16
+    elif tot_size < np.iinfo(np.int32).max - buffer:
+        dtype_indptr = np.int32
+    else:
+        dtype_indptr = np.int64
+
+    for mat in blocks:
+        mat.indices = mat.indices.astype(dtype_indices)
+        mat.indptr = mat.indptr.astype(dtype_indptr)
 
 
 def csr_matrix_from_dense_blocks(
@@ -1351,26 +1402,6 @@ def invert_diagonal_blocks(
         return inv_a
 
     def invert_diagonal_blocks_numba(a: sps.csr_matrix, size: np.ndarray) -> np.ndarray:
-        """Invert a block-diagonal matrix via the module-level Numba function.
-
-        Validates input, extracts CSR/CSC storage, builds the extended block-size
-        array, and delegates to ``_invert_compiled_function`` (compiled
-        once, reused). Returns the flattened non-zeros of the inverse.
-        """
-        if not (sps.isspmatrix_csr(a) or sps.isspmatrix_csc(a)):
-            raise TypeError("Sparse array type not implemented: ", type(a))
-
-        is_csr_q = sps.isspmatrix_csr(a)
-        data = a.data
-        indices = a.indices
-        indptr = a.indptr
-        sz = np.insert(size, 0, 0).astype(np.int32)
-
-        return _inv_compiled_function(is_csr_q, data, indices, indptr, sz)
-
-    def invert_diagonal_blocks_numba_porepy(
-        a: sps.csr_matrix, size: np.ndarray
-    ) -> np.ndarray:
         """
         It is the parallel function of the Python inverter.  Using numba support and a
         single call to numba.prange, parallelization is achieved.
@@ -1397,69 +1428,7 @@ def invert_diagonal_blocks(
         # Extended block sizes structure
         sz = np.insert(size, 0, 0).astype(np.int32)
 
-        @njit(
-            "f8[::1](b1,f8[::1],i4[::1],i4[::1],i4[::1])",
-            cache=True,
-            parallel=True,
-        )
-        def inv_compiled_function(is_csr_q, data, indices, indptr, sz):
-            # Construction of simple data structures (low complexity). Indices for block
-            # positions, flattened inverse block positions and nonzeros. Expanded block
-            # positions.
-            idx_blocks = np.cumsum(sz).astype(np.int32)
-            # Expanded nonzero positions for flattened inverse blocks
-            idx_inv_blocks = np.cumsum(np.square(sz)).astype(np.int32)
-            # Nonzero positions for the given matrix data (i.e. a.data)
-            idx_nnz = np.searchsorted(indices, idx_blocks).astype(np.int32)
-
-            # Retrieve global indices (low complexity)
-            if is_csr_q:
-                cols = indices
-                row_reps = indptr[1 : indptr.size] - indptr[0 : indptr.size - 1]
-            else:
-                rows = indices
-                col_reps = indptr[1 : indptr.size] - indptr[0 : indptr.size - 1]
-
-            # flattened nonzero values of the dense inverse (low complexity)
-            # Numba np.zeros support ensures v is a contiguous array (C-contiguous)
-            v = np.zeros(idx_inv_blocks[-1])
-
-            for ib in prange(sz.size - 1):
-                v_range = np.arange(idx_inv_blocks[ib], idx_inv_blocks[ib + 1])
-                flat_block = v[v_range]
-                # Retrieve global block position
-                idx_shift = idx_blocks[ib]
-                idx_block = idx_blocks[np.array([ib, ib + 1])]
-
-                # Transform from global to local rows and cols positions
-                if is_csr_q:
-                    l_row = (
-                        np.repeat(
-                            np.arange(idx_block[0], idx_block[1]),
-                            row_reps[idx_block[0] : idx_block[1]],
-                        ).astype(np.int32)
-                        - idx_shift
-                    )
-                    l_col = cols[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
-                else:
-                    l_row = rows[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
-                    l_col = (
-                        np.repeat(
-                            np.arange(idx_block[0], idx_block[1]),
-                            col_reps[idx_block[0] : idx_block[1]],
-                        ).astype(np.int32)
-                        - idx_shift
-                    )
-                # Construct flattened local positions (major order of non-zeros)
-                sequence_ij = l_row * sz[ib + 1] + l_col
-                # Assigning flattened positions directly from the matrix data (a.data)
-                flat_block[sequence_ij] = data[idx_nnz[ib] : idx_nnz[ib + 1]]
-                # Reshape flattened block to squared dense block of size[ib]
-                dense_block = np.reshape(flat_block, (sz[ib + 1], sz[ib + 1]))
-                # Perform inversion and assigning values from a 1-D ravelled array
-                v[v_range] = np.ravel(np.linalg.inv(dense_block))
-            return v
-
+        inv_compiled_function = _get_inv_compiled_function()
         inv_a = inv_compiled_function(is_csr_q, data, indices, indptr, sz)
         return inv_a
 
@@ -1486,6 +1455,82 @@ def invert_diagonal_blocks(
         raise ValueError(f"Unknown type of block inverter {method}")
     ia = block_diag_matrix(inv_vals, s)
     return ia
+
+
+def prune_matrix(A: sps.spmatrix) -> None:
+    """Prune sparse matrix to reduce memory usage.
+
+    Two changes are considered:
+        1. If the matrix does not own its own data, as can happen if scipy has created
+           a view of the matrix, the data array is copied; a byproduct of this is that
+           the data array will not occupy more space than necessary.
+        2. The data types for row and column indices/index pointers are adjusted to the
+           size of the matrix.
+
+    Parameters:
+        A: The matrix to be pruned. Should be of csr or csc format. The matrix is
+           modified in place.
+
+    """
+    MAX_I16 = np.iinfo(np.int16).max
+    MAX_I32 = np.iinfo(np.int32).max
+
+    # A small buffer is used to avoid overflow when the size is close to the limit.
+    buffer = 10
+
+    num_rows, num_cols = A.shape
+    if A.format == "csr" or A.format == "csc":
+        if not A.data.flags.owndata:
+            # We could probably do this with matrix types beyond csr/csc as well, but
+            # there are hardly any practical use of this (except from diagonal matrices,
+            # where the utility of this fix is questionable), and we don't have
+            # sufficient test coverage of those cases to know it is safe. Hence, we
+            # limit to csr/csc.
+            A.data = A.data.copy()
+        if A.format == "csr":
+            if num_cols < MAX_I16:
+                A.indices = A.indices.astype(np.int16)
+            elif num_cols <= MAX_I32:
+                A.indices = A.indices.astype(np.int32)
+        else:  # A.format == 'csc'
+            if num_rows < MAX_I16 - 10:
+                A.indices = A.indices.astype(np.int16)
+            elif num_rows <= MAX_I32 - 10:
+                A.indices = A.indices.astype(np.int32)
+        if A.data.size < MAX_I16 - buffer:
+            A.indptr = A.indptr.astype(np.int16)
+        elif A.data.size <= MAX_I32 - buffer:
+            A.indptr = A.indptr.astype(np.int32)
+
+
+def prune_matrices_in_dict(data: dict[str, sps.spmatrix]) -> None:
+    """Prune all sparse matrices in a dictionary to reduce memory usage.
+
+    Parameters:
+        data: The dictionary containing the matrices to be pruned. The matrices are
+            modified in place. Only matrices of csr or csc format are pruned.
+
+    """
+    for value in data.values():
+        if isinstance(value, sps.spmatrix):
+            prune_matrix(value)
+        elif isinstance(value, dict):
+            prune_matrices_in_dict(value)
+
+
+def prune_discretization_matrices(mdg: pp.MixedDimensionalGrid) -> None:
+    """Prune all discretization matrices of a mixed-dimensional grid.
+
+    Parameters:
+        mdg: Mixed-dimensional grid whose discretization matrices are to be pruned. The
+            matrices are modified in place. Only matrices of csr or csc format are
+            pruned.
+
+    """
+    for _, data in mdg.subdomains(return_data=True):
+        prune_matrices_in_dict(data.get(pp.DISCRETIZATION_MATRICES, {}))
+    for _, data in mdg.interfaces(return_data=True):
+        prune_matrices_in_dict(data.get(pp.DISCRETIZATION_MATRICES, {}))
 
 
 def block_diag_matrix(vals: np.ndarray, sz: np.ndarray) -> sps.spmatrix:
