@@ -517,7 +517,10 @@ class ConstantPorosityTest(pp.PorePyModel):
     """Alters a constitutive law, as done by temporarily swapping the model class."""
 
     def matrix_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        ones = pp.ad.DenseArray(np.ones(sum(sd.num_cells for sd in subdomains)))
+        space = pp.ad.OperatorSpace.from_domains(subdomains)
+        ones = pp.ad.DenseArray(
+            np.ones(sum(sd.num_cells for sd in subdomains)), source=space, target=space
+        )
         return self.reference_porosity(subdomains) * ones
 
 
