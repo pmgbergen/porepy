@@ -327,8 +327,13 @@ def initialization_pipeline(model: pp.PorePyModel) -> pp.PorePyModel:
             return pp.ad.Scalar(0)
 
         def matrix_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            ones = np.ones(sum(sd.num_cells for sd in subdomains))
-            return self.reference_porosity(subdomains) * pp.ad.DenseArray(ones)
+            space = pp.ad.OperatorSpace.from_domains(subdomains)
+            ones = pp.ad.DenseArray(
+                np.ones(sum(sd.num_cells for sd in subdomains)),
+                source=space,
+                target=space,
+            )
+            return self.reference_porosity(subdomains) * ones
 
         def update_time_dependent_ad_arrays(self) -> None:
             # Time dependent data (boundary values, sources) is frozen at data_time,

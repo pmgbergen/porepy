@@ -3232,7 +3232,10 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
         # The reference stress is fixed throughout a simulation, hence the operator is
         # explicitly evaluated in the reference state.
         return pp.ad.TimeDependentDenseArray(
-            self.reference_stress_key, domains
+            self.reference_stress_key,
+            domains,
+            dof_info={pp.ad.GridEntity.faces: self.nd},
+            domain_type=pp.ad.DomainType.subdomains,
         ).reference()
 
     def combine_boundary_operators_mechanical_stress(
