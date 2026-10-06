@@ -13,6 +13,7 @@ time:
   dt_max: 3.1536e7
   constant_dt: false
   max_iterations: 200
+  iter_optimal: [8, 15]
   print_info: true
   rtol: 0.0
 
@@ -50,9 +51,10 @@ relative_permeability:
 
 solver:
   nonlinear_tolerance: 1.0e-5
-  max_iterations: 100
+  max_iterations: 200
   linear_solver: pypardiso
   flag_failure_as_diverged: true
+  use_anderson: true
 
 vtk:
   directory: model_configuration/constitutive_description/driesner_vtk_files

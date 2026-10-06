@@ -122,7 +122,8 @@ class FractureSolidConstants(pp.SolidConstants):
 
 
 def clamped_halite_saturation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-    """Clamp halite saturation between [0, 0.5]."""
+    """Clamp halite saturation between [0, 0.8]."""
+
     halite_phase = [p for p in self.fluid.phases if p.name == "halite"]
     if len(halite_phase) != 1:
         raise ValueError("Expected exactly one halite phase.")
