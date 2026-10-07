@@ -332,7 +332,7 @@ def test_energy_conservation():
     u = model.volume_integral(model.total_internal_energy(subdomains), subdomains, 1)
     h_f = model.fluid.specific_enthalpy(subdomains) * model.porosity(subdomains)
     h_s = model.solid_enthalpy(subdomains) * (
-        pp.ad.Scalar(1) - model.porosity(subdomains)
+        pp.ad.Scalar(1, domains=subdomains) - model.porosity(subdomains)
     )
     h = model.volume_integral(h_f + h_s, subdomains, 1)
     u_val = np.sum(model.equation_system.evaluate(u))

@@ -73,9 +73,10 @@ def test_contact_mechanics(nd, formulation):
         expected_jump *= -1
     np.testing.assert_allclose(displacement_jump_global - expected_jump, 0, atol=1e-12)
     # Check the contact traction.
-    scaled_traction = model.contact_traction(
-        fractures
-    ) * model.characteristic_contact_traction(fractures)
+    scalar_to_nd = pp.ad.sum_projection_list(model.basis(fractures, dim=nd))
+    scaled_traction = (
+        scalar_to_nd @ model.characteristic_contact_traction(fractures)
+    ) * model.contact_traction(fractures)
     traction = model.equation_system.evaluate(scaled_traction).reshape(
         (nd, -1), order="F"
     )

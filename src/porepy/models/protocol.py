@@ -243,6 +243,7 @@ else:
             attr: str,
             *,
             dim: int,
+            grid_entity: pp.ad.GridEntity = pp.ad.GridEntity.cells,
         ) -> pp.ad.DenseArray:
             """Wrap a grid attribute as an ad matrix.
 
@@ -255,6 +256,8 @@ else:
                     exclude the z-component of a vector attribute in 2d, to achieve
                     compatibility with code which is explicitly 2d (e.g. fv
                     discretizations).
+                grid_entity: The grid entity (cells, faces, or nodes) that ``attr``
+                    is actually defined on.
 
             Returns:
                 class:`porepy.numerics.ad.DenseArray`: `(shape=(dim *
@@ -271,7 +274,10 @@ else:
             """
 
         def basis(
-            self, grids: Sequence[pp.GridLike], dim: int
+            self,
+            grids: Sequence[pp.GridLike],
+            dim: int,
+            domain_type: Optional[pp.ad.DomainType] = None,
         ) -> list[pp.ad.Projection]:
             """Return a cell-wise basis for all subdomains.
 
@@ -295,6 +301,8 @@ else:
             Parameters:
                 grids: List of grids on which the basis is defined.
                 dim: Dimension of the basis.
+                domain_type: The type of domain (subdomains, interfaces, or boundary
+                    grids) that *grids* represents. See :meth:`basis` for details.
 
             Returns:
                 List of pp.ad.SparseArray, each of which represents a basis
@@ -303,7 +311,12 @@ else:
             """
 
         def e_i(
-            self, grids: Sequence[pp.GridLike], *, i: int, dim: int
+            self,
+            grids: Sequence[pp.GridLike],
+            *,
+            i: int,
+            dim: int,
+            domain_type: Optional[pp.ad.DomainType] = None,
         ) -> pp.ad.Projection:
             """Return a cell-wise basis function in a specified dimension.
 
@@ -329,6 +342,8 @@ else:
                 grids: List of grids on which the basis vector is defined.
                 i: Index of the basis function. Note: Counts from 0.
                 dim: Dimension of the functions.
+                domain_type: The type of domain (subdomains, interfaces, or boundary
+                    grids) that *grids* represents. See :meth:`basis` for details.
 
             Returns:
                 Ad projection that represents a basis function.
@@ -937,7 +952,7 @@ else:
         """
 
         def create_boundary_operator(
-            self, name: str, domains: Sequence[pp.BoundaryGrid]
+            self, name: str, domains: Sequence[pp.BoundaryGrid], dim: int = 1
         ) -> pp.ad.TimeDependentDenseArray:
             """Creates an operator on boundary grids.
 
