@@ -17,9 +17,9 @@ sparse array types."""
 
 
 def _check_1d(val: np.ndarray) -> None:
-    """Raise a ValueError unless ``val`` is a one dimensional array."""
+    """Raise a ValueError unless ``val`` is a one-dimensional array."""
     if val.ndim != 1:
-        raise ValueError("The Ad array value should be one dimensional")
+        raise ValueError("The Ad array value should be one-dimensional")
 
 
 def _as_float(
@@ -238,8 +238,8 @@ class AdArray:
 
         Parameters:
             other: The other AdArray in the operation.
-            op_name: Name of the operation, used in the error message if the sizes
-                are incompatible.
+            op_name: Name of the operation, used in the error message if the sizes are
+                incompatible.
 
         Raises:
             ValueError: If the sizes of the two arrays are incompatible.
@@ -278,8 +278,8 @@ class AdArray:
             An AdArray which combines ``self`` and ``other``.
 
         """
-        # Dispatch on the type of other via isinstance, consistent with the rest of
-        # the ad package.
+        # Dispatch on the type of other via isinstance, consistent with the rest of the
+        # ad package.
         if isinstance(other, (int, float)):
             # Strictly speaking, we require scalars to be floats, but add casting of
             # ints to floats for convenience.
@@ -570,9 +570,9 @@ class AdArray:
             self._check_1d_operand(other, "division")
 
             new_val = self.val * other.astype(float) ** (-1.0)
-            # The Jacobian will have its columns scaled with the values in other,
-            # again in array-form. Achieve this by left-multiplying with other,
-            # represented as a diagonal matrix.
+            # The Jacobian will have its columns scaled with the values in other, again
+            # in array-form. Achieve this by left-multiplying with other, represented as
+            # a diagonal matrix.
             new_jac = self.diagvec_mul_jac(other.astype(float) ** (-1.0))
             return AdArray(new_val, new_jac)
 
@@ -603,10 +603,10 @@ class AdArray:
         """
 
         if isinstance(other, (float, int, np.ndarray, *_SPARSE_TYPES)):
-            # Divide a float or a numpy array by self is the same as raising self to
-            # the power of -1 and multiplying by the float. The multiplication will
-            # end up calling self.__mul__, which will do the right checks for numpy
-            # arrays and sparse matrices.
+            # Divide a float or a numpy array by self is the same as raising self to the
+            # power of -1 and multiplying by the float. The multiplication will end up
+            # calling self.__mul__, which will do the right checks for numpy arrays and
+            # sparse matrices.
             return self.__pow__(-1.0) * other
 
         elif isinstance(other, pp.ad.AdArray):
@@ -637,8 +637,8 @@ class AdArray:
 
         elif isinstance(other, _SPARSE_TYPES):
             # This goes against the way equations should be formulated in the AD
-            # framework, variables should not be right-multiplied by anything. Raise
-            # a value error to make sure this is not done.
+            # framework, variables should not be right-multiplied by anything. Raise a
+            # value error to make sure this is not done.
             raise ValueError(
                 """AdArrays should only be left-multiplied by sparse matrices."""
             )
@@ -665,7 +665,7 @@ class AdArray:
             )
 
         elif isinstance(other, _SPARSE_TYPES):
-            # This is the standard matrix-vector multiplication
+            # This is the standard matrix-vector multiplication.
             if self.jac.shape[0] != other.shape[1]:
                 raise ValueError(
                     """Dimension mismatch between sparse matrix and AdArray during
@@ -720,9 +720,9 @@ class AdArray:
     def full_jac(self) -> sps.spmatrix | sps.sparray:
         """The Jacobian as a sparse matrix.
 
-        Converts from the diagonal representation if necessary, so that code which
-        needs sparse matrix operations on the Jacobian can ask for it directly instead
-        of branching on :attr:`is_diagonal`.
+        Converts from the diagonal representation if necessary, so that code which needs
+        sparse matrix operations on the Jacobian can ask for it directly instead of
+        branching on :attr:`is_diagonal`.
 
         Returns:
             The Jacobian of this array, as a sparse matrix.
@@ -847,17 +847,17 @@ def initialize_diagonal_ad_arrays(
         num_derivatives: Total number of derivatives (degrees of freedom) in the
             full system.
         derivatives: If provided, the diagonal Jacobian entries to use for each
-            variable, instead of the default of 1.0 (a unit derivative). Used e.g.
-            to represent the derivative of a SurrogateOperator with respect to its
-            primary variable.
+            variable, instead of the default of 1.0 (a unit derivative). Used e.g. to
+            represent the derivative of a SurrogateOperator with respect to its primary
+            variable.
 
     Returns:
-        A list of DiagonalAdArrays, each of which represents one of the variables
-        in the ``variables`` list.
+        A list of DiagonalAdArrays, each of which represents one of the variables in the
+        ``variables`` list.
 
     Raises:
-        ValueError: If the number of ``variables`` and ``indices`` do not match, or
-            if the size of an array in ``variables`` does not match the size of the
+        ValueError: If the number of ``variables`` and ``indices`` do not match, or if
+            the size of an array in ``variables`` does not match the size of the
             corresponding array in ``indices``.
 
     """

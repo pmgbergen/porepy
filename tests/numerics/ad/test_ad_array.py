@@ -25,22 +25,22 @@ from porepy.numerics.ad.ad_array import (
 def initAdArrays(variables: list[np.ndarray]) -> list[AdArray]:
     """Initialize a set of AdArrays, jointly dependent on each other.
 
-    Test helper: creates one AdArray per entry in ``variables``, with the
-    gradients taken with respect to all variables jointly (i.e. each returned
-    AdArray has a unit derivative with respect to itself and a zero derivative
-    with respect to the other variables).
+    Test helper: creates one AdArray per entry in ``variables``, with the gradients
+    taken with respect to all variables jointly (i.e. each returned AdArray has a unit
+    derivative with respect to itself and a zero derivative with respect to the other
+    variables).
 
     """
     num_values_per_variable = [v.size for v in variables]
     ad_arrays: list[AdArray] = []
 
     for i, val in enumerate(variables):
-        # initiate zero jacobian
+        # Initiate zero Jacobian.
         n = num_values_per_variable[i]
         jac = [sps.csc_matrix((n, m)) for m in num_values_per_variable]
-        # Set jacobian of variable i to I
+        # Set Jacobian of variable i to I.
         jac[i] = sps.diags(np.ones(num_values_per_variable[i])).tocsr()
-        # initiate AdArray
+        # Initiate AdArray.
         jac = sps.bmat([jac])
         ad_arrays.append(AdArray(val, jac))
 
@@ -282,10 +282,10 @@ def test_get_set_slice_ad_var(
     # Testing slicing
     a_slice = a[index]
 
-    # `initAdArrays` (the test helper above) builds its Jacobians with spmatrices,
-    # not sparrays. Their slicing behavior is different: spmatrix does not flatten
-    # the result, while sparray does. Some parts of the code may rely on this
-    # assumption. This code will signalize if this assumption ever breaks.
+    # `initAdArrays` (the test helper above) builds its Jacobians with spmatrices, not
+    # sparrays. Their slicing behavior is different: spmatrix does not flatten the
+    # result, while sparray does. Some parts of the code may rely on this assumption.
+    # This code will signalize if this assumption ever breaks.
     if isinstance(index, int):
         assert len(a_slice.jac.shape) == 2
         # Manually unraveling it for the sparrays to make the test consistent.
@@ -462,8 +462,8 @@ def test_initialize_partial_ad_array(state, indices, expected_jac):
 
 
 def test_initialize_diagonal_ad_arrays_single_variable():
-    """With a single variable, the returned array has a unit derivative of each
-    entry with respect to itself, placed at the given global indices."""
+    """With a single variable, the returned array has a unit derivative of each entry
+    with respect to itself, placed at the given global indices."""
     val = np.array([2.0, 3.0, 4.0])
     global_indices = [np.array([1, 3, 5])]
     num_derivatives = 6
