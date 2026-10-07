@@ -3236,6 +3236,132 @@ class ReactionRatesKineticFromExperiment:
         # set the equilibrium lithium concentration
 
 
+class ReactionRatesKineticFromExperimentReleaseFraction:
+    def set_kinetic_reaction_rates(
+        self, reactions: Sequence[pp.Reaction]
+    ) -> Sequence[pp.Reaction]:
+        """Sets the reaction rates for kinetic reactions.
+
+        Parameters:
+            reactions: A list of Reaction objects defining the chemical reactions.
+        This needs to be overridden to provide actual reaction rates.
+        """
+        S = self.fluid.stoichiometric_matrix
+        reaction_formulas = self.reaction_formulas
+        for reaction in reactions:
+            if reaction.is_kinetic:
+                k_0 = self.rate_constant(reaction)  # unit: 1/s
+                Abar = 6.0  # unit: m2/m3
+                f_rel = self.mineral_release_fraction(reaction)  # unit: mol/m3 water
+                rxn_index = reaction_formulas.index(reaction.formula)
+
+                nu = S[rxn_index, :]
+                reactive_species = []
+                reactive_coeffs = []
+                for comp in self.fluid.components:
+                    if comp.name in self.species_names:
+                        sp_index = self.species_names.index(comp.name)
+                        if nu[sp_index] != 0:
+                            # Build subarrays for reactive species and their coefficients in this reaction
+                            reactive_species.append(comp)
+                            reactive_coeffs.append(nu[sp_index])
+                reactive_activities = {}
+                # finding the activities of the reactive species
+                for phase in self.fluid.phases:
+                    if phase.state == PhysicalState.solid:
+                        mineral_count = 0
+                    for comp in reactive_species:
+                        if comp in phase.components:
+                            if phase.state == PhysicalState.solid:
+                                mineral_count += 1
+                            reactive_activities[comp.name] = phase.activity_of[comp]
+                if mineral_count > 1:
+                    raise NotImplementedError(
+                        "Multiple minerals in one reaction not implemented yet."
+                    )
+
+                def rr(
+                    domains: pp.SubdomainsOrBoundaries,
+                    k_0=k_0,
+                    f_rel=f_rel,
+                    reactive_species=tuple(reactive_species),
+                    reactive_coeffs=tuple(reactive_coeffs),
+                    reactive_activities=reactive_activities.copy(),
+                ) -> pp.ad.Operator:
+                    """
+                    Compute the apparent kinetic Li release rate from a reactive solid inventory.
+
+                    This function implements a minimal first-order, solubility-limited Li release
+                    term using bulk-volume concentrations:
+
+                        r_Li = k_rel * max(0, f_rel*s_Li0_bulk - c_Li_bulk) * (s_Li_bulk / s_Li0_bulk)
+
+                    """
+
+
+
+                    for i, comp in enumerate(reactive_species):
+                        if i == 0:
+                            Q = pp.ad.Scalar(1.0)
+                        Q = Q * reactive_activities[comp.name](domains) ** pp.ad.Scalar(
+                            reactive_coeffs[i]
+                        )
+                    for comp in reactive_species:
+                        if comp in self.fluid.solid_components:
+                            s_Li0_bulk=self.ic_minerals_bulk_concentration_wrap(comp, domains)
+                            s_Li_bulk=comp.mineral_saturation(domains)* self.total_porosity(domains)/pp.ad.Scalar(comp.molar_volume)
+                        elif comp.name=="Li+":
+                            c_Li_bulk=self.molar_bulk_concentration(comp,domains)
+                    phi=self.porosity(domains)
+
+                    f_max = pp.ad.Function(pp.ad.maximum, "maximum_function")
+
+
+                    driving_force= f_max(pp.ad.Scalar(0.0), pp.ad.Scalar(f_rel) * s_Li0_bulk - c_Li_bulk)
+                    mineral_mask = (s_Li0_bulk > 0.0).astype(float)
+                    s_Li0_safe = np.where(s_Li0_bulk > 0.0, s_Li0_bulk, 1.0)
+                    r = pp.ad.Scalar(k_0) * driving_force * s_Li_bulk / s_Li0_safe * mineral_mask
+                    return r
+
+                reaction.reaction_rate = rr
+            else:
+
+                def rr_eq(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                    return pp.ad.Scalar(0.0, "equilibrium_reaction_rate")
+
+                reaction.reaction_rate = rr_eq
+
+        return reactions
+
+
+
+
+    def rate_constant(self, reaction: pp.Reaction):
+        #unit: 1/s
+        """
+        The parameters are obtained from: Kevin Schmidt, Martin Oeser, Andr´e Stechern, and Christian Ostertag-
+        Henning. Hydrothermal experiments at in-situ conditions to identify Li
+        release reactions by water-mineral interactions in deep sedimentary basins
+        of the North German Basin and Upper Rhine Graben. Applied Geochem-
+        istry, 195:106622, 2025.
+        Sample: DFU_01
+        """
+        return 5.36e-6
+        # set a fake rate constant
+
+    def mineral_release_fraction(self, reaction: pp.Reaction):
+        """
+        The parameters are obtained from: Kevin Schmidt, Martin Oeser, Andr´e Stechern, and Christian Ostertag-
+        Henning. Hydrothermal experiments at in-situ conditions to identify Li
+        release reactions by water-mineral interactions in deep sedimentary basins
+        of the North German Basin and Upper Rhine Graben. Applied Geochem-
+        istry, 195:106622, 2025.
+        Sample: DFU_01
+        Unit: [-]
+        """
+        return 0.0159
+
+
 
 class ModifiedSourceAsWells:
 

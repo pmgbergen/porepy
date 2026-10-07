@@ -2153,8 +2153,8 @@ class PeacemanWellFlux(pp.PorePyModel):
                 dx, dy = self.horizontal_cell_extents(sd)
 
                 # Isotropic Cartesian Peaceman radius.
-                # For dx = dy = h, this gives 0.71 * sqrt(2) * h ≈ h.
-                r_e = 0.71 * np.sqrt(dx**2 + dy**2)
+                # For dx = dy = h, this gives h.
+                r_e = np.sqrt(dx**2 + dy**2) / np.sqrt(2)
 
                 h_list.append(r_e)
             else:
