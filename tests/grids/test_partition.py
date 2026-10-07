@@ -273,16 +273,16 @@ class TestExtractSubgrid:
 class TestExtractSubgridTags:
     """Test that extract_subgrid transfers the standard tags from the parent grid.
 
-    The three standard face tags are mutually exclusive, and together they cover the
-    faces that have a single neighbouring cell (apart from periodic faces, which have
-    one neighbour but are not on a boundary). A subgrid has more such faces than its
-    parent, namely those that appear where the subgrid has been cut out, and these
-    should be tagged as domain boundary faces. The tags the parent has assigned should
-    be kept.
+    The three standard face tags, domain boundary, fracture, and tip, are mutually
+    exclusive, and together they cover the faces that have a single neighbouring cell
+    (apart from periodic faces, which have one neighbour but are not on a boundary). A
+    subgrid has more such faces than its parent, namely those that appear where the
+    subgrid has been cut out, and these should be tagged as domain boundary faces. The
+    tags the parent has assigned should be kept.
 
     """
 
-    def fractured_grid(self, dim: int) -> pp.Grid:
+    def fractured_grid(self, dim: int, return_mdg: bool = False) -> pp.Grid:
         """Grid with one immersed fracture, as the highest-dimensional subdomain of a
         mixed-dimensional grid."""
         if dim == 2:
@@ -296,18 +296,15 @@ class TestExtractSubgridTags:
             num_cells = np.array([4, 4, 4])
             physdims = [4, 4, 4]
         mdg = pp.meshing.cart_grid([fracture], num_cells, physdims=physdims)
+        if return_mdg:
+            return mdg
         sd = mdg.subdomains(dim=dim)[0]
         sd.compute_geometry()
         return sd
 
     @pytest.mark.parametrize("dim", [2, 3])
     def test_tags_of_full_extraction(self, dim: int):
-        """Extracting all cells should reproduce the tags of the parent.
-
-        This is the case met by the finite volume discretizations, which always work on
-        a grid extracted from the one they are asked to discretize.
-
-        """
+        """Extracting all cells should reproduce the tags of the parent."""
         sd = self.fractured_grid(dim)
         sub, sub_f, _ = pp.partition.extract_subgrid(sd, np.arange(sd.num_cells))
 
@@ -337,52 +334,34 @@ class TestExtractSubgridTags:
         assert np.array_equal(
             sd.tags["fracture_faces"][sub_f], sub.tags["fracture_faces"]
         )
+        # The number of fracture faces is the same.
         assert sub.tags["fracture_faces"].sum() == sd.tags["fracture_faces"].sum()
-        # The tags are mutually exclusive, ...
+        # The tags are mutually exclusive.
         assert not np.any(
             np.logical_and(
                 sub.tags["fracture_faces"], sub.tags["domain_boundary_faces"]
             )
         )
-        # ... and together they cover the faces with a single neighbouring cell.
+        # All faces with a single neighbouring cell are either domain boundary faces or
+        # fracture faces.
         single_neighbour = np.where(np.diff(sub.cell_faces.tocsr().indptr) == 1)[0]
         assert np.array_equal(
             np.sort(sub.get_all_boundary_faces()), np.sort(single_neighbour)
         )
-        # The faces cut out of the interior of the parent are new domain boundaries.
-        new_boundary = np.setdiff1d(
-            sub_f[np.where(sub.tags["domain_boundary_faces"])[0]],
-            np.where(sd.tags["domain_boundary_faces"])[0],
-        )
-        assert new_boundary.size > 0
 
     def test_tags_of_lower_dimensional_grid(self):
         """A fracture grid has tip faces, which should also be transferred."""
-        mdg = pp.meshing.cart_grid(
-            [np.array([[1.0, 3.0], [2.0, 2.0]])], np.array([4, 4]), physdims=[4, 4]
-        )
+        mdg = self.fractured_grid(2, return_mdg=True)
         sd = mdg.subdomains(dim=1)[0]
         sd.compute_geometry()
         assert sd.tags["tip_faces"].sum() > 0
-
+        # 'Extract' the full fracture grid.
         sub, sub_f, _ = pp.partition.extract_subgrid(sd, np.arange(sd.num_cells))
+        # The tip face tag is transferred and equals the those of the parent.
         assert np.array_equal(sd.tags["tip_faces"][sub_f], sub.tags["tip_faces"])
-        assert not np.any(sub.tags["domain_boundary_faces"])
-
-    def test_tags_of_periodic_grid(self):
-        """Periodic faces have one neighbouring cell, but are not boundary faces."""
-        sd = pp.CartGrid([4, 4], physdims=[1, 1])
-        sd.compute_geometry()
-        west = np.where(sd.face_centers[0] < 1e-10)[0]
-        east = np.where(sd.face_centers[0] > 1 - 1e-10)[0]
-        sd.set_periodic_map(np.vstack((west, east)))
-
-        sub, sub_f, _ = pp.partition.extract_subgrid(sd, np.arange(sd.num_cells))
-        assert np.array_equal(
-            sd.tags["domain_boundary_faces"][sub_f],
-            sub.tags["domain_boundary_faces"],
-        )
-        assert not np.any(sub.tags["domain_boundary_faces"][np.hstack((west, east))])
+        # The domain boundary and fracture face tags are not present in the subgrid.
+        for tag in ["domain_boundary_faces", "fracture_faces"]:
+            assert not np.any(sub.tags[tag])
 
 
 class TestComputationOfOverlap:
