@@ -1,3 +1,5 @@
+import contextlib
+from collections.abc import Iterator
 from dataclasses import dataclass
 
 import numpy as np
@@ -407,15 +409,24 @@ class _InitializationContext:
                 )
                 return self.reference_porosity(subdomains) * ones
 
-            def update_time_dependent_ad_arrays(self) -> None:
+            @contextlib.contextmanager
+            def _frozen_clock(self) -> Iterator[None]:
                 # Time dependent data is frozen at data_time, while the clock of the
                 # time manager advances to find the steady state.
                 clock_time = self.time_manager.time
                 self.time_manager.time = data_time
                 try:
-                    super().update_time_dependent_ad_arrays()
+                    yield
                 finally:
                     self.time_manager.time = clock_time
+
+            def update_time_dependent_ad_arrays(self) -> None:
+                with self._frozen_clock():
+                    super().update_time_dependent_ad_arrays()
+
+            def update_derived_quantities(self) -> None:
+                with self._frozen_clock():
+                    super().update_derived_quantities()
 
         self.initialized_class = InitializedModel
 
