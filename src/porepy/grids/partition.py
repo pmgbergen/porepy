@@ -494,14 +494,9 @@ def extract_subgrid(
     if hasattr(g, "face_areas"):
         h.face_areas = g.face_areas[unique_faces]
 
-    # Transfer the standard tags from the parent. The constructor of h has tagged every
-    # face with a single neighbouring cell as a domain boundary face. That is the right
-    # default for the faces that appear because the subgrid is cut out of the parent,
-    # but it is wrong for faces that the parent has tagged as fracture or tip faces:
-    # Those are boundary faces of the parent as well, but of a different kind, and the
-    # three standard face tags are mutually exclusive. Without this transfer, a subgrid
-    # would report no fracture and no tip faces at all, and would count them as domain
-    # boundary faces instead.
+    # Under initialization, the extracted grid will have all faces with a single
+    # neighbouring cell as domain boundary faces. Transfer fracture and tip tags from
+    # the parent grid and remove their domain boundary tag.
     for key in ["fracture_faces", "tip_faces"]:
         h.tags[key] = g.tags[key][unique_faces]
     h.tags["domain_boundary_faces"] = np.logical_and(
