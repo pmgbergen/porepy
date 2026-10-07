@@ -4,7 +4,7 @@ Shared by the solver (output folder ``visualization_<tag>/``) and the figure scr
 (input folder + ``fig_8_plume_<tag>.png``), so distinct parametrizations never
 overwrite each other.  Components appear only when they differ from the defaults:
 
-    <scheme>[_md][_quad][_mpfa][_<grid_type>][_cs<cell_size>][_trunc][_q<q_anomaly>][_z<z_init>]
+    <scheme>[_md][_yfault][_quad][_mpfa][_<grid_type>][_cs<cell_size>][_trunc][_q<q_anomaly>][_z<z_init>]
             [_dt<dt_nominal>][_dtmin<dt_min>][_dtmax<dt_max>][_tf<final_years>][_lag]
     e.g.  hu  |  hu_mw_mpfa  |  hu_simplex_cs200  |  hu_q10_dt5  |  hu_z0.1_tf20000
 
@@ -21,10 +21,12 @@ def case_tag(scheme: str, consistent: bool = False, grid_type: str | None = None
              tf_years: float | None = None, lag: bool = False,
              md: bool = False, recombine: bool = False,
              truncated_domain: bool = False,
-             dt_constant: float | None = None) -> str:
+             dt_constant: float | None = None, yfault: bool = False) -> str:
     parts = [scheme.replace("-", "_")]
     if md:
         parts.append("md")
+    if yfault:
+        parts.append("yfault")
     if recombine:
         parts.append("quad")
     if dt_constant is not None:

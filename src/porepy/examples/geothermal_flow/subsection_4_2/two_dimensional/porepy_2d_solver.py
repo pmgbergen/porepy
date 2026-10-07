@@ -167,6 +167,32 @@ def _f8_barrier_fractures(cu) -> list:
     return segs
 
 
+# --------------------------------------------------------------------------------------- #
+#  --md-yfault : a minimal TWO-fault Y-conduit over the plume (truncated-domain coords).
+#  F1 is a single straight high-angle normal fault rooted just above the central heat
+#  anomaly; F2 is an updip splay branching off F1 at the junction J. Both are BLIND
+#  (tips stop short of the surface and base) and conductive (fault grade, 5 m aperture),
+#  so the two strands make an upward-opening Y that focuses the rising two-phase plume --
+#  a simplified master-fault + splay subset of the Fig. 8 graben network, geologically a
+#  conjugate high-angle normal pair. No barriers. Pair with --consistent (MPFA).
+# --------------------------------------------------------------------------------------- #
+_YFAULT_A = (4500.0, 1250.0)           # F1 lower (deep) tip: on-axis, 250 m above the base
+_YFAULT_B = (4120.0, 2730.0)           # F1 upper tip: ~270 m below the surface
+_YFAULT_FJ = 0.38                      # junction J position as a fraction along F1 (A->B)
+_YFAULT_C = (4820.0, 2600.0)           # F2 upper tip: east splay, below the surface
+
+
+def _y_fault_fractures(cu) -> list:
+    """The two Y-conduit faults as pp.LineFracture: F1 = A->B (straight high-angle), F2 = J->C
+    (updip splay branching off F1 at J). DEEP endpoint first to match the F1-F5 convention."""
+    ax, ay = _YFAULT_A
+    bx, by = _YFAULT_B
+    cx, cy = _YFAULT_C
+    jx = ax + _YFAULT_FJ * (bx - ax)
+    jy = ay + _YFAULT_FJ * (by - ay)
+    return _lines_from([(ax, ay, bx, by), (jx, jy, cx, cy)], cu)
+
+
 def _unique_gmsh_file() -> Path:
     """A per-process gmsh output path. PorePy defaults to a fixed cwd-relative
     'gmsh_frac_file.msh', which several --md runs in one directory would clobber -- a unique
@@ -366,6 +392,12 @@ _ap.add_argument("--lag-buoyancy", action="store_true",
 _ap.add_argument("--md", action="store_true", default=False,
                  help="discrete fault & barrier network (F1-F6, B1-B3) on a gmsh "
                       "mixed-dimensional mesh; pair with --consistent (MPFA)")
+_ap.add_argument("--md-yfault", action="store_true", default=False,
+                 help="minimal TWO-fault Y-conduit instead of the full network: a straight "
+                      "high-angle fault F1 over the plume plus an updip splay F2 branching at the "
+                      "junction, both conductive blind faults, NO barriers; gmsh mixed-dimensional "
+                      "mesh, pair with --consistent (MPFA). Mutually exclusive with --md. "
+                      "Output folder gains the '_yfault' tag")
 _ap.add_argument("--truncated-domain", action="store_true", default=False,
                  help=f"remove the quiescent far-field: drop {_TRUNCATE_METERS:g} m from the left AND right "
                       f"(9 km -> {(9000.0 - 2 * _TRUNCATE_METERS) / 1000:g} km) and {_VERTICAL_CUT:g} m from the "
@@ -408,10 +440,12 @@ if _args.snap_years[0] != 0.0 or any(
                      "strictly increasing")
 if not 0.0 < _args.dt_min <= _args.dt_nominal <= _args.dt_max:
     raise SystemExit("time steps must satisfy 0 < --dt-min <= --dt-nominal <= --dt-max")
-if _args.recombine and not _args.md:
-    raise SystemExit("--recombine only applies together with --md")
-if _args.md and not _args.consistent:
-    print("NOTE: --md places inclined faults on an unstructured mesh; TPFA gravity is "
+if _args.md and _args.md_yfault:
+    raise SystemExit("--md and --md-yfault are mutually exclusive (pick one fault network)")
+if _args.recombine and not (_args.md or _args.md_yfault):
+    raise SystemExit("--recombine only applies together with --md or --md-yfault")
+if (_args.md or _args.md_yfault) and not _args.consistent:
+    print("NOTE: --md/--md-yfault place inclined faults on an unstructured mesh; TPFA gravity is "
           "inconsistent there -- consider adding --consistent (MPFA).")
 Q_ANOMALY = _args.q_anomaly
 Z_INIT = _args.z_init
@@ -467,7 +501,8 @@ params = {
                                     lag=_args.lag_buoyancy,
                                     md=_args.md, recombine=_args.recombine,
                                     truncated_domain=_args.truncated_domain,
-                                    dt_constant=_args.dt_constant)),
+                                    dt_constant=_args.dt_constant,
+                                    yfault=_args.md_yfault)),
     "enable_buoyancy_effects": True,
     "material_constants": material_constants,
     "time_manager": time_manager,
@@ -533,7 +568,7 @@ class GeothermalBrineFlowModel(
         cu = self.units.convert_units
         self._inlet_centre = np.array([4500.0, _VERTICAL_CUT, 0.0])       # base is now at y=_VERTICAL_CUT
         self._outlet_centre = np.array([4500.0, DOMAIN_HEIGHT, 0.0])      # surface stays at 3 km
-        if _args.md:                                          # absolute box directly; gmsh clips the network
+        if _args.md or _args.md_yfault:                       # absolute box directly; gmsh clips the network
             self._domain = pp.Domain({"xmin": cu(_TRUNCATE_METERS, "m"),
                                       "xmax": cu(9000.0 - _TRUNCATE_METERS, "m"),
                                       "ymin": cu(_VERTICAL_CUT, "m"), "ymax": cu(DOMAIN_HEIGHT, "m")})
@@ -544,8 +579,9 @@ class GeothermalBrineFlowModel(
     # -- --md geometry: discrete fault & barrier network via gmsh -------------------------
     def set_geometry(self) -> None:
         """Fixed-dimensional Fig. 8 box by default; --md builds the F1-F6 / B1-B3 fault &
-        barrier network as a gmsh mixed-dimensional simplex (or quad, --recombine) grid."""
-        if _args.md:
+        barrier network (or --md-yfault the two-fault Y-conduit) as a gmsh mixed-dimensional
+        simplex (or quad, --recombine) grid."""
+        if _args.md or _args.md_yfault:
             return self._set_geometry_md()
         super().set_geometry()
         if _args.truncated_domain:
@@ -569,9 +605,14 @@ class GeothermalBrineFlowModel(
     def _set_geometry_md(self) -> None:
         self.set_domain()
         cu = self.units.convert_units
-        faults = _f8_fault_fractures(cu)
-        links = _f8_link_fractures(cu) if _args.f6 else []
-        barriers = _f8_barrier_fractures(cu) if _args.barriers else []
+        if _args.md_yfault:                           # minimal two-fault Y-conduit: faults only
+            faults = _y_fault_fractures(cu)
+            links = []
+            barriers = []
+        else:                                         # full Fig. 8 network
+            faults = _f8_fault_fractures(cu)
+            links = _f8_link_fractures(cu) if _args.f6 else []
+            barriers = _f8_barrier_fractures(cu) if _args.barriers else []
         # Order (faults, links, barriers) fixes the frac_num classification bands.
         self._n_fault_lines = len(faults)
         self._n_link_lines = len(links)
@@ -679,13 +720,14 @@ class GeothermalBrineFlowModel(
         return nf <= int(sd.frac_num) < nf + getattr(self, "_n_link_lines", 0)
 
     def grid_aperture(self, grid: pp.Grid) -> np.ndarray:
-        if _args.md and self._is_barrier_subdomain(grid):
+        md = _args.md or _args.md_yfault
+        if md and self._is_barrier_subdomain(grid):
             return np.full(grid.num_cells,
                            self.units.convert_units(_FIG8_BARRIER_THICKNESS, "m"))
-        if _args.md and self._is_fault_subdomain(grid):    # damage-zone thickness -> channels flow
+        if md and self._is_fault_subdomain(grid):          # damage-zone thickness -> channels flow
             return np.full(grid.num_cells,
                            self.units.convert_units(_FIG8_FAULT_APERTURE, "m"))
-        if _args.md and self._is_link_subdomain(grid):     # F6 redistributes -> modest aperture
+        if md and self._is_link_subdomain(grid):           # F6 redistributes -> modest aperture
             return np.full(grid.num_cells,
                            self.units.convert_units(_FIG8_LINK_APERTURE, "m"))
         return super().grid_aperture(grid)
@@ -700,7 +742,7 @@ class GeothermalBrineFlowModel(
         return np.concatenate(vals) if vals else np.zeros(0)
 
     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        if not _args.md:
+        if not (_args.md or _args.md_yfault):
             return super().permeability(subdomains)
         perm = pp.wrap_as_dense_ad_array(
             self._absolute_permeability(subdomains), name="permeability")
@@ -716,7 +758,7 @@ class GeothermalBrineFlowModel(
         # Rock-only (fault_factor * rock) normal k, NOT the base mass-mobility weighting, which
         # double-counts mobility on conductive fracture interfaces and blows Newton up (the known
         # MD double-mobility bug; same fix as the recharge / 3D --md solvers).
-        if not _args.md:
+        if not (_args.md or _args.md_yfault):
             return super().normal_permeability(interfaces)
         subdomains = self.interfaces_to_subdomains(interfaces)
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
@@ -759,7 +801,7 @@ class GeothermalBrineFlowModel(
 
     def data_to_export(self):
         data = super().data_to_export()
-        if _args.md:
+        if _args.md or _args.md_yfault:
             for sd in self.mdg.subdomains():
                 data.append((sd, "material", self._material_id(sd)))
         return data
