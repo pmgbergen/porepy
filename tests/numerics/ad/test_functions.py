@@ -5,7 +5,7 @@ For each supported function, the value and Jacobian are compared with a referenc
 Functions with a uniform elementwise-derivative shape (exp, log, abs, the
 trigonometric/hyperbolic functions, safe_power) are covered by a single table-driven,
 parametrized test, run against a plain ndarray, a full (non-diagonal) AdArray, and a
-DiagonalAdArray. Functions with more specific behavior (mask_by_threshold, clip) keep
+DiagonalAdArray. Functions with more specific behavior (mask_by_threshold, clip) have
 dedicated parametrized tests.
 
 Tests that exercise a single function are grouped into a ``Test<FunctionName>`` class;
@@ -33,11 +33,11 @@ AdRepresentation = Literal["full_ad", "diagonal_ad"]
 #
 # Each entry maps a function name to the callable, a reference value function, and a
 # reference (elementwise) derivative function. Used by test_elementwise_function below
-# to check the same function against a plain ndarray, a full (non-diagonal) AdArray,
-# and a DiagonalAdArray, without hand-writing a test per representation per function.
+# to check the same function against a plain ndarray, a full (non-diagonal) AdArray, and
+# a DiagonalAdArray, without hand-writing a test per representation per function.
 #
-# `domain` gives a value range avoiding singularities of the function or its
-# derivative (e.g. log needs positive values, arcsin/arccos need [-1, 1]).
+# `domain` gives a value range avoiding singularities of the function or its derivative
+# (e.g. log needs positive values, arcsin/arccos need [-1, 1]).
 ELEMENTWISE_FUNCTIONS = {
     "exp": dict(func=af.exp, value=np.exp, derivative=np.exp, domain=(0.5, 3.5)),
     "log": dict(
@@ -140,9 +140,9 @@ def _make_ad(
         val: Values of the Ad array.
         representation: Build an AdArray (``"full_ad"``) or a DiagonalAdArray
             (``"diagonal_ad"``).
-        jacobians: Jacobian of the Ad array for each representation, as a dense
-            matrix. For ``"diagonal_ad"``, only the diagonal is used. Defaults to the
-            Jacobians of the (first) argument of the tested functions.
+        jacobians: Jacobian of the Ad array for each representation, as a dense matrix.
+            For ``"diagonal_ad"``, only the diagonal is used. Defaults to the Jacobians
+            of the (first) argument of the tested functions.
 
     Returns:
         The Ad array, with Jacobian ``jacobians[representation]``.
@@ -195,8 +195,8 @@ def test_elementwise_function(
 # --- Shared scaffolding for zero-derivative functions ---
 #
 # characteristic_function and heaviside are locally constant (almost everywhere), so
-# their Jacobian is defined to be identically zero, regardless of the chain rule
-# through the argument's own Jacobian (unlike the elementwise functions above).
+# their Jacobian is defined to be identically zero, regardless of the Jacobian of the
+# argument (unlike the elementwise functions above).
 ZERO_DERIVATIVE_FUNCTIONS = {
     "characteristic_function": dict(
         func=functools.partial(af.characteristic_function, 0.5),
@@ -216,8 +216,8 @@ ZERO_DERIVATIVE_FUNCTIONS = {
 def test_zero_derivative_function(
     func_name: str, representation: AdRepresentation | Literal["ndarray"]
 ):
-    """Value and (identically zero) Jacobian of characteristic_function/heaviside,
-    for a plain ndarray, a full AdArray, and a DiagonalAdArray argument."""
+    """Value and (identically zero) Jacobian of characteristic_function/heaviside, for a
+    plain ndarray, a full AdArray, and a DiagonalAdArray argument."""
     spec = ZERO_DERIVATIVE_FUNCTIONS[func_name]
     lo, hi = spec["domain"]
     val = np.linspace(lo, hi, 3)
@@ -248,9 +248,8 @@ class TestRegularizedHeaviside:
         """Value and Jacobian of RegularizedHeaviside (using heaviside_smooth as the
         regularization), for a full AdArray and a DiagonalAdArray argument.
 
-        The Jacobian is inherited entirely from the regularization function, so this
-        doubles as a check that RegularizedHeaviside forwards it (and the diagonal
-        representation) rather than rebuilding it.
+        The value is the exact Heaviside function, while the Jacobian is that of the
+        regularization, and the representation is that of the argument.
         """
         reg = af.RegularizedHeaviside(af.heaviside_smooth)
         heaviside_smooth_der = ELEMENTWISE_FUNCTIONS["heaviside_smooth"]["derivative"]
@@ -275,8 +274,8 @@ class TestMaximum:
 
     @pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
     def test_ad_and_ndarray(self, representation: AdRepresentation):
-        """One argument is an AdArray (full or diagonal), the other a plain ndarray
-        with an implicit zero Jacobian."""
+        """One argument is an AdArray (full or diagonal), the other a plain ndarray with
+        an implicit zero Jacobian."""
         val_0 = np.array([1.0, 5.0, 2.0])
         val_1 = np.array([3.0, 2.0, 2.0])
         var_0 = _make_ad(val_0, representation)
@@ -303,8 +302,8 @@ class TestMaximum:
         self, representation_0: AdRepresentation, representation_1: AdRepresentation
     ):
         """maximum with var_0 and var_1 independently full or diagonal AdArrays,
-        including the two mixed combinations. Index 2 is a tie (equal values), where
-        the documented convention is that var_0's Jacobian is used."""
+        including the two mixed combinations. Index 2 is a tie (equal values), where the
+        documented convention is that var_0's Jacobian is used."""
         val_0 = np.array([1.0, 5.0, 2.0])
         val_1 = np.array([3.0, 2.0, 2.0])
 
@@ -345,8 +344,8 @@ class TestL2Norm:
     }
 
     def test_ndarray(self):
-        # Two 2-vectors, ordered [u0, v0, u1, v1] (Fortran/dim-major order): (3, 4)
-        # has norm 5; (0, 0) has norm 0.
+        # Two 2-vectors, ordered [u0, v0, u1, v1] (Fortran/dim-major order): (3, 4) has
+        # norm 5; (0, 0) has norm 0.
         var = np.array([3.0, 4.0, 0.0, 0.0])
         np.testing.assert_allclose(af.l2_norm(2, var), np.array([5.0, 0.0]))
 
@@ -367,11 +366,10 @@ class TestL2Norm:
 
     @pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
     def test_dim_two(self, representation: AdRepresentation):
-        """L2 norm reduces dim=2 components per output entry, so a DiagonalAdArray
-        input must densify (to_full) rather than stay diagonal."""
-        # Two 2-vectors, ordered [u0, v0, u1, v1]: (3, 4) has norm 5; (0, 0) has norm
-        # 0 (per the module docstring, a zero vector gets a Jacobian entry of 1, not
-        # 0).
+        """L2 norm reduces dim=2 components per output entry, so a DiagonalAdArray input
+        must densify (to_full) rather than stay diagonal."""
+        # Two 2-vectors, ordered [u0, v0, u1, v1]: (3, 4) has norm 5; (0, 0) has norm 0
+        # (per the module docstring, a zero vector gets a Jacobian entry of 1, not 0).
         val = np.array([3.0, 4.0, 0.0, 0.0])
 
         var = _make_ad(val, representation, self.ARG_JAC)
