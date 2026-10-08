@@ -216,6 +216,29 @@ class AdArrayBase(abc.ABC):
         """
 
     @abc.abstractmethod
+    def chain_rule(self, val: np.ndarray, derivative: np.ndarray) -> AdArrayBase:
+        """Apply the chain rule for a function evaluated entry by entry on this array.
+
+        For a function ``f`` applied to each entry of this array, ``x``, return
+        ``f(x)`` as an Ad array, with the Jacobian ``diag(f'(x)) @ J``, where ``J`` is
+        the Jacobian of ``x``.
+
+        Example:
+            The exponential function, whose derivative equals its value::
+
+                val = np.exp(x.val)
+                y = x.chain_rule(val, val)
+
+        Parameters:
+            val: The values ``f(x)``, one per entry in this array.
+            derivative: The derivatives ``f'(x)``, one per entry in this array.
+
+        Returns:
+            ``f(x)``, in the same representation as this array.
+
+        """
+
+    @abc.abstractmethod
     def __getitem__(
         self, key: slice | np.ndarray[Any, np.dtype[np.int_]]
     ) -> AdArrayBase:
@@ -920,6 +943,29 @@ class AdArray(AdArrayBase):
         """
         return self.copy()
 
+    def chain_rule(self, val: np.ndarray, derivative: np.ndarray) -> AdArray:
+        """Apply the chain rule for a function evaluated entry by entry on this array.
+
+        For a function ``f`` applied to each entry of this array, ``x``, return
+        ``f(x)`` as an Ad array, with the Jacobian ``diag(f'(x)) @ J``, where ``J`` is
+        the Jacobian of ``x``.
+
+        Example:
+            The exponential function, whose derivative equals its value::
+
+                val = np.exp(x.val)
+                y = x.chain_rule(val, val)
+
+        Parameters:
+            val: The values ``f(x)``, one per entry in this array.
+            derivative: The derivatives ``f'(x)``, one per entry in this array.
+
+        Returns:
+            ``f(x)``, in the same representation as this array.
+
+        """
+        return AdArray(val, self.diagvec_mul_jac(derivative))
+
     def to_full(self) -> AdArray:
         """Return this AdArray, which is already in the full representation.
 
@@ -1116,6 +1162,31 @@ class DiagonalAdArray(AdArrayBase):
             [col_ind.copy() for col_ind in self._col_indices],
             self._num_derivatives,
         )
+
+    def chain_rule(self, val: np.ndarray, derivative: np.ndarray) -> DiagonalAdArray:
+        """Apply the chain rule for a function evaluated entry by entry on this array.
+
+        For a function ``f`` applied to each entry of this array, ``x``, return
+        ``f(x)`` as an Ad array, with the Jacobian ``diag(f'(x)) @ J``, where ``J`` is
+        the Jacobian of ``x``.
+
+        Example:
+            The exponential function, whose derivative equals its value::
+
+                val = np.exp(x.val)
+                y = x.chain_rule(val, val)
+
+        Parameters:
+            val: The values ``f(x)``, one per entry in this array.
+            derivative: The derivatives ``f'(x)``, one per entry in this array.
+
+        Returns:
+            ``f(x)``, in the same representation as this array.
+
+        """
+        # Each row of jac holds one block of derivatives, one column per entry, so the
+        # scaling by derivative broadcasts over the rows.
+        return self.copy(val, derivative * self.jac)
 
     def __str__(self) -> str:
         s = f"Diagonal Ad array of size {self.val.size}\n"
