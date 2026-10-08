@@ -447,7 +447,10 @@ def test_solve_convergence_statistics():
                         "inc_nan": ["converged", "converged"],
                         "res_nan": ["converged", "converged"],
                     },
-                    "convergence_info": {"inc_abs": [2.0, 0.5], "res_abs": [1.0, 0.5]},
+                    "convergence_info": {
+                        "inc_abs": {"norm": [2.0, 0.5]},
+                        "res_abs": {"norm": [1.0, 0.5]},
+                    },
                 },
             },
             ignore_numeric_type_changes=True,
@@ -532,8 +535,8 @@ def test_solve_failure_statistics():
                         "res_nan": ["converged", "failed"],
                     },
                     "convergence_info": {
-                        "inc_abs": [2.0, 100.0],
-                        "res_abs": [1.0, np.nan],
+                        "inc_abs": {"norm": [2.0, 100.0]},
+                        "res_abs": {"norm": [1.0, np.nan]},
                     },
                 },
             },
@@ -787,7 +790,7 @@ def test_check_convergence(
     assert (
         DeepDiff(
             convergence_info,
-            {"inc_abs": inc, "res_abs": res},
+            {"inc_abs": {"norm": inc}, "res_abs": {"norm": res}},
             ignore_numeric_type_changes=True,
         )
         == {}
@@ -862,11 +865,11 @@ def test_integration_nonlinear_iteration_count(num_iterations):
             len(model.nonlinear_solver_statistics.convergence_status[key])
             == num_iterations
         )
-    for key in model.nonlinear_solver_statistics.convergence_info:
-        assert (
-            len(model.nonlinear_solver_statistics.convergence_info[key])
-            == num_iterations
-        )
+    # The information is a list per iteration, or a dictionary of such lists for each
+    # key of the metric, e.g. {"norm": [...]}.
+    for info in model.nonlinear_solver_statistics.convergence_info.values():
+        histories = info.values() if isinstance(info, dict) else [info]
+        assert all(len(values) == num_iterations for values in histories)
 
 
 @pytest.mark.parametrize("is_nonlinear", [False, True])
