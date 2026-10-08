@@ -143,8 +143,8 @@ def l2_norm(dim: int, var: AdArrayBase) -> AdArrayBase:
         # For scalar variables, the cell-wise L2 norm is equivalent to
         # taking the absolute value.
         return pp.ad.functions.abs(var)
-    # The norm mixes dim separate degrees of freedom into one output entry, which
-    # cannot be represented in the diagonal format.
+    # The norm mixes dim separate degrees of freedom into one output entry, which cannot
+    # be represented in the diagonal format.
     var = var.to_full()
     resh = np.reshape(var.val, (dim, -1), order="F")
     vals = np.linalg.norm(resh, axis=0)
@@ -431,9 +431,9 @@ def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
         return np.maximum(var_0, var_1)
 
     # Diagonal AdArrays have a Jacobian shape the rest of this function does not
-    # understand. If both arguments are diagonal, the maximum can be computed
-    # directly in the diagonal representation; otherwise, convert any diagonal
-    # argument to full (non-diagonal) format before proceeding as before.
+    # understand. If both arguments are diagonal, the maximum can be computed directly
+    # in the diagonal representation; otherwise, convert any diagonal argument to full
+    # (non-diagonal) format before proceeding as before.
     if isinstance(var_0, AdArrayBase) and isinstance(var_1, AdArrayBase):
         if isinstance(var_0, DiagonalAdArray) and isinstance(var_1, DiagonalAdArray):
             val = np.maximum(var_0.val, var_1.val)
