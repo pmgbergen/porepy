@@ -9,7 +9,6 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-
 __all__ = [
     "AdArray",
     "initAdArrays",
