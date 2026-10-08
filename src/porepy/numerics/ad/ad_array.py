@@ -507,6 +507,85 @@ class AdArray(AdArrayBase):
         self.jac: sps.spmatrix | sps.sparray = _as_float(jac)
         """The Jacobian matrix of the AdArray, stored as a sparse matrix."""
 
+    def to_full(self) -> AdArray:
+        """Return this AdArray, which is already in the full representation.
+
+        Returns:
+            This AdArray.
+
+        """
+        return self
+
+    def copy(
+        self,
+        val: Optional[np.ndarray] = None,
+        jac: Optional[sps.spmatrix | sps.sparray] = None,
+    ) -> AdArray:
+        """Return a copy of this AdArray, optionally with a new value and Jacobian.
+
+        Parameters:
+            val: Value of the copy. Used as is, without copying. If not given, the value
+                of this array is copied.
+            jac: Jacobian of the copy, as a sparse matrix. Used as is, without copying.
+                If not given, the Jacobian of this array is copied.
+
+        Returns:
+            A copy of this AdArray.
+
+        """
+        return AdArray(
+            self.val.copy() if val is None else val,
+            self.jac.copy() if jac is None else jac,
+        )
+
+    def deepcopy(self) -> AdArray:
+        """Return a copy of this AdArray.
+
+        An AdArray has no structural data beyond its value and Jacobian, hence this is
+        the same as :meth:`copy` without arguments.
+
+        Returns:
+            A copy of this AdArray which shares no data with it.
+
+        """
+        return self.copy()
+
+    def chain_rule(self, val: np.ndarray, derivative: np.ndarray) -> AdArray:
+        """Apply the chain rule for a function evaluated entry by entry on this array.
+
+        For a function ``f`` applied to each entry of this array, ``x``, return
+        ``f(x)`` as an Ad array, with the Jacobian ``diag(f'(x)) @ J``, where ``J`` is
+        the Jacobian of ``x``.
+
+        Example:
+            The exponential function, whose derivative equals its value::
+
+                val = np.exp(x.val)
+                y = x.chain_rule(val, val)
+
+        Parameters:
+            val: The values ``f(x)``, one per entry in this array.
+            derivative: The derivatives ``f'(x)``, one per entry in this array.
+
+        Returns:
+            ``f(x)``, in the same representation as this array.
+
+        """
+        return AdArray(val, self.diagvec_mul_jac(derivative))
+
+    def diagvec_mul_jac(self, a: np.ndarray) -> sps.spmatrix:
+        """Left-multiply the Jacobian by a diagonal matrix represented as a vector.
+
+        Parameters:
+            a: The diagonal entries of the (implicit) diagonal matrix to
+                left-multiply the Jacobian with.
+
+        Returns:
+            The product, as a sparse matrix.
+
+        """
+        return sps.diags(a) * self.jac
+
     if TYPE_CHECKING:
         # The implementations of these operations are shared with DiagonalAdArray, see
         # AdArrayBase. They delegate to the operations implemented below, and so return
@@ -620,8 +699,6 @@ class AdArray(AdArrayBase):
             An AdArray which combines ``self`` and ``other``.
 
         """
-        # Dispatch on the type of other via isinstance, consistent with the rest of the
-        # ad package.
         if isinstance(other, (int, float)):
             # Strictly speaking, we require scalars to be floats, but add casting of
             # ints to floats for convenience.
@@ -909,85 +986,6 @@ class AdArray(AdArrayBase):
         else:
             raise ValueError(f"Unknown type {type(other)} for AdArray multiplication.")
 
-    def copy(
-        self,
-        val: Optional[np.ndarray] = None,
-        jac: Optional[sps.spmatrix | sps.sparray] = None,
-    ) -> AdArray:
-        """Return a copy of this AdArray, optionally with a new value and Jacobian.
-
-        Parameters:
-            val: Value of the copy. Used as is, without copying. If not given, the value
-                of this array is copied.
-            jac: Jacobian of the copy, as a sparse matrix. Used as is, without copying.
-                If not given, the Jacobian of this array is copied.
-
-        Returns:
-            A copy of this AdArray.
-
-        """
-        return AdArray(
-            self.val.copy() if val is None else val,
-            self.jac.copy() if jac is None else jac,
-        )
-
-    def deepcopy(self) -> AdArray:
-        """Return a copy of this AdArray.
-
-        An AdArray has no structural data beyond its value and Jacobian, hence this is
-        the same as :meth:`copy` without arguments.
-
-        Returns:
-            A copy of this AdArray which shares no data with it.
-
-        """
-        return self.copy()
-
-    def chain_rule(self, val: np.ndarray, derivative: np.ndarray) -> AdArray:
-        """Apply the chain rule for a function evaluated entry by entry on this array.
-
-        For a function ``f`` applied to each entry of this array, ``x``, return
-        ``f(x)`` as an Ad array, with the Jacobian ``diag(f'(x)) @ J``, where ``J`` is
-        the Jacobian of ``x``.
-
-        Example:
-            The exponential function, whose derivative equals its value::
-
-                val = np.exp(x.val)
-                y = x.chain_rule(val, val)
-
-        Parameters:
-            val: The values ``f(x)``, one per entry in this array.
-            derivative: The derivatives ``f'(x)``, one per entry in this array.
-
-        Returns:
-            ``f(x)``, in the same representation as this array.
-
-        """
-        return AdArray(val, self.diagvec_mul_jac(derivative))
-
-    def to_full(self) -> AdArray:
-        """Return this AdArray, which is already in the full representation.
-
-        Returns:
-            This AdArray.
-
-        """
-        return self
-
-    def diagvec_mul_jac(self, a: np.ndarray) -> sps.spmatrix:
-        """Left-multiply the Jacobian by a diagonal matrix represented as a vector.
-
-        Parameters:
-            a: The diagonal entries of the (implicit) diagonal matrix to
-                left-multiply the Jacobian with.
-
-        Returns:
-            The product, as a sparse matrix.
-
-        """
-        return sps.diags(a) * self.jac
-
 
 def initialize_diagonal_ad_arrays(
     variables: list[np.ndarray],
@@ -1120,6 +1118,27 @@ class DiagonalAdArray(AdArrayBase):
         """Total number of derivatives in the system."""
         return self._num_derivatives
 
+    def to_full(self) -> AdArray:
+        """Convert this DiagonalAdArray to a full AdArray, where the Jacobian is stored
+        as a sparse matrix.
+
+        Returns:
+            An AdArray with the same value and Jacobian as this DiagonalAdArray, but
+            with the Jacobian stored as a sparse matrix.
+
+        """
+        num_vars = self.jac.shape[0]
+
+        num_indices = self._row_indices.size
+
+        indptr = np.arange(0, num_indices * num_vars + 1, num_vars)
+        indices = np.vstack([col for col in self._col_indices]).ravel("F")
+        jac = sps.csr_matrix(
+            (self.jac.ravel("F"), indices, indptr),
+            shape=(num_indices, self._num_derivatives),
+        )
+        return AdArray(self.val, jac)
+
     def copy(
         self, val: Optional[np.ndarray] = None, jac: Optional[np.ndarray] = None
     ) -> DiagonalAdArray:
@@ -1203,9 +1222,16 @@ class DiagonalAdArray(AdArrayBase):
     def __getitem__(
         self, key: slice | np.ndarray[Any, np.dtype[np.int_]]
     ) -> DiagonalAdArray:
-        # Slicing changes the structural indices themselves (row/column indices are
-        # sliced along with the values), so copy() -- which reuses self's indices
-        # unchanged -- does not apply here.
+        """Return a new array with the specified entries.
+
+        Parameters:
+            key: Slice or index array selecting the entries to set.
+
+        Returns:
+            A new DiagonalAdArray with the specified entries of :attr:`val` and
+            :attr:`jac`, and the corresponding structural indices.
+
+        """
         vals = self.val[key]
         jac = self.jac[:, key]
 
@@ -1331,24 +1357,3 @@ class DiagonalAdArray(AdArrayBase):
         # permutation matrix, but we do not expect these cases to be common enough to
         # warrant a special implementation.
         return self.to_full().__rmatmul__(other)
-
-    def to_full(self) -> AdArray:
-        """Convert this DiagonalAdArray to a full AdArray, where the Jacobian is stored
-        as a sparse matrix.
-
-        Returns:
-            An AdArray with the same value and Jacobian as this DiagonalAdArray, but
-            with the Jacobian stored as a sparse matrix.
-
-        """
-        num_vars = self.jac.shape[0]
-
-        num_indices = self._row_indices.size
-
-        indptr = np.arange(0, num_indices * num_vars + 1, num_vars)
-        indices = np.vstack([col for col in self._col_indices]).ravel("F")
-        jac = sps.csr_matrix(
-            (self.jac.ravel("F"), indices, indptr),
-            shape=(num_indices, self._num_derivatives),
-        )
-        return AdArray(self.val, jac)
