@@ -455,7 +455,7 @@ def test_numpy_array_as_left_operand_logical(logical_op: str, create_csr):
 def test_initialize_partial_ad_array(state, indices, expected_jac):
     """The returned AdArray has a unit derivative at the given indices, and a zero
     derivative everywhere else."""
-    var = initialize_partial_ad_array(state, indices)
+    var = initialize_partial_ad_array(state.copy(), indices)
 
     assert isinstance(var, AdArray)
     assert np.allclose(var.val, state)
@@ -469,7 +469,9 @@ def test_initialize_diagonal_ad_arrays_single_variable():
     global_indices = [np.array([1, 3, 5])]
     num_derivatives = 6
 
-    diag_vars = initialize_diagonal_ad_arrays([val], global_indices, num_derivatives)
+    diag_vars = initialize_diagonal_ad_arrays(
+        [val.copy()], global_indices, num_derivatives
+    )
 
     assert len(diag_vars) == 1
     var = diag_vars[0]
@@ -490,7 +492,9 @@ def test_initialize_diagonal_ad_arrays_two_variables():
     indices = [np.array([0, 1]), np.array([2, 3])]
     num_derivatives = 4
 
-    diag_vars = initialize_diagonal_ad_arrays([val_0, val_1], indices, num_derivatives)
+    diag_vars = initialize_diagonal_ad_arrays(
+        [val_0.copy(), val_1.copy()], indices, num_derivatives
+    )
 
     assert len(diag_vars) == 2
     assert np.allclose(diag_vars[0].val, val_0)
@@ -511,7 +515,7 @@ def test_initialize_diagonal_ad_arrays_custom_derivatives():
     derivatives = [np.array([5.0, 6.0])]
 
     diag_vars = initialize_diagonal_ad_arrays(
-        [val], indices, num_derivatives, derivatives=derivatives
+        [val.copy()], indices, num_derivatives, derivatives=derivatives
     )
 
     full_jac = diag_vars[0].to_full().jac.toarray()
