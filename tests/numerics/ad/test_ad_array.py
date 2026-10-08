@@ -764,3 +764,21 @@ def test_shared_operations_on_ad_array_return_ad_array(expression: str):
     on this."""
     a, b = _full_and_diagonal_pair()
     assert isinstance(eval(expression), AdArray)
+
+
+@pytest.mark.parametrize("representation", ["full", "diagonal"])
+def test_chain_rule(representation: str):
+    """chain_rule gives f(x) in the representation of x, with the Jacobian
+    diag(f'(x)) @ J."""
+    full, diag = _full_and_diagonal_pair()
+    x = full if representation == "full" else diag
+
+    # f = exp, whose derivative equals its value.
+    val = np.exp(x.val)
+    result = x.chain_rule(val, val)
+
+    assert type(result) is type(x)
+    assert np.allclose(result.val, np.exp(x.val))
+    assert np.allclose(
+        result.full_jac.toarray(), (sps.diags(val) @ x.full_jac).toarray()
+    )
