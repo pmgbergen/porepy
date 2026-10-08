@@ -94,8 +94,9 @@ class _InitializationContext:
 
     """
 
-    def __init__(self, model: pp.PorePyModel) -> None:
+    def __init__(self, model: pp.PorePyModel, time_manager: pp.TimeManager) -> None:
         self.model = model
+        self.time_manager = time_manager
         self.original_class = model.__class__
         self.original_time_manager = model.time_manager
         self.original_folder_name = model.params["folder_name"]
@@ -151,7 +152,7 @@ class _InitializationContext:
 
     def __enter__(self) -> None:
         self.model.__class__ = self.initialized_class
-        self.model.time_manager = default_initialization_time_manager()
+        self.model.time_manager = self.time_manager
         self.model.params["folder_name"] = self.folder_name
 
     def __exit__(self, *args: object) -> None:
@@ -166,6 +167,7 @@ def _run_to_steady_state(
     nonlinear_solver: pp.solvers.NewtonSolver | None,
     rate_tolerances: dict[str, float],
     residual_tolerance: dict[str, float],
+    earliest_stop_time: float,
 ) -> None:
     """Time step the prepared initialization model to a steady state, and save it.
 
@@ -181,7 +183,7 @@ def _run_to_steady_state(
             SteadyStateEarlyStopCriterion(
                 rate_tolerances=rate_tolerances,
                 residual_tolerances=residual_tolerance,
-                earliest_stop_time=1 * pp.YEAR,
+                earliest_stop_time=earliest_stop_time,
             )
         ],
     )
@@ -227,6 +229,8 @@ def initialization_pipeline(
     residual_tolerances: dict[str, float],
     nonlinear_solver: pp.solvers.NewtonSolver | None = None,
     storage: ModelStateStorage | None = None,
+    time_manager: pp.TimeManager | None = None,
+    earliest_stop_time: float = 1 * pp.YEAR,
 ) -> pp.PorePyModel:
     """Initialize a model to a steady state.
 
@@ -244,6 +248,9 @@ def initialization_pipeline(
             :func:`make_nonlinear_solver`.
         storage: Where to save the steady state. Defaults to a file in the simulation
             folder.
+        time_manager: Time manager of the time stepping to the steady state. Defaults
+            to :func:`default_initialization_time_manager`.
+        earliest_stop_time: The time stepping is not stopped before this time.
 
     Raises:
         InitializationError: If no verified steady state was found.
@@ -254,7 +261,9 @@ def initialization_pipeline(
             Path(model.params["folder_name"]) / "steady_state.npz"
         )
 
-    init_context = _InitializationContext(model)
+    if time_manager is None:
+        time_manager = default_initialization_time_manager()
+    init_context = _InitializationContext(model, time_manager)
 
     def load_steady_state() -> bool:
         if not storage.exists():
@@ -282,6 +291,7 @@ def initialization_pipeline(
                 nonlinear_solver=nonlinear_solver,
                 rate_tolerances=rate_tolerances,
                 residual_tolerance=residual_tolerances,
+                earliest_stop_time=earliest_stop_time,
             )
 
     state_arrays = storage.capture_state(model)
