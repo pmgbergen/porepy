@@ -179,15 +179,15 @@ def test_elementwise_function(
 
     if representation == "ndarray":
         result = spec["func"](val)
-        assert np.allclose(result, expected_val)
+        np.testing.assert_allclose(result, expected_val)
         return
 
     var = _make_ad(val, representation)
     expected_jac = np.diag(spec["derivative"](val)) @ ARG_JAC[representation]
 
     result = spec["func"](var)
-    assert np.allclose(result.val, expected_val)
-    assert np.allclose(_dense_jac(result), expected_jac)
+    np.testing.assert_allclose(result.val, expected_val)
+    np.testing.assert_allclose(_dense_jac(result), expected_jac)
     if representation == "diagonal_ad":
         assert isinstance(result, DiagonalAdArray)
 
@@ -225,14 +225,14 @@ def test_zero_derivative_function(
 
     if representation == "ndarray":
         result = spec["func"](val)
-        assert np.allclose(result, expected_val)
+        np.testing.assert_allclose(result, expected_val)
         return
 
     var = _make_ad(val, representation)
 
     result = spec["func"](var)
-    assert np.allclose(result.val, expected_val)
-    assert np.allclose(_dense_jac(result), np.zeros((3, 3)))
+    np.testing.assert_allclose(result.val, expected_val)
+    np.testing.assert_allclose(_dense_jac(result), np.zeros((3, 3)))
     if representation == "diagonal_ad":
         assert isinstance(result, DiagonalAdArray)
 
@@ -241,7 +241,7 @@ class TestRegularizedHeaviside:
     def test_ndarray(self):
         reg = af.RegularizedHeaviside(af.heaviside_smooth)
         val = np.linspace(-1.0, 1.0, 3)
-        assert np.allclose(reg(val, zerovalue=0.5), np.heaviside(val, 0.5))
+        np.testing.assert_allclose(reg(val, zerovalue=0.5), np.heaviside(val, 0.5))
 
     @pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
     def test_ad_representations(self, representation: AdRepresentation):
@@ -261,8 +261,8 @@ class TestRegularizedHeaviside:
         expected_jac = np.diag(heaviside_smooth_der(val)) @ ARG_JAC[representation]
 
         result = reg(var)
-        assert np.allclose(result.val, expected_val)
-        assert np.allclose(_dense_jac(result), expected_jac)
+        np.testing.assert_allclose(result.val, expected_val)
+        np.testing.assert_allclose(_dense_jac(result), expected_jac)
         if representation == "diagonal_ad":
             assert isinstance(result, DiagonalAdArray)
 
@@ -271,7 +271,7 @@ class TestMaximum:
     def test_ndarray_only(self):
         a = np.array([1.0, 5.0, 2.0])
         b = np.array([3.0, 2.0, 2.0])
-        assert np.allclose(af.maximum(a, b), np.array([3.0, 5.0, 2.0]))
+        np.testing.assert_allclose(af.maximum(a, b), np.array([3.0, 5.0, 2.0]))
 
     @pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
     def test_ad_and_ndarray(self, representation: AdRepresentation):
@@ -287,8 +287,8 @@ class TestMaximum:
         pick_1 = val_1 > val_0
         expected_jac = np.where(pick_1[:, None], 0.0, ARG_JAC[representation])
 
-        assert np.allclose(result.val, expected_val)
-        assert np.allclose(_dense_jac(result), expected_jac)
+        np.testing.assert_allclose(result.val, expected_val)
+        np.testing.assert_allclose(_dense_jac(result), expected_jac)
 
     @pytest.mark.parametrize(
         "representation_0,representation_1",
@@ -321,8 +321,8 @@ class TestMaximum:
             ARG_JAC[representation_0],
         )
 
-        assert np.allclose(result.val, expected_val)
-        assert np.allclose(_dense_jac(result), expected_jac)
+        np.testing.assert_allclose(result.val, expected_val)
+        np.testing.assert_allclose(_dense_jac(result), expected_jac)
         if representation_0 == "diagonal_ad" and representation_1 == "diagonal_ad":
             assert isinstance(result, DiagonalAdArray)
         else:
@@ -348,7 +348,7 @@ class TestL2Norm:
         # Two 2-vectors, ordered [u0, v0, u1, v1] (Fortran/dim-major order): (3, 4)
         # has norm 5; (0, 0) has norm 0.
         var = np.array([3.0, 4.0, 0.0, 0.0])
-        assert np.allclose(af.l2_norm(2, var), np.array([5.0, 0.0]))
+        np.testing.assert_allclose(af.l2_norm(2, var), np.array([5.0, 0.0]))
 
     @pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
     def test_dim_one_delegates_to_abs(self, representation: AdRepresentation):
@@ -358,8 +358,8 @@ class TestL2Norm:
         var = _make_ad(val, representation)
         result = af.l2_norm(1, var)
         expected = af.abs(var)
-        assert np.allclose(result.val, expected.val)
-        assert np.allclose(_dense_jac(result), _dense_jac(expected))
+        np.testing.assert_allclose(result.val, expected.val)
+        np.testing.assert_allclose(_dense_jac(result), _dense_jac(expected))
         if representation == "diagonal_ad":
             assert isinstance(result, DiagonalAdArray)
 
@@ -380,8 +380,8 @@ class TestL2Norm:
         d_norm_d_val = np.array([[0.6, 0.8, 0.0, 0.0], [0.0, 0.0, 1.0, 1.0]])
         expected_jac = d_norm_d_val @ self.ARG_JAC[representation]
 
-        assert np.allclose(result.val, expected_val)
-        assert np.allclose(_dense_jac(result), expected_jac)
+        np.testing.assert_allclose(result.val, expected_val)
+        np.testing.assert_allclose(_dense_jac(result), expected_jac)
         # dim > 1 always densifies, regardless of the input's representation.
         assert isinstance(result, AdArray)
 
@@ -451,14 +451,14 @@ class TestMaskByThreshold:
         result = af.mask_by_threshold(tol, char_var, var)
 
         # Check values
-        assert np.allclose(
+        np.testing.assert_allclose(
             result.val if hasattr(result, "val") else result, expected_val
         )
 
         # Check Jacobian if expected
         if expected_jac is not None:
             assert hasattr(result, "jac"), "Expected AdArray with Jacobian"
-            assert np.allclose(result.jac.toarray(), expected_jac)
+            np.testing.assert_allclose(result.jac.toarray(), expected_jac)
 
     @pytest.mark.parametrize(
         "char_representation,var_representation",
@@ -492,8 +492,8 @@ class TestMaskByThreshold:
             np.diag(char_inds.astype(float)) @ SECOND_ARG_JAC[var_representation]
         )
 
-        assert np.allclose(result.val, expected_val)
-        assert np.allclose(_dense_jac(result), expected_jac)
+        np.testing.assert_allclose(result.val, expected_val)
+        np.testing.assert_allclose(_dense_jac(result), expected_jac)
         if var_representation == "diagonal_ad":
             assert isinstance(result, DiagonalAdArray)
 
@@ -582,11 +582,11 @@ class TestClip:
     )
     def test_cases(self, var, expected_val, expected_jac):
         result = af.clip(var, 0.0, 3.0)
-        assert np.allclose(
+        np.testing.assert_allclose(
             result.val if hasattr(result, "val") else result, expected_val
         )
         if expected_jac is not None:
-            assert np.allclose(result.jac.toarray(), expected_jac)
+            np.testing.assert_allclose(result.jac.toarray(), expected_jac)
 
     def test_does_not_mutate_input(self):
         # Ensure the original AdArray is unchanged after clipping.
@@ -596,8 +596,8 @@ class TestClip:
         # Perform clipping, but ignore the result to check that 'a' is unchanged. The
         # clip affects the values -1 and 5.
         _ = af.clip(a, 0.0, 3.0)
-        assert np.allclose(a.val, np.array([-1.0, 2.0, 5.0]))
-        assert np.allclose(a.jac.toarray(), sps.eye(3).toarray())
+        np.testing.assert_allclose(a.val, np.array([-1.0, 2.0, 5.0]))
+        np.testing.assert_allclose(a.jac.toarray(), sps.eye(3).toarray())
 
     @pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
     def test_ad_representations(self, representation: AdRepresentation):
@@ -615,7 +615,7 @@ class TestClip:
         mask = np.array([0.0, 1.0, 0.0])
         expected_jac = np.diag(mask) @ ARG_JAC[representation]
 
-        assert np.allclose(result.val, expected_val)
-        assert np.allclose(_dense_jac(result), expected_jac)
+        np.testing.assert_allclose(result.val, expected_val)
+        np.testing.assert_allclose(_dense_jac(result), expected_jac)
         if representation == "diagonal_ad":
             assert isinstance(result, DiagonalAdArray)
