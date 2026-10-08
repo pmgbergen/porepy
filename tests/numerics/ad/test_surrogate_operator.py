@@ -7,6 +7,7 @@ from typing import Callable
 
 import numpy as np
 import pytest
+import scipy.sparse as sps
 
 import porepy as pp
 from porepy.applications.md_grids.fracture_sets import orthogonal_fractures_2d
@@ -162,6 +163,9 @@ def test_secondary_operators(
         with pytest.raises(KeyError):
             expr.fetch_data(sop, g, get_derivatives=False)
 
+    # Evaluate the SOPs using the Ad parsing framework. This will give a key error like
+    # when calling fetch_data directly (still no data set), but the parser will catch
+    # this and raise a generic ValueError, which we expect.
     with pytest.raises(ValueError):
         _ = sop.value_and_jacobian(equation_system)
     with pytest.raises(ValueError):
@@ -256,11 +260,11 @@ def test_secondary_operators(
     # with new data
     jacs = []
     for v, d in zip(var_vals, diff_vals):
-        jac_ = v.jac.copy()
+        jac_ = v.full_jac.copy()
         jac_.data = d
         jacs.append(jac_)
 
-    assert np.all(sop_val.jac.toarray() == sum(jacs).toarray())
+    assert np.all(sop_val.full_jac.toarray() == sum(jacs).toarray())
 
     # progress values in time and check that only values are progressed, and that
     # they are correct, i.e. current iter is set as previous time
@@ -371,3 +375,50 @@ def test_secondary_operators_on_boundaries(
     assert np.all(
         equation_system.evaluate(sop.previous_timestep(steps=2)) == np.ones(nc)
     )
+
+
+def test_jacobian_with_arguments_in_different_representations(
+    equation_system: pp.ad.EquationSystem,
+):
+    """The Jacobian of a surrogate operator does not depend on the representation of
+    its arguments, also when the representations are mixed.
+
+    The diagonal arguments are initialized jointly, as by the Ad parser, so that their
+    full representation stores the derivatives with respect to the other variable as
+    explicit zeros.
+
+    """
+    mdg = equation_system.mdg
+    subdomains = mdg.subdomains()
+    nc = mdg.num_subdomain_cells()
+    num_dofs = equation_system.num_dofs()
+
+    variables = [
+        equation_system.md_variable(name, subdomains) for name in [VAR1_NAME, VAR2_NAME]
+    ]
+    factory = pp.ad.SurrogateFactory(
+        "mixed_expression",
+        mdg,
+        [lambda d, v=v: equation_system.md_variable(v.name, d) for v in variables],
+    )
+    sop = factory(subdomains)
+    factory.subdomain_values = np.ones(nc)
+    factory.subdomain_derivatives = np.array([2 * np.ones(nc), 3 * np.ones(nc)])
+
+    indices = [equation_system.dofs_of([v]) for v in variables]
+    values = [np.arange(ind.size, dtype=float) for ind in indices]
+    full = [
+        pp.ad.AdArray(
+            val,
+            sps.csr_matrix(
+                (np.ones(ind.size), (np.arange(ind.size), ind)),
+                shape=(ind.size, num_dofs),
+            ),
+        )
+        for val, ind in zip(values, indices)
+    ]
+    diagonal = pp.ad.initialize_diagonal_ad_arrays(values, indices, num_dofs)
+
+    reference = sop.get_jacobian(*full).toarray()
+    for args in [(diagonal[0], full[1]), (full[0], diagonal[1])]:
+        assert np.allclose(sop.get_jacobian(*args).toarray(), reference)

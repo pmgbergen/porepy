@@ -1050,3 +1050,21 @@ def test_diagonal_scaling_matrix():
 
     D = pp.matrix_operations.diagonal_scaling_matrix(sps.csr_matrix(A))
     assert compare_arrays(values, D.diagonal())
+
+
+def test_array_slicer_diagonal_ad_array():
+    """The ArraySlicer accepts Ad arrays in the diagonal representation, and returns the
+    slice of their full representation."""
+    diagonal = pp.ad.initialize_diagonal_ad_arrays(
+        [np.array([1.0, 2.0, 3.0])], [np.array([0, 1, 2])], 3
+    )[0]
+    slicer = matrix_operations.ArraySlicer(
+        domain_indices=np.array([0, 2]), range_indices=np.array([1, 0])
+    )
+
+    sliced = slicer @ diagonal
+    reference = slicer @ diagonal.to_full()
+
+    assert isinstance(sliced, pp.ad.AdArray)
+    assert np.allclose(sliced.val, reference.val)
+    assert np.allclose(sliced.jac.toarray(), reference.jac.toarray())
