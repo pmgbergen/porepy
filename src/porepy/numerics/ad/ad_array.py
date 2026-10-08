@@ -1015,6 +1015,22 @@ class DiagonalAdArray(AdArrayBase):
     :attr:`num_derivatives`, this suffices to construct the full Jacobian, see
     :meth:`to_full`.
 
+    Parameters:
+        val: The value of the Ad array, as a 1d numpy array.
+        jac: The diagonals of the Jacobian, as a 2d numpy array with one row per block
+            of the Jacobian and one column per entry in ``val``. A 1d array is
+            interpreted as a single block.
+        row_indices: Indices, into the full system of ``num_derivatives`` degrees of
+            freedom, of the entries in ``val``.
+        col_indices: For each block of the Jacobian, the indices, into the full system,
+            of the columns of the full Jacobian that the entries in the block belong to.
+        num_derivatives: Total number of derivatives (degrees of freedom) in the full
+            system, that is, the number of columns of the full Jacobian.
+
+    Raises:
+        ValueError: If ``val`` is not 1d, or if the number of columns in ``jac`` does
+            not match the size of ``val``.
+
     """
 
     def __init__(
