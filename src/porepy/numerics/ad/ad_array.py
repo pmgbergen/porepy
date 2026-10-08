@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Union
+import abc
+from typing import TYPE_CHECKING, Any, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -10,6 +11,7 @@ import scipy.sparse as sps
 import porepy as pp
 
 __all__ = [
+    "AdArrayBase",
     "AdArray",
     "initAdArrays",
     "DiagonalAdArray",
@@ -17,7 +19,7 @@ __all__ = [
     "initialize_partial_ad_array",
 ]
 
-AdType = Union[int, float, np.ndarray, sps.spmatrix, sps.sparray, "AdArray"]
+AdType = Union[int, float, np.ndarray, sps.spmatrix, sps.sparray, "AdArrayBase"]
 
 _SPARSE_TYPES = (sps.spmatrix, sps.sparray)
 """Convenience tuple for isinstance checks accepting both scipy sparse matrix and
@@ -107,31 +109,48 @@ def initAdArrays(variables: list[np.ndarray]) -> list[AdArray]:
     return ad_arrays
 
 
-class AdArray:
-    """A class for representing differentiable quantities in a forward Ad mode.
+class AdArrayBase(abc.ABC):
+    """Common interface of the arrays used for forward mode automatic differentiation.
 
-    The class implements methods for arithmetic operations with floats, numpy arrays,
-    scipy sparse matrices, and other ``AdArrays``. For these operations, the following
-    general rules apply:
+    An Ad array holds a value, :attr:`val`, together with the derivatives of that value
+    with respect to the degrees of freedom of the full system. The concrete classes
+    differ in how the derivatives are stored:
+
+      * :class:`AdArray` stores the full Jacobian matrix, as a sparse matrix.
+      * :class:`DiagonalAdArray` stores only the diagonal of the Jacobian, which
+        suffices for quantities that depend only on themselves, and is cheaper to
+        operate on.
+
+    The storage of the derivatives is deliberately not part of this interface: Each
+    concrete class has its own attribute ``jac``, and its type and meaning differ
+    between the representations. Code that needs the Jacobian should either use
+    :attr:`full_jac`, which is available for all Ad arrays, or narrow the type with
+    ``isinstance`` before accessing ``jac``.
+
+    Ad arrays implement arithmetic operations with floats, numpy arrays, scipy sparse
+    matrices, and other Ad arrays. For these operations, the following general rules
+    apply:
       * Scalars can be used for any arithmetic operation except matrix multiplication (
         the @ operator). As a convenience measure to limit the number of cases that must
         be handled and maintained, the scalar must be a float.
-      * Numpy arrays are assumed to be 1d and have the same size as the ``AdArray``.
+      * Numpy arrays are assumed to be 1d and have the same size as the Ad array.
         Numpy arrays can be used for any operation except matrix multiplication.
         The operand order is irrelevant: both ``AdArray + numpy.array`` and
-        ``numpy.array + AdArray`` give an ``AdArray``.
+        ``numpy.array + AdArray`` give an Ad array.
       * Scipy matrices can only be used for matrix-vector products (the @ operator), and
         then only for left multiplication. While right multiplication could technically
         work, depending on the size of the matrix, this is not the way the Ad framework
         is intended to be used, and so this operation is not supported.
-      * Other AdArrays can be used with all arithmetic operations except the @
-        operator.
+      * Other Ad arrays, in either representation, can be used with all arithmetic
+        operations except the @ operator.
 
     A violation of these rules will result in a ``ValueError``.
 
+    Operations between Ad arrays in different representations return an
+    :class:`AdArray`.
+
     Attributes:
-        val: The value of the AdArray, stored as a 1d numpy array.
-        jac: The Jacobian matrix of the AdArray, stored as a sparse matrix.
+        val: The value of the Ad array, stored as a 1d numpy array.
 
     """
 
@@ -142,35 +161,327 @@ class AdArray:
     # arise if this is not done.
     __array_ufunc__ = None
 
-    def __init__(
-        self, val: np.ndarray, jac: sps.spmatrix | sps.sparray | np.ndarray
-    ) -> None:
-        # Consistency checks, to limit the possibilities for errors when combining this
-        # array with other objects.
+    def __init__(self, val: np.ndarray) -> None:
         _check_1d(val)
-
-        self._is_diagonal = False
-
-        num_derivatives = jac.shape[0]
-
-        if num_derivatives != val.size:
-            raise ValueError(
-                "The Jacobian matrix should have one row per array degree of freedom"
-            )
-
         # Enforce float format of all data to limit the number of cases we need to
         # handle and test.
         self.val: np.ndarray = _as_float(val)
-        """The value of the AdArray, stored as a 1d numpy array."""
+        """The value of the Ad array, stored as a 1d numpy array."""
 
-        self.jac: sps.spmatrix | sps.sparray | np.ndarray = _as_float(jac)
+    @abc.abstractmethod
+    def to_full(self) -> AdArray:
+        """Return this Ad array in the full representation.
+
+        Returns:
+            An :class:`AdArray` with the same value and Jacobian as this array.
+
+        """
+
+    @property
+    def full_jac(self) -> sps.spmatrix | sps.sparray:
+        """The Jacobian, as a sparse matrix.
+
+        Available for all representations; arrays that are not stored in the full
+        representation are converted on access.
+
+        """
+        return self.to_full().jac
+
+    @abc.abstractmethod
+    def copy(self) -> AdArrayBase:
+        """Return a copy of this Ad array.
+
+        Returns:
+            A copy of this Ad array, in the same representation.
+
+        """
+
+    @abc.abstractmethod
+    def __getitem__(
+        self, key: slice | np.ndarray[Any, np.dtype[np.int_]]
+    ) -> AdArrayBase:
+        """Slice the Ad array row-wise."""
+
+    @abc.abstractmethod
+    def __setitem__(
+        self,
+        key: slice | np.ndarray[Any, np.dtype[np.int_]],
+        new_value: pp.number | np.ndarray | AdArrayBase,
+    ) -> None:
+        """Insert new values row-wise."""
+
+    @abc.abstractmethod
+    def __add__(self, other: AdType) -> AdArrayBase:
+        """Add another object to this Ad array."""
+
+    @abc.abstractmethod
+    def __mul__(self, other: AdType) -> AdArrayBase:
+        """Elementwise product between this Ad array and another object."""
+
+    @abc.abstractmethod
+    def __pow__(self, other: AdType) -> AdArrayBase:
+        """Raise this Ad array to the power of another object, elementwise."""
+
+    @abc.abstractmethod
+    def __rpow__(self, other: AdType) -> AdArrayBase:
+        """Raise another object to the power of this Ad array, elementwise."""
+
+    @abc.abstractmethod
+    def __truediv__(self, other: AdType) -> AdArrayBase:
+        """Divide this Ad array by another object, elementwise."""
+
+    @abc.abstractmethod
+    def __rtruediv__(self, other: AdType) -> AdArrayBase:
+        """Divide another object by this Ad array, elementwise."""
+
+    @abc.abstractmethod
+    def __rmatmul__(self, other: AdType) -> AdArrayBase:
+        """Left-multiply this Ad array by a sparse matrix."""
+
+    def _check_1d_operand(self, other: np.ndarray, op_name: str) -> None:
+        """Raise a ValueError unless ``other`` is a one dimensional numpy array.
+
+        Parameters:
+            other: The numpy array to check.
+            op_name: Name of the operation, used in the error message.
+
+        """
+        if other.ndim != 1:
+            raise ValueError(f"Only 1d numpy arrays can be used for AdArray {op_name}.")
+
+    def __radd__(self, other: AdType) -> AdArrayBase:
+        """Add the AdArray to another object.
+
+        Parameters:
+            other: An object to be added to this object. See class documentation for
+                restrictions on admissible types for this function.
+
+        Raises:
+            ValueError: If this represents an impermissible operation.
+
+        Returns:
+            An AdArray which combines ``self`` and ``other``.
+
+        """
+        return self.__add__(other)
+
+    def __sub__(self, other: AdType) -> AdArrayBase:
+        """Subtract right hand operand (this AdArray) from left hand operand (other).
+
+        Parameters:
+            other: An object to be subtracted from this object. See class
+            documentation for restrictions on admissible types for this function.
+
+        Raises:
+            ValueError: If this represents an impermissible operation.
+
+        Returns:
+            An AdArray which combines ``self`` and ``other``.
+
+        """
+        return self.__add__(-other)
+
+    def __rsub__(self, other: AdType) -> AdArrayBase:
+        """Subtract right hand operand (other) from left hand operand (this AdArray).
+
+        Parameters:
+            other: An object to be subtracted from this object. See class
+            documentation for restrictions on admissible types for this function.
+
+        Raises:
+            ValueError: If this represents an impermissible operation.
+
+        Returns:
+            An AdArray which subtracts ``self`` from ``other``.
+
+        """
+        # Calculate self - other and negative the answer (note the minus sign in front).
+        return -self.__sub__(other)
+
+    def __rmul__(self, other: AdType) -> AdArrayBase:
+        """Elementwise product (Hadamard or Schur product) between two objects.
+
+        Parameters:
+            other: An object to be multiplied with this object. See class documentation
+                for restrictions on admissible types for this function.
+
+        Returns:
+            An AdArray which multiplies ``self`` and ``other`` elementwise.
+
+        Raises:
+            ValueError: If this represents an impermissible operation.
+
+        """
+
+        if isinstance(other, (float, int, np.ndarray, *_SPARSE_TYPES)):
+            # In these cases, there is no difference between left and right
+            # multiplication, so we simply invoke the standard __mul__ function.
+            return self.__mul__(other)
+
+        elif isinstance(other, AdArrayBase):
+            # The only way we can end up here is if other.__mul__(self) returns
+            # NotImplemented, which makes no sense. Raise an error; if we ever end
+            # up here, something is really wrong.
+            raise RuntimeError(
+                "Something went wrong when multiplying two AdArrays elementwise."
+            )
+        else:
+            raise ValueError(
+                f"Unknown type {type(other)} for AdArray elementwise multiplication."
+            )
+
+    def __matmul__(self, other: AdType) -> AdArrayBase:
+        """The operation `AdArray @ Anything` is disallowed.
+
+        Parameters:
+            other: An object which should be right multiplied with this AdArray. See
+                class documentation for restrictions on admissible types for this
+                function.
+
+        Returns:
+            An AdArray which represents ``self`` @ ``other`` elementwise.
+
+        """
+
+        if isinstance(other, (int, float, np.ndarray, AdArrayBase)):
+            raise ValueError(
+                """Cannot perform matrix multiplication between an AdArray and a"""
+                f""" {type(other)}."""
+            )
+
+        elif isinstance(other, _SPARSE_TYPES):
+            # This goes against the way equations should be formulated in the AD
+            # framework, variables should not be right-multiplied by anything. Raise a
+            # value error to make sure this is not done.
+            raise ValueError(
+                """AdArrays should only be left-multiplied by sparse matrices."""
+            )
+
+        else:
+            raise ValueError(f"Unknown type {type(other)} for AdArray multiplication.")
+
+    def __neg__(self) -> AdArrayBase:
+        return self * -1.0
+
+    def __lt__(self, other: AdType) -> bool | np.ndarray:
+        """Overload of operation ``self < other``.
+
+        The Ad-array delegates the logical operation solely to the values :attr:`val`,
+        leaving the actual implementation to numpy.
+        I.e., any binary, logical operation is equivalent to what numpy does with the
+        values.
+
+        Parameters:
+            other: Right-hand side operand. If it is an Ad-array, its :attr:`val` is
+                used to invoke the overload of numpy.
+
+        Returns:
+            A boolean (array) as the result of the lesser-operation.
+
+        """
+        if isinstance(other, AdArrayBase):
+            return self.val < other.val
+        else:
+            return self.val < other
+
+    def __le__(self, other: AdType) -> bool | np.ndarray:
+        """Overload for ``self <= other``. See :meth:`__lt__` for more information."""
+        if isinstance(other, AdArrayBase):
+            return self.val <= other.val
+        else:
+            return self.val <= other
+
+    def __gt__(self, other: AdType) -> bool | np.ndarray:
+        """Overload for ``self > other``. See :meth:`__lt__` for more information."""
+        if isinstance(other, AdArrayBase):
+            return self.val > other.val
+        else:
+            return self.val > other
+
+    def __ge__(self, other: AdType) -> bool | np.ndarray:
+        """Overload for ``self >= other``. See :meth:`__lt__` for more information."""
+        if isinstance(other, AdArrayBase):
+            return self.val >= other.val
+        else:
+            return self.val >= other
+
+    def __eq__(self, other: AdType) -> bool | np.ndarray:  # type:ignore[override]
+        """Overload for ``self == other``. See :meth:`__lt__` for more information."""
+        # mypy complaints that parent class object returns only bool here.
+        # But we leave the equal operation to the numpy values.
+        if isinstance(other, AdArrayBase):
+            return self.val == other.val
+        else:
+            return self.val == other
+
+    def __ne__(self, other: AdType) -> bool | np.ndarray:  # type:ignore[override]
+        """Overload for ``self != other``. See :meth:`__lt__` for more information."""
+        # NOTE without the override of __ne__, Python uses __eq__ and returns its
+        # negation. In the scalar case (val.shape = (1,)) this can return a boolean,
+        # not a boolean array with shape (1,)
+        if isinstance(other, AdArrayBase):
+            return self.val != other.val
+        else:
+            return self.val != other
+
+
+class AdArray(AdArrayBase):
+    """An Ad array with the Jacobian stored as a sparse matrix.
+
+    This is the general representation, which can hold any Jacobian. See
+    :class:`AdArrayBase` for the rules for arithmetic operations, and
+    :class:`DiagonalAdArray` for a compact representation of quantities that depend only
+    on themselves.
+
+    Parameters:
+        val: The value of the Ad array, as a 1d numpy array.
+        jac: The Jacobian matrix, as a sparse matrix with one row per entry in ``val``.
+
+    Raises:
+        TypeError: If ``jac`` is not a sparse matrix.
+        ValueError: If ``val`` is not 1d, or if the number of rows in ``jac`` does not
+            match the size of ``val``.
+
+    Attributes:
+        val: The value of the AdArray, stored as a 1d numpy array.
+        jac: The Jacobian matrix of the AdArray, stored as a sparse matrix.
+
+    """
+
+    def __init__(self, val: np.ndarray, jac: sps.spmatrix | sps.sparray) -> None:
+        # Consistency checks, to limit the possibilities for errors when combining this
+        # array with other objects.
+        super().__init__(val)
+        if not isinstance(jac, _SPARSE_TYPES):
+            # A dense Jacobian is most likely the diagonal representation used by
+            # DiagonalAdArray, which this class cannot interpret.
+            raise TypeError(
+                f"The Jacobian of an AdArray must be a sparse matrix, not {type(jac)}"
+            )
+        if jac.shape[0] != self.val.size:
+            raise ValueError(
+                "The Jacobian matrix should have one row per array degree of freedom"
+            )
+        self.jac: sps.spmatrix | sps.sparray = _as_float(jac)
         """The Jacobian matrix of the AdArray, stored as a sparse matrix."""
 
+    if TYPE_CHECKING:
+        # The implementations of these operations are shared with DiagonalAdArray, see
+        # AdArrayBase. They delegate to the operations implemented below, and so return
+        # an AdArray when called on one. Declare this for the type checker.
+        def __radd__(self, other: AdType) -> AdArray: ...
+
+        def __sub__(self, other: AdType) -> AdArray: ...
+
+        def __rsub__(self, other: AdType) -> AdArray: ...
+
+        def __rmul__(self, other: AdType) -> AdArray: ...
+
+        def __neg__(self) -> AdArray: ...
+
     def __str__(self) -> str:
-        jac = self.jac
-        num_jac_elements = jac.size if isinstance(jac, np.ndarray) else jac.data.size
         s = f"Ad array of size {self.val.size}\n"
-        s += f"Jacobian is of size {self.jac.shape} and has {num_jac_elements}"
+        s += f"Jacobian is of size {self.jac.shape} and has {self.jac.data.size}"
         s += " elements."
         return s
 
@@ -202,7 +513,7 @@ class AdArray:
     def __setitem__(
         self,
         key: slice | np.ndarray[Any, np.dtype[np.int_]],
-        new_value: pp.number | np.ndarray | AdArray,
+        new_value: pp.number | np.ndarray | AdArrayBase,
     ) -> None:
         """Insert new values in :attr:`val` and :attr:`jac` row-wise.
 
@@ -214,8 +525,8 @@ class AdArray:
             key: A row-index (integer) or slice object to set the rows in value and
                 Jacobian
             new_value: New values for :attr:`val` and rows of :attr:`jac`.
-                If ``new_value`` is an Ad array, its ``jac`` is inserted into the
-                defined rows.
+                If ``new_value`` is an Ad array, its Jacobian, in the full
+                representation, is inserted into the defined rows.
 
         Raises:
             NotImplementedError: If ``new_value`` is not a number, numpy array or
@@ -224,16 +535,17 @@ class AdArray:
         """
         if isinstance(new_value, np.ndarray | pp.number):
             self.val[key] = new_value
-        elif isinstance(new_value, AdArray):
+        elif isinstance(new_value, AdArrayBase):
+            new_value = new_value.to_full()
             self.val[key] = new_value.val
             self.jac[key] = new_value.jac
         else:
             raise NotImplementedError("Setting")
 
-    def _prepare_other_ad(self, other: AdArray, op_name: str) -> AdArray:
-        """Convert a diagonal ``other`` to full format and validate that its size and
+    def _prepare_other_ad(self, other: AdArrayBase, op_name: str) -> AdArray:
+        """Convert ``other`` to the full representation and validate that its size and
         Jacobian shape are compatible with this array, ahead of a binary operation
-        between two AdArrays.
+        between two Ad arrays.
 
         Parameters:
             other: The other AdArray in the operation.
@@ -244,24 +556,13 @@ class AdArray:
             ValueError: If the sizes of the two arrays are incompatible.
 
         Returns:
-            ``other``, converted to full (non-diagonal) format if necessary.
+            ``other``, in the full representation.
 
         """
         other = other.to_full()
         if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
             raise ValueError(f"Incompatible sizes for AdArray {op_name}.")
         return other
-
-    def _check_1d_operand(self, other: np.ndarray, op_name: str) -> None:
-        """Raise a ValueError unless ``other`` is a one dimensional numpy array.
-
-        Parameters:
-            other: The numpy array to check.
-            op_name: Name of the operation, used in the error message.
-
-        """
-        if other.ndim != 1:
-            raise ValueError(f"Only 1d numpy arrays can be used for AdArray {op_name}.")
 
     def __add__(self, other: AdType) -> AdArray:
         """Add the AdArray to another object.
@@ -291,60 +592,11 @@ class AdArray:
         elif isinstance(other, _SPARSE_TYPES):
             raise ValueError("Sparse matrices cannot be added to AdArrays")
 
-        elif isinstance(other, pp.ad.AdArray):
+        elif isinstance(other, AdArrayBase):
             other = self._prepare_other_ad(other, "addition")
             return AdArray(self.val + other.val, self.jac + other.jac)
         else:
             raise ValueError(f"Unknown type {type(other)} for AdArray addition")
-
-    def __radd__(self, other: AdType) -> AdArray:
-        """Add the AdArray to another object.
-
-        Parameters:
-            other: An object to be added to this object. See class documentation for
-                restrictions on admissible types for this function.
-
-        Raises:
-            ValueError: If this represents an impermissible operation.
-
-        Returns:
-            An AdArray which combines ``self`` and ``other``.
-
-        """
-        return self.__add__(other)
-
-    def __sub__(self, other: AdType) -> AdArray:
-        """Subtract right hand operand (this AdArray) from left hand operand (other).
-
-        Parameters:
-            other: An object to be subtracted from this object. See class
-            documentation for restrictions on admissible types for this function.
-
-        Raises:
-            ValueError: If this represents an impermissible operation.
-
-        Returns:
-            An AdArray which combines ``self`` and ``other``.
-
-        """
-        return self.__add__(-other)
-
-    def __rsub__(self, other: AdType) -> AdArray:
-        """Subtract right hand operand (other) from left hand operand (this AdArray).
-
-        Parameters:
-            other: An object to be subtracted from this object. See class
-            documentation for restrictions on admissible types for this function.
-
-        Raises:
-            ValueError: If this represents an impermissible operation.
-
-        Returns:
-            An AdArray which subtracts ``self`` from ``other``.
-
-        """
-        # Calculate self - other and negative the answer (note the minus sign in front).
-        return -self.__sub__(other)
 
     def __mul__(self, other: AdType) -> AdArray:
         """Elementwise product (Hadamard or Schur product) between two objects.
@@ -383,7 +635,7 @@ class AdArray:
                 """
             )
 
-        elif isinstance(other, pp.ad.AdArray):
+        elif isinstance(other, AdArrayBase):
             other = self._prepare_other_ad(other, "elementwise multiplication")
 
             # For the values, use elementwise multiplication, as implemented by
@@ -398,38 +650,6 @@ class AdArray:
         elif isinstance(other, pp.matrix_operations.ArraySlicer):
             return other.__rmul__(self)
 
-        else:
-            raise ValueError(
-                f"Unknown type {type(other)} for AdArray elementwise multiplication."
-            )
-
-    def __rmul__(self, other: AdType) -> AdArray:
-        """Elementwise product (Hadamard or Schur product) between two objects.
-
-        Parameters:
-            other: An object to be multiplied with this object. See class documentation
-                for restrictions on admissible types for this function.
-
-        Returns:
-            An AdArray which multiplies ``self`` and ``other`` elementwise.
-
-        Raises:
-            ValueError: If this represents an impermissible operation.
-
-        """
-
-        if isinstance(other, (float, int, np.ndarray, *_SPARSE_TYPES)):
-            # In these cases, there is no difference between left and right
-            # multiplication, so we simply invoke the standard __mul__ function.
-            return self.__mul__(other)
-
-        elif isinstance(other, pp.ad.AdArray):
-            # The only way we can end up here is if other.__mul__(self) returns
-            # NotImplemented, which makes no sense. Raise an error; if we ever end
-            # up here, something is really wrong.
-            raise RuntimeError(
-                "Something went wrong when multiplying two AdArrays elementwise."
-            )
         else:
             raise ValueError(
                 f"Unknown type {type(other)} for AdArray elementwise multiplication."
@@ -476,7 +696,7 @@ class AdArray:
         elif isinstance(other, pp.matrix_operations.ArraySlicer):
             return other.__rpow__(self)
 
-        elif isinstance(other, pp.ad.AdArray):
+        elif isinstance(other, AdArrayBase):
             other = self._prepare_other_ad(other, "power")
 
             # This is an expression of the type f = x^y, with derivative
@@ -539,7 +759,7 @@ class AdArray:
         elif isinstance(other, _SPARSE_TYPES):
             raise ValueError("Cannot raise sparse matrices to the power of Ad arrays.")
 
-        elif isinstance(other, pp.ad.AdArray):
+        elif isinstance(other, AdArrayBase):
             other = self._prepare_other_ad(other, "power")
             return other.__pow__(self)
 
@@ -581,7 +801,7 @@ class AdArray:
         elif isinstance(other, pp.matrix_operations.ArraySlicer):
             return other.__rtruediv__(self)
 
-        elif isinstance(other, pp.ad.AdArray):
+        elif isinstance(other, AdArrayBase):
             other = self._prepare_other_ad(other, "division")
             return self.__mul__(other.__pow__(-1.0))
 
@@ -608,44 +828,14 @@ class AdArray:
             # sparse matrices.
             return self.__pow__(-1.0) * other
 
-        elif isinstance(other, pp.ad.AdArray):
+        elif isinstance(other, AdArrayBase):
             other = self._prepare_other_ad(other, "division")
             return other.__mul__(self.__pow__(-1.0))
 
         else:
             raise ValueError(f"Unknown type {type(other)} for AdArray division.")
 
-    def __matmul__(self, other: AdType) -> AdArray:
-        """The operation `AdArray @ Anything` is disallowed.
-
-        Parameters:
-            other: An object which should be right multiplied with this AdArray. See
-                class documentation for restrictions on admissible types for this
-                function.
-
-        Returns:
-            An AdArray which represents ``self`` @ ``other`` elementwise.
-
-        """
-
-        if isinstance(other, (int, float, np.ndarray, pp.ad.AdArray)):
-            raise ValueError(
-                """Cannot perform matrix multiplication between an AdArray and a"""
-                f""" {type(other)}."""
-            )
-
-        elif isinstance(other, _SPARSE_TYPES):
-            # This goes against the way equations should be formulated in the AD
-            # framework, variables should not be right-multiplied by anything. Raise a
-            # value error to make sure this is not done.
-            raise ValueError(
-                """AdArrays should only be left-multiplied by sparse matrices."""
-            )
-
-        else:
-            raise ValueError(f"Unknown type {type(other)} for AdArray multiplication.")
-
-    def __rmatmul__(self, other):
+    def __rmatmul__(self, other: AdType) -> AdArray:
         """Do a matrix multiplication between another object and this AdArray.
 
         Parameters:
@@ -657,7 +847,7 @@ class AdArray:
             An AdArray which represents ``other`` @ ``self``.
 
         """
-        if isinstance(other, (int, float, np.ndarray, AdArray)):
+        if isinstance(other, (int, float, np.ndarray, AdArrayBase)):
             raise ValueError(
                 """Cannot perform matrix multiplication between an AdArray and a"""
                 f""" {type(other)}."""
@@ -677,12 +867,6 @@ class AdArray:
         else:
             raise ValueError(f"Unknown type {type(other)} for AdArray multiplication.")
 
-    def __neg__(self) -> AdArray:
-        b = self.copy()
-        b.val = -b.val
-        b.jac = -b.jac
-        return b
-
     def copy(self) -> AdArray:
         """Return a copy of this AdArray.
 
@@ -693,21 +877,8 @@ class AdArray:
         b = AdArray(self.val.copy(), self.jac.copy())
         return b
 
-    @property
-    def is_diagonal(self) -> bool:
-        """Whether the Jacobian is stored in the compact diagonal representation.
-
-        See :class:`DiagonalAdArray`.
-
-        """
-        return self._is_diagonal
-
     def to_full(self) -> AdArray:
-        """Return this AdArray, unchanged.
-
-        This is a no-op counterpart to :meth:`DiagonalAdArray.to_full`, allowing calling
-        code to unconditionally call ``.to_full()`` on either representation instead of
-        branching on :attr:`is_diagonal` first.
+        """Return this AdArray, which is already in the full representation.
 
         Returns:
             This AdArray.
@@ -715,30 +886,8 @@ class AdArray:
         """
         return self
 
-    @property
-    def full_jac(self) -> sps.spmatrix | sps.sparray:
-        """The Jacobian as a sparse matrix.
-
-        Converts from the diagonal representation if necessary, so that code which needs
-        sparse matrix operations on the Jacobian can ask for it directly instead of
-        branching on :attr:`is_diagonal`.
-
-        Returns:
-            The Jacobian of this array, as a sparse matrix.
-
-        """
-        jac = self.to_full().jac
-        assert not isinstance(jac, np.ndarray)
-        return jac
-
-    def replace(
-        self, val: np.ndarray, jac: sps.spmatrix | sps.sparray | np.ndarray
-    ) -> AdArray:
+    def replace(self, val: np.ndarray, jac: sps.spmatrix | sps.sparray) -> AdArray:
         """Return a new AdArray with the given value and Jacobian.
-
-        Counterpart to :meth:`DiagonalAdArray.replace`, allowing calling code to build
-        a result in the same representation as an existing array instead of branching
-        on :attr:`is_diagonal`.
 
         Parameters:
             val: Value for the new array.
@@ -753,8 +902,6 @@ class AdArray:
     def diagvec_mul_jac(self, a: np.ndarray) -> sps.spmatrix:
         """Left-multiply the Jacobian by a diagonal matrix represented as a vector.
 
-        Only defined for the non-diagonal representation.
-
         Parameters:
             a: The diagonal entries of the (implicit) diagonal matrix to
                 left-multiply the Jacobian with.
@@ -764,67 +911,6 @@ class AdArray:
 
         """
         return sps.diags(a) * self.jac
-
-    def __lt__(self, other: AdType) -> bool | np.ndarray:
-        """Overload of operation ``self < other``.
-
-        The Ad-array delegates the logical operation solely to the values :attr:`val`,
-        leaving the actual implementation to numpy.
-        I.e., any binary, logical operation is equivalent to what numpy does with the
-        values.
-
-        Parameters:
-            other: Right-hand side operand. If it is an Ad-array, its :attr:`val` is
-                used to invoke the overload of numpy.
-
-        Returns:
-            A boolean (array) as the result of the lesser-operation.
-
-        """
-        if isinstance(other, AdArray):
-            return self.val < other.val
-        else:
-            return self.val < other
-
-    def __le__(self, other: AdType) -> bool | np.ndarray:
-        """Overload for ``self <= other``. See :meth:`__lt__` for more information."""
-        if isinstance(other, AdArray):
-            return self.val <= other.val
-        else:
-            return self.val <= other
-
-    def __gt__(self, other: AdType) -> bool | np.ndarray:
-        """Overload for ``self > other``. See :meth:`__lt__` for more information."""
-        if isinstance(other, AdArray):
-            return self.val > other.val
-        else:
-            return self.val > other
-
-    def __ge__(self, other: AdType) -> bool | np.ndarray:
-        """Overload for ``self >= other``. See :meth:`__lt__` for more information."""
-        if isinstance(other, AdArray):
-            return self.val >= other.val
-        else:
-            return self.val >= other
-
-    def __eq__(self, other: AdType) -> bool | np.ndarray:  # type:ignore[override]
-        """Overload for ``self == other``. See :meth:`__lt__` for more information."""
-        # mypy complaints that parent class object returns only bool here.
-        # But we leave the equal operation to the numpy values.
-        if isinstance(other, AdArray):
-            return self.val == other.val
-        else:
-            return self.val == other
-
-    def __ne__(self, other: AdType) -> bool | np.ndarray:  # type:ignore[override]
-        """Overload for ``self != other``. See :meth:`__lt__` for more information."""
-        # NOTE without the override of __ne__, Python uses __eq__ and returns its
-        # negation. In the scalar case (val.shape = (1,)) this can return a boolean,
-        # not a boolean array with shape (1,)
-        if isinstance(other, AdArray):
-            return self.val != other.val
-        else:
-            return self.val != other
 
 
 def initialize_diagonal_ad_arrays(
@@ -884,15 +970,20 @@ def initialize_diagonal_ad_arrays(
     return diagonal_variables
 
 
-class DiagonalAdArray(AdArray):
-    """An AdArray where the Jacobian is stored as a 1d numpy array, representing the
-    diagonal of the Jacobian matrix.
+class DiagonalAdArray(AdArrayBase):
+    """An Ad array where only the diagonal of the Jacobian is stored.
 
-    This is a special case of AdArray, where the Jacobian is stored as a 1d numpy array,
-    representing the diagonal of the Jacobian matrix. This can be used for quantities
-    which only depend on themselves, and not on any other variables. The operations are
-    implemented in a way that they take advantage of this structure to speed up
-    calculations.
+    This representation can be used for quantities which only depend on themselves, and
+    not on any other variables. The operations are implemented in a way that they take
+    advantage of this structure to speed up calculations. Operations whose result cannot
+    be represented this way, such as left-multiplication with a sparse matrix, return an
+    :class:`AdArray`.
+
+    The derivatives are stored as a 2d numpy array, :attr:`jac`, with one row per block
+    of the Jacobian and one column per entry in :attr:`val`. Together with the
+    structural information in :attr:`row_indices`, :attr:`col_indices` and
+    :attr:`num_derivatives`, this suffices to construct the full Jacobian, see
+    :meth:`to_full`.
 
     """
 
@@ -902,20 +993,18 @@ class DiagonalAdArray(AdArray):
         jac: np.ndarray,
         row_indices: np.ndarray,
         col_indices: list[np.ndarray],
-        num_derivatives,
+        num_derivatives: int,
     ) -> None:
-        _check_1d(val)
+        super().__init__(val)
         if jac.ndim == 1:
             jac = jac[np.newaxis, :]
-        self._is_diagonal = True
-
-        # Enforce float format, consistent with AdArray.__init__. Note that we cannot
-        # call super().__init__() here: jac.shape[0] is the number of stacked diagonal
-        # argument blocks, not the number of degrees of freedom (val.size), so
-        # AdArray.__init__'s consistency check between the two does not apply to the
-        # diagonal representation.
-        self.val = _as_float(val)
-        self.jac = _as_float(jac)
+        if jac.shape[1] != self.val.size:
+            raise ValueError(
+                "The diagonal Jacobian should have one column per array degree of "
+                "freedom"
+            )
+        self.jac: np.ndarray = _as_float(jac)
+        """The derivatives, stored as one row per block of the Jacobian."""
 
         self._num_derivatives = num_derivatives
         """Total number of derivatives in the system."""
@@ -961,7 +1050,21 @@ class DiagonalAdArray(AdArray):
             val, jac, self._row_indices, self._col_indices, self._num_derivatives
         )
 
-    def __getitem__(self, key: slice | np.ndarray[Any, np.dtype[np.int_]]) -> AdArray:
+    def __str__(self) -> str:
+        s = f"Diagonal Ad array of size {self.val.size}\n"
+        s += f"Jacobian of size {(self.val.size, self._num_derivatives)} is stored as "
+        s += f"{self.jac.shape[0]} diagonal block(s)."
+        return s
+
+    def __repr__(self) -> str:
+        s = f"Diagonal Ad array of size {self.val.size}\n"
+        s += f"Value: {self.val}\n"
+        s += f"Jacobian, diagonal blocks: {self.jac}"
+        return s
+
+    def __getitem__(
+        self, key: slice | np.ndarray[Any, np.dtype[np.int_]]
+    ) -> DiagonalAdArray:
         # Slicing changes the structural indices themselves (row/column indices are
         # sliced along with the values), so replace() -- which reuses self's indices
         # unchanged -- does not apply here.
@@ -975,24 +1078,47 @@ class DiagonalAdArray(AdArray):
         )
 
     def __setitem__(
-        self, key: slice | np.ndarray[Any, np.dtype[np.int_]], new_value: AdType
+        self,
+        key: slice | np.ndarray[Any, np.dtype[np.int_]],
+        new_value: pp.number | np.ndarray | AdArrayBase,
     ) -> None:
-        if isinstance(new_value, (float, np.ndarray)):
+        """Insert new values in :attr:`val` and the columns of :attr:`jac`.
+
+        Parameters:
+            key: Slice or index array selecting the entries to set.
+            new_value: New values. A number or numpy array only replaces the values; the
+                derivatives are left unchanged. A DiagonalAdArray replaces both. It is
+                assumed to share the structure of this array, that is, to have the same
+                number of Jacobian blocks and matching row and column indices.
+
+        Raises:
+            NotImplementedError: If ``new_value`` is an Ad array in the full
+                representation, which cannot be inserted into a diagonal one, or of any
+                other unsupported type.
+
+        """
+        if isinstance(new_value, np.ndarray | pp.number):
             self.val[key] = new_value
-        elif isinstance(new_value, AdArray):
-            self.val[key] = new_value.val
+        elif isinstance(new_value, DiagonalAdArray):
+            # Set the derivatives first: If the shapes are incompatible, this fails
+            # before anything has been modified.
             self.jac[:, key] = new_value.jac
+            self.val[key] = new_value.val
+        elif isinstance(new_value, AdArrayBase):
+            raise NotImplementedError(
+                "Cannot insert an Ad array in the full representation into a "
+                "DiagonalAdArray. Convert the target with to_full() first."
+            )
         else:
             raise NotImplementedError("Setting")
 
-    def __add__(self, other: AdType) -> AdArray:
+    def __add__(self, other: AdType) -> AdArrayBase:
         if isinstance(other, (float, int, np.ndarray)):
             return self.replace(self.val + other, self.jac)
-        elif isinstance(other, AdArray) and other._is_diagonal:
+        elif isinstance(other, DiagonalAdArray):
             val = self.val + other.val
             jac = self.jac + other.jac
             return self.replace(val, jac)
-
         else:
             return self.to_full().__add__(other)
 
@@ -1012,10 +1138,10 @@ class DiagonalAdArray(AdArray):
         )
         return b
 
-    def __mul__(self, other: AdType) -> AdArray:
+    def __mul__(self, other: AdType) -> AdArrayBase:
         if isinstance(other, (float, int, np.ndarray)):
             return self.replace(self.val * other, self.jac * other)
-        elif isinstance(other, AdArray) and other._is_diagonal:
+        elif isinstance(other, DiagonalAdArray):
             val = self.val * other.val
             # Row-broadcast against self.jac/other.jac (shape (num_blocks, n)).
             jac = (
@@ -1027,12 +1153,12 @@ class DiagonalAdArray(AdArray):
         else:
             return self.to_full().__mul__(other)
 
-    def __pow__(self, other: AdType) -> AdArray:
+    def __pow__(self, other: AdType) -> AdArrayBase:
         if isinstance(other, (float, int, np.ndarray)):
             val = self.val**other
             jac = other * self.val ** (other - 1) * self.jac
             return self.replace(val, jac)
-        elif isinstance(other, AdArray) and other._is_diagonal:
+        elif isinstance(other, DiagonalAdArray):
             val = self.val**other.val
             jac = (
                 other.val * self.val ** (other.val - 1) * self.jac
@@ -1043,39 +1169,39 @@ class DiagonalAdArray(AdArray):
         else:
             return self.to_full().__pow__(other)
 
-    def __rpow__(self, other):
+    def __rpow__(self, other: AdType) -> AdArrayBase:
         if isinstance(other, (float, int, np.ndarray)):
             val = other**self.val
             jac = (other**self.val) * np.log(other) * self.jac
             return self.replace(val, jac)
-        elif isinstance(other, AdArray) and other._is_diagonal:
+        elif isinstance(other, DiagonalAdArray):
             return other.__pow__(self)
         else:
-            return other.__pow__(self)
+            return self.to_full().__rpow__(other)
 
-    def __truediv__(self, other):
+    def __truediv__(self, other: AdType) -> AdArrayBase:
         if isinstance(other, (float, int, np.ndarray)):
             val = self.val / other
             jac = self.jac / other
             return self.replace(val, jac)
-        elif isinstance(other, AdArray) and other._is_diagonal:
+        elif isinstance(other, DiagonalAdArray):
             val = self.val / other.val
             jac = (self.jac * other.val - self.val * other.jac) / (other.val**2)
             return self.replace(val, jac)
         else:
-            return other.__rtruediv__(self)
+            return self.to_full().__truediv__(other)
 
-    def __rtruediv__(self, other):
+    def __rtruediv__(self, other: AdType) -> AdArrayBase:
         if isinstance(other, (float, int, np.ndarray)):
             val = other / self.val
             jac = -other * self.jac / (self.val**2)
             return self.replace(val, jac)
-        elif isinstance(other, AdArray) and other._is_diagonal:
+        elif isinstance(other, DiagonalAdArray):
             return other.__truediv__(self)
         else:
-            return other.__truediv__(self)
+            return self.to_full().__rtruediv__(other)
 
-    def __rmatmul__(self, other):
+    def __rmatmul__(self, other: AdType) -> AdArray:
         # When multiplying with a sparse matrix, the expectation is that the result will
         # no longer be suitable for a diagonal representation, so we convert to a full
         # AdArray and perform the multiplication there. The only (reasonably simple)
