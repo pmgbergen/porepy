@@ -9,6 +9,15 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+
+__all__ = [
+    "AdArray",
+    "initAdArrays",
+    "DiagonalAdArray",
+    "initialize_diagonal_ad_arrays",
+    "initialize_partial_ad_array",
+]
+
 AdType = Union[int, float, np.ndarray, sps.spmatrix, sps.sparray, "AdArray"]
 
 _SPARSE_TYPES = (sps.spmatrix, sps.sparray)
@@ -39,15 +48,6 @@ def _as_float(
     if array.dtype != float:
         array = array.astype(float)
     return array
-
-
-__all__ = [
-    "AdArray",
-    "initAdArrays",
-    "DiagonalAdArray",
-    "initialize_diagonal_ad_arrays",
-    "initialize_partial_ad_array",
-]
 
 
 def initialize_partial_ad_array(state: np.ndarray, indices: np.ndarray) -> AdArray:
