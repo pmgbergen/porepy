@@ -105,21 +105,10 @@ def time_manager(constant_dt: bool = False) -> pp.TimeManager:
     )
 
 
-def make_model(
-    folder: Path,
-    model_class=models.Thermoporomechanics,
-    with_source: bool = False,
-    **params,
-):
-    """Model with a fracture, nonzero boundary values and time steps of one day.
-
-    The time dependent source is optional: the pipeline sets only the time dependent
-    boundary values in the final model, not the source, see the assumptions in the
-    documentation of the pipeline.
-
-    """
-    if with_source:
-        model_class = models.add_mixin(RampedSource, model_class)
+def make_model(folder: Path, model_class=models.Thermoporomechanics, **params):
+    """Model with a fracture, time dependent boundary values and source, and time steps
+    of one day."""
+    model_class = models.add_mixin(RampedSource, model_class)
     return models.add_mixin(RampedBoundary, model_class)(
         {
             "fracture_indices": [0],
@@ -236,15 +225,15 @@ def test_data_time_frozen(tmp_path, data_time):
     model = make_model(tmp_path / "simulation", **params)
     initialize(model)
 
-    # Pressure is determined by the Dirichlet boundary values.
-    variables = model.equation_system.get_variables(
-        [model.pressure_variable], model.mdg.subdomains()
-    )
-    pressure = model.equation_system.get_variable_values(
-        variables=variables, iterate_index=0
-    )
+    # The boundary values, also as reference values, are those of the data time.
     expected_time = pp.DAY if data_time is None else data_time
-    np.testing.assert_allclose(pressure, 1e3 * (1 + expected_time / pp.DAY), rtol=1e-6)
+    for _, data in model.mdg.boundaries(return_data=True):
+        if model.pressure_variable in data.get(pp.ITERATE_SOLUTIONS, {}):
+            for kwargs in [{"reference": True}, {"iterate_index": 0}]:
+                pressure = pp.get_solution_values(
+                    model.pressure_variable, data, **kwargs
+                )
+                np.testing.assert_allclose(pressure, 1e3 * (1 + expected_time / pp.DAY))
 
 
 @pytest.mark.parametrize(
@@ -257,7 +246,7 @@ def test_time_dependent_data_in_initialization_context(tmp_path, data_time, hook
     when the nonlinear loop has finished, with either hook. Outside the context, they
     are those of the clock."""
     params = {} if data_time is None else {"initialization_data_time": data_time}
-    model = make_model(tmp_path / "simulation", with_source=True, **params)
+    model = make_model(tmp_path / "simulation", **params)
     # The data time is the first target time of the simulation by default.
     ramp = lambda time: 1 + time / pp.DAY  # noqa: E731
     expected_ramp = ramp(pp.DAY if data_time is None else data_time)

@@ -28,9 +28,10 @@ following:
      (:class:`~.steady_state_early_stop.SteadyStateEarlyStopCriterion`). The time
      stepping starts from the initial condition of the model. The state is saved.
 
-3. Restores the original model, prepares it again, and sets the found state as its
-   state and as its reference state. This includes the total stress as the reference
-   stress, and the boundary values as reference values of the boundary operators
+3. Restores the original model, prepares it again, updates its time dependent data to
+   the data time, and sets the found state as its state and as its reference state.
+   This includes the total stress as the reference stress, and the boundary values as
+   reference values of the boundary operators
    (:class:`~.model_state_storage.ModelStateStorage`).
 4. Checks that the residual of the equations of the original model, with the shear
    dilation and porosity that were simplified, is below the tolerances at that state.
@@ -62,11 +63,8 @@ The model must fulfill the following, otherwise the result is not defined:
   in ``before_time_step`` or the methods it calls (``update_time_dependent_ad_arrays``,
   ``update_derived_quantities``). Code that reads the clock at other times, e.g. when
   an operator is evaluated or in the hooks after the nonlinear loop, sees the clock of
-  the initialization. In the final model, only the boundary values are set to the
-  frozen data. Other time dependent data, e.g. a source term, has the values of the
-  start time when the model is prepared again, and is updated to the data time only by
-  the first time step. Therefore, such data must not differ between the start time and
-  the data time, or the check of the final model fails.
+  the initialization. The original model, which is prepared again, is updated to the
+  data time with ``update_time_dependent_ad_arrays``.
 - **A steady state exists.** The initialization time must be long enough, and no
   accumulation term can be driven by the (constant) data, e.g. the data must not
   describe an ongoing injection.
@@ -227,6 +225,8 @@ class _InitializationContext:
             "initialization_data_time",
             self.original_time_manager.time_init + self.original_time_manager.dt_init,
         )
+        self.data_time: float = data_time
+        """Time at which time dependent data is evaluated during the initialization."""
 
         class InitializedModel(self.original_class):  # type: ignore[name-defined]
             def shear_dilation_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -275,6 +275,21 @@ class _InitializationContext:
         self.model.__class__ = self.original_class
         self.model.time_manager = self.original_time_manager
         self.model.params["folder_name"] = self.original_folder_name
+
+    def update_time_dependent_data(self) -> None:
+        """Update the time dependent data of the original model to the data time.
+
+        A prepared model has the data of the start time. A steady state is found for
+        the data of the data time, so the model must have this data to be in it. The
+        clock is restored afterwards.
+
+        """
+        clock_time = self.model.time_manager.time
+        self.model.time_manager.time = self.data_time
+        try:
+            self.model.update_time_dependent_ad_arrays()
+        finally:
+            self.model.time_manager.time = clock_time
 
 
 def _run_to_steady_state(
@@ -437,6 +452,9 @@ def initialization_pipeline(
     # Find the steady state with the simplified model: load it, or time step to it.
     with init_context:
         model.prepare_simulation()
+        # A prepared model has the data of the start time. The time stepping updates it,
+        # but a loaded state is checked before that.
+        init_context.update_time_dependent_data()
         if not load_steady_state():
             _run_to_steady_state(
                 model=model,
@@ -453,6 +471,7 @@ def initialization_pipeline(
     # Check that the full model, with the nonlinearities that were disabled, is in a
     # steady state.
     model.prepare_simulation()
+    init_context.update_time_dependent_data()
     storage.apply_state(model, arrays=state_arrays)
     if not _validate_steady_state(model, residual_tolerances):
         storage.discard()
