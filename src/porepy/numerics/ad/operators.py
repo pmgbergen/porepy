@@ -441,7 +441,7 @@ class Operator:
 
     def value_and_jacobian(
         self, equation_system: pp.ad.EquationSystem, state: Optional[np.ndarray] = None
-    ) -> AdArray:
+    ) -> AdArrayBase:
         """Evaluate the residual and Jacobian matrix for a given solution.
 
         DEPRECATED: This method is deprecated. Use the `evaluate` method of
@@ -875,7 +875,7 @@ class Operator:
         if isinstance(other, float) or isinstance(other, int):
             return [self, Scalar(other)]
 
-        elif isinstance(other, AdArray):
+        elif isinstance(other, AdArrayBase):
             # This may happen when using nested pp.ad.Function.
             return [self, other]
         elif isinstance(other, pp.ad.AbstractFunction):
