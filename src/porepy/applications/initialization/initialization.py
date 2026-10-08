@@ -1,5 +1,4 @@
 from collections import defaultdict
-from dataclasses import dataclass
 
 import numpy as np
 import logging
@@ -15,7 +14,6 @@ from porepy.applications.initialization.steady_state_early_stop import (
     SteadyStateModelRunnerSuccess,
     check_and_log_tolerances,
 )
-from thm_fractured_reservoir import ThmFracturedReservoir, set_model_params
 
 logger = logging.getLogger(__name__)
 
@@ -128,13 +126,20 @@ class _InitializationContext:
                 )
                 return self.reference_porosity(subdomains) * ones
 
-            def before_nonlinear_loop(self) -> None:
+            def before_time_step(self) -> None:
+                # The initialization clock runs far beyond the simulation start, but
+                # time dependent data (boundary values, sources) must be the data of
+                # the first time step of the simulation. Therefore, the clock is
+                # frozen at data_time from before_time_step, which updates this data,
+                # until the nonlinear loop has finished. It cannot be frozen until
+                # after_time_step_*: the time stepper reads the clock between the
+                # solve and these hooks to log the step and to choose the next time
+                # step size, so it needs the actual time.
                 self.__clock_time = self.time_manager.time
                 self.time_manager.time = data_time
-                super().before_nonlinear_loop()
+                super().before_time_step()
 
             def after_nonlinear_convergence(self) -> None:
-                # TODO YZ: Note about why after_time_step_convergence is too late
                 super().after_nonlinear_convergence()
                 self.time_manager.time = self.__clock_time
 
