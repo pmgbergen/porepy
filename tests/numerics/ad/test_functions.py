@@ -43,7 +43,7 @@ ELEMENTWISE_FUNCTIONS = {
     "log": dict(
         func=af.log, value=np.log, derivative=lambda v: 1 / v, domain=(0.5, 3.5)
     ),
-    "abs": dict(func=af.abs, value=np.abs, derivative=np.sign, domain=(-3.5, -0.5)),
+    "abs": dict(func=af.abs, value=np.abs, derivative=np.sign, domain=(-3.5, 0.5)),
     "sin": dict(func=af.sin, value=np.sin, derivative=np.cos, domain=(-1.0, 1.0)),
     "cos": dict(
         func=af.cos, value=np.cos, derivative=lambda v: -np.sin(v), domain=(-1.0, 1.0)
@@ -351,15 +351,17 @@ class TestL2Norm:
         np.testing.assert_allclose(af.l2_norm(2, var), np.array([5.0, 0.0]))
 
     @pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
-    def test_dim_one_delegates_to_abs(self, representation: AdRepresentation):
-        """For dim=1, l2_norm is documented to be equivalent to abs (and implemented
-        by delegating to it), so it inherits abs's diagonal support directly."""
+    def test_dim_one(self, representation: AdRepresentation):
+        """For dim=1, l2_norm is the absolute value, and a DiagonalAdArray argument
+        gives a DiagonalAdArray."""
         val = np.array([-2.0, 3.0, -0.5])
         var = _make_ad(val, representation)
+
         result = af.l2_norm(1, var)
-        expected = af.abs(var)
-        np.testing.assert_allclose(result.val, expected.val)
-        np.testing.assert_allclose(_dense_jac(result), _dense_jac(expected))
+
+        expected_jac = np.diag([-1.0, 1.0, -1.0]) @ ARG_JAC[representation]
+        np.testing.assert_allclose(result.val, np.array([2.0, 3.0, 0.5]))
+        np.testing.assert_allclose(_dense_jac(result), expected_jac)
         if representation == "diagonal_ad":
             assert isinstance(result, DiagonalAdArray)
 
