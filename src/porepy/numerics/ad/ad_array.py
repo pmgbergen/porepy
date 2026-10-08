@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import abc
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -188,11 +188,30 @@ class AdArrayBase(abc.ABC):
         return self.to_full().jac
 
     @abc.abstractmethod
-    def copy(self) -> AdArrayBase:
-        """Return a copy of this Ad array.
+    def copy(self, val: Optional[np.ndarray] = None) -> AdArrayBase:
+        """Return a copy of this Ad array, optionally with a new value.
+
+        The copy is in the same representation as this array. Its value and derivatives
+        are either given, or copied from this array, so that the copy can be modified
+        without affecting this array. Structural data that describe the layout of the
+        derivatives, if any, are shared with this array; use :meth:`deepcopy` to copy
+        these as well.
+
+        Parameters:
+            val: Value of the copy. Used as is, without copying. If not given, the value
+                of this array is copied.
 
         Returns:
-            A copy of this Ad array, in the same representation.
+            A copy of this Ad array.
+
+        """
+
+    @abc.abstractmethod
+    def deepcopy(self) -> AdArrayBase:
+        """Return a copy of this Ad array, including any structural data.
+
+        Returns:
+            A copy of this Ad array which shares no data with it.
 
         """
 
@@ -867,15 +886,39 @@ class AdArray(AdArrayBase):
         else:
             raise ValueError(f"Unknown type {type(other)} for AdArray multiplication.")
 
-    def copy(self) -> AdArray:
-        """Return a copy of this AdArray.
+    def copy(
+        self,
+        val: Optional[np.ndarray] = None,
+        jac: Optional[sps.spmatrix | sps.sparray] = None,
+    ) -> AdArray:
+        """Return a copy of this AdArray, optionally with a new value and Jacobian.
+
+        Parameters:
+            val: Value of the copy. Used as is, without copying. If not given, the value
+                of this array is copied.
+            jac: Jacobian of the copy, as a sparse matrix. Used as is, without copying.
+                If not given, the Jacobian of this array is copied.
 
         Returns:
-            A deep copy of this AdArray.
+            A copy of this AdArray.
 
         """
-        b = AdArray(self.val.copy(), self.jac.copy())
-        return b
+        return AdArray(
+            self.val.copy() if val is None else val,
+            self.jac.copy() if jac is None else jac,
+        )
+
+    def deepcopy(self) -> AdArray:
+        """Return a copy of this AdArray.
+
+        An AdArray has no structural data beyond its value and Jacobian, hence this is
+        the same as :meth:`copy` without arguments.
+
+        Returns:
+            A copy of this AdArray which shares no data with it.
+
+        """
+        return self.copy()
 
     def to_full(self) -> AdArray:
         """Return this AdArray, which is already in the full representation.
@@ -885,19 +928,6 @@ class AdArray(AdArrayBase):
 
         """
         return self
-
-    def replace(self, val: np.ndarray, jac: sps.spmatrix | sps.sparray) -> AdArray:
-        """Return a new AdArray with the given value and Jacobian.
-
-        Parameters:
-            val: Value for the new array.
-            jac: Jacobian, as a sparse matrix, for the new array.
-
-        Returns:
-            A new AdArray with the given ``val`` and ``jac``.
-
-        """
-        return AdArray(val, jac)
 
     def diagvec_mul_jac(self, a: np.ndarray) -> sps.spmatrix:
         """Left-multiply the Jacobian by a diagonal matrix represented as a vector.
@@ -1028,26 +1058,47 @@ class DiagonalAdArray(AdArrayBase):
         """Total number of derivatives in the system."""
         return self._num_derivatives
 
-    def replace(self, val: np.ndarray, jac: np.ndarray) -> DiagonalAdArray:
-        """Return a new DiagonalAdArray with the given value and Jacobian data,
-        reusing this array's structural indices (row indices, column indices, and
-        total number of derivatives).
+    def copy(
+        self, val: Optional[np.ndarray] = None, jac: Optional[np.ndarray] = None
+    ) -> DiagonalAdArray:
+        """Return a copy of this DiagonalAdArray, optionally with a new value and
+        Jacobian.
 
-        Intended both to avoid repeated reconstruction boilerplate in the arithmetic
-        dunders below, and as the sanctioned way for external code to build a new
-        diagonal-representation result from an existing one.
+        The copy shares the structural data, :attr:`row_indices`, :attr:`col_indices`
+        and :attr:`num_derivatives`, with this array; use :meth:`deepcopy` to copy these
+        as well.
 
         Parameters:
-            val: Value for the new array.
-            jac: Jacobian, in diagonal representation, for the new array.
+            val: Value of the copy. Used as is, without copying. If not given, the value
+                of this array is copied.
+            jac: Jacobian of the copy, in the diagonal representation. Used as is,
+                without copying. If not given, the Jacobian of this array is copied.
 
         Returns:
-            A new DiagonalAdArray with the given ``val`` and ``jac``, and this array's
-            row indices, column indices and number of derivatives.
+            A copy of this DiagonalAdArray.
 
         """
         return DiagonalAdArray(
-            val, jac, self._row_indices, self._col_indices, self._num_derivatives
+            self.val.copy() if val is None else val,
+            self.jac.copy() if jac is None else jac,
+            self._row_indices,
+            self._col_indices,
+            self._num_derivatives,
+        )
+
+    def deepcopy(self) -> DiagonalAdArray:
+        """Return a copy of this DiagonalAdArray, including its structural data.
+
+        Returns:
+            A copy of this DiagonalAdArray which shares no data with it.
+
+        """
+        return DiagonalAdArray(
+            self.val.copy(),
+            self.jac.copy(),
+            self._row_indices.copy(),
+            [col_ind.copy() for col_ind in self._col_indices],
+            self._num_derivatives,
         )
 
     def __str__(self) -> str:
@@ -1066,7 +1117,7 @@ class DiagonalAdArray(AdArrayBase):
         self, key: slice | np.ndarray[Any, np.dtype[np.int_]]
     ) -> DiagonalAdArray:
         # Slicing changes the structural indices themselves (row/column indices are
-        # sliced along with the values), so replace() -- which reuses self's indices
+        # sliced along with the values), so copy() -- which reuses self's indices
         # unchanged -- does not apply here.
         vals = self.val[key]
         jac = self.jac[:, key]
@@ -1114,33 +1165,17 @@ class DiagonalAdArray(AdArrayBase):
 
     def __add__(self, other: AdType) -> AdArrayBase:
         if isinstance(other, (float, int, np.ndarray)):
-            return self.replace(self.val + other, self.jac)
+            return self.copy(self.val + other, self.jac)
         elif isinstance(other, DiagonalAdArray):
             val = self.val + other.val
             jac = self.jac + other.jac
-            return self.replace(val, jac)
+            return self.copy(val, jac)
         else:
             return self.to_full().__add__(other)
 
-    def copy(self) -> DiagonalAdArray:
-        """Return a copy of this DiagonalAdArray.
-
-        Returns:
-            A deep copy of this DiagonalAdArray.
-
-        """
-        b = DiagonalAdArray(
-            self.val.copy(),
-            self.jac.copy(),
-            self._row_indices.copy(),
-            [col_ind.copy() for col_ind in self._col_indices],
-            self._num_derivatives,
-        )
-        return b
-
     def __mul__(self, other: AdType) -> AdArrayBase:
         if isinstance(other, (float, int, np.ndarray)):
-            return self.replace(self.val * other, self.jac * other)
+            return self.copy(self.val * other, self.jac * other)
         elif isinstance(other, DiagonalAdArray):
             val = self.val * other.val
             # Row-broadcast against self.jac/other.jac (shape (num_blocks, n)).
@@ -1148,7 +1183,7 @@ class DiagonalAdArray(AdArrayBase):
                 self.jac * other.val[np.newaxis, :]
                 + other.jac * self.val[np.newaxis, :]
             )
-            return self.replace(val, jac)
+            return self.copy(val, jac)
 
         else:
             return self.to_full().__mul__(other)
@@ -1157,14 +1192,14 @@ class DiagonalAdArray(AdArrayBase):
         if isinstance(other, (float, int, np.ndarray)):
             val = self.val**other
             jac = other * self.val ** (other - 1) * self.jac
-            return self.replace(val, jac)
+            return self.copy(val, jac)
         elif isinstance(other, DiagonalAdArray):
             val = self.val**other.val
             jac = (
                 other.val * self.val ** (other.val - 1) * self.jac
                 + self.val**other.val * np.log(self.val) * other.jac
             )
-            return self.replace(val, jac)
+            return self.copy(val, jac)
 
         else:
             return self.to_full().__pow__(other)
@@ -1173,7 +1208,7 @@ class DiagonalAdArray(AdArrayBase):
         if isinstance(other, (float, int, np.ndarray)):
             val = other**self.val
             jac = (other**self.val) * np.log(other) * self.jac
-            return self.replace(val, jac)
+            return self.copy(val, jac)
         elif isinstance(other, DiagonalAdArray):
             return other.__pow__(self)
         else:
@@ -1183,11 +1218,11 @@ class DiagonalAdArray(AdArrayBase):
         if isinstance(other, (float, int, np.ndarray)):
             val = self.val / other
             jac = self.jac / other
-            return self.replace(val, jac)
+            return self.copy(val, jac)
         elif isinstance(other, DiagonalAdArray):
             val = self.val / other.val
             jac = (self.jac * other.val - self.val * other.jac) / (other.val**2)
-            return self.replace(val, jac)
+            return self.copy(val, jac)
         else:
             return self.to_full().__truediv__(other)
 
@@ -1195,7 +1230,7 @@ class DiagonalAdArray(AdArrayBase):
         if isinstance(other, (float, int, np.ndarray)):
             val = other / self.val
             jac = -other * self.jac / (self.val**2)
-            return self.replace(val, jac)
+            return self.copy(val, jac)
         elif isinstance(other, DiagonalAdArray):
             return other.__truediv__(self)
         else:
