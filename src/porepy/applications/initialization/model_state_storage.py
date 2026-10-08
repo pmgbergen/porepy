@@ -1,3 +1,10 @@
+"""Saving and loading of the state of a model as numpy arrays.
+
+The state is used to avoid time stepping to a steady state again. See
+:func:`~porepy.applications.initialization.initialization.initialization_pipeline`.
+
+"""
+
 import numpy as np
 import logging
 from pathlib import Path
@@ -8,21 +15,31 @@ logger = logging.getLogger(__name__)
 
 
 class SteadyStateMismatch(ValueError):
-    """The saved steady state does not match the model."""
+    """The saved state does not match the model: it is unreadable, or the layout or the
+    shapes of its arrays differ from those of the model."""
 
 
 class ModelStateStorage:
     """Saves the arrays that define the state of a model, and loads them back.
 
-    The arrays are:
+    The file is a numpy ``.npz`` archive with the arrays:
 
-    - the values of all variables, together with their names and sizes,
-    - the reference stress of each matrix subdomain,
-    - the boundary values of each boundary grid, which are the reference values of the
-      boundary operators.
+    - ``variables``, ``variable_names``, ``variable_sizes``: the values of all
+      variables, and the name and number of degrees of freedom of each variable, in
+      the order of the variable indexer.
+    - ``reference_stress_<i>``: the total stress on the faces of matrix subdomain ``i``,
+      which is the reference stress when the state is the reference state.
+    - ``boundary_<j>_<name>``: each array of boundary grid ``j`` that is stored as
+      current values, i.e. the values of the boundary conditions and their types.
 
-    All variable values (including the reference values) are set to the saved state
-    when loading. The file is a numpy ``.npz`` archive.
+    The consistency of a saved state with a model is checked by the layout of the
+    variables and the shapes of the arrays only. Whether it is a steady state is not
+    checked here.
+
+    When loading, the variables are set to the saved values at all stored iterates and
+    time steps, and also as the reference values. The boundary arrays are set as current
+    values and as the reference values of the boundary operators. The reference stress
+    is set. Derived quantities of the model are updated.
 
     Parameters:
         path: File to save to and load from, usually in the simulation folder.
@@ -56,6 +73,9 @@ class ModelStateStorage:
 
     def capture_state(self, model: pp.PorePyModel) -> dict[str, np.ndarray]:
         """Collect the arrays defining the current state of the model.
+
+        Returns:
+            The arrays, with the names described in the class documentation.
 
         The stress is the total stress. It is the reference stress once the reference
         state is set, and it is independent of whether the boundary values are already
@@ -140,7 +160,15 @@ class ModelStateStorage:
             fail("values are not finite")
 
     def apply_state(self, model: pp.PorePyModel, arrays: dict[str, np.ndarray]) -> None:
-        """Set the arrays as the state and as the reference state of the model."""
+        """Set the arrays as the state and as the reference state of the model.
+
+        Parameters:
+            model: A prepared model. The arrays must be consistent with it, see
+                :meth:`load_state`.
+            arrays: Arrays as returned by :meth:`capture_state`.
+
+        """
+        # The reference stress only exists on the matrix, where the stress is defined.
         for i, (_, data) in enumerate(self._matrix_subdomains(model)):
             pp.set_solution_values(
                 name=model.reference_stress_key,
@@ -166,4 +194,5 @@ class ModelStateStorage:
                     pp.set_solution_values(
                         name=name, values=values.copy(), data=data, **kwargs
                     )
+        # Fluxes, upwind and other discretizations depend on the state.
         model.update_derived_quantities()

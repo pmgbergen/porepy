@@ -21,6 +21,7 @@ import pytest
 import porepy as pp
 from porepy.applications.initialization.initialization import (
     InitializationError,
+    _InitializationContext,
     _validate_steady_state,
     default_residual_tolerances,
     initialization_pipeline,
@@ -57,6 +58,22 @@ class RampedBoundary(pp.PorePyModel):
         return values.ravel("F")
 
 
+class RampedSource(pp.PorePyModel):
+    """Fluid source of 1e-3 * (1 + t / day) in each cell, updated with the time
+    dependent data of the model."""
+
+    def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        return super().fluid_source(subdomains) + pp.ad.TimeDependentDenseArray(
+            "ramped_source", subdomains
+        )
+
+    def update_time_dependent_ad_arrays(self) -> None:
+        super().update_time_dependent_ad_arrays()
+        for sd, data in self.mdg.subdomains(return_data=True):
+            values = np.full(sd.num_cells, 1e-3 * (1 + self.time_manager.time / pp.DAY))
+            pp.set_solution_values("ramped_source", values, data, iterate_index=0)
+
+
 TpsaPoromechanics = models.add_mixin(
     pp.poromechanics.TpsaPoromechanicsMixin, models.Poromechanics
 )
@@ -88,8 +105,21 @@ def time_manager(constant_dt: bool = False) -> pp.TimeManager:
     )
 
 
-def make_model(folder: Path, model_class=models.Thermoporomechanics, **params):
-    """Model with a fracture, nonzero boundary values and time steps of one day."""
+def make_model(
+    folder: Path,
+    model_class=models.Thermoporomechanics,
+    with_source: bool = False,
+    **params,
+):
+    """Model with a fracture, nonzero boundary values and time steps of one day.
+
+    The time dependent source is optional: the pipeline sets only the time dependent
+    boundary values in the final model, not the source, see the assumptions in the
+    documentation of the pipeline.
+
+    """
+    if with_source:
+        model_class = models.add_mixin(RampedSource, model_class)
     return models.add_mixin(RampedBoundary, model_class)(
         {
             "fracture_indices": [0],
@@ -215,6 +245,60 @@ def test_data_time_frozen(tmp_path, data_time):
     )
     expected_time = pp.DAY if data_time is None else data_time
     np.testing.assert_allclose(pressure, 1e3 * (1 + expected_time / pp.DAY), rtol=1e-6)
+
+
+@pytest.mark.parametrize(
+    "hook", ["after_nonlinear_convergence", "after_nonlinear_failure"]
+)
+@pytest.mark.parametrize("data_time", [None, 3 * pp.DAY])
+def test_time_dependent_data_in_initialization_context(tmp_path, data_time, hook):
+    """Inside the initialization context, the boundary values and the source term of a
+    time step are those of the data time, whatever the clock is. The clock is restored
+    when the nonlinear loop has finished, with either hook. Outside the context, they
+    are those of the clock."""
+    params = {} if data_time is None else {"initialization_data_time": data_time}
+    model = make_model(tmp_path / "simulation", with_source=True, **params)
+    # The data time is the first target time of the simulation by default.
+    ramp = lambda time: 1 + time / pp.DAY  # noqa: E731
+    expected_ramp = ramp(pp.DAY if data_time is None else data_time)
+    clock = 2 * pp.DAY
+
+    def values_of_time_step() -> tuple[float, np.ndarray, np.ndarray]:
+        """Emulate the time stepper, which sets the clock before the time step."""
+        model.time_manager.time = clock
+        model.before_time_step()
+        source = model.equation_system.evaluate(
+            model.fluid_source(model.mdg.subdomains())
+        )
+        pressure = [
+            pp.get_solution_values(model.pressure_variable, data, iterate_index=0)
+            for _, data in model.mdg.boundaries(return_data=True)
+            if model.pressure_variable in data.get(pp.ITERATE_SOLUTIONS, {})
+        ]
+        assert len(pressure) > 0
+        return model.time_manager.time, source, np.concatenate(pressure)
+
+    with _InitializationContext(model, time_manager()):
+        model.prepare_simulation()
+        clock_in_step, source, pressure = values_of_time_step()
+        assert clock_in_step == pp.DAY * (expected_ramp - 1)
+        np.testing.assert_allclose(source, 1e-3 * expected_ramp)
+        np.testing.assert_allclose(pressure, 1e3 * expected_ramp)
+        getattr(model, hook)()
+        assert model.time_manager.time == clock
+
+    # Without the freeze, the values are those of the clock.
+    clock_in_step, source, pressure = values_of_time_step()
+    assert clock_in_step == clock
+    np.testing.assert_allclose(source, 1e-3 * ramp(clock))
+    np.testing.assert_allclose(pressure, 1e3 * ramp(clock))
+
+
+def test_mechanics_required(tmp_path):
+    """A model without mechanics cannot be initialized."""
+    model = models.MassBalance({"folder_name": str(tmp_path / "simulation")})
+    with pytest.raises(ValueError, match="mechanics"):
+        initialize(model)
 
 
 @pytest.mark.parametrize(
