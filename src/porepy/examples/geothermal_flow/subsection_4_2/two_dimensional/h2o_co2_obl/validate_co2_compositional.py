@@ -35,6 +35,10 @@ def load(name):
 
 def reduction():
     print("=" * 78, "\n(1) REDUCTION TO IMMISCIBLE  (compositional --immiscible  vs  backup immiscible)")
+    need = [f"h2o_co2_{p}_{t}.vtr" for p in ("immisc_check_check", "immisc") for t in ("xpt", "xph")]
+    if not all(os.path.exists(os.path.join(HERE, f)) for f in need):
+        print("  skipped (one-time check; immiscible reference tables not kept in the clean folder).")
+        return
     for tag in ("xpt", "xph"):
         _, a = load(f"h2o_co2_immisc_check_check_{tag}.vtr")
         _, b = load(f"h2o_co2_immisc_{tag}.vtr")

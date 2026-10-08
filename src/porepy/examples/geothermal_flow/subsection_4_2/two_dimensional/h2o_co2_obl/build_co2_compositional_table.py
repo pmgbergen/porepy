@@ -295,6 +295,50 @@ def _axes(coarse):
     return imm.Z_AX, imm.T_AX, imm.P_AX, 320
 
 
+# full physical range whose min(H)=0 fixes the canonical Driesner enthalpy offset
+REF_P = (0.1, 15.0, 141)
+REF_T = (1.0, 60.0, 161)
+
+
+def canonical_offset():
+    """Enthalpy offset [J/kg] so min(H)=0 over the FULL physical range (p 0.1-15 MPa, T 1-60 C).
+    Keeps the h-frame identical for any narrowed sub-window built with it."""
+    Pf = np.linspace(REF_P[0], REF_P[1], REF_P[2]) * 1e6
+    Tf = np.linspace(REF_T[0], REF_T[1], REF_T[2])
+    return -float(np.nanmin(build_pt(imm.Z_AX, Tf, Pf)["H"]))
+
+
+def build_and_write(Z_AX, T_AX, P_AX, nfine=320, tag="", off=None, h_min=None, h_max=None, nh=161):
+    """Build and write the ptz + phz VTR tables (+ offset sidecar). Returns the offset used."""
+    print("building p-T-z table (compositional) ...", "IMMISCIBLE" if IMMISCIBLE else "")
+    ptf = build_pt(Z_AX, T_AX, P_AX)
+    raw_min = float(np.nanmin(ptf["H"]))                 # pre-offset enthalpy range
+    raw_max = float(np.nanmax(ptf["H"]))
+    if off is None:
+        off = -raw_min
+    for k in ("H", "H_h", "H_l", "H_v"):
+        ptf[k] = ptf[k] + off
+    H_kJ = {k: (ptf[k] / 1e3 if k in ("H", "H_h", "H_l", "H_v") else ptf[k]) for k in _FIELDS}
+    _write_vtr(os.path.join(HERE, f"h2o_co2{tag}_xpt.vtr"), Z_AX, T_AX, P_AX / 1e6, H_kJ)
+
+    print("building p-h-z table (compositional) ...")
+    if h_min is not None and h_max is not None:
+        h_ax = np.linspace(h_min * 1e6 - off, h_max * 1e6 - off, nh)    # raw; coord = h_ax+off
+    else:
+        h_ax = np.linspace(raw_min, raw_max, nh)
+    phf = build_ph(Z_AX, h_ax, P_AX, nfine=nfine)
+    for k in ("H", "H_h", "H_l", "H_v"):
+        phf[k] = phf[k] + off
+    H_kJ = {k: (phf[k] / 1e3 if k in ("H", "H_h", "H_l", "H_v") else phf[k]) for k in _FIELDS}
+    _write_vtr(os.path.join(HERE, f"h2o_co2{tag}_xph.vtr"), Z_AX, (h_ax + off) / 1e6, P_AX / 1e6, H_kJ)
+    with open(os.path.join(HERE, f"h2o_co2{tag}_offset.txt"), "w") as fh:
+        fh.write(repr(off))                              # J/kg; error/validation scripts read this
+    print("axes: z[%d] p[%.1f,%.1f]MPa x%d, T[%.0f,%.0f]C x%d, h[%.3f,%.3f]MJ/kg x%d  (off %.1f kJ/kg)"
+          % (Z_AX.size, P_AX[0] / 1e6, P_AX[-1] / 1e6, P_AX.size, T_AX[0], T_AX[-1], T_AX.size,
+             (h_ax[0] + off) / 1e6, (h_ax[-1] + off) / 1e6, h_ax.size, off / 1e3))
+    return off
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--coarse", action="store_true")
@@ -323,35 +367,8 @@ def main():
         P_AX = np.linspace(a.p_min, a.p_max, a.np_) * 1e6
         nfine = 320
     tag = ("_coarse" if a.coarse else "") + ("_immisc_check" if a.immiscible else "") + a.suffix
-
-    print("building p-T-z table (compositional) ...", "IMMISCIBLE" if IMMISCIBLE else "")
-    ptf = build_pt(Z_AX, T_AX, P_AX)
-    # raw (pre-offset) enthalpy range sets the offset (unless fixed) AND the default p-h h-axis frame.
-    raw_min = float(np.nanmin(ptf["H"]))
-    raw_max = float(np.nanmax(ptf["H"]))
-    off = a.off if a.off is not None else -raw_min     # fixed offset keeps the h-frame comparable
-    for k in ("H", "H_h", "H_l", "H_v"):
-        ptf[k] = ptf[k] + off
-    H_kJ = {k: (ptf[k] / 1e3 if k in ("H", "H_h", "H_l", "H_v") else ptf[k]) for k in _FIELDS}
-    _write_vtr(os.path.join(HERE, f"h2o_co2{tag}_xpt.vtr"), Z_AX, T_AX, P_AX / 1e6, H_kJ)
-
-    print("building p-h-z table (compositional) ...")
-    # invert in the RAW frame (build_ph uses raw flash enthalpies), then apply the same offset.
-    if a.h_min is not None and a.h_max is not None:
-        h_ax = np.linspace(a.h_min * 1e6 - off, a.h_max * 1e6 - off, a.nh)   # raw; coord = h_ax+off
-    else:
-        h_ax = np.linspace(raw_min, raw_max, a.nh)     # raw J/kg; coordinate below is h_ax+off
-    phf = build_ph(Z_AX, h_ax, P_AX, nfine=nfine)
-    for k in ("H", "H_h", "H_l", "H_v"):
-        phf[k] = phf[k] + off
-    H_kJ = {k: (phf[k] / 1e3 if k in ("H", "H_h", "H_l", "H_v") else phf[k]) for k in _FIELDS}
-    _write_vtr(os.path.join(HERE, f"h2o_co2{tag}_xph.vtr"), Z_AX, (h_ax + off) / 1e6, P_AX / 1e6, H_kJ)
-    with open(os.path.join(HERE, f"h2o_co2{tag}_offset.txt"), "w") as fh:
-        fh.write(repr(off))                                # J/kg; error/validation scripts read this
-    print("axes: z[%d] p[%.1f,%.1f]MPa x%d, T[%.0f,%.0f]C x%d, h[%.3f,%.3f]MJ/kg x%d"
-          % (Z_AX.size, a.p_min, a.p_max, P_AX.size, a.t_min, a.t_max, T_AX.size,
-             (h_ax[0] + off) / 1e6, (h_ax[-1] + off) / 1e6, h_ax.size))
-    print("enthalpy offset [kJ/kg] = %.1f" % (off / 1e3))
+    build_and_write(Z_AX, T_AX, P_AX, nfine=nfine, tag=tag, off=a.off,
+                    h_min=a.h_min, h_max=a.h_max, nh=a.nh)
 
 
 if __name__ == "__main__":

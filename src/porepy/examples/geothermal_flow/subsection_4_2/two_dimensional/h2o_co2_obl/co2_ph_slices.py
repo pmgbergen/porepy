@@ -35,13 +35,15 @@ DHSOL = -19.4e3                       # heat of solution of CO2 in water [J/mol]
 HW_REF = PropsSI("H", "P", 1.0e5, "T", TW_MIN, "Water")
 HC_REF = PropsSI("H", "P", 15.0e6, "T", TW_MIN, "CO2")
 
-Z_SLICES = (0.0, 0.1, 0.25)
-TD = np.linspace(1.0, 60.0, 170)      # T [degC]
-PM = np.linspace(0.5, 12.0, 150)      # p [MPa]
+Z_SLICES = (0.0, 0.1, 0.25, 0.5)
+TD = np.linspace(1.0, 60.0, 280)      # T [degC] (fine, to resolve the critical region smoothly)
+PM = np.linspace(4.0, 10.0, 260)      # p [MPa] -- OBL table range
+H_WINDOW = (0.075, 0.22)              # MJ/kg -- OBL table enthalpy range
 DP = 50.0                             # Pa offset to pick the liquid/gas branch on the sat line
 
-# domain pressure window (CO2-fault case): ~1 MPa top, ~10.8 MPa fault base
-P_TOP, P_BASE = 1.0, 10.8
+# OBL enthalpy offset (canonical, from the table sidecar) so h aligns with h2o_co2_xph.vtr
+_OFF_FILE = os.path.join(HERE, "h2o_co2_offset.txt")
+OBL_OFFSET = float(open(_OFF_FILE).read()) if os.path.exists(_OFF_FILE) else None
 
 
 def w_aq(x):
@@ -121,6 +123,33 @@ def band_curves(z):
     return np.array(plo), np.array(hlo), np.array(hhi)
 
 
+def liqgas_curve(z, off):
+    """Supercritical CO2-liquid|CO2-gas divider h*(p) [MJ/kg], p >= p_c, as the analytic
+    rho_CO2 = rho_c locus. Smooth 1-D curve -- replaces contouring the discrete region label
+    (a step field, which can only staircase between grid nodes). Below p_c the green/orange
+    regions are separated by the three-phase band, not by a single line."""
+    pp, hh = [], []
+    h_d = DHSOL / M_CO2
+    for p in np.linspace(PC / 1e6, PM.max(), 200):
+        Pa = p * 1e6
+        try:
+            Tk = PropsSI("T", "P", Pa, "D", RHOC, "CO2")     # T where rho_CO2 = rho_c (unique p>=p_c)
+        except ValueError:
+            continue
+        if not (TD.min() + TK <= Tk <= TD.max() + TK):
+            continue
+        hw = PropsSI("H", "P", Pa, "T", max(Tk, TW_MIN), "Water") - HW_REF
+        hc = PropsSI("H", "P", Pa, "T", Tk, "CO2") - HC_REF
+        x, y = mutual_solubility(Pa, Tk)
+        ca, cc = w_aq(np.clip(x, 0, 0.3)), w_cr(np.clip(y, 0, 0.1))
+        if z <= ca:                                          # no CO2-rich phase -> no divider
+            continue
+        Fcr = np.clip((z - ca) / max(cc - ca, 1e-9), 0.0, 1.0)
+        h = (1 - Fcr) * ((1 - ca) * hw + ca * (hc + h_d)) + Fcr * (cc * hc + (1 - cc) * hw)
+        pp.append(p); hh.append((h + off) / 1e6)
+    return np.array(pp), np.array(hh)
+
+
 # region code -> colour (1 aqueous, 3 a+l, 5 a+g, 7 a+l+g); others unused
 _CODES = [1, 2, 3, 4, 5, 6, 7]
 _COL = {1: "#cfe3f7", 2: "#2a7f3f", 3: "#8fcf8f", 4: "#d4a017", 5: "#f3b65a", 6: "#cccccc",
@@ -132,11 +161,15 @@ _NORM = BoundaryNorm([c - 0.5 for c in _CODES] + [7.5], _CMAP.N)
 def main():
     T2, P2, hw, hc, co2_liq, ca, cc = grid_fields()
 
-    # common enthalpy offset so min h = 0 (Driesner convention; z=0 cold water sets it)
-    h0, _ = mix_ph(0.0, hw, hc, co2_liq, ca, cc)
-    off = -float(np.min(h0))
+    # enthalpy offset: the OBL table's canonical value (so h matches h2o_co2_xph.vtr); fall back
+    # to the self-consistent min-h=0 shift only if the sidecar is absent.
+    if OBL_OFFSET is not None:
+        off = OBL_OFFSET
+    else:
+        h0, _ = mix_ph(0.0, hw, hc, co2_liq, ca, cc)
+        off = -float(np.min(h0))
 
-    fig, axes = plt.subplots(1, 3, figsize=(15.5, 5.2), sharey=True)
+    fig, axes = plt.subplots(1, len(Z_SLICES), figsize=(5.0 * len(Z_SLICES), 5.2), sharey=True)
     hmax = 0.0
     panels = []
     for z in Z_SLICES:
@@ -148,20 +181,35 @@ def main():
         panels.append((z, H, reg, pb, hlo, hhi))
         hmax = max(hmax, float(H.max()))
 
+    pc_mpa = PC / 1e6
     for ax, (z, H, reg, pb, hlo, hhi) in zip(axes, panels):
-        ax.pcolormesh(H, P2, reg, cmap=_CMAP, norm=_NORM, shading="gouraud")
+        # analytic region fill -- NOT contourf of the discrete 1/3/5 label (that staircases at the
+        # divider). aqueous base; green = aq+CO2-liquid, left of the band (below p_c) / left of the
+        # rho=rho_c divider (above p_c); orange = aq+CO2-gas, to the right; grey = three-phase band.
+        ax.set_facecolor(_COL[1])
+        pcv, hcv = liqgas_curve(z, off)                      # smooth rho_CO2 = rho_c divider, p >= p_c
+        if np.any(reg > 2) and pb.size:                      # two-phase present (skip pure-water z=0)
+            m = pb < pc_mpa
+            gp = np.concatenate([pb[m], pcv])                # pressures (increasing after sort)
+            g_right = np.concatenate([hlo[m], hcv])          # green | band/divider
+            o_left = np.concatenate([hhi[m], hcv])           # band/divider | orange
+            o = np.argsort(gp)
+            gp, g_right, o_left = gp[o], g_right[o], o_left[o]
+            ax.fill_betweenx(gp, H_WINDOW[0], g_right, color=_COL[3], zorder=1)
+            ax.fill_betweenx(gp, o_left, H_WINDOW[1], color=_COL[5], zorder=1)
         if pb.size:
             ax.fill_betweenx(pb, hlo, hhi, color=_COL[7], zorder=3,
                              label="a+l+g (three-phase)")
             ax.plot(hlo, pb, color="0.3", lw=0.8, zorder=4)
             ax.plot(hhi, pb, color="0.3", lw=0.8, zorder=4)
+        if pcv.size:
+            ax.plot(hcv, pcv, color="0.12", lw=1.4, zorder=5)
         cs = ax.contour(H, P2, T2, levels=[5, 10, 20, 30, 40, 50], colors="0.35",
                         linewidths=0.6, linestyles="--")
         ax.clabel(cs, fmt=lambda v: f"{v:g}$^\\circ$C", fontsize=7, inline=True)
         ax.axhline(PC / 1e6, color="firebrick", lw=1.0, ls=":")
-        ax.text(0.02 * hmax, PC / 1e6 + 0.1, "$p_c$ (CO$_2$)", color="firebrick", fontsize=8)
-        ax.axhspan(P_TOP, P_BASE, color="0.5", alpha=0.06, zorder=0)
-        ax.set_xlim(0, hmax)
+        ax.text(H_WINDOW[0] + 0.004, PC / 1e6 + 0.1, "$p_c$ (CO$_2$)", color="firebrick", fontsize=8)
+        ax.set_xlim(*H_WINDOW)
         ax.set_ylim(PM.min(), PM.max())
         ax.set_xlabel("mixture enthalpy  $h$  [MJ/kg]")
         ax.set_title(f"$z_{{\\mathrm{{CO_2}}}} = {z:g}$")

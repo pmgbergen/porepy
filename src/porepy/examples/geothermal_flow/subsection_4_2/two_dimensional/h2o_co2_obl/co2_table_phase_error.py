@@ -22,6 +22,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib.colors import ListedColormap, BoundaryNorm  # noqa: E402
 
 import build_co2_compositional_table as B
+import co2_ph_slices as S                                   # analytic divider + band + region fills
 from co2_plot_style import paper_cmap
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -127,8 +128,8 @@ def main():
     Ttab = RGI((xz, yh, zp), d["Temperature"], bounds_error=False, fill_value=None)
     Rtab = RGI((xz, yh, zp), d["phase_region"], bounds_error=False, fill_value=None)
 
-    h_ax = np.linspace(yh.min(), yh.max(), NH)                 # MJ/kg (post-offset coordinate)
-    p_ax = np.linspace(max(zp.min(), 0.5), min(zp.max(), 12.0), NP)
+    h_ax = np.linspace(yh.min(), yh.max(), NH)                 # MJ/kg -- the OBL table range
+    p_ax = np.linspace(zp.min(), zp.max(), NP)                 # MPa  -- the OBL table range
     Tfine = np.linspace(1.0, 60.0, 360)
     HH, PP = np.meshgrid(h_ax, p_ax, indexing="ij")            # (NH,NP)
 
@@ -152,9 +153,32 @@ def main():
         panels.append((z, HH, PP, Rtab_g, err))
         emax = max(emax, np.nanpercentile(err, 99.5))
 
+    pc_mpa = S.PC / 1e6
     for col, (z, HH, PP, R, err) in enumerate(panels):
         ax0, ax1 = axes[0, col], axes[1, col]
-        ax0.pcolormesh(HH, PP, R, cmap=_CMAP, norm=_NORM, shading="nearest")
+        # analytic phase-region fill (same as co2_ph_slices) -- NOT pcolormesh of the discrete label,
+        # which staircases at the CO2-liquid|CO2-gas divider.
+        ax0.set_facecolor(_COL[1])
+        pcv, hcv = S.liqgas_curve(z, off)                   # smooth rho_CO2 = rho_c divider, p >= p_c
+        pb, hlo, hhi = S.band_curves(z)
+        hlo = (hlo + off) / 1e6 if hlo.size else hlo
+        hhi = (hhi + off) / 1e6 if hhi.size else hhi
+        if pb.size:                                         # two-phase present (skip pure-water z=0)
+            m = pb < pc_mpa
+            gp = np.concatenate([pb[m], pcv])              # pressures (increasing after sort)
+            g_right = np.concatenate([hlo[m], hcv])        # green | band/divider
+            o_left = np.concatenate([hhi[m], hcv])         # band/divider | orange
+            o = np.argsort(gp)
+            gp, g_right, o_left = gp[o], g_right[o], o_left[o]
+            ax0.fill_betweenx(gp, h_ax.min(), g_right, color=_COL[3], zorder=1)
+            ax0.fill_betweenx(gp, o_left, h_ax.max(), color=_COL[5], zorder=1)
+            ax0.fill_betweenx(pb, hlo, hhi, color=_COL[7], zorder=3)
+            ax0.plot(hlo, pb, color="0.3", lw=0.8, zorder=4)
+            ax0.plot(hhi, pb, color="0.3", lw=0.8, zorder=4)
+        if pcv.size:
+            ax0.plot(hcv, pcv, color="0.12", lw=1.4, zorder=5)
+        ax0.set_xlim(h_ax.min(), h_ax.max())
+        ax0.set_ylim(p_ax.min(), p_ax.max())
         ax0.axhline(B.PC / 1e6, color="firebrick", ls=":", lw=1)
         ax0.set_title(f"$z_{{\\mathrm{{CO_2}}}} = {z:g}$")
         im = ax1.pcolormesh(HH, PP, err, cmap=paper_cmap(), shading="nearest", vmin=0, vmax=emax)
@@ -169,9 +193,8 @@ def main():
 
     from matplotlib.patches import Patch
     handles = [Patch(color=_COL[1], label="aqueous"), Patch(color=_COL[3], label="aq + CO$_2$-liq"),
-               Patch(color=_COL[5], label="aq + CO$_2$-gas"), Patch(color=_COL[7], label="a+l+g"),
-               Patch(color=_COL[2], label="CO$_2$-liq"), Patch(color=_COL[4], label="CO$_2$-gas")]
-    fig.legend(handles=handles, loc="upper center", ncol=6, fontsize=9, frameon=False,
+               Patch(color=_COL[5], label="aq + CO$_2$-gas"), Patch(color=_COL[7], label="a+l+g")]
+    fig.legend(handles=handles, loc="upper center", ncol=4, fontsize=9, frameon=False,
                bbox_to_anchor=(0.5, 0.995))
     fig.colorbar(im, ax=axes[1, :], location="right", shrink=0.9,
                  label="temperature error [K]")
