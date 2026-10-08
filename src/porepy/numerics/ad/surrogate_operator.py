@@ -325,7 +325,7 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
 
         # Make sure all the Jacobians are CSR matrices before fetching the indices of
         # the data.
-        csr_jacs = [arg.jac.tocsr() for arg in args if isinstance(arg, AdArray)]
+        csr_jacs = [arg.full_jac.tocsr() for arg in args if isinstance(arg, AdArray)]
         # Stack the derivative values, then ravel them in Fortran order, so that the
         # indices for the zeroth row comes in the first num_args places etc.
         indices = np.vstack([jac.indices for jac in csr_jacs]).ravel("F")

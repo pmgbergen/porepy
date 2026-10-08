@@ -14,7 +14,38 @@ import scipy.sparse as sps
 
 from porepy.applications.test_utils.arrays import compare_arrays, compare_matrices
 from porepy.numerics.ad import functions as af
-from porepy.numerics.ad.ad_array import AdArray, initAdArrays
+from porepy.numerics.ad.ad_array import (
+    AdArray,
+    AdArrayBase,
+    DiagonalAdArray,
+    initialize_diagonal_ad_arrays,
+    initialize_partial_ad_array,
+)
+
+
+def initAdArrays(variables: list[np.ndarray]) -> list[AdArray]:
+    """Initialize a set of AdArrays, jointly dependent on each other.
+
+    Test helper: creates one AdArray per entry in ``variables``, with the gradients
+    taken with respect to all variables jointly (i.e. each returned AdArray has a unit
+    derivative with respect to itself and a zero derivative with respect to the other
+    variables).
+
+    """
+    num_values_per_variable = [v.size for v in variables]
+    ad_arrays: list[AdArray] = []
+
+    for i, val in enumerate(variables):
+        # Initiate zero Jacobian.
+        n = num_values_per_variable[i]
+        jac = [sps.csc_matrix((n, m)) for m in num_values_per_variable]
+        # Set Jacobian of variable i to I.
+        jac[i] = sps.diags(np.ones(num_values_per_variable[i])).tocsr()
+        # Initiate AdArray.
+        jac = sps.bmat([jac])
+        ad_arrays.append(AdArray(val, jac))
+
+    return ad_arrays
 
 
 @pytest.fixture(params=[sps.csc_matrix, sps.csc_array])
@@ -252,10 +283,10 @@ def test_get_set_slice_ad_var(
     # Testing slicing
     a_slice = a[index]
 
-    # `initAdArrays` is used in the core of the AD parser, and it works only with the
-    # spmatrices, not sparrays. Their slicing behavior is different: spmatrix does not
-    # flatten the result, while sparray does. Some parts of the code may rely on this
-    # assumption. This code will signalize if this assumption ever breaks.
+    # `initAdArrays` (the test helper above) builds its Jacobians with spmatrices, not
+    # sparrays. Their slicing behavior is different: spmatrix does not flatten the
+    # result, while sparray does. Some parts of the code may rely on this assumption.
+    # This code will signalize if this assumption ever breaks.
     if isinstance(index, int):
         assert len(a_slice.jac.shape) == 2
         # Manually unraveling it for the sparrays to make the test consistent.
@@ -408,3 +439,350 @@ def test_numpy_array_as_left_operand_logical(logical_op: str, create_csr):
 
     assert isinstance(res, np.ndarray) and res.dtype == np.bool_
     assert np.all(res == eval(f"b {logical_op} val"))
+
+
+@pytest.mark.parametrize(
+    "state, indices, expected_jac",
+    [
+        (
+            np.array([1.0, 2.0, 3.0, 4.0]),
+            np.array([1, 3]),
+            np.diag([0.0, 1.0, 0.0, 1.0]),
+        ),
+        (np.array([1.0, 2.0, 3.0]), np.array([], dtype=int), np.zeros((3, 3))),
+    ],
+)
+def test_initialize_partial_ad_array(state, indices, expected_jac):
+    """The returned AdArray has a unit derivative at the given indices, and a zero
+    derivative everywhere else."""
+    var = initialize_partial_ad_array(state.copy(), indices)
+
+    assert isinstance(var, AdArray)
+    assert np.allclose(var.val, state)
+    assert np.allclose(var.jac.toarray(), expected_jac)
+
+
+def test_initialize_diagonal_ad_arrays_single_variable():
+    """With a single variable, the returned array has a unit derivative of each entry
+    with respect to itself, placed at the given global indices."""
+    val = np.array([2.0, 3.0, 4.0])
+    global_indices = [np.array([1, 3, 5])]
+    num_derivatives = 6
+
+    diag_vars = initialize_diagonal_ad_arrays(
+        [val.copy()], global_indices, num_derivatives
+    )
+
+    assert len(diag_vars) == 1
+    var = diag_vars[0]
+    assert isinstance(var, DiagonalAdArray)
+    assert np.allclose(var.val, val)
+
+    full_jac = var.to_full().jac.toarray()
+    expected_jac = np.zeros((3, num_derivatives))
+    expected_jac[np.arange(3), global_indices[0]] = 1.0
+    assert np.allclose(full_jac, expected_jac)
+
+
+def test_initialize_diagonal_ad_arrays_two_variables():
+    """Each returned DiagonalAdArray depends only on itself (unit derivative), not on
+    the other variable passed in the same call."""
+    val_0 = np.array([1.0, 2.0])
+    val_1 = np.array([3.0, 4.0])
+    indices = [np.array([0, 1]), np.array([2, 3])]
+    num_derivatives = 4
+
+    diag_vars = initialize_diagonal_ad_arrays(
+        [val_0.copy(), val_1.copy()], indices, num_derivatives
+    )
+
+    assert len(diag_vars) == 2
+    assert np.allclose(diag_vars[0].val, val_0)
+    assert np.allclose(diag_vars[1].val, val_1)
+    for var in diag_vars:
+        assert isinstance(var, DiagonalAdArray)
+
+    # Each array's raw (diagonal-representation) Jacobian has a unit derivative in
+    # its own row, and zero in the row belonging to the other variable.
+    assert np.allclose(diag_vars[0].jac, np.array([[1.0, 1.0], [0.0, 0.0]]))
+    assert np.allclose(diag_vars[1].jac, np.array([[0.0, 0.0], [1.0, 1.0]]))
+
+
+def test_initialize_diagonal_ad_arrays_custom_derivatives():
+    val = np.array([2.0, 4.0])
+    indices = [np.array([0, 1])]
+    num_derivatives = 2
+    derivatives = [np.array([5.0, 6.0])]
+
+    diag_vars = initialize_diagonal_ad_arrays(
+        [val.copy()], indices, num_derivatives, derivatives=derivatives
+    )
+
+    full_jac = diag_vars[0].to_full().jac.toarray()
+    expected_jac = np.diag([5.0, 6.0])
+    assert np.allclose(full_jac, expected_jac)
+
+
+@pytest.mark.parametrize(
+    "vals, indices, num_derivatives",
+    [
+        ([np.array([1.0])], [np.array([0]), np.array([1])], 2),
+        ([np.array([1.0, 2.0])], [np.array([0])], 2),
+    ],
+)
+def test_initialize_diagonal_ad_arrays_mismatched(vals, indices, num_derivatives):
+    with pytest.raises(ValueError):
+        initialize_diagonal_ad_arrays(vals, indices, num_derivatives)
+
+
+def test_diagonal_ad_array_coerces_int_val_and_jac_to_float():
+    """DiagonalAdArray should enforce the same float-dtype invariant as AdArray."""
+    val = np.array([1, 2, 3])
+    jac = np.array([4, 5, 6])
+
+    var = DiagonalAdArray(
+        val,
+        jac,
+        row_indices=np.arange(3),
+        col_indices=[np.arange(3)],
+        num_derivatives=3,
+    )
+
+    assert var.val.dtype == float
+    assert var.jac.dtype == float
+
+
+def _diagonal_ad_array_with_indices() -> DiagonalAdArray:
+    """A DiagonalAdArray of two entries, at indices 2 and 5 of a system of six."""
+    return DiagonalAdArray(
+        np.array([1.0, 2.0]),
+        np.array([3.0, 4.0]),
+        row_indices=np.array([2, 5]),
+        col_indices=[np.array([2, 5])],
+        num_derivatives=6,
+    )
+
+
+def test_diagonal_ad_array_copy_with_data():
+    """copy() with new data builds a DiagonalAdArray with that value and Jacobian,
+    used as given, while reusing (not copying) the original's structural indices."""
+    var = _diagonal_ad_array_with_indices()
+
+    new_val = np.array([10.0, 20.0])
+    new_jac = np.array([[30.0, 40.0]])
+    new_var = var.copy(new_val, new_jac)
+
+    assert isinstance(new_var, DiagonalAdArray)
+    assert new_var.val is new_val
+    assert new_var.jac is new_jac
+    assert new_var.row_indices is var.row_indices
+    assert new_var.col_indices is var.col_indices
+    assert new_var.num_derivatives == 6
+
+
+@pytest.mark.parametrize("deep", [False, True])
+def test_diagonal_ad_array_copy(deep: bool):
+    """Both copy() and deepcopy() copy the value and Jacobian. Only deepcopy() copies
+    the structural indices as well."""
+    var = _diagonal_ad_array_with_indices()
+
+    new_var = var.deepcopy() if deep else var.copy()
+
+    assert isinstance(new_var, DiagonalAdArray)
+    assert np.array_equal(new_var.val, var.val)
+    assert np.array_equal(new_var.jac, var.jac)
+    assert not np.shares_memory(new_var.val, var.val)
+    assert not np.shares_memory(new_var.jac, var.jac)
+
+    assert np.array_equal(new_var.row_indices, var.row_indices)
+    assert all(
+        np.array_equal(new, old)
+        for new, old in zip(new_var.col_indices, var.col_indices)
+    )
+    if deep:
+        assert not np.shares_memory(new_var.row_indices, var.row_indices)
+        assert not any(
+            np.shares_memory(new, old)
+            for new, old in zip(new_var.col_indices, var.col_indices)
+        )
+    else:
+        assert new_var.row_indices is var.row_indices
+        assert new_var.col_indices is var.col_indices
+
+
+def test_ad_array_copy_with_data(create_csr):
+    """copy() with new data uses the given value and Jacobian, and copies the one that
+    is not given."""
+    a = AdArray(np.array([1.0, 2.0]), create_csr(np.eye(2)))
+    new_val = np.array([3.0, 4.0])
+    new_jac = create_csr(2 * np.eye(2))
+
+    b = a.copy(new_val, new_jac)
+    assert b.val is new_val
+    assert b.jac is new_jac
+
+    c = a.copy(val=new_val)
+    assert c.val is new_val
+    assert np.allclose(c.jac.toarray(), a.jac.toarray())
+    assert c.jac is not a.jac
+
+
+def test_ad_array_deepcopy(create_csr):
+    """AdArray has no structural data, so deepcopy() is a plain copy."""
+    a = AdArray(np.array([1.0, 2.0]), create_csr(np.eye(2)))
+    b = a.deepcopy()
+    assert isinstance(b, AdArray)
+    assert np.array_equal(b.val, a.val)
+    assert not np.shares_memory(b.val, a.val)
+    assert np.allclose(b.jac.toarray(), a.jac.toarray())
+    assert b.jac is not a.jac
+
+
+# Tests of the relation between the two representations, AdArray and DiagonalAdArray.
+
+
+def _full_and_diagonal_pair() -> tuple[AdArray, DiagonalAdArray]:
+    """An AdArray and a DiagonalAdArray of the same size, in a system of four degrees
+    of freedom, where the diagonal array represents the first two."""
+    full = AdArray(
+        np.array([2.0, 3.0]),
+        sps.csr_matrix(np.array([[0.0, 1.0, 2.0, 0.0], [0.0, 0.0, 3.0, 4.0]])),
+    )
+    diag = initialize_diagonal_ad_arrays(
+        [np.array([5.0, 6.0])],
+        [np.array([0, 1])],
+        4,
+        derivatives=[np.array([7.0, 8.0])],
+    )[0]
+    return full, diag
+
+
+def test_representations_share_base_but_not_type():
+    """AdArray and DiagonalAdArray are siblings: Both are Ad arrays, but neither is an
+    instance of the other, since the meaning of their Jacobians differ."""
+    full, diag = _full_and_diagonal_pair()
+
+    assert isinstance(full, AdArrayBase)
+    assert isinstance(diag, AdArrayBase)
+    assert not isinstance(diag, AdArray)
+    assert not isinstance(full, DiagonalAdArray)
+
+    with pytest.raises(TypeError):
+        AdArrayBase(np.array([1.0]))  # type: ignore[abstract]
+
+
+def test_ad_array_rejects_dense_jacobian():
+    """A dense Jacobian is the diagonal representation, which AdArray cannot
+    interpret."""
+    with pytest.raises(TypeError):
+        AdArray(np.array([1.0, 2.0]), np.ones((1, 2)))  # type: ignore[arg-type]
+
+
+def test_diagonal_ad_array_rejects_inconsistent_jacobian():
+    """The diagonal Jacobian must have one column per entry in the value."""
+    with pytest.raises(ValueError):
+        DiagonalAdArray(
+            np.array([1.0, 2.0]),
+            np.ones((1, 3)),
+            row_indices=np.arange(2),
+            col_indices=[np.arange(2)],
+            num_derivatives=2,
+        )
+
+
+def test_full_jac():
+    """full_jac gives the sparse Jacobian for both representations."""
+    full, diag = _full_and_diagonal_pair()
+
+    assert full.full_jac is full.jac
+    assert np.allclose(
+        diag.full_jac.toarray(), np.array([[7.0, 0.0, 0.0, 0.0], [0.0, 8.0, 0.0, 0.0]])
+    )
+
+
+@pytest.mark.parametrize("op", ["+", "-", "*", "/", "**"])
+@pytest.mark.parametrize("diagonal_first", [True, False])
+def test_operations_between_representations(op: str, diagonal_first: bool):
+    """An operation between the two representations gives an AdArray, with the same
+    value and Jacobian as the operation between the full representations."""
+    full, diag = _full_and_diagonal_pair()
+    left, right = (diag, full) if diagonal_first else (full, diag)
+
+    result = eval(f"left {op} right")
+    reference = eval(f"left.to_full() {op} right.to_full()")
+
+    assert isinstance(result, AdArray)
+    assert np.allclose(result.val, reference.val)
+    assert np.allclose(result.jac.toarray(), reference.jac.toarray())
+
+
+@pytest.mark.parametrize("op", ["+", "*", "/", "**"])
+def test_diagonal_ad_array_with_sparse_operand_raises(op: str):
+    """The rules for sparse operands are the same for both representations."""
+    _, diag = _full_and_diagonal_pair()
+    matrix = sps.csr_matrix(np.eye(2))
+    with pytest.raises(ValueError):
+        eval(f"diag {op} matrix")
+
+
+def test_diagonal_ad_array_left_multiplied_by_matrix():
+    """Left multiplication with a sparse matrix gives an AdArray."""
+    _, diag = _full_and_diagonal_pair()
+    matrix = sps.csr_matrix(np.array([[1.0, 1.0], [0.0, 2.0]]))
+
+    result = matrix @ diag
+
+    assert isinstance(result, AdArray)
+    assert np.allclose(result.val, matrix @ diag.val)
+    assert np.allclose(result.jac.toarray(), (matrix @ diag.full_jac).toarray())
+
+
+def test_setitem_full_into_diagonal_raises_without_modification():
+    """A full Ad array cannot be inserted into a diagonal one. The failed insertion
+    must leave the target untouched."""
+    full, diag = _full_and_diagonal_pair()
+    val, jac = diag.val.copy(), diag.jac.copy()
+
+    with pytest.raises(NotImplementedError):
+        diag[0:1] = full[0:1]
+
+    assert np.array_equal(diag.val, val)
+    assert np.array_equal(diag.jac, jac)
+
+
+def test_setitem_diagonal_into_full():
+    """A diagonal Ad array is converted to the full representation when inserted into
+    a full one."""
+    full, diag = _full_and_diagonal_pair()
+
+    full[0:2] = diag
+
+    assert np.allclose(full.val, diag.val)
+    assert np.allclose(full.jac.toarray(), diag.full_jac.toarray())
+
+
+@pytest.mark.parametrize("expression", ["2.0 + a", "a - b", "2.0 - a", "2.0 * a", "-a"])
+def test_shared_operations_on_ad_array_return_ad_array(expression: str):
+    """The operations implemented in AdArrayBase return an AdArray when called on an
+    AdArray, also when the other operand is diagonal. The type hints of AdArray rely
+    on this."""
+    a, b = _full_and_diagonal_pair()
+    assert isinstance(eval(expression), AdArray)
+
+
+@pytest.mark.parametrize("representation", ["full", "diagonal"])
+def test_chain_rule(representation: str):
+    """chain_rule gives f(x) in the representation of x, with the Jacobian
+    diag(f'(x)) @ J."""
+    full, diag = _full_and_diagonal_pair()
+    x = full if representation == "full" else diag
+
+    # f = exp, whose derivative equals its value.
+    val = np.exp(x.val)
+    result = x.chain_rule(val, val)
+
+    assert type(result) is type(x)
+    assert np.allclose(result.val, np.exp(x.val))
+    assert np.allclose(
+        result.full_jac.toarray(), (sps.diags(val) @ x.full_jac).toarray()
+    )
