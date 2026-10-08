@@ -548,29 +548,90 @@ def test_diagonal_ad_array_coerces_int_val_and_jac_to_float():
     assert var.jac.dtype == float
 
 
-def test_diagonal_ad_array_replace():
-    """replace() should build a new DiagonalAdArray with new value/Jacobian data,
-    while reusing (not copying) the original's structural indices."""
-    row_indices = np.array([2, 5])
-    col_indices = [np.array([2, 5])]
-    var = DiagonalAdArray(
+def _diagonal_ad_array_with_indices() -> DiagonalAdArray:
+    """A DiagonalAdArray of two entries, at indices 2 and 5 of a system of six."""
+    return DiagonalAdArray(
         np.array([1.0, 2.0]),
         np.array([3.0, 4.0]),
-        row_indices=row_indices,
-        col_indices=col_indices,
+        row_indices=np.array([2, 5]),
+        col_indices=[np.array([2, 5])],
         num_derivatives=6,
     )
 
+
+def test_diagonal_ad_array_copy_with_data():
+    """copy() with new data builds a DiagonalAdArray with that value and Jacobian,
+    used as given, while reusing (not copying) the original's structural indices."""
+    var = _diagonal_ad_array_with_indices()
+
     new_val = np.array([10.0, 20.0])
-    new_jac = np.array([30.0, 40.0])
-    new_var = var.replace(new_val, new_jac)
+    new_jac = np.array([[30.0, 40.0]])
+    new_var = var.copy(new_val, new_jac)
 
     assert isinstance(new_var, DiagonalAdArray)
-    assert np.allclose(new_var.val, new_val)
-    assert np.allclose(new_var.jac, new_jac)
-    assert new_var.row_indices is row_indices
-    assert new_var.col_indices is col_indices
+    assert new_var.val is new_val
+    assert new_var.jac is new_jac
+    assert new_var.row_indices is var.row_indices
+    assert new_var.col_indices is var.col_indices
     assert new_var.num_derivatives == 6
+
+
+@pytest.mark.parametrize("deep", [False, True])
+def test_diagonal_ad_array_copy(deep: bool):
+    """Both copy() and deepcopy() copy the value and Jacobian. Only deepcopy() copies
+    the structural indices as well."""
+    var = _diagonal_ad_array_with_indices()
+
+    new_var = var.deepcopy() if deep else var.copy()
+
+    assert isinstance(new_var, DiagonalAdArray)
+    assert np.array_equal(new_var.val, var.val)
+    assert np.array_equal(new_var.jac, var.jac)
+    assert not np.shares_memory(new_var.val, var.val)
+    assert not np.shares_memory(new_var.jac, var.jac)
+
+    assert np.array_equal(new_var.row_indices, var.row_indices)
+    assert all(
+        np.array_equal(new, old)
+        for new, old in zip(new_var.col_indices, var.col_indices)
+    )
+    if deep:
+        assert not np.shares_memory(new_var.row_indices, var.row_indices)
+        assert not any(
+            np.shares_memory(new, old)
+            for new, old in zip(new_var.col_indices, var.col_indices)
+        )
+    else:
+        assert new_var.row_indices is var.row_indices
+        assert new_var.col_indices is var.col_indices
+
+
+def test_ad_array_copy_with_data(create_csr):
+    """copy() with new data uses the given value and Jacobian, and copies the one that
+    is not given."""
+    a = AdArray(np.array([1.0, 2.0]), create_csr(np.eye(2)))
+    new_val = np.array([3.0, 4.0])
+    new_jac = create_csr(2 * np.eye(2))
+
+    b = a.copy(new_val, new_jac)
+    assert b.val is new_val
+    assert b.jac is new_jac
+
+    c = a.copy(val=new_val)
+    assert c.val is new_val
+    assert np.allclose(c.jac.toarray(), a.jac.toarray())
+    assert c.jac is not a.jac
+
+
+def test_ad_array_deepcopy(create_csr):
+    """AdArray has no structural data, so deepcopy() is a plain copy."""
+    a = AdArray(np.array([1.0, 2.0]), create_csr(np.eye(2)))
+    b = a.deepcopy()
+    assert isinstance(b, AdArray)
+    assert np.array_equal(b.val, a.val)
+    assert not np.shares_memory(b.val, a.val)
+    assert np.allclose(b.jac.toarray(), a.jac.toarray())
+    assert b.jac is not a.jac
 
 
 # Tests of the relation between the two representations, AdArray and DiagonalAdArray.
