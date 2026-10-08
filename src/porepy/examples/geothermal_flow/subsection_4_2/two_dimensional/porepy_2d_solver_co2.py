@@ -15,6 +15,7 @@ Run (from this directory; all times in DAYS):
 from __future__ import annotations
 
 import argparse
+import csv
 import os
 import tempfile
 import time
@@ -417,6 +418,52 @@ class GeothermalCO2FlowModel(DriesnerPhaseExport, Geometry10x10, BC, IC, FlowMod
                     sd.num_cells, 1.0 if self._is_barrier(sd) else 2.0)   # 0 rock, 1 barrier, 2 conductive
                 data.append((sd, "material", tag))
         return data
+
+    # -- outlet CO2 breakthrough diagnostic ----------------------------------------------------
+    def _outlet_faces(self, sd):
+        """Matrix outlet boundary faces: inject -> the top-east outlet patch; blowdown -> the
+        bottom production edge."""
+        if hasattr(self, "_inlet_outlet_patches"):          # inject BC: (inlet, outlet) patches
+            return self._inlet_outlet_patches(sd)[1]
+        return self.get_inlet_outlet_sides(sd)[1]           # blowdown BC: production = bottom
+
+    def _outlet_co2(self):
+        """(area-averaged overall CO2 mass fraction, CO2 advective mass-outflow rate [kg/s]) at the
+        outlet, from the converged iterate. darcy_flux is the total, face-integrated volumetric flux
+        [m^3/s]; outflow sign + adjacent (upwind) cell come from the grid helper, so no face-area
+        factor is applied to the rate. z_CO2 is a mass fraction; fluid.density is sum_k S_k rho_k."""
+        sd = self.mdg.subdomains(dim=self.mdg.dim_max())[0]
+        outlet = self._outlet_faces(sd)
+        if outlet.size == 0:
+            return 0.0, 0.0
+        es = self.equation_system
+        co2 = self.fluid.components[1]
+        z = np.asarray(es.evaluate(co2.fraction([sd])), dtype=float)
+        rho = np.asarray(es.evaluate(self.fluid.density([sd])), dtype=float)
+        q = np.asarray(es.evaluate(self.darcy_flux([sd])), dtype=float)    # [m^3/s] per face
+        sign, adj = sd.signs_and_cells_of_boundary_faces(outlet)           # +1 = out of the domain
+        areas = sd.face_areas[outlet]
+        z_avg = float(np.sum(z[adj] * areas) / np.sum(areas))              # area-averaged z_CO2 [-]
+        co2_rate = float(np.sum(z[adj] * rho[adj] * (sign * q[outlet])))   # [kg/s], >0 leaving
+        return z_avg, co2_rate
+
+    def write_pvd_and_vtu(self):
+        """Normal vtu/pvd snapshot + append one breakthrough row per reported export time."""
+        super().write_pvd_and_vtu()
+        if not hasattr(self, "_bt_rows"):
+            self._bt_rows, self._bt_cum = [], 0.0
+        t_s = float(self.time_manager.time)
+        z_avg, rate = self._outlet_co2()
+        if self._bt_rows:                                   # trapezoid cumulative CO2 out [kg]
+            t_prev, rate_prev = self._bt_rows[-1][1], self._bt_rows[-1][3]
+            self._bt_cum += 0.5 * (rate + rate_prev) * (t_s - t_prev)
+        self._bt_rows.append([t_s / DAY, t_s, z_avg, rate, self._bt_cum])
+        with open(os.path.join(self.params["folder_name"], "outlet_co2_breakthrough.csv"),
+                  "w", newline="") as fh:
+            w = csv.writer(fh)
+            w.writerow(["time_days", "time_s", "outlet_z_co2_avg",
+                        "co2_mass_outflow_rate_kg_s", "co2_cumulative_out_kg"])
+            w.writerows(self._bt_rows)
 
 
 model = GeothermalCO2FlowModel(params)

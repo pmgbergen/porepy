@@ -17,7 +17,8 @@ BASE = ["--case", "inject", "--cell-size", "0.1", "--tf", "50.0",
         "--dt-init", "1.0", "--n-snap", "100", "--md"]
 
 RUNS = [("TPFA", BASE),
-        ("MPFA", BASE + ["--consistent"])]
+        ("MPFA", BASE + ["--consistent"]),
+        ("MPFA no-gravity", BASE + ["--consistent", "--no-gravity"])]
 
 
 def main():
