@@ -85,6 +85,10 @@ $RECYCLE.BIN/
 # Restart-related time step monitoring files
 times.json
 
+# Numpy arrays
+*.np
+*.npz
+
 # Paraview
 *.pvd
 *.vtu

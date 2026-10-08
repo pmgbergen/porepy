@@ -204,13 +204,13 @@ class WellZeroNeumannTemperatureBC:
         if self.is_well_grid(sd):
             boundary_faces = self.domain_boundary_sides(sd).all_bf
             return pp.BoundaryCondition(sd, boundary_faces, "neu")
-        return super().bc_type_enthalpy_flux(sd)  # type: ignore[misc]
+        return super().bc_type_fluid_flux(sd)  # type: ignore[misc]
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         if self.is_well_grid(sd):
             boundary_faces = self.domain_boundary_sides(sd).all_bf
             return pp.BoundaryCondition(sd, boundary_faces, "neu")
-        return super().bc_type_enthalpy_flux(sd)  # type: ignore[misc]
+        return super().bc_type_darcy_flux(sd)  # type: ignore[misc]
 
 
 class ThmFracturedReservoir(  # type: ignore[misc]
