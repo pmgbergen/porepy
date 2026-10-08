@@ -13,8 +13,8 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 PY = sys.executable                                  # whatever interpreter runs this script
 SOLVER = os.path.join(HERE, "porepy_2d_solver_co2.py")
-BASE = ["--case", "inject", "--cell-size", "0.125", "--tf", "50.0",
-        "--dt-init", "1.0", "--n-snap", "50", "--md"]
+BASE = ["--case", "inject", "--cell-size", "0.1", "--tf", "50.0",
+        "--dt-init", "1.0", "--n-snap", "100", "--md"]
 
 RUNS = [("TPFA", BASE),
         ("MPFA", BASE + ["--consistent"])]

@@ -9,7 +9,7 @@ Data (two VTR tables + offset sidecar):
 Figures (images + error plots):
   co2_phase_diagram.{png,pdf}         p-T / p-h phase diagram + densities
   co2_ph_slices.{png,pdf}             compositional p-h slices z = 0 / 0.1 / 0.25 / 0.5
-  co2_table_phase_error.{png,pdf}     phase regions + OBL temperature error vs the true flash
+  co2_phz_diagrams.{png,pdf}          phase regions + OBL saturation error vs the true flash (z=0.1/0.3)
   co2_err_{saturation,density,enthalpy,temperature}.{png,pdf}   grouped L2 errors
 
 Case window: p in [4, 10] MPa, h in [0.075, 0.22] MJ/kg (pt T-axis [1, 60] C). The enthalpy offset is
@@ -62,11 +62,11 @@ def make_figures() -> None:
     # imported here (after the tables exist) so the table-reading figures see the fresh data
     import co2_phase_diagram
     import co2_ph_slices
-    import co2_table_phase_error
+    import co2_phz_diagrams
     import co2_table_errors
     for label, mod in (("phase diagram", co2_phase_diagram),
                        ("p-h slices", co2_ph_slices),
-                       ("phase + T error", co2_table_phase_error),
+                       ("phz diagrams", co2_phz_diagrams),
                        ("grouped L2 errors", co2_table_errors)):
         print(f"[figures] {label} ...")
         mod.main()
