@@ -278,7 +278,7 @@ class UpwindCouplingAd(DiscretizationAd):
         return s
 
 
-class HUpwindAd(Discretization):
+class HUpwindAd(DiscretizationAd):
     """AD wrapper for :class:`~porepy.numerics.fv.upwind.HUpwind`.
 
     Exposes the per-direction upwind / boundary-transport matrices of the two-direction
@@ -298,10 +298,13 @@ class HUpwindAd(Discretization):
         self.bound_transport_neu_gamma: Callable[[], pp.ad.MergedOperator]
         self.bound_transport_dir_delta: Callable[[], pp.ad.MergedOperator]
         self.bound_transport_neu_delta: Callable[[], pp.ad.MergedOperator]
-        pp.ad.wrap_discretization(self, self._discretization, subdomains=subdomains)
+        # Upwind discretizations always act on scalar fields, so nd=1 is used here.
+        pp.ad.wrap_discretization(
+            self, self._discretization, nd=1, subdomains=subdomains
+        )
 
 
-class HUpwindCouplingAd(Discretization):
+class HUpwindCouplingAd(DiscretizationAd):
     """AD wrapper for :class:`~porepy.numerics.fv.upwind.HUpwindCoupling`."""
 
     def __init__(self, keyword: str, interfaces: list[pp.MortarGrid]) -> None:
@@ -319,4 +322,7 @@ class HUpwindCouplingAd(Discretization):
         self.trace: Callable[[], pp.ad.MergedOperator]
         self.inv_trace: Callable[[], pp.ad.MergedOperator]
         self.mortar_discr: Callable[[], pp.ad.MergedOperator]
-        pp.ad.wrap_discretization(self, self._discretization, interfaces=interfaces)
+        # Upwind discretizations always act on scalar fields, so nd=1 is used here.
+        pp.ad.wrap_discretization(
+            self, self._discretization, nd=1, interfaces=interfaces
+        )

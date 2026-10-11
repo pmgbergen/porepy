@@ -910,6 +910,20 @@ class HUpwind(Upwind):
         self._gamma_flux_key = "hybrid_gamma_flux"
         self._delta_flux_key = "hybrid_delta_flux"
 
+    def get_col_entities(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
+        """Column (domain) entities: upwind matrices act on cells, boundary matrices on faces."""
+        if matrix_key.startswith("upwind"):
+            return GridEntities(cells=1)
+        if matrix_key.startswith("bound_transport"):
+            return GridEntities(faces=1)
+        return super().get_col_entities(matrix_key, nd)
+
+    def get_row_entities(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
+        """Row (codomain) entities: every HUpwind matrix maps to face fluxes."""
+        if matrix_key.startswith("upwind") or matrix_key.startswith("bound_transport"):
+            return GridEntities(faces=1)
+        return super().get_row_entities(matrix_key, nd)
+
     def discretize(self, sd: pp.Grid, data: dict) -> None:
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
@@ -972,6 +986,34 @@ class HUpwindCoupling(UpwindCoupling):
         self.flux_delta_matrix_key = "flux_delta"
         self._gamma_flux_key = "hybrid_gamma_flux"
         self._delta_flux_key = "hybrid_delta_flux"
+
+    def get_col_entities(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
+        """Column (domain) entities: each gamma/delta matrix matches its base-key counterpart."""
+        extra = {
+            "upwind_primary_gamma": GridEntities(cells=1),
+            "upwind_secondary_gamma": GridEntities(cells=1),
+            "flux_gamma": GridEntities(cells=1),
+            "upwind_primary_delta": GridEntities(cells=1),
+            "upwind_secondary_delta": GridEntities(cells=1),
+            "flux_delta": GridEntities(cells=1),
+        }
+        if matrix_key in extra:
+            return extra[matrix_key]
+        return super().get_col_entities(matrix_key, nd)
+
+    def get_row_entities(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
+        """Row (codomain) entities: each gamma/delta matrix matches its base-key counterpart."""
+        extra = {
+            "upwind_primary_gamma": GridEntities(cells=1),
+            "upwind_secondary_gamma": GridEntities(cells=1),
+            "flux_gamma": GridEntities(cells=1),
+            "upwind_primary_delta": GridEntities(cells=1),
+            "upwind_secondary_delta": GridEntities(cells=1),
+            "flux_delta": GridEntities(cells=1),
+        }
+        if matrix_key in extra:
+            return extra[matrix_key]
+        return super().get_row_entities(matrix_key, nd)
 
     def discretize(
         self,
