@@ -906,7 +906,11 @@ class FluidBuoyancy(pp.PorePyModel):
         rho_gamma = gamma.density(domains)
         rho_delta = delta.density(domains)
         d_gamma_delta = rho_gamma - rho_delta
-        weight = pp.ad.Function(_phase_density_weight, "phase_density_weight")
+        weight = pp.ad.Function(
+            _phase_density_weight,
+            "phase_density_weight",
+            source=OperatorSpace.from_domains(domains),
+        )
         co_gamma_terms: list[pp.ad.Operator] = []
         co_delta_terms: list[pp.ad.Operator] = []
         for e in passive:

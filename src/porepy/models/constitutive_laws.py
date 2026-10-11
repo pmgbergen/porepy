@@ -767,6 +767,7 @@ class MassWeightedPermeability(ConstantPermeability):
                 self.solid.permeability,
                 size=sum(sd.num_cells for sd in subdomains),
                 name="absolute_permeability",
+                grids=subdomains,
             )
 
         normal_permeability = projection.secondary_to_mortar_avg() @ permeability

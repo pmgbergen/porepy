@@ -911,7 +911,7 @@ class HUpwind(Upwind):
         self._delta_flux_key = "hybrid_delta_flux"
 
     def get_col_entities(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
-        """Column (domain) entities: upwind matrices act on cells, boundary matrices on faces."""
+        """Domain entities: upwind matrices on cells, boundary matrices on faces."""
         if matrix_key.startswith("upwind"):
             return GridEntities(cells=1)
         if matrix_key.startswith("bound_transport"):
@@ -919,7 +919,7 @@ class HUpwind(Upwind):
         return super().get_col_entities(matrix_key, nd)
 
     def get_row_entities(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
-        """Row (codomain) entities: every HUpwind matrix maps to face fluxes."""
+        """Codomain entities: every HUpwind matrix maps to face fluxes."""
         if matrix_key.startswith("upwind") or matrix_key.startswith("bound_transport"):
             return GridEntities(faces=1)
         return super().get_row_entities(matrix_key, nd)
@@ -988,7 +988,7 @@ class HUpwindCoupling(UpwindCoupling):
         self._delta_flux_key = "hybrid_delta_flux"
 
     def get_col_entities(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
-        """Column (domain) entities: each gamma/delta matrix matches its base-key counterpart."""
+        """Domain entities: each gamma/delta matrix matches its base counterpart."""
         extra = {
             "upwind_primary_gamma": GridEntities(cells=1),
             "upwind_secondary_gamma": GridEntities(cells=1),
@@ -1002,7 +1002,7 @@ class HUpwindCoupling(UpwindCoupling):
         return super().get_col_entities(matrix_key, nd)
 
     def get_row_entities(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
-        """Row (codomain) entities: each gamma/delta matrix matches its base-key counterpart."""
+        """Codomain entities: each gamma/delta matrix matches its base counterpart."""
         extra = {
             "upwind_primary_gamma": GridEntities(cells=1),
             "upwind_secondary_gamma": GridEntities(cells=1),
