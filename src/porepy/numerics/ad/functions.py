@@ -26,7 +26,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.forward_mode import AdArray
+from porepy.numerics.ad.ad_array import AdArray
 
 FloatType = TypeVar("FloatType", AdArray, np.ndarray, float)
 

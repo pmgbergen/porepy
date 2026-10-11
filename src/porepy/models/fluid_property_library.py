@@ -34,6 +34,7 @@ from typing import TYPE_CHECKING, Callable, List, Literal, Sequence, Union, cast
 import numpy as np
 
 import porepy as pp
+from porepy.numerics.ad import OperatorSpace
 
 __all__ = [
     "FluidDensityFromPressure",
@@ -69,7 +70,9 @@ class FluidDensityFromPressure(pp.PorePyModel):
 
         """
         return Scalar(
-            self.fluid.reference_component.compressibility, "fluid_compressibility"
+            self.fluid.reference_component.compressibility,
+            "fluid_compressibility",
+            domains=subdomains,
         )
 
     def density_of_phase(self, phase: pp.Phase) -> ExtendedDomainFunctionType:
@@ -93,7 +96,9 @@ class FluidDensityFromPressure(pp.PorePyModel):
 
         def rho(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
             rho_ref = Scalar(
-                self.fluid.reference_component.density, "reference_fluid_density"
+                self.fluid.reference_component.density,
+                "reference_fluid_density",
+                domains=domains,
             )
             rho_ = rho_ref * self.pressure_exponential(cast(list[pp.Grid], domains))
             rho_.set_name("fluid_density")
@@ -116,7 +121,13 @@ class FluidDensityFromPressure(pp.PorePyModel):
             Exponential term in the fluid density as a function of pressure.
 
         """
-        exp = pp.ad.Function(pp.ad.exp, "density_exponential")
+        domain_and_range = OperatorSpace.from_domains(subdomains)
+
+        exp = pp.ad.Function(
+            pp.ad.exp,
+            "density_exponential",
+            source=domain_and_range,
+        )
 
         # Reference variables are defined in a variables class which is assumed to be
         # available by mixin.
@@ -144,7 +155,7 @@ class FluidDensityFromTemperature(pp.PorePyModel):
 
         """
         val = self.fluid.reference_component.thermal_expansion
-        return Scalar(val, "fluid_thermal_expansion")
+        return Scalar(val, "fluid_thermal_expansion", domains=subdomains)
 
     def density_of_phase(self, phase: pp.Phase) -> ExtendedDomainFunctionType:
         """Analogous to :meth:`FluidDensityFromPressure.density_of_phase`, but using
@@ -163,7 +174,9 @@ class FluidDensityFromTemperature(pp.PorePyModel):
 
         def rho(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
             rho_ref = Scalar(
-                self.fluid.reference_component.density, "reference_fluid_density"
+                self.fluid.reference_component.density,
+                "reference_fluid_density",
+                domains=domains,
             )
             rho_ = rho_ref * self.temperature_exponential(cast(list[pp.Grid], domains))
             rho_.set_name("fluid_density")
@@ -186,7 +199,12 @@ class FluidDensityFromTemperature(pp.PorePyModel):
             Exponential term in the fluid density as a function of pressure.
 
         """
-        exp = pp.ad.Function(pp.ad.exp, "density_exponential")
+        domain_and_range = OperatorSpace.from_domains(subdomains)
+        exp = pp.ad.Function(
+            pp.ad.exp,
+            "density_exponential",
+            source=domain_and_range,
+        )
 
         # Reference variables are defined in a variables class which is assumed to be
         # available by mixin.
@@ -218,7 +236,9 @@ class FluidDensityFromPressureAndTemperature(
 
         def rho(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
             rho_ref = Scalar(
-                self.fluid.reference_component.density, "reference_fluid_density"
+                self.fluid.reference_component.density,
+                "reference_fluid_density",
+                domains=domains,
             )
 
             rho_ = (
@@ -483,39 +503,59 @@ class FluidMobility(pp.PorePyModel):
 
 
 def _phase_density_weight(z: pp.ad.AdArray) -> pp.ad.AdArray:
-    """Phase density weight ``m = 1/2(1 + sgn(z)) in {0, 1/2, 1}`` (Heaviside at 1/2): zero
-    Jacobian, and ``z`` is a product of density differences, so no ``rho_a - rho_b`` division.
+    """Phase density weight ``m = 1/2(1 + sgn(z)) in {0, 1/2, 1}`` (Heaviside at 1/2):
+    zero Jacobian, and ``z`` is a product of density differences, so no
+    ``rho_a - rho_b`` division.
     """
     return pp.ad.heaviside(0.5, z)
 
 
 class FluidBuoyancy(pp.PorePyModel):
-    """
-    Buoyancy terms and discretizations for multiphase, multicomponent flow.
+    """Buoyancy terms and discretizations for multiphase, multicomponent flow.
 
-    The buoyancy fluxes use hybrid upwinding (HU): the viscous and buoyant parts of
-    the phase fluxes are upwinded separately, as introduced by Lee, Efendiev &
-    Tchelepi (2015), "Hybrid upwind discretization of nonlinear two-phase flow with
-    gravity" (Adv. Water Resour., 82, 27-38). For the two-phase immiscible setting
-    with ``params['fractional_flow'] = False``, this implementation is exactly that
-    scheme. The extension to an arbitrary number of phases and the analysis of the
-    fully-implicit scheme follow Hamon & Tchelepi (2016), "Analysis of hybrid
-    upwinding for fully-implicit simulation of three-phase flow with gravity"
-    (SIAM J. Numer. Anal., 54(3), 1682-1712), and Hamon, Mallison & Tchelepi (2016),
-    "Implicit Hybrid Upwind scheme for coupled multiphase flow and transport with
-    buoyancy" (Comput. Methods Appl. Mech. Engrg., 311, 599-624).
+    The buoyancy fluxes use hybrid upwinding (HU): viscous and buoyant parts are
+    upwinded separately. For a phase pair (``γ``, ``δ``) the buoyancy operator is
 
-    A distinctive feature of this implementation is the consistent treatment of the
-    gravity term in the flux discretization, following Starnoni, Berre, Keilegavlen
-    & Nordbotten (2019), "Consistent MPFA Discretization for Flow in the Presence of
-    Gravity" (Water Resour. Res., 55(12), 10105-10118). This consistency is a key
-    component in extending the framework to thermal multiphase, multicomponent
-    systems, alongside the mixed-dimensional and fractional-flow forms of the
-    equations.
+        ``G_γδ = (pair mobility) · weightflux(ρ_δ − ρ_γ)``,
+
+    assembled in either terminology, selected by ``params['fractional_flow']``:
+
+    - Fractional-flow: ``f_γ f_δ λ``, with ``f_k = λ_k / λ`` and ``λ`` the total
+      mobility, merged into the permeability as a nonlinear diffusion tensor. Simpler,
+      since only the fractional flows ``f_γ``, ``f_δ`` are upwinded and the total
+      mobility ``λ`` is not, at the cost of re-discretizing the MPFA.
+    - Mobility-product: ``λ_γ λ_δ / λ``, upwinded in this form, the HU kernel of Lee,
+      Efendiev & Tchelepi (2015), "Hybrid upwind discretization of nonlinear two-phase
+      flow with gravity" (Adv. Water Resour., 82, 27-38). Needs no re-discretization of
+      the MPFA; for two immiscible phases it is exactly that scheme.
+
+    The mobility-product form must upwind the total mobility ``λ`` in the denominator.
+    This is defined only for the active pair ``γ``, ``δ`` (upwinded along
+    ``±weightflux(ρ_γ − ρ_δ)``); each remaining passive phase ``e`` gets a density
+    weight ``m_e = 1/2(1 + sgn[(ρ_γ − ρ_δ)(2 ρ_e − ρ_γ − ρ_δ)]) in {0, 1/2, 1}``. A
+    fraction ``m_e`` of its mobility joins the ``γ`` side and ``1 - m_e`` the ``δ``
+    side, each upwinded once: ``m_e = 1`` assigns ``e`` to ``γ``, ``0`` to ``δ``, and
+    ``1/2`` splits it evenly when ``ρ_e = (ρ_γ + ρ_δ)/2``.
+
+    The three-phase IHU (implicit hybrid upwinding) of Hamon & Tchelepi (2016),
+    "Analysis of hybrid upwinding for fully-implicit simulation of three-phase flow
+    with gravity" (SIAM J. Numer. Anal., 54(3), 1682-1712), ranks the phases by
+    density; once the densities ``ρ_k = ρ_k(θ)`` depend on the thermodynamic state
+    ``θ``, the direct extension of IHU to thermal compositional flow is ill-defined.
+    The passive-phase concept, realized through the density weights ``m_e``, is designed
+    to require no phase ordering and to reuse PorePy's verified first-order upwinding;
+    it extends HU to arbitrary ``N`` and is proven monotone, conservative, and
+    reciprocal, so the extension to thermal compositional flow is straightforward in
+    the supported construction. The gravity term is discretized consistently following
+    Starnoni, Berre, Keilegavlen &
+    Nordbotten (2019), "Consistent MPFA Discretization for Flow in the Presence of
+    Gravity" (Water Resour. Res., 55(12), 10105-10118). Together these make this HU
+    implementation unique and production-ready for truly multiphase thermal
+    compositional flow.
 
     Mass, component mass, and energy conservation are tested in
-    ``test_buoyancy_flow.py``, and a benchmark against an analytical buoyancy
-    solution is provided in ``test_buoyancy_flow_benchmark.py``.
+    ``test_buoyancy_flow.py``, and a benchmark against an analytical buoyancy solution
+    is provided in ``test_buoyancy_flow_benchmark.py``.
     """
 
     component_mass_mobility: Callable[
@@ -643,7 +683,7 @@ class FluidBuoyancy(pp.PorePyModel):
         """
         g_constant = pp.GRAVITY_ACCELERATION
         val = self.units.convert_units(g_constant, "m*s^-2")
-        gravity_field = pp.ad.Scalar(val)
+        gravity_field = pp.ad.Scalar(val, domains=subdomains)
         gravity_field.set_name("gravity_field")
         return gravity_field
 
@@ -689,7 +729,12 @@ class FluidBuoyancy(pp.PorePyModel):
             fractionally_weighted_rho = self.fractionally_weighted_density(
                 subdomains_list
             )
-            e_n = self.e_i(subdomains, i=self.nd - 1, dim=self.nd)
+            e_n = self.e_i(
+                subdomains_list,
+                i=self.nd - 1,
+                dim=self.nd,
+                domain_type=pp.ad.DomainType.subdomains,
+            )
             overall_gravity_flux = (
                 pp.ad.Scalar(-1)
                 * e_n
@@ -727,7 +772,12 @@ class FluidBuoyancy(pp.PorePyModel):
             raise TypeError("density_driven_flux expects only subdomain grids.")
         subdomains_list = cast(list[pp.Grid], list(subdomains))
 
-        e_n = self.e_i(subdomains_list, i=self.nd - 1, dim=self.nd)
+        e_n = self.e_i(
+            subdomains_list,
+            i=self.nd - 1,
+            dim=self.nd,
+            domain_type=pp.ad.DomainType.subdomains,
+        )
         gravity_flux = (
             pp.ad.Scalar(-1)
             * e_n
@@ -766,7 +816,12 @@ class FluidBuoyancy(pp.PorePyModel):
             self.mdg, subdomain_neighbors, interfaces, dim=self.nd
         )
 
-        e_n = self.e_i(subdomain_neighbors, i=self.nd - 1, dim=self.nd)
+        e_n = self.e_i(
+            subdomain_neighbors,
+            i=self.nd - 1,
+            dim=self.nd,
+            domain_type=pp.ad.DomainType.subdomains,
+        )
         gravity_flux = (
             pp.ad.Scalar(-1)
             * e_n
@@ -777,7 +832,12 @@ class FluidBuoyancy(pp.PorePyModel):
 
         normals_times_source = normals * intf_vector_source
         nd_to_scalar_sum = pp.ad.sum_projection_list(
-            [e.T for e in self.basis(interfaces, dim=self.nd)]
+            [
+                e.T
+                for e in self.basis(
+                    interfaces, dim=self.nd, domain_type=pp.ad.DomainType.interfaces
+                )
+            ]
         )
         w_flux = self.volume_integral(
             self.normal_permeability(interfaces)
@@ -831,18 +891,19 @@ class FluidBuoyancy(pp.PorePyModel):
     ) -> tuple[pp.ad.Operator | None, pp.ad.Operator | None]:
         r"""Passive-phase background mass mobility, split by the phase density weights.
 
-        For every phase :math:`e` outside the active pair (:math:`\gamma`, :math:`\delta`) the
-        density weight
+        For every phase :math:`e` outside the active pair (:math:`\gamma`,
+        :math:`\delta`) the density weight
 
         .. math::
 
             m_e = \tfrac12\bigl(1 + \operatorname{sgn}\bigl[(\rho_\gamma - \rho_\delta)
-                  (2\rho_e - \rho_\gamma - \rho_\delta)\bigr]\bigr) \in \{0, \tfrac12, 1\}
+            (2\rho_e - \rho_\gamma - \rho_\delta)\bigr]\bigr) \in \{0, \tfrac12, 1\}
 
-        assigns :math:`e` to the side of the pair member it is closer to on the density line
-        (:math:`\tfrac12` exactly on the arithmetic-mean separator). The weight is built with
-        :func:`_phase_density_weight` (Heaviside, zero Jacobian; ``z`` is only a product of density
-        differences, so no :math:`\rho_\gamma - \rho_\delta` division). Returns the two summed
+        assigns :math:`e` to the side of the pair member it is closer to on the density
+        line (:math:`\tfrac12` exactly on the arithmetic-mean separator). The weight is
+        built with :func:`_phase_density_weight` (Heaviside, zero Jacobian; ``z`` is
+        only a product of density differences, so no :math:`\rho_\gamma - \rho_\delta`
+        division). Returns the two summed
         cell quantities
 
         .. math::
@@ -852,8 +913,9 @@ class FluidBuoyancy(pp.PorePyModel):
 
         returned as ``(bg_co_gamma, bg_co_delta)``: the background that multiplies the
         pair's :math:`\gamma` upwind (``upwind_gamma``) and the one that multiplies its
-        :math:`\delta` upwind (``upwind_delta``), folded in before the single upwind per side (so
-        the pair members and the background phases share one upwind per side, not two).
+        :math:`\delta` upwind (``upwind_delta``), folded in before the single upwind per
+        side (so the pair members and the background phases share one upwind per side,
+        not two).
         ``(None, None)`` when there are no passive phases (two-phase systems).
         """
         phases = list(self.fluid.phases)
@@ -863,7 +925,11 @@ class FluidBuoyancy(pp.PorePyModel):
         rho_gamma = gamma.density(domains)
         rho_delta = delta.density(domains)
         d_gamma_delta = rho_gamma - rho_delta
-        weight = pp.ad.Function(_phase_density_weight, "phase_density_weight")
+        weight = pp.ad.Function(
+            _phase_density_weight,
+            "phase_density_weight",
+            source=OperatorSpace.from_domains(domains),
+        )
         co_gamma_terms: list[pp.ad.Operator] = []
         co_delta_terms: list[pp.ad.Operator] = []
         for e in passive:
@@ -895,9 +961,9 @@ class FluidBuoyancy(pp.PorePyModel):
         r"""Total mass mobility upwinded onto the interface for the (gamma, delta) pair.
 
         Each passive phase is split between the two inter-phase directions by its phase
-        density weight (see :meth:`_passive_background_split`) before being projected onto the
-        mortar, so the two inter-phase directions carry the background. Flux and jump share
-        this expression, which keeps the mortar coupling conservative.
+        density weight (see :meth:`_passive_background_split`) before being projected
+        onto the mortar, so the two inter-phase directions carry the background. Flux
+        and jump share this expression, which keeps the mortar coupling conservative.
 
         Parameters:
             gamma: The first (reference) phase of the pair.
@@ -928,12 +994,10 @@ class FluidBuoyancy(pp.PorePyModel):
         l_gamma = self._phase_mass_mobility(gamma, domains)
         l_delta = self._phase_mass_mobility(delta, domains)
 
-        # Background: split each passive phase between the two sides by its density weight BEFORE
-        # projecting to the mortar, so the two inter-phase directions carry it -- 2 to_interface
-        # calls (lam_co_gamma / lam_co_delta) instead of 4.
-        bg_co_gamma, bg_co_delta = self._passive_background_split(
-            gamma, delta, domains
-        )
+        # Background: split each passive phase between the sides by its density weight
+        # BEFORE projecting to the mortar, so the two inter-phase directions carry it --
+        # 2 to_interface calls (lam_co_gamma / lam_co_delta) instead of 4.
+        bg_co_gamma, bg_co_delta = self._passive_background_split(gamma, delta, domains)
         lam_co_gamma = l_gamma if bg_co_gamma is None else l_gamma + bg_co_gamma
         lam_co_delta = l_delta if bg_co_delta is None else l_delta + bg_co_delta
         co_gamma_interface = to_interface(
@@ -1014,28 +1078,28 @@ class FluidBuoyancy(pp.PorePyModel):
             l_gamma = self._phase_mass_mobility(gamma, domains)
             l_delta = self._phase_mass_mobility(delta, domains)
             l_delta_upwind = discr.upwind_delta() @ (l_delta)
-            # Background: each passive phase e gets a density weight m_e in {0, 1/2, 1}. A weight
-            # of 1 (resp. 0) groups it with the pair member it advects co-current with, gamma
-            # (resp. delta), and folds it into that side BEFORE the upwind, so the pair's own two
-            # upwinds carry it:
-            #   lambda_upwind = U_gamma(l_gamma + bg_co_gamma) + U_delta(l_delta + bg_co_delta).
-            # The exact 1/2 at a tie (a phase on the pair's density separator) is what makes the
-            # scheme reduction-consistent when two densities coincide. Reuse l_delta_upwind on the
-            # delta side (the numerator shares it).
+            # Background: each passive phase e gets a density weight m_e in {0, 1/2, 1}.
+            # A weight of 1 (resp. 0) groups it with the pair member it advects
+            # co-current with, gamma (resp. delta), and folds it into that side BEFORE
+            # the upwind, so the pair's own two upwinds carry it:
+            #   lambda_upwind = U_gamma(l_gamma + bg_co_gamma)
+            #                 + U_delta(l_delta + bg_co_delta).
+            # The exact 1/2 at a tie (a phase on the pair's density separator) is what
+            # makes the scheme reduction-consistent when two densities coincide. Reuse
+            # l_delta_upwind on the delta side (the numerator shares it).
             bg_co_gamma, bg_co_delta = self._passive_background_split(
                 gamma, delta, domains
             )
-            lam_co_gamma = (
-                l_gamma if bg_co_gamma is None else l_gamma + bg_co_gamma
-            )
+            lam_co_gamma = l_gamma if bg_co_gamma is None else l_gamma + bg_co_gamma
             gamma_side = discr.upwind_gamma() @ (lam_co_gamma)
             delta_side = (
                 l_delta_upwind
                 if bg_co_delta is None
                 else l_delta_upwind + discr.upwind_delta() @ (bg_co_delta)
             )
-            # Floor keeps lambda_upwind (the mobility-product kernel's denominator) strictly
-            # positive at fully-segregated faces where every mobility on both sides vanishes.
+            # Floor keeps lambda_upwind (the mobility-product kernel's denominator)
+            # strictly positive at fully-segregated faces where every mobility on both
+            # sides vanishes.
             lambda_upwind = gamma_side + delta_side + pp.ad.Scalar(1.0e-15)
         return w_flux_gamma_delta, f_delta_upwind, lambda_upwind, l_delta_upwind
 
@@ -1151,7 +1215,7 @@ class FluidBuoyancy(pp.PorePyModel):
         b_flux_jumps: List[pp.ad.Operator] = []
         size = sum(g.num_cells for g in domains)
         zero = pp.wrap_as_dense_ad_array(
-            np.zeros(size), name="component_buoyancy_jump_zero"
+            np.zeros(size), name="component_buoyancy_jump_zero", grids=domains
         )
         b_flux_jumps.append(zero)
 
@@ -1387,7 +1451,7 @@ class FluidBuoyancy(pp.PorePyModel):
 
         size = sum(g.num_cells for g in domains)
         zero = pp.wrap_as_dense_ad_array(
-            np.zeros(size), name="component_buoyancy_jump_zero"
+            np.zeros(size), name="component_buoyancy_jump_zero", grids=domains
         )
         b_fluxes.append(zero)
         for phase in self.fluid.phases:
@@ -1419,7 +1483,7 @@ class FluidBuoyancy(pp.PorePyModel):
         b_fluxes: List[pp.ad.Operator] = []
         size = sum(g.num_cells for g in domains)
         zero = pp.wrap_as_dense_ad_array(
-            np.zeros(size), name="enthalpy_buoyancy_jump_zero"
+            np.zeros(size), name="enthalpy_buoyancy_jump_zero", grids=domains
         )
         b_fluxes.append(zero)
         for phase in self.fluid.phases:
@@ -1593,7 +1657,9 @@ class ConstantViscosity(pp.PorePyModel):
         """
 
         def mu(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-            return Scalar(self.fluid.reference_component.viscosity, "viscosity")
+            return Scalar(
+                self.fluid.reference_component.viscosity, "viscosity", domains=domains
+            )
 
         return mu
 
@@ -1619,6 +1685,7 @@ class ConstantFluidThermalConductivity(pp.PorePyModel):
             return Scalar(
                 self.fluid.reference_component.thermal_conductivity,
                 "fluid_thermal_conductivity",
+                domains=domains,
             )
 
         return kappa
@@ -1641,7 +1708,7 @@ class ConstantFluidThermalConductivity(pp.PorePyModel):
         # NOTE this is not really a fluid-related const. law, it is more related to
         # mixed-dimensional problems.
         val = self.fluid.reference_component.normal_thermal_conductivity
-        return Scalar(val, "normal_thermal_conductivity")
+        return Scalar(val, "normal_thermal_conductivity", domains=interfaces)
 
 
 class FluidEnthalpyFromTemperature(pp.PorePyModel):
@@ -1667,6 +1734,7 @@ class FluidEnthalpyFromTemperature(pp.PorePyModel):
         return Scalar(
             self.fluid.reference_component.specific_heat_capacity,
             "fluid_specific_heat_capacity",
+            domains=subdomains,
         )
 
     def specific_enthalpy_of_phase(self, phase: pp.Phase) -> ExtendedDomainFunctionType:

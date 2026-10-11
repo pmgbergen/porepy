@@ -441,7 +441,11 @@ class EnthalpyBasedEnergyBalanceEquations(
 
         op: pp.ad.Operator | pp.ad.TimeDependentDenseArray
 
-        if is_fractional_flow(self) and all(
+        if len(domains) == 0:
+            op = pp.wrap_as_dense_ad_array(
+                0, size=0, grids=[], name="advected_enthalpy"
+            )
+        elif is_fractional_flow(self) and all(
             [isinstance(g, pp.BoundaryGrid) for g in domains]
         ):
             op = self.create_boundary_operator(
@@ -458,33 +462,59 @@ class EnthalpyBasedEnergyBalanceEquations(
                     for phase in self.fluid.phases
                 ],
             )
-            op.set_name("advected_enthalpy")
         else:
             # If the fractional-flow framework is not used, the weight corresponds to
             # the advected enthalpy and a super call is performed (where the respective
             # term is implemented).
             op = super().advection_weight_energy_balance(domains)
 
+        op.set_name("advected_enthalpy")
         return op
 
     def enthalpy_flux(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        if (
-            len(subdomains) == 0
-            or all(isinstance(d, pp.BoundaryGrid) for d in subdomains)
-        ) and is_fractional_flow(self):
+        """Enthalpy flux, extended to the fractional flow setting and to buoyancy
+        effects.
+
+        If buoyancy effects are enabled (parameter ``'enable_buoyancy_effects'``), the
+        :attr:`enthalpy_buoyancy` is added to the flux on subdomains.
+
+        Parameters:
+            subdomains: List of subdomains or boundary grids.
+
+        Returns:
+            Operator representing the enthalpy flux.
+
+        """
+        if len(subdomains) == 0:
+            return pp.wrap_as_dense_ad_array(0, size=0, grids=[], name="enthalpy_flux")
+
+        on_boundary = all(isinstance(d, pp.BoundaryGrid) for d in subdomains)
+        if on_boundary and is_fractional_flow(self):
             flux = self.advection_weight_energy_balance(subdomains) * self.darcy_flux(
                 subdomains
             )
         else:
             flux = super().enthalpy_flux(subdomains)
-        buoyancy_condition: bool = self.params.get(
-            "enable_buoyancy_effects", False
-        ) and not all([isinstance(g, pp.BoundaryGrid) for g in subdomains])
+        buoyancy_condition: bool = (
+            self.params.get("enable_buoyancy_effects", False) and not on_boundary
+        )
         if buoyancy_condition:
             flux += self.enthalpy_buoyancy(subdomains)
         return flux
 
     def energy_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Energy source term, extended to buoyancy effects.
+
+        If buoyancy effects are enabled (parameter ``'enable_buoyancy_effects'``), the
+        :attr:`enthalpy_buoyancy_jump` is added to the source term of the parent class.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Operator representing the energy source term.
+
+        """
         source = super().energy_source(subdomains)
         buoyancy_condition: bool = self.params.get("enable_buoyancy_effects", False)
         if buoyancy_condition:
@@ -611,7 +641,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         for component in self.fluid.components:
             if self.has_independent_fraction(component):
                 sd_eq = self.component_mass_balance_equation(component, subdomains)
-                self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
+                self.equation_system.set_equation(sd_eq)
 
     def component_mass_balance_equation(
         self, component: pp.Component, subdomains: list[pp.Grid]
@@ -696,7 +726,11 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
 
         op: pp.ad.Operator | pp.ad.TimeDependentDenseArray
 
-        if is_fractional_flow(self) and all(
+        if len(domains) == 0:
+            op = pp.wrap_as_dense_ad_array(
+                0, size=0, grids=[], name="advected_component_mass"
+            )
+        elif is_fractional_flow(self) and all(
             [isinstance(g, pp.BoundaryGrid) for g in domains]
         ):
             op = self.create_boundary_operator(
@@ -733,7 +767,12 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
             returned as an AD operator.
 
         """
-        if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
+        if len(domains) == 0:
+            return pp.wrap_as_dense_ad_array(
+                0, size=0, grids=[], name=f"component_flux_{component.name}"
+            )
+
+        if all(isinstance(d, pp.BoundaryGrid) for d in domains):
             if is_fractional_flow(self):
                 return self.advection_weight_component_mass_balance(
                     component, domains
@@ -1782,6 +1821,13 @@ class SolutionStrategyExtendedFluidMassAndEnergy(
     """
 
     def __init__(self, params: Optional[dict] = None) -> None:
+        """Initialize the solution strategy and set the name of the enthalpy variable
+        and the enthalpy keyword.
+
+        Parameters:
+            params: Model parameters, passed on to the parent class.
+
+        """
         super().__init__(params)
 
         self.enthalpy_variable: str = "enthalpy"

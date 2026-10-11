@@ -470,7 +470,7 @@ def _run_buoyancy_case(
             return phase.saturation(domains) ** 2
 
         def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.TpfaAd:
-            return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
+            return pp.ad.TpfaAd(self.darcy_keyword, subdomains, nd=self.nd)
 
         def fourier_flux_discretization(
             self, subdomains: list[pp.Grid]
@@ -495,7 +495,7 @@ def _run_buoyancy_case(
             g_constant = pp.GRAVITY_ACCELERATION
             val = self.units.convert_units(g_constant, "m*s^-2") * to_Mega
             size = np.sum([g.num_cells for g in subdomains]).astype(int)
-            gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
+            gravity_field = pp.wrap_as_dense_ad_array(val, size=size, grids=subdomains)
             gravity_field.set_name("gravity_field")
             return gravity_field
 
@@ -638,7 +638,9 @@ def _run_buoyancy_case(
 @pytest.mark.skipped  # reason: slow
 @pytest.mark.parametrize("fractional_flow", [True, False])
 @pytest.mark.parametrize("rho_idx, delta_rho, n_steps", _CASES)
-def test_buoyancy_flow_benchmark(
+# EK: This test is too computationally intensive to be run even among the skipped tests.
+# It is kept as an invaluable reference for future changes to the buoyancy model.
+def slow_test_buoyancy_flow_benchmark(
     rho_idx, delta_rho, n_steps, fractional_flow, saturation_at_5_days
 ):
     """Run one density contrast for one formulation (hybrid upwinding).

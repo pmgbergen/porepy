@@ -14,7 +14,7 @@ import scipy.sparse as sps
 
 from porepy.applications.test_utils.arrays import compare_arrays, compare_matrices
 from porepy.numerics.ad import functions as af
-from porepy.numerics.ad.forward_mode import AdArray, initAdArrays
+from porepy.numerics.ad.ad_array import AdArray, initAdArrays
 
 
 @pytest.fixture(params=[sps.csc_matrix, sps.csc_array])

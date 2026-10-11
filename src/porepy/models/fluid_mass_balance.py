@@ -140,9 +140,9 @@ class FluidMassBalanceEquations(pp.BalanceEquation):
         sd_eq = self.mass_balance_equation(subdomains)
         intf_eq = self.interface_darcy_flux_equation(codim_1_interfaces)
         well_eq = self.well_flux_equation(codim_2_interfaces)
-        self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
-        self.equation_system.set_equation(intf_eq, codim_1_interfaces, {"cells": 1})
-        self.equation_system.set_equation(well_eq, codim_2_interfaces, {"cells": 1})
+        self.equation_system.set_equation(sd_eq)
+        self.equation_system.set_equation(intf_eq)
+        self.equation_system.set_equation(well_eq)
 
     def mass_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Mass balance equation for subdomains.
@@ -228,10 +228,10 @@ class FluidMassBalanceEquations(pp.BalanceEquation):
             Operator representing the fluid flux.
 
         """
-        if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
-            # Note: in case of the empty subdomain list, the time dependent array is
-            # still returned. Otherwise, this method produces an infinite recursion
-            # loop. It does not affect real computations anyhow.
+        if len(domains) == 0:
+            return pp.wrap_as_dense_ad_array(0, size=0, grids=[], name="fluid_flux")
+
+        if all(isinstance(d, pp.BoundaryGrid) for d in domains):
             return self.create_boundary_operator(
                 name=self.bc_data_fluid_flux_key,
                 domains=cast(Sequence[pp.BoundaryGrid], domains),

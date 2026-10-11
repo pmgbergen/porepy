@@ -157,10 +157,10 @@ class TotalEnergyBalanceEquations(pp.BalanceEquation):
         intf_adv = self.interface_enthalpy_flux_equation(codim_1_interfaces)
         well_eq = self.well_enthalpy_flux_equation(codim_2_interfaces)
 
-        self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
-        self.equation_system.set_equation(intf_cond, codim_1_interfaces, {"cells": 1})
-        self.equation_system.set_equation(intf_adv, codim_1_interfaces, {"cells": 1})
-        self.equation_system.set_equation(well_eq, codim_2_interfaces, {"cells": 1})
+        self.equation_system.set_equation(sd_eq)
+        self.equation_system.set_equation(intf_cond)
+        self.equation_system.set_equation(intf_adv)
+        self.equation_system.set_equation(well_eq)
 
     def energy_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Energy balance equation for subdomains.
@@ -289,7 +289,7 @@ class TotalEnergyBalanceEquations(pp.BalanceEquation):
         )
         return op
 
-    def enthalpy_flux(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+    def enthalpy_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Enthalpy flux.
 
         Note:
@@ -302,7 +302,7 @@ class TotalEnergyBalanceEquations(pp.BalanceEquation):
             the upstream value of it is on the boundary.
 
         Parameters:
-            subdomains: List of subdomains or boundary grids.
+            domains: List of subdomains or boundary grids.
 
         Raises:
             ValueError: If the domains are not all grids or all boundary grids.
@@ -311,23 +311,23 @@ class TotalEnergyBalanceEquations(pp.BalanceEquation):
             Operator representing the enthalpy flux.
 
         """
+        if len(domains) == 0:
+            return pp.wrap_as_dense_ad_array(0, size=0, grids=[], name="enthalpy_flux")
 
-        if len(subdomains) == 0 or all(
-            [isinstance(g, pp.BoundaryGrid) for g in subdomains]
-        ):
+        if all([isinstance(g, pp.BoundaryGrid) for g in domains]):
             return self.create_boundary_operator(
                 name=self.bc_data_enthalpy_flux_key,
-                domains=cast(Sequence[pp.BoundaryGrid], subdomains),
+                domains=cast(Sequence[pp.BoundaryGrid], domains),
             )
         # Check that the domains are grids.
-        if not all([isinstance(g, pp.Grid) for g in subdomains]):
+        if not all([isinstance(g, pp.Grid) for g in domains]):
             raise ValueError(
                 """Argument domains a mixture of grids and
                                 boundary grids"""
             )
         # By now we know that subdomains is a list of grids, so we can cast it as such
         # (in the typing sense).
-        subdomains = cast(list[pp.Grid], subdomains)
+        subdomains = cast(list[pp.Grid], domains)
 
         boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
             subdomains=subdomains,

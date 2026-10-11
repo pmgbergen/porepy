@@ -483,16 +483,18 @@ class NullMeanPressureLinearSolver(SchurEliminationDirectSolver):
         return x[:n]  # drop the Lagrange multiplier
 
 
-class NullSpaceDriftCriterion(pp.solvers.ConvergenceCriterion):
-    """Converge the dt-scaled total-mass drift of the residual.
+class NullSpaceCriterion(pp.solvers.ConvergenceCriterion):
+    """Converge the null-mean-pressure residual r_nm = |Σ_c r_c| · Δt / V.
 
-    The summed mass residual is a null-space component the linear solve cannot reduce,
-    and it is a rate: scaled by ``dt`` it is what the conservation checks accumulate.
-    Once Newton stagnates the drift is frozen, so the criterion stops objecting and
-    leaves the verdict to the test's assertion.
+    r_c is the per-cell mass-balance residual (a rate) and Σ_c projects onto the
+    constant mode -- the pressure null space of the closed Neumann problem, which the
+    gauge-fixed solve cannot reduce. The Δt converts the rate into the per-step mass
+    change the conservation checks accumulate; V (total volume) normalizes. Once Newton
+    stagnates r_nm freezes, so the criterion stops objecting and defers to the test's
+    assertion.
     """
 
-    #: Consecutive checks with relative drift change below this are considered frozen.
+    #: Consecutive checks with relative residual change below this count as frozen.
     _stagnation_rtol: float = 1.0e-3
     _stagnation_checks: int = 3
 
@@ -521,22 +523,23 @@ class NullSpaceDriftCriterion(pp.solvers.ConvergenceCriterion):
                 for sd in model.mdg.subdomains()
             )
         total_volume = self._total_volume
-        drift = float(
+        null_mean_res = float(
             abs(np.sum(np.asarray(residual, dtype=float)[rows]))
             * model.time_manager.dt
             / total_volume
         )
-        self._history.append(drift)
-        if drift <= self.tol:
-            return pp.solvers.ConvergenceStatus.CONVERGED, drift
-        # Stagnation escape: the drift has frozen (quadratic basin) and cannot improve.
+        self._history.append(null_mean_res)
+        if null_mean_res <= self.tol:
+            return pp.solvers.ConvergenceStatus.CONVERGED, null_mean_res
+        # Stagnation escape: the null-mean-pressure residual has frozen (quadratic
+        # basin) and cannot improve.
         recent = self._history[-self._stagnation_checks :]
         if len(recent) == self._stagnation_checks and all(
             abs(a - b) <= self._stagnation_rtol * max(abs(b), 1e-300)
             for a, b in zip(recent[:-1], recent[1:])
         ):
-            return pp.solvers.ConvergenceStatus.CONVERGED, drift
-        return pp.solvers.ConvergenceStatus.CONTINUE_ITERATING, drift
+            return pp.solvers.ConvergenceStatus.CONVERGED, null_mean_res
+        return pp.solvers.ConvergenceStatus.CONTINUE_ITERATING, null_mean_res
 
 
 class SecondaryEquations(LocalElimination):
@@ -832,9 +835,10 @@ class BaseFlowModel(FullIterateCacheMixin):
         per phase count."""
         raise NotImplementedError
 
-    def null_space_mass_drift(self) -> float:
-        """The dt-scaled, volume-normalized total-mass drift of the current
-        residual: what the conservation checks accumulate per accepted step.
+    def null_mean_pressure_residual(self) -> float:
+        """The dt-scaled, volume-normalized summed-mass residual -- the residual's
+        component along the pressure null space: what the conservation checks accumulate
+        per accepted step.
         """
         eq = self.equation_system.equations["mass_balance_equation"]
         r = np.asarray(self.equation_system.evaluate(eq), dtype=float)
@@ -866,19 +870,21 @@ class BaseFlowModel(FullIterateCacheMixin):
         )
 
     def assert_null_space_residual_converged(self) -> None:
-        """The total-mass drift of the converged state must be within the per-step
-        conservation budget; if not, the convergence criteria need
-        :class:`NullSpaceDriftCriterion`.
+        """The null-mean-pressure residual of the converged state must be within the
+        per-step conservation budget; if not, the convergence criteria need
+        :class:`NullSpaceCriterion`.
         """
-        drift = self.null_space_mass_drift()
+        null_mean_res = self.null_mean_pressure_residual()
         # The per-step conservation budget (what the conservation assertions need of
         # each accepted state); falls back to the Newton tolerance if not provided.
         tol = float(
-            self.params.get("drift_tolerance", self.params["residual_tolerance"])
+            self.params.get(
+                "null_mean_res_tolerance", self.params["residual_tolerance"]
+            )
         )
-        assert drift <= tol, (
-            f"total-mass drift of the converged state: {drift:.6e} > tol = {tol:.1e}; "
-            "add NullSpaceDriftCriterion to the convergence criteria."
+        assert null_mean_res <= tol, (
+            f"null-mean-pressure residual of the converged state: {null_mean_res:.6e} "
+            f"> tol = {tol:.1e}; add NullSpaceCriterion to the convergence criteria."
         )
 
     def assert_reference_matches_state(self, tol: float | None = None) -> None:
@@ -956,7 +962,7 @@ class BaseFlowModel(FullIterateCacheMixin):
         g_constant = pp.GRAVITY_ACCELERATION
         val = self.units.convert_units(g_constant, "m*s^-2") * to_Mega
         size = np.sum([g.num_cells for g in subdomains]).astype(int)
-        gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
+        gravity_field = pp.wrap_as_dense_ad_array(val, size=size, grids=subdomains)
         gravity_field.set_name("gravity_field")
         return gravity_field
 
@@ -1134,8 +1140,8 @@ class FlowModel2N(
 ):
     def after_nonlinear_convergence(self) -> None:
         """Post-convergence diagnostics."""
-        # Measure the gauge and the drift before super() shifts the time-step
-        # solutions; afterwards the accumulation term is zero.
+        # Measure the gauge and the null-mean-pressure residual before super() shifts
+        # the time-step solutions; afterwards the accumulation term is zero.
         self.assert_pressure_null_mean_converged()
         self.assert_null_space_residual_converged()
         super().after_nonlinear_convergence()
@@ -1172,7 +1178,7 @@ class FlowModel2N(
         total_volume = sum(
             np.sum(
                 self.equation_system.evaluate(
-                    self.volume_integral(pp.ad.Scalar(1), [sd], dim=1)
+                    self.volume_integral(pp.ad.Scalar(1, domains=[sd]), [sd], dim=1)
                 )
             )
             for sd in subdomains
@@ -1196,20 +1202,20 @@ class FlowModel2N(
             rho_g = phases[1].density([sd])
 
             ic_rho = (
-                pp.wrap_as_dense_ad_array(1.0 - ic_sg) * rho_l
-                + pp.wrap_as_dense_ad_array(ic_sg) * rho_g
+                pp.wrap_as_dense_ad_array(1.0 - ic_sg, grids=[sd]) * rho_l
+                + pp.wrap_as_dense_ad_array(ic_sg, grids=[sd]) * rho_g
             )
             ref_rho += norm_vol_int(ic_rho, sd)
 
             ic_z = self.ic_values_overall_fraction(components[1], sd)
-            ic_rho_z = ic_rho * pp.wrap_as_dense_ad_array(ic_z)
+            ic_rho_z = ic_rho * pp.wrap_as_dense_ad_array(ic_z, grids=[sd])
             ref_rho_z += norm_vol_int(ic_rho_z, sd)
 
             ic_p = self.ic_values_pressure(sd)
             ic_h = self.ic_values_enthalpy(sd)
             ic_energy = ic_rho * pp.wrap_as_dense_ad_array(
-                ic_h
-            ) - pp.wrap_as_dense_ad_array(ic_p)
+                ic_h, grids=[sd]
+            ) - pp.wrap_as_dense_ad_array(ic_p, grids=[sd])
             ref_energy += norm_vol_int(ic_energy, sd)
 
             cur_rho = self.fluid.density([sd])
@@ -1575,8 +1581,8 @@ class FlowModel3N(
 ):
     def after_nonlinear_convergence(self) -> None:
         """Post-convergence diagnostics."""
-        # Measure the gauge and the drift before super() shifts the time-step
-        # solutions; afterwards the accumulation term is zero.
+        # Measure the gauge and the null-mean-pressure residual before super() shifts
+        # the time-step solutions; afterwards the accumulation term is zero.
         self.assert_pressure_null_mean_converged()
         self.assert_null_space_residual_converged()
         super().after_nonlinear_convergence()
@@ -1600,7 +1606,7 @@ class FlowModel3N(
         # Total volume for normalization
         total_volume = 0.0
         for sd in self.mdg.subdomains():
-            vol_op = self.volume_integral(pp.ad.Scalar(1), [sd], dim=1)
+            vol_op = self.volume_integral(pp.ad.Scalar(1, domains=[sd]), [sd], dim=1)
             total_volume += np.sum(self.equation_system.evaluate(vol_op))
 
         # Reference (initial) and numerical integrals
@@ -1629,9 +1635,9 @@ class FlowModel3N(
 
             # Initial mixture density (AD)
             ic_rho = (
-                pp.wrap_as_dense_ad_array(ic_sw) * rho_w
-                + pp.wrap_as_dense_ad_array(ic_so) * rho_o
-                + pp.wrap_as_dense_ad_array(ic_sg) * rho_g
+                pp.wrap_as_dense_ad_array(ic_sw, grids=[sd]) * rho_w
+                + pp.wrap_as_dense_ad_array(ic_so, grids=[sd]) * rho_o
+                + pp.wrap_as_dense_ad_array(ic_sg, grids=[sd]) * rho_g
             )
 
             # Initial overall fractions for non-reference components
@@ -1652,7 +1658,9 @@ class FlowModel3N(
                 np.sum(
                     self.equation_system.evaluate(
                         self.volume_integral(
-                            ic_rho * pp.wrap_as_dense_ad_array(ic_z_c1), [sd], dim=1
+                            ic_rho * pp.wrap_as_dense_ad_array(ic_z_c1, grids=[sd]),
+                            [sd],
+                            dim=1,
                         )
                     )
                 )
@@ -1662,7 +1670,9 @@ class FlowModel3N(
                 np.sum(
                     self.equation_system.evaluate(
                         self.volume_integral(
-                            ic_rho * pp.wrap_as_dense_ad_array(ic_z_c2), [sd], dim=1
+                            ic_rho * pp.wrap_as_dense_ad_array(ic_z_c2, grids=[sd]),
+                            [sd],
+                            dim=1,
                         )
                     )
                 )
@@ -1673,8 +1683,8 @@ class FlowModel3N(
             ic_p = self.ic_values_pressure(sd)
             ic_h = self.ic_values_enthalpy(sd)
             ic_energy = ic_rho * pp.wrap_as_dense_ad_array(
-                ic_h
-            ) - pp.wrap_as_dense_ad_array(ic_p)
+                ic_h, grids=[sd]
+            ) - pp.wrap_as_dense_ad_array(ic_p, grids=[sd])
             ref_energy_integral += (
                 np.sum(
                     self.equation_system.evaluate(

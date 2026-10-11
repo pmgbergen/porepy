@@ -6,6 +6,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.ad.grid_entity import GridEntities
 from porepy.numerics.discretization import Discretization, InterfaceDiscretization
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
@@ -16,10 +17,11 @@ def _fixed_diag(vec: np.ndarray) -> sps.csr_matrix:
     Unlike ``sps.diags``, the sparsity pattern does not change when the flow
     direction flips, so downstream structure caches stay valid.
 
-    The diagonal CSR structure (``indices = arange(n)``, ``indptr = arange(n+1)``) is known-valid, so
-    the matrix is assembled directly and scipy's per-construction validation (``get_index_dtype`` /
-    ``check_format`` / ``prune``) is skipped. This is a hot inner-loop constructor in the upwind
-    discretization (called ~n_grids x n_equations times per re-discretization).
+    The diagonal CSR structure (``indices = arange(n)``, ``indptr = arange(n+1)``) is
+    known-valid, so the matrix is assembled directly and scipy's per-construction
+    validation (``get_index_dtype`` / ``check_format`` / ``prune``) is skipped. This
+    is a hot inner-loop constructor in the upwind discretization (called
+    ~n_grids x n_equations times per re-discretization).
     """
     n = int(vec.size)
     m = sps.csr_matrix((n, n))
@@ -84,6 +86,53 @@ class Upwind(Discretization):
 
         """
         return sd.num_cells
+
+    def get_row_entities(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
+        """Return the grid entities occupying the rows of the named Upwind matrix.
+
+        Parameters:
+            matrix_key: Attribute-name fragment (e.g. ``"upwind"``).
+            nd: Spatial dimension.
+
+        Raises:
+            ValueError: If the matrix_key is not recognized by this discretization.
+
+        Returns:
+            A :class:`~porepy.numerics.ad.GridEntities` with the number of matrix
+            rows per entity.
+
+        """
+        recognised = {"upwind", "bound_transport_dir", "bound_transport_neu"}
+        if matrix_key in recognised:
+            return GridEntities(faces=1)
+        raise ValueError(
+            f"Unrecognized matrix key '{matrix_key}' for Upwind discretization."
+        )
+
+    def get_col_entities(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
+        """Return the grid entities occupying the columns of the named Upwind matrix.
+
+        Parameters:
+            matrix_key: Attribute-name fragment (e.g. ``"upwind"``).
+            nd: Spatial dimension.
+
+        Raises:
+            ValueError: If the matrix_key is not recognized by this discretization.
+
+        Returns:
+            A :class:`~porepy.numerics.ad.GridEntities` with the DOFs per entity.
+
+        """
+        mapping: dict[str, pp.ad.GridEntities] = {
+            "upwind": GridEntities(cells=1),
+            "bound_transport_dir": GridEntities(faces=1),
+            "bound_transport_neu": GridEntities(faces=1),
+        }
+        if matrix_key in mapping:
+            return mapping[matrix_key]
+        raise ValueError(
+            f"Unrecognized matrix key '{matrix_key}' for Upwind discretization."
+        )
 
     def assemble_matrix_rhs(
         self, sd: pp.Grid, data: dict
@@ -257,13 +306,14 @@ class Upwind(Discretization):
             # consistent handling of sinking phases.
             bc = pp.BoundaryCondition(sd, sd.get_boundary_faces(), "dir")
 
-        # Single-point upstream weighting via the shared, structure-caching helper (the same
-        # extraction used by HUpwind). The upwind sparsity pattern is flow-independent (the
-        # helper keeps both neighbour entries per face -- weight 1 upstream, explicit 0
-        # downstream -- so the product is unchanged), which lets re-discretization on a fixed
-        # mesh rewrite only the matrix data instead of rebuilding CSRs. This is the dominant
-        # cost when the upwind runs per subdomain on every nonlinear iteration. Bit-identical
-        # values to the explicit build; the pattern carries extra structural zeros.
+        # Single-point upstream weighting via the shared, structure-caching helper (the
+        # same extraction used by HUpwind). The upwind sparsity pattern is
+        # flow-independent (the helper keeps both neighbour entries per face -- weight 1
+        # upstream, explicit 0 downstream -- so the product is unchanged), which lets
+        # re-discretization on a fixed mesh rewrite only the matrix data instead of
+        # rebuilding CSRs. This is the dominant cost when the upwind runs per subdomain
+        # on every nonlinear iteration. Bit-identical values to the explicit build; the
+        # pattern carries extra structural zeros.
         cache = data.setdefault("_upwind_fast_cache", {}).setdefault(self.keyword, {})
         upwind, bound_dir, bound_neu = _single_point_upwind_matrices(
             sd,
@@ -366,6 +416,67 @@ class UpwindCoupling(InterfaceDiscretization):
     def ndof(self, intf: pp.MortarGrid) -> int:
         return intf.num_cells
 
+    def get_row_entities(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
+        """UpwindCoupling matrices have one row per cell.
+
+        Parameters:
+            matrix_key: Attribute-name fragment (e.g. ``"upwind_primary"``).
+            nd: Spatial dimension (unused; all matrices are scalar).
+
+        Raises:
+            ValueError: If the matrix key is not recognized.
+
+        Returns:
+            A :class:`~porepy.numerics.ad.GridEntities` with the number of matrix
+            rows per entity.
+
+        """
+        # Recall that cells and faces will apply to different grids, though that is not
+        # reflected in the dof_info.
+        mapping = {
+            "upwind_primary": GridEntities(cells=1),
+            "upwind_secondary": GridEntities(cells=1),
+            "flux": GridEntities(cells=1),
+            "mortar_discr": GridEntities(cells=1),
+            "trace_primary": GridEntities(faces=1),
+            "inv_trace_primary": GridEntities(cells=1),
+        }
+        if matrix_key in mapping:
+            return mapping[matrix_key]
+
+        s = f"Unrecognized matrix key '{matrix_key}' for UpwindCoupling discretization."
+        raise ValueError(s)
+
+    def get_col_entities(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
+        """UpwindCoupling matrices have one DOF per cell in their columns.
+
+        Parameters:
+            matrix_key: Attribute-name fragment (e.g. ``"upwind_primary"``).
+            nd: Spatial dimension (unused; all matrices are scalar).
+
+        Raises:
+            ValueError: If the matrix key is not recognized.
+
+        Returns:
+            A :class:`~porepy.numerics.ad.GridEntities` with the DOFs per entity.
+
+        """
+        # Recall that cells and faces will apply to different grids, though that is not
+        # reflected in the dof_info.
+        mapping = {
+            "upwind_primary": GridEntities(cells=1),
+            "upwind_secondary": GridEntities(cells=1),
+            "flux": GridEntities(cells=1),
+            "mortar_discr": GridEntities(cells=1),
+            "trace_primary": GridEntities(cells=1),
+            "inv_trace_primary": GridEntities(faces=1),
+        }
+        if matrix_key in mapping:
+            return mapping[matrix_key]
+
+        s = f"Unrecognized matrix key '{matrix_key}' for UpwindCoupling discretization."
+        raise ValueError(s)
+
     def discretize(
         self,
         sd_primary: pp.Grid,
@@ -439,19 +550,19 @@ class UpwindCoupling(InterfaceDiscretization):
             data_intf[pp.PARAMETERS][self.keyword][self._flux_array_key]
         )
 
-        # Re-discretization on a fixed mesh only changes the upwind DATA (flow signs). The
-        # trace/inv-trace projections and mortar identity are pure geometry, and the diagonal
-        # sparsity is invariant (_fixed_diag). Cache the geometry per interface+keyword and
-        # rewrite the cached diagonals' .data in place on later calls, instead of allocating
-        # fresh CSRs -- the dominant re-discretization cost on many-interface problems.
-        # Bit-identical to the explicit build.
+        # Re-discretization on a fixed mesh only changes the upwind DATA (flow signs).
+        # The trace/inv-trace projections and mortar identity are pure geometry, and the
+        # diagonal sparsity is invariant (_fixed_diag). Cache the geometry per
+        # interface+keyword and rewrite the cached diagonals' .data in place on later
+        # calls, instead of allocating fresh CSRs -- the dominant re-discretization cost
+        # on many-interface problems. Bit-identical to the explicit build.
         cache = data_intf.setdefault("_upwind_coupling_fast_cache", {}).setdefault(
             self.keyword, {}
         )
         if "inv_trace" not in cache:
-            # Mapping from upper dim cells to faces. The mortars always point from upper to
-            # lower, so no sign flips; faces not adjacent to the mortar grid are killed later
-            # by mortar projections.
+            # Mapping from upper dim cells to faces. The mortars always point from upper
+            # to lower, so no sign flips; faces not adjacent to the mortar grid are
+            # killed later by mortar projections.
             inv_trace_h = np.abs(sd_primary.divergence(dim=1))
             cache["inv_trace"] = inv_trace_h
             cache["trace"] = inv_trace_h.T  # trace-like projection from cells to faces
@@ -461,8 +572,8 @@ class UpwindCoupling(InterfaceDiscretization):
         matrix_dictionary[self.mortar_discr_matrix_key] = cache["mortar_discr"]
 
         # Find upwind weighting. if flag is True we use the upper weights if flag is
-        # False we use the lower weights. Full diagonals keep the pattern fixed across flow
-        # reversals, see _fixed_diag.
+        # False we use the lower weights. Full diagonals keep the pattern fixed across
+        # flow reversals, see _fixed_diag.
         flag = (lam_flux > 0).astype(float)
         not_flag = 1 - flag
         diags = cache.get("diags")
@@ -799,6 +910,20 @@ class HUpwind(Upwind):
         self._gamma_flux_key = "hybrid_gamma_flux"
         self._delta_flux_key = "hybrid_delta_flux"
 
+    def get_col_entities(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
+        """Domain entities: upwind matrices on cells, boundary matrices on faces."""
+        if matrix_key.startswith("upwind"):
+            return GridEntities(cells=1)
+        if matrix_key.startswith("bound_transport"):
+            return GridEntities(faces=1)
+        return super().get_col_entities(matrix_key, nd)
+
+    def get_row_entities(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
+        """Codomain entities: every HUpwind matrix maps to face fluxes."""
+        if matrix_key.startswith("upwind") or matrix_key.startswith("bound_transport"):
+            return GridEntities(faces=1)
+        return super().get_row_entities(matrix_key, nd)
+
     def discretize(self, sd: pp.Grid, data: dict) -> None:
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
@@ -862,6 +987,34 @@ class HUpwindCoupling(UpwindCoupling):
         self._gamma_flux_key = "hybrid_gamma_flux"
         self._delta_flux_key = "hybrid_delta_flux"
 
+    def get_col_entities(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
+        """Domain entities: each gamma/delta matrix matches its base counterpart."""
+        extra = {
+            "upwind_primary_gamma": GridEntities(cells=1),
+            "upwind_secondary_gamma": GridEntities(cells=1),
+            "flux_gamma": GridEntities(cells=1),
+            "upwind_primary_delta": GridEntities(cells=1),
+            "upwind_secondary_delta": GridEntities(cells=1),
+            "flux_delta": GridEntities(cells=1),
+        }
+        if matrix_key in extra:
+            return extra[matrix_key]
+        return super().get_col_entities(matrix_key, nd)
+
+    def get_row_entities(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
+        """Codomain entities: each gamma/delta matrix matches its base counterpart."""
+        extra = {
+            "upwind_primary_gamma": GridEntities(cells=1),
+            "upwind_secondary_gamma": GridEntities(cells=1),
+            "flux_gamma": GridEntities(cells=1),
+            "upwind_primary_delta": GridEntities(cells=1),
+            "upwind_secondary_delta": GridEntities(cells=1),
+            "flux_delta": GridEntities(cells=1),
+        }
+        if matrix_key in extra:
+            return extra[matrix_key]
+        return super().get_row_entities(matrix_key, nd)
+
     def discretize(
         self,
         sd_primary: pp.Grid,
@@ -878,12 +1031,13 @@ class HUpwindCoupling(UpwindCoupling):
         matrix_dictionary = data_intf[pp.DISCRETIZATION_MATRICES][self.keyword]
         parameter_dictionary = data_intf[pp.PARAMETERS][self.keyword]
 
-        # Re-discretization on a fixed mesh only changes the upwind DATA (flow signs); the
-        # geometry (trace/inv_trace/mortar identity) and the diagonal sparsity pattern are
-        # invariant. Cache them per interface+keyword and, on later calls, rewrite the cached
-        # diagonals' .data in place instead of allocating fresh CSRs -- this is the dominant
-        # cost of re-discretizing a many-interface (mixed-dimensional) problem. Bit-identical
-        # to the plain build below (same values, same fixed _fixed_diag structure).
+        # Re-discretization on a fixed mesh only changes the upwind DATA (flow signs);
+        # the geometry (trace/inv_trace/mortar identity) and the diagonal sparsity
+        # pattern are invariant. Cache them per interface+keyword and, on later calls,
+        # rewrite the cached diagonals' .data in place instead of allocating fresh CSRs,
+        # the dominant cost of re-discretizing a many-interface (mixed-dimensional)
+        # problem. Bit-identical to the plain build below (same values, same fixed
+        # _fixed_diag structure).
         cache = data_intf.setdefault("_hu_coupling_fast_cache", {}).setdefault(
             self.keyword, {}
         )
@@ -906,7 +1060,11 @@ class HUpwindCoupling(UpwindCoupling):
             # _fixed_diag.
             diags = cache.get(suffix)
             if diags is None:
-                up_p, up_s, flux = _fixed_diag(flag), _fixed_diag(1.0 - flag), _fixed_diag(lf)
+                up_p, up_s, flux = (
+                    _fixed_diag(flag),
+                    _fixed_diag(1.0 - flag),
+                    _fixed_diag(lf),
+                )
                 cache[suffix] = (up_p, up_s, flux)
             else:
                 up_p, up_s, flux = diags
