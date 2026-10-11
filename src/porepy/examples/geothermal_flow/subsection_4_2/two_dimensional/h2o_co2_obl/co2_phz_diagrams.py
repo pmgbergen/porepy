@@ -156,7 +156,7 @@ def exact_fields(z, h_post, c, off, Tfine):
 
 # region code -> colour (1 aqueous, 3 a+l, 5 a+g, 7 a+l+g)
 _COL = {1: "#cfe3f7", 2: "#2a7f3f", 3: "#8fcf8f", 4: "#d4a017", 5: "#f3b65a", 6: "#cccccc", 7: "#9a9a9a"}
-_ROI_H = (0.1, 0.2)                                    # dashed ROI box: h [MJ/kg]
+_ROI_H = (0.1, 0.14)                                   # dashed ROI box: h [MJ/kg]
 _ROI_P = (4.0, 8.0)                                    #                 p [MPa]
 
 

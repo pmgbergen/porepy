@@ -8,8 +8,13 @@ both solvers; --skip-checks to opt out), then per N in --nphase (default 3 4; rh
   hamon (FV reference, parallel worker processes):
     step 1: schemes {hu, hu-mw, hu-mp, ppu} on 100^2 to 571 d, snaps {0, 78, 571} -> vtr[_nN]/
     step 2: same schemes on 200^2 to 78 d, snaps {0, 78}          -> output_ref_<scheme>[_nN]/
-    equidim: PPU with the conformal fractures as equi-dimensional high-k bands -> vtr[_nN]_frac/
-             (row 0 of the mixed-dimensional figure; SLOW -- fracture-CFL -> tiny dt; --skip-equidim)
+    equidim (N=3 only): PPU and HU-BM(mp) with the conformal fractures as equi-dimensional
+             high-k bands -> vtr_frac/ (PPU = row 0 of the mixed-dimensional figure; HU-BM(mp) on
+             the same mesh = like-for-like iteration count; SLOW -- fracture-CFL -> tiny dt;
+             --skip-equidim). No equi-dimensional run is made for N != 3.
+  The like-for-like HU-BM(mp) vs PPU iteration counts quoted in the paper come from these runs:
+    fixed-dimensional, N=4:  step 1, schemes hu-mp and ppu  -> vtr_n4/stats_{hu_mp,ppu}.txt
+    equi-dimensional,  N=3:  equidim, schemes hu-mp and ppu -> vtr_frac/stats_{hu_mp,ppu}.txt
   porepy (CF model, subprocesses of porepy_2d_solver.py):
     scheme hu x {fixed-dim, --md}  -> visualization_barriers[_frac]_hu_N<n>/  (+ .log here)
   figures: plot_reference.py (hamon) + plot_porepy.py -> figures/n<N>/, including the two comparison
@@ -42,6 +47,10 @@ import plot_reference as PR                        # noqa: E402  (hamon referenc
 import run_reference as RR                         # noqa: E402  (reuse its _suffix convention)
 
 SCHEMES = ("hu", "ppu", "hu-mw", "hu-mp")
+# Equi-dimensional (fractures resolved as high-k bands) runs are made only for the phase counts
+# listed here, with both PPU (row 0 of the mixed-dimensional figure) and HU-BM(mp) on that mesh.
+EQUIDIM_NPHASES = (3,)
+EQUIDIM_SCHEMES = ("ppu", "hu-mp")
 
 # Two run configurations. FULL == the paper reference (identical to run_reference.py); QUICK is a
 # coarse, short smoke test that still exercises every code path and produces real figures.
@@ -77,12 +86,13 @@ def _build_tasks(nphases, cfg, linear_solver, dir_lag, with_equidim=True):
                 N=n, step="step2", scheme=scheme,
                 out_dir=os.path.join(HERE, f"output_ref_{scheme.replace('-', '_')}{sfx}"),
                 kw=dict(cfg["step2"], nphase=n, linear_solver=linear_solver, dir_lag=dir_lag)))
-        if with_equidim:                              # equi-dim PPU (the conformal fractures resolved
-            tasks.append(dict(                        # as high-k bands) -> vtr[_nN]_frac/ ; this is
-                N=n, step="equidim", scheme="ppu",    # ROW 0 of the mixed-dimensional comparison
-                out_dir=os.path.join(HERE, f"vtr{sfx}_frac"),   # figure. PPU only (matches the
-                kw=dict(cfg["step1"], nphase=n, linear_solver=linear_solver,   # fixed-dim PPU row).
-                        dir_lag=dir_lag, fractures=True)))   # SLOW: fracture-CFL -> tiny dt (--skip-equidim)
+        if with_equidim and n in EQUIDIM_NPHASES:     # equi-dim runs (the conformal fractures
+            for scheme in EQUIDIM_SCHEMES:            # resolved as high-k bands) -> vtr[_nN]_frac/ ;
+                tasks.append(dict(                    # PPU is ROW 0 of the mixed-dimensional
+                    N=n, step="equidim", scheme=scheme,   # comparison figure, HU-BM(mp) the
+                    out_dir=os.path.join(HERE, f"vtr{sfx}_frac"),   # like-for-like counterpart.
+                    kw=dict(cfg["step1"], nphase=n, linear_solver=linear_solver,
+                            dir_lag=dir_lag, fractures=True)))   # SLOW: fracture-CFL -> tiny dt
     return tasks
 
 
@@ -215,8 +225,9 @@ def main(argv=None):
     ap.add_argument("--skip-porepy", action="store_true",
                     help="skip the porepy_2d_solver cases (hamon reference only)")
     ap.add_argument("--skip-equidim", action="store_true",
-                    help="skip the equi-dimensional PPU run (vtr[_nN]_frac/, row 0 of the "
-                         "mixed-dimensional figure); it is the slow one (fracture-CFL -> tiny dt)")
+                    help="skip the equi-dimensional runs (N=3 only, vtr_frac/): PPU (row 0 of the "
+                         "mixed-dimensional figure) and HU-BM(mp) on the same mesh; these are the "
+                         "slow ones (fracture-CFL -> tiny dt)")
     ap.add_argument("--skip-checks", action="store_true",
                     help="skip the completion checks (reduction consistency + two-cell "
                          "monotonicity) that run by default before the simulations")
@@ -236,7 +247,9 @@ def main(argv=None):
     nphases = args.nphase
     tag = "QUICK" if args.quick else "FULL"
 
-    n_tasks = len(nphases) * (2 * len(SCHEMES) + (0 if args.skip_equidim else 1))   # +equidim/N
+    n_tasks = len(nphases) * 2 * len(SCHEMES)
+    if not args.skip_equidim:                                   # + equi-dim runs (N in EQUIDIM_NPHASES)
+        n_tasks += len(EQUIDIM_SCHEMES) * sum(n in EQUIDIM_NPHASES for n in nphases)
     jobs = args.jobs or max(1, min(n_tasks, (os.cpu_count() or 2) - 2))
     # Default to the fast CPR solver (scipy's direct solve is impractically slow at the full 100^2/
     # 200^2 scale). The parallel pool exits gracefully (close/join), so PETSc/MPI finalizes cleanly.
@@ -282,7 +295,8 @@ def main(argv=None):
           f"(N in {nphases}, {tag})\n{'=' * 70}")
     for n in nphases:
         sfx = RR._suffix(n)
-        print(f"  N={n}:  hamon -> vtr{sfx}/ , vtr{sfx}_frac/ , output_ref_*{sfx}/     "
+        frac = f" , vtr{sfx}_frac/" if n in EQUIDIM_NPHASES else ""
+        print(f"  N={n}:  hamon -> vtr{sfx}/{frac} , output_ref_*{sfx}/     "
               f"porepy -> visualization_barriers[_frac]_hu_N{n}/     figures -> figures/n{n}/")
 
 

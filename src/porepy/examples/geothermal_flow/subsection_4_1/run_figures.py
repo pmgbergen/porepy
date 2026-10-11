@@ -9,7 +9,7 @@ Deliverables:
   figures/monotonicity.png
   figures/n{3,4}/conservation_comparison_{n}_phases.{png,pdf}
   figures/n{3,4}/comparison_saturation_maps_fixed_dim_{n}_phases.{png,pdf}
-  figures/n{3,4}/comparison_saturation_maps_mixed_dim_{n}_phases.{png,pdf}
+  figures/n3/comparison_saturation_maps_mixed_dim_3_phases.{png,pdf}   (equi-dim runs: N=3 only)
   figures/comparison/l2_difference_fd.{png,pdf}
 
 Progress, three ways:
@@ -41,6 +41,11 @@ PY = sys.executable
 
 NPHASES = [3, 4]
 STD_SCHEMES = ["ppu", "hu-mp"]           # CMP_SCHEMES for conservation/l2; ppu also feeds fixed_dim
+# Equi-dimensional (fractures as high-k bands) runs are made only for these phase counts, with PPU
+# (row 0 of the mixed-dim map) and HU-BM(mp) on the same mesh (like-for-like iteration count).
+# Same restriction as run_workflow.py (EQUIDIM_NPHASES / EQUIDIM_SCHEMES).
+EQUIDIM_NPHASES = [3]
+EQUIDIM_SCHEMES = ["ppu", "hu-mp"]
 FIG_DAYS = [0.0, 78.0, 571.0]
 HORIZON = float(max(H.SNAP_DAYS))        # standalone run horizon [days], for the % readout
 
@@ -163,8 +168,8 @@ def cmd_for(task):
 
 # --------------------------------------------------------------------------- plan
 # Phase "early" holds everything the 5 non-mixed-dim deliverables need (fast standalone +
-# the PorePy HU solves); "late" holds only the slow equi-dim PPU that the 2 mixed-dim maps
-# need. Early runs first so the fix-relevant PorePy data is secured and most figures land
+# the PorePy HU solves); "late" holds only the slow equi-dim runs (N=3: PPU for the mixed-dim
+# map, HU-BM(mp) for the same-mesh iteration count). Early runs first so the fix-relevant PorePy data is secured and most figures land
 # well before the ~10 h/each equi-dim jobs finish.
 def build_plan():
     plan = []
@@ -178,10 +183,11 @@ def build_plan():
             if not pp_cached(pp_dir(n, md)):
                 plan.append(dict(kind="porepy", n=n, scheme="hu", md=md, phase="early",
                                  label=f"PorePy HU {'md' if md else 'fd'}  N={n}  ->  {os.path.basename(pp_dir(n, md))}/"))
-    for n in NPHASES:                                   # equi-dim PPU (slow: 0.1 m band) -- mixed_dim only
-        if not std_cached(frac_dir(n), "ppu"):
-            plan.append(dict(kind="hamon", n=n, scheme="ppu", md=True, phase="late",
-                             label=f"standalone equi-dim PPU  N={n}  (SLOW, 0.1 m band)  ->  {os.path.basename(frac_dir(n))}/"))
+    for n in EQUIDIM_NPHASES:                           # equi-dim runs (slow: 0.1 m band), N=3 only
+        for scheme in EQUIDIM_SCHEMES:                  # ppu -> mixed_dim map; hu-mp -> same-mesh count
+            if not std_cached(frac_dir(n), scheme):
+                plan.append(dict(kind="hamon", n=n, scheme=scheme, md=True, phase="late",
+                                 label=f"standalone equi-dim {scheme}  N={n}  (SLOW, 0.1 m band)  ->  {os.path.basename(frac_dir(n))}/"))
     return plan
 
 
@@ -211,7 +217,8 @@ def make_figures(mono=True):
         if pp_cached(pp_dir(n, True)):                              # needs only PorePy HU md
             _try(f"figures/n{n}/enthalpy_temperature_mixed_dim_{n}_phases",
                  lambda n=n, out=out: PLOT.enthalpy_temperature_maps_mixed_dim(n, FIG_DAYS, out))
-        if pp_cached(pp_dir(n, True)) and std_cached(frac_dir(n), "ppu"):   # needs equi-dim PPU + HU md
+        if (n in EQUIDIM_NPHASES and pp_cached(pp_dir(n, True))
+                and std_cached(frac_dir(n), "ppu")):                # needs equi-dim PPU + HU md
             _try(f"figures/n{n}/comparison_saturation_maps_mixed_dim_{n}_phases",
                  lambda n=n, out=out: PLOT.comparison_saturation_maps_mixed_dim(n, FIG_DAYS, out))
     if all(pp_cached(pp_dir(n, False)) for n in NPHASES):

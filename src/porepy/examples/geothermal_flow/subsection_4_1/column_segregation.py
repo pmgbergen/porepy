@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Intermediate-phase shear-entrainment column test (subsection 4.1).
+"""Intermediate-phase shear-segregation column test (subsection 4.1).
 
 A 1-D vertical column, density-inverted: heavy alpha on top, light gamma on the bottom,
 a passive intermediate phase beta in a middle band. Alpha sinks and gamma rises in a
@@ -19,8 +19,8 @@ passive phase rather than leaving it a non-interacting spectator.
 Reuses the real solver (same flux operator, mobilities, Newton) from hamon_2d_solver; only
 the grid (barrier-free column), the IC (alpha/beta/gamma bands) and the densities differ.
 
-Run:  python column_entrainment.py            # writes figures/column_entrainment.{png,pdf}
-      python column_entrainment.py --scheme hu-mp --ny 100 --t-end-days 30
+Run:  python column_segregation.py            # writes passive_phase_example/column_segregation.{png,pdf}
+      python column_segregation.py --scheme hu-mp --ny 100 --t-end-days 30
 """
 from __future__ import annotations
 
@@ -223,7 +223,7 @@ def make_figure(results, out_dir, suffix="", perm_factor=1.0, dt_note="", ny=Non
         ax.tick_params(labelbottom=False)
         if k == 0:
             ax.set_ylabel("height $y$ [m]")
-            ax.legend(loc="lower left", fontsize=8, framealpha=0.85,
+            ax.legend(loc="lower right", fontsize=8, framealpha=0.85,
                       title=r"$\bar{y}_\beta=\dfrac{\int_\Omega s_\beta\,y\,\mathrm{d}V}"
                             r"{\int_\Omega s_\beta\,\mathrm{d}V}$")
 
@@ -249,7 +249,7 @@ def make_figure(results, out_dir, suffix="", perm_factor=1.0, dt_note="", ny=Non
         f"($K={K_SI:.3e}$ m$^2$,  $t_f={t_end:.0f}$ d{dt_note}{htag})", fontsize=13)
     os.makedirs(out_dir, exist_ok=True)
     for ext in ("png", "pdf"):
-        path = os.path.join(out_dir, f"column_entrainment{suffix}.{ext}")
+        path = os.path.join(out_dir, f"column_segregation{suffix}.{ext}")
         fig.savefig(path, dpi=200, bbox_inches="tight")
         print("wrote", os.path.relpath(path, HERE))
     plt.close(fig)
@@ -350,7 +350,7 @@ def main():
         suffix += f"_dt{args.dt_fixed_days:g}"
         dt_note = f",  $\\Delta t={args.dt_fixed_days:g}$ d"
 
-    print(f"=== intermediate-phase shear entrainment  (HU = hu-mp  vs  PPU, "
+    print(f"=== intermediate-phase shear segregation  (HU = hu-mp  vs  PPU, "
           f"K x{args.perm_factor:g}, dt="
           f"{('fixed ' + str(args.dt_fixed_days) + ' d') if args.dt_fixed_days else 'adaptive'}) ===")
     results = {}
