@@ -511,32 +511,51 @@ def _phase_density_weight(z: pp.ad.AdArray) -> pp.ad.AdArray:
 
 
 class FluidBuoyancy(pp.PorePyModel):
-    """
-    Buoyancy terms and discretizations for multiphase, multicomponent flow.
+    """Buoyancy terms and discretizations for multiphase, multicomponent flow.
 
-    The buoyancy fluxes use hybrid upwinding (HU): the viscous and buoyant parts of
-    the phase fluxes are upwinded separately, as introduced by Lee, Efendiev &
-    Tchelepi (2015), "Hybrid upwind discretization of nonlinear two-phase flow with
-    gravity" (Adv. Water Resour., 82, 27-38). For the two-phase immiscible setting
-    with ``params['fractional_flow'] = False``, this implementation is exactly that
-    scheme. The extension to an arbitrary number of phases and the analysis of the
-    fully-implicit scheme follow Hamon & Tchelepi (2016), "Analysis of hybrid
-    upwinding for fully-implicit simulation of three-phase flow with gravity"
-    (SIAM J. Numer. Anal., 54(3), 1682-1712), and Hamon, Mallison & Tchelepi (2016),
-    "Implicit Hybrid Upwind scheme for coupled multiphase flow and transport with
-    buoyancy" (Comput. Methods Appl. Mech. Engrg., 311, 599-624).
+    The buoyancy fluxes use hybrid upwinding (HU): viscous and buoyant parts are
+    upwinded separately. For a phase pair (``γ``, ``δ``) the buoyancy operator is
 
-    A distinctive feature of this implementation is the consistent treatment of the
-    gravity term in the flux discretization, following Starnoni, Berre, Keilegavlen
-    & Nordbotten (2019), "Consistent MPFA Discretization for Flow in the Presence of
-    Gravity" (Water Resour. Res., 55(12), 10105-10118). This consistency is a key
-    component in extending the framework to thermal multiphase, multicomponent
-    systems, alongside the mixed-dimensional and fractional-flow forms of the
-    equations.
+        ``G_γδ = (pair mobility) · weightflux(ρ_δ − ρ_γ)``,
+
+    assembled in either terminology, selected by ``params['fractional_flow']``:
+
+    - Fractional-flow: ``f_γ f_δ λ``, with ``f_k = λ_k / λ`` and ``λ`` the total
+      mobility, merged into the permeability as a nonlinear diffusion tensor. Simpler,
+      since only the fractional flows ``f_γ``, ``f_δ`` are upwinded and the total
+      mobility ``λ`` is not, at the cost of re-discretizing the MPFA.
+    - Mobility-product: ``λ_γ λ_δ / λ``, upwinded in this form, the HU kernel of Lee,
+      Efendiev & Tchelepi (2015), "Hybrid upwind discretization of nonlinear two-phase
+      flow with gravity" (Adv. Water Resour., 82, 27-38). Needs no re-discretization of
+      the MPFA; for two immiscible phases it is exactly that scheme.
+
+    The mobility-product form must upwind the total mobility ``λ`` in the denominator.
+    This is defined only for the active pair ``γ``, ``δ`` (upwinded along
+    ``±weightflux(ρ_γ − ρ_δ)``); each remaining passive phase ``e`` gets a density
+    weight ``m_e = 1/2(1 + sgn[(ρ_γ − ρ_δ)(2 ρ_e − ρ_γ − ρ_δ)]) in {0, 1/2, 1}``. A
+    fraction ``m_e`` of its mobility joins the ``γ`` side and ``1 - m_e`` the ``δ``
+    side, each upwinded once: ``m_e = 1`` assigns ``e`` to ``γ``, ``0`` to ``δ``, and
+    ``1/2`` splits it evenly when ``ρ_e = (ρ_γ + ρ_δ)/2``.
+
+    The three-phase IHU (implicit hybrid upwinding) of Hamon & Tchelepi (2016),
+    "Analysis of hybrid upwinding for fully-implicit simulation of three-phase flow
+    with gravity" (SIAM J. Numer. Anal., 54(3), 1682-1712), ranks the phases by
+    density; once the densities ``ρ_k = ρ_k(θ)`` depend on the thermodynamic state
+    ``θ``, the direct extension of IHU to thermal compositional flow is ill-defined.
+    The passive-phase concept, realized through the density weights ``m_e``, is designed
+    to require no phase ordering and to reuse PorePy's verified first-order upwinding;
+    it extends HU to arbitrary ``N`` and is proven monotone, conservative, and
+    reciprocal, so the extension to thermal compositional flow is straightforward in
+    the supported construction. The gravity term is discretized consistently following
+    Starnoni, Berre, Keilegavlen &
+    Nordbotten (2019), "Consistent MPFA Discretization for Flow in the Presence of
+    Gravity" (Water Resour. Res., 55(12), 10105-10118). Together these make this HU
+    implementation unique and production-ready for truly multiphase thermal
+    compositional flow.
 
     Mass, component mass, and energy conservation are tested in
-    ``test_buoyancy_flow.py``, and a benchmark against an analytical buoyancy
-    solution is provided in ``test_buoyancy_flow_benchmark.py``.
+    ``test_buoyancy_flow.py``, and a benchmark against an analytical buoyancy solution
+    is provided in ``test_buoyancy_flow_benchmark.py``.
     """
 
     component_mass_mobility: Callable[
