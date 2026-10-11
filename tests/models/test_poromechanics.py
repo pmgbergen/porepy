@@ -158,7 +158,7 @@ class NonzeroFractureGapPoromechanics(pp.PorePyModel):
                 # Distribute source term over cells based on cell volumes.
                 vals.append(val * sd.cell_volumes / np.sum(sd.cell_volumes))
         fracture_source = pp.wrap_as_dense_ad_array(
-            np.hstack(vals), name="fracture_fluid_source"
+            np.hstack(vals), name="fracture_fluid_source", grids=subdomains
         )
         return internal_boundaries + fracture_source
 

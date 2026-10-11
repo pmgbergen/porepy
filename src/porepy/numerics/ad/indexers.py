@@ -186,7 +186,8 @@ class Indexer[EquationOrVariableType: (EquationOnDomain, Variable)]:
         for operator, indices in self.indices.items():
             if len(indices) == 0:
                 continue
-            # Get by key operator.name, if not found, initialize it with an empty dict.
+            # Get by key variable.name, if not found, initialize it with an empty dict.
+            # Then populate the dict with the domain and indices.
             result.setdefault(operator.name, {})[operator.domain] = indices
         return result
 

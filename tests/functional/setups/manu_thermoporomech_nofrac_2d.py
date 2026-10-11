@@ -994,6 +994,7 @@ class SourceTerms:
         external_sources = pp.ad.TimeDependentDenseArray(
             name="source_mechanics",
             domains=self.mdg.subdomains(),
+            dof_info={pp.ad.GridEntity.cells: self.nd},
         ).previous_timestep()
 
         return external_sources
@@ -1097,7 +1098,7 @@ class ManuThermoPoroMechSolutionStrategy2d(
             if isinstance(bulk, (float, int)):
                 bulk = bulk * np.ones(sd.num_cells)
 
-            return pp.wrap_as_dense_ad_array(bulk, name="bulk_modulus")
+            return pp.wrap_as_dense_ad_array(bulk, name="bulk_modulus", grids=[sd])
 
     def update_discretization_parameters(self) -> None:
         """Set parameters for the subproblems and the combined problem.

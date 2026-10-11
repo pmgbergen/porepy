@@ -34,7 +34,10 @@ class ConstraintFunctionsMomentumBalance(
 
         """
         nc = sum([g.num_cells for g in subdomains])
-        ind = pp.ad.DenseArray(np.ones(nc))
+        space = pp.ad.OperatorSpace.from_domains(
+            subdomains, {pp.ad.GridEntity.cells: 1}
+        )
+        ind = pp.ad.DenseArray(np.ones(nc), source=space, target=space)
         return ind
 
     def sliding_indicator(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -50,7 +53,10 @@ class ConstraintFunctionsMomentumBalance(
 
         """
         nc = sum([g.num_cells for g in subdomains])
-        ind = pp.ad.DenseArray(np.ones(nc))
+        space = pp.ad.OperatorSpace.from_domains(
+            subdomains, {pp.ad.GridEntity.cells: 1}
+        )
+        ind = pp.ad.DenseArray(np.ones(nc), source=space, target=space)
         return ind
 
 

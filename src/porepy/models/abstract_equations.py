@@ -15,12 +15,12 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Callable, Optional, Sequence, Union, cast
+from typing import Callable, Mapping, Optional, Sequence, Union, cast
 
 import numpy as np
 
 import porepy as pp
-from porepy.numerics.ad.equation_system import GridEntity
+from porepy.numerics.ad.equation_system import GridEntities, GridEntity
 
 
 class EquationMixin(pp.PorePyModel):
@@ -231,7 +231,9 @@ class LocalElimination(EquationMixin):
         dependencies: Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]],
         func: Callable[..., tuple[np.ndarray, np.ndarray]],
         domains: Sequence[pp.Grid | pp.MortarGrid | pp.BoundaryGrid],
-        equations_per_grid_entity: Optional[dict[GridEntity, int]] = None,
+        equations_per_grid_entity: Optional[
+            Union[GridEntities, Mapping[GridEntity, int]]
+        ] = None,
     ) -> None:
         """Method to add a secondary equation eliminating a variable by some
         constitutive law depending on *other* variables.
@@ -279,12 +281,12 @@ class LocalElimination(EquationMixin):
             equations_per_grid_entity: ``default=None``.
 
                 Argument for when adding above equation to the equation system and
-                creating a surrogate factory. If None, the default ``{'cells':1}`` is
-                assigned.
+                creating a surrogate factory. If None, the default
+                ``GridEntities(cells=1)`` is assigned.
 
         """
         if equations_per_grid_entity is None:
-            equations_per_grid_entity = {"cells": 1}
+            equations_per_grid_entity = GridEntities(cells=1)
 
         # Separate these two because Boundary values for independent quantities are
         # stored differently.
@@ -310,11 +312,7 @@ class LocalElimination(EquationMixin):
         equ_name = f"elimination_of_{sec_var.name}_on_grids_{g_ids}"
         local_equ = sec_var - sec_expr(non_boundaries)
         local_equ.set_name(equ_name)
-        self.equation_system.set_equation(
-            local_equ,
-            cast(list[pp.Grid] | list[pp.MortarGrid], non_boundaries),
-            equations_per_grid_entity,
-        )
+        self.equation_system.set_equation(local_equ)
 
         self._add_local_elimination(
             equ_name, sec_var, sec_expr, func, cast(pp.GridLikeSequence, domains)
