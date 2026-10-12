@@ -398,18 +398,17 @@ class RegularizedHeaviside:
 
 
 def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
-    """Ad maximum function represented as an AdArray.
+    """Ad maximum function represented as an Ad array.
 
     The maximum function is defined as the element-wise maximum of two arrays.
     At equality, the Jacobian is taken from the first argument. The order of the
     arguments may be important, since it determines which Jacobian is used in
     the case of equality.
 
-    The arguments can be either AdArrays or ndarrays, this duality is needed to allow
-    for parsing of operators that can be taken at the current iteration (in which case
-    it will parse as an AdArray) or at the previous iteration or time step (in which
-    case it will parse as a numpy array).
-
+    The arguments can be either Ad arrays, ndarrays, or scalars, this duality is needed
+    to allow for parsing of operators that can be taken at the current iteration (in
+    which case it will parse as an AdArray) or at the previous iteration or time step
+    (in which case it will parse as a numpy array).
 
     Parameters:
         var_0: First argument to the maximum function.
@@ -417,104 +416,58 @@ def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
 
         If one of the input arguments is scalar, broadcasting will be used.
 
-
     Returns:
         The maximum of the two arguments, taken element-wise in the arrays. The return
         type is AdArray if at least one of the arguments is an AdArray, otherwise it
         is an ndarray. If an AdArray is returned, the Jacobian is computed according to
         the maximum values of the AdArrays (so if element ``i`` of the maximum is
         picked from ``var_0``, row ``i`` of the Jacobian is also picked from the
-        Jacobian of ``var_0``). If ``var_0`` is a ndarray, its Jacobian is set to zero.
+        Jacobian of ``var_0``). Arguments with no derivatives (ndarrays or scalars) are
+        treated as having a zero Jacobian.
 
     """
     # If neither var_0 or var_1 are AdArrays, return the numpy maximum function.
     if not isinstance(var_0, AdArrayBase) and not isinstance(var_1, AdArrayBase):
-        # FIXME: According to the type hints, this should not be possible.
         return np.maximum(var_0, var_1)
 
     # Diagonal AdArrays have a Jacobian shape the rest of this function does not
     # understand. If both arguments are diagonal, the maximum can be computed directly
     # in the diagonal representation; otherwise, convert any diagonal argument to full
-    # (non-diagonal) format before proceeding as before.
-    if isinstance(var_0, AdArrayBase) and isinstance(var_1, AdArrayBase):
-        if isinstance(var_0, DiagonalAdArray) and isinstance(var_1, DiagonalAdArray):
-            val = np.maximum(var_0.val, var_1.val)
-            pick_1 = var_1.val > var_0.val
-            jac = np.where(pick_1, var_1.jac, var_0.jac)
-            return var_0.copy(val, jac)
+    # (non-diagonal) format.
+    if isinstance(var_0, DiagonalAdArray) and isinstance(var_1, DiagonalAdArray):
+        val = np.maximum(var_0.val, var_1.val)
+        pick_1 = var_1.val > var_0.val
+        jac = np.where(pick_1, var_1.jac, var_0.jac)
+        return var_0.copy(val, jac)
+    if isinstance(var_0, AdArrayBase):
         var_0 = var_0.to_full()
-        var_1 = var_1.to_full()
-    elif isinstance(var_0, AdArrayBase):
-        var_0 = var_0.to_full()
-    elif isinstance(var_1, AdArrayBase):
+    if isinstance(var_1, AdArrayBase):
         var_1 = var_1.to_full()
 
-    # Make a fall-back zero Jacobian for constant arguments.
-    # EK: It is not clear if this is relevant, or if we filter out these cases with the
-    # above parsing of numpy arrays. Keep it for now, but we should revisit once we
-    # know clearer how the Ad-machinery should be used.
-    zero_jac = 0
-    if isinstance(var_0, AdArray):
-        zero_jac = sps.csr_matrix(var_0.jac.shape)
-    elif isinstance(var_1, AdArray):
-        zero_jac = sps.csr_matrix(var_1.jac.shape)
+    # At least one argument is now an AdArray. A constant argument (ndarray or scalar)
+    # gets a zero Jacobian of matching shape.
+    ad_var = var_0 if isinstance(var_0, AdArray) else var_1
+    zero_jac = sps.csr_matrix(ad_var.jac.shape)
 
     # Collect values and Jacobians.
     vals = []
     jacs = []
     for var in [var_0, var_1]:
         if isinstance(var, AdArray):
-            v = var.val
-            j = var.jac
+            vals.append(var.val)
+            jacs.append(var.jac)
         else:
-            v = var
-            j = zero_jac
-        vals.append(v)
-        jacs.append(j)
+            vals.append(np.broadcast_to(var, ad_var.val.shape))
+            jacs.append(zero_jac)
 
-    # If both are scalar, return same. If one is scalar, broadcast explicitly
-    if isinstance(vals[0], (float, int)):
-        if isinstance(vals[1], (float, int)):
-            # Both var_0 and var_1 are scalars. Treat vals as a numpy array to return
-            # the maximum. The Jacobian of a scalar is 0.
-            val = np.max(vals)
-            return pp.ad.AdArray(val, 0)
-        else:
-            # var_0 is a scalar, but var_1 is not. Broadcast to shape of var_1.
-            vals[0] = np.ones_like(vals[1]) * vals[0]
-    if isinstance(vals[1], (float, int)):
-        # var_1 is a scalar, but var_0 is not (or else we would have hit the return
-        # statement in the above double-if). Broadcast var_1 to shape of var_0.
-        vals[1] = np.ones_like(vals[0]) * vals[1]
-
-    # By now, we know that both vals are numpy arrays. Try to convince mypy that this is
-    # the case.
-    assert isinstance(vals[0], np.ndarray) and isinstance(vals[1], np.ndarray)
-    # Maximum of the two arrays
+    # Element-wise maximum. At equality, var_0 is picked.
     inds = (vals[1] > vals[0]).nonzero()[0]
-
     max_val = vals[0].copy()
     max_val[inds] = vals[1][inds]
-    # If both arrays are constant, a 0 matrix has been assigned to jacs.
-    # Return here to avoid calling copy on a number (immutable, no copy method) below.
-    if isinstance(jacs[0], (float, int)):
-        assert np.isclose(jacs[0], 0)
-        assert np.isclose(jacs[1], 0)
-        return AdArray(max_val, 0)
-
-    # Start from var_0, then change entries corresponding to inds.
-    max_jac = jacs[0].copy()
-    other_jac = jacs[1]
-
-    if isinstance(max_jac, (sps.spmatrix, sps.sparray)):
-        # Both Jacobians are in the same representation, as they belong to arrays that
-        # were combined above.
-        assert isinstance(other_jac, (sps.spmatrix, sps.sparray))
-        max_jac = max_jac.tocsr()
-        lines = pp.matrix_operations.slice_sparse_matrix(other_jac.tocsr(), inds)
-        pp.matrix_operations.merge_matrices(max_jac, lines, inds, max_jac.getformat())
-    else:
-        max_jac[inds] = other_jac[inds]
+    # Start from the Jacobian of var_0, then replace rows corresponding to inds.
+    max_jac = jacs[0].tocsr(copy=True)
+    lines = pp.matrix_operations.slice_sparse_matrix(jacs[1].tocsr(), inds)
+    pp.matrix_operations.merge_matrices(max_jac, lines, inds, "csr")
 
     return AdArray(max_val, max_jac)
 
