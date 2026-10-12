@@ -178,9 +178,8 @@ def safe_power(
 ) -> AdArrayBase:
     """Safe (negative) power of an AdArray.
 
-    The power is performed only for nonzeros in the variable, whereas zeros
-    are left as zeros. This is useful for avoiding division by zero in the
-    Jacobian.
+    The power is performed only for nonzeros in the variable, whereas zeros are left as
+    zeros. This is useful for avoiding division by zero in the Jacobian.
 
     Parameters:
         power: Power to raise the variable to.
@@ -202,6 +201,8 @@ def safe_power(
     vals[nonzero_inds] = _val[nonzero_inds] ** power
     if isinstance(var, np.ndarray):
         return vals
+    # Assign a zero derivative by default. Then assign the correct derivative to
+    # non-zero entries.
     der_factor = np.zeros_like(_val)
     der_factor[nonzero_inds] = power * _val[nonzero_inds] ** (power - 1.0)
     return var.chain_rule(vals, der_factor)
@@ -212,6 +213,7 @@ def sin(var: FloatType) -> FloatType:
     if isinstance(var, AdArrayBase):
         val = np.sin(var.val)
         der_factor = np.cos(var.val)
+        # Leave it to the AdArray implementation to handle the chain rule.
         return var.chain_rule(val, der_factor)
     else:
         return np.sin(var)
@@ -590,6 +592,6 @@ def mask_by_threshold(tol: float, char_var: FloatType, var: FloatType) -> FloatT
         return var.copy(vals, var.jac * char_inds.astype(float))
     # zero_rows requires csr format; the Jacobian may be csc (or another sparse format).
     full_jac = var.full_jac
-    jac = full_jac.tocsr() if full_jac.getformat() != "csr" else full_jac.copy()
+    jac = full_jac.tocsr(copy=True)
     pp.matrix_operations.zero_rows(jac, np.where(~char_inds)[0])
     return AdArray(vals, jac)

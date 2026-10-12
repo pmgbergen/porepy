@@ -132,7 +132,7 @@ ZERO_DERIVATIVE_FUNCTIONS = {
 # underlying variables. By the chain rule, the Jacobian of an elementwise function of an
 # Ad array is the derivative of the function times the Jacobian of the Ad array; using
 # Jacobians other than the identity checks that this product is formed. The full
-# Jacobian has off-diagonal entries, the diagonal one has distinct diagonal entries.
+# Jacobian has off-diagonal entries, the diagonal one has only diagonal entries.
 ARG_JAC: dict[AdRepresentation, np.ndarray] = {
     "full_ad": np.array([[3.0, 2.0, 1.0], [5.0, 6.0, 1.0], [2.0, 3.0, 5.0]]),
     "diagonal_ad": np.diag([2.0, -1.0, 0.5]),
@@ -205,6 +205,8 @@ def test_elementwise_function(
     np.testing.assert_allclose(_dense_jac(result), expected_jac)
     if representation == "diagonal_ad":
         assert isinstance(result, DiagonalAdArray)
+    else:
+        assert isinstance(result, AdArray)
 
 
 @pytest.mark.parametrize("func_name", list(ZERO_DERIVATIVE_FUNCTIONS))
@@ -260,6 +262,8 @@ class TestRegularizedHeaviside:
         np.testing.assert_allclose(_dense_jac(result), expected_jac)
         if representation == "diagonal_ad":
             assert isinstance(result, DiagonalAdArray)
+        else:
+            assert isinstance(result, AdArray)
 
 
 class TestMaximum:
@@ -280,7 +284,9 @@ class TestMaximum:
 
         expected_val = np.array([3.0, 5.0, 2.0])
         pick_1 = val_1 > val_0
-        expected_jac = np.where(pick_1[:, None], 0.0, ARG_JAC[representation])
+        # Build the Jacobian: Where pick_1 is True, the value 0 is assigned; else, the
+        # Jacobian of var_0 (that is, ARG_JAC[representation]) is used.
+        expected_jac = np.where(pick_1.reshape(-1, 1), 0.0, ARG_JAC[representation])
 
         np.testing.assert_allclose(result.val, expected_val)
         np.testing.assert_allclose(_dense_jac(result), expected_jac)
@@ -407,7 +413,7 @@ class TestMaskByThreshold:
                 np.array([10.0, np.nan, 30.0]),
                 0.0,
                 np.array([10.0, 0.0, 30.0]),
-                id="nan_times_zero",
+                id="nd_array_containing_nan",
             ),
         ],
     )
@@ -498,9 +504,6 @@ class TestClip:
             pytest.param(
                 [-1.0, 5.0, 1.0], [0.0, 3.0, 1.0], [0.0, 0.0, 1.0], id="outside_bounds"
             ),
-            pytest.param(
-                [-1.0, 1.0, 5.0], [0.0, 1.0, 3.0], [0.0, 1.0, 0.0], id="mixed"
-            ),
         ],
     )
     @pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
@@ -527,7 +530,8 @@ class TestClip:
     def test_does_not_mutate_input(self, representation: AdRepresentation):
         # Clip values both below and above the bounds, and check that the argument is
         # unchanged.
+        truth = ARG_JAC[representation].copy()
         var = _make_ad(np.array([-1.0, 2.0, 5.0]), representation)
         _ = af.clip(var, 0.0, 3.0)
         np.testing.assert_allclose(var.val, np.array([-1.0, 2.0, 5.0]))
-        np.testing.assert_allclose(_dense_jac(var), ARG_JAC[representation])
+        np.testing.assert_allclose(_dense_jac(var), truth)
