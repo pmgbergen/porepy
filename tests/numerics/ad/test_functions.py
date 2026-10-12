@@ -273,23 +273,41 @@ class TestMaximum:
         np.testing.assert_allclose(af.maximum(a, b), np.array([3.0, 5.0, 2.0]))
 
     @pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
-    def test_ad_and_ndarray(self, representation: AdRepresentation):
-        """One argument is an AdArray (full or diagonal), the other a plain ndarray with
-        an implicit zero Jacobian."""
-        val_0 = np.array([1.0, 5.0, 2.0])
-        val_1 = np.array([3.0, 2.0, 2.0])
-        var_0 = _make_ad(val_0, representation)
+    @pytest.mark.parametrize(
+        "constant",
+        [np.array([3.0, 2.0, 2.0]), 2.0, np.int64(2)],
+        ids=["ndarray", "float", "numpy_int"],
+    )
+    @pytest.mark.parametrize("ad_first", [True, False])
+    def test_ad_and_constant(
+        self,
+        representation: AdRepresentation,
+        constant: np.ndarray | float | np.int64,
+        ad_first: bool,
+    ):
+        """One argument is an AdArray (full or diagonal), the other a constant (ndarray
+        or scalar) with an implicit zero Jacobian, in either argument order. A scalar is
+        broadcast to the shape of the AdArray. All constants tie with the AdArray at
+        index 2, where the first argument wins."""
+        val = np.array([1.0, 5.0, 2.0])
+        var = _make_ad(val, representation)
 
-        result = af.maximum(var_0, val_1)
+        if ad_first:
+            result = af.maximum(var, constant)
+            pick_ad = val >= constant
+        else:
+            result = af.maximum(constant, var)
+            pick_ad = val > constant
 
-        expected_val = np.array([3.0, 5.0, 2.0])
-        pick_1 = val_1 > val_0
+        expected_val = np.maximum(val, constant)
         # Build the Jacobian: Where pick_1 is True, the value 0 is assigned; else, the
         # Jacobian of var_0 (that is, ARG_JAC[representation]) is used.
-        expected_jac = np.where(pick_1.reshape(-1, 1), 0.0, ARG_JAC[representation])
+        expected_jac = np.where(pick_ad.reshape((-1, 1)), ARG_JAC[representation], 0.0)
 
         np.testing.assert_allclose(result.val, expected_val)
         np.testing.assert_allclose(_dense_jac(result), expected_jac)
+        # A mixed call is computed in the full representation.
+        assert isinstance(result, AdArray)
 
     @pytest.mark.parametrize(
         "representation_0,representation_1",
