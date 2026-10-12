@@ -1,34 +1,50 @@
-from collections import defaultdict
+"""Criterion to stop the time stepping to a steady state.
+
+The criterion is evaluated by the model runner after each accepted time step, see
+:class:`~porepy.models.model_runner.EarlyStopCriterion`. It is used by
+:func:`~porepy.applications.initialization.initialization.initialization_pipeline`.
+
+"""
+
 from dataclasses import dataclass
 
 import numpy as np
 import logging
-from pathlib import Path
 
-import pp_solvers
 import porepy as pp
-from thm_fractured_reservoir import ThmFracturedReservoir, set_model_params
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class SteadyStateModelRunnerSuccess(pp.ModelRunnerStatusSuccess):
-    pass
+    """Status of a model runner that stopped because a steady state was reached.
+
+    It distinguishes this from reaching the final time, which is a success of the
+    runner but not an equilibrium.
+
+    """
 
 
 class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
     """Stops the initialization run once both the rate of change of the variables and
     the residual of the equations are below their tolerances.
 
-    After an accepted time step, the previous time step equals the new state, so the
-    residual is that of the steady problem.
+    The rate of change of the variables is the change since the previous call divided by
+    the time between the calls, measured per variable with the variable indexer of the
+    model. The residual is that of the equations of the model at the new state, measured
+    per equation with the equation indexer. After an accepted time step the previous
+    time step equals the new state, so the accumulation terms vanish and the residual is
+    that of the steady problem. Each norm is the root mean square of the block.
 
     Parameters:
-        rate_tolerances: Tolerances of the rate of change of variables, see
-            :func:`make_tolerances`.
-        residual_tolerance: Tolerance of the residual of all equations.
-        earliest_stop_time: The simulation is not stopped before this time.
+        rate_tolerances: Tolerance of the norm of the rate of change per variable name,
+            in model units per second. Must return a value for all variable names, e.g.
+            a ``defaultdict``.
+        residual_tolerances: Tolerance of the norm of the residual per equation name, in
+            model units. Must return a value for all equation names.
+        earliest_stop_time: The simulation is not stopped before this time, although the
+            tolerances are fulfilled.
 
     """
 
@@ -47,6 +63,14 @@ class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
     def simulation_should_stop(
         self, model: pp.PorePyModel
     ) -> pp.ModelRunnerStatus | None:
+        """Check the rate of change and the residual after an accepted time step.
+
+        Returns:
+            :class:`SteadyStateModelRunnerSuccess` if the model is in a steady state,
+            otherwise None. The first call only stores the state, since the rate needs
+            two states.
+
+        """
         state = model.equation_system.get_variable_values(iterate_index=0)
         time = model.time_manager.time
         previous, self.previous = self.previous, (state, time)
@@ -81,11 +105,11 @@ def check_and_log_tolerances(
     Parameters:
         metric: Computes the norm of each variable or equation block of ``values``.
         values: Rate of change of all variables, or residual of all equations.
-        tolerances: Absolute tolerance by name. Others use ``default_tolerance``.
-        name: What the values are, for logging.
+        tolerances: Absolute tolerance by name. Must return a value for all names.
+        name: What the values are, for logging, e.g. "rate".
 
     Returns:
-        The norms that exceed the tolerance, by name.
+        The norms that are not below the tolerance, by name.
 
     """
     norms = metric(values)
