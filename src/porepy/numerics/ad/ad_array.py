@@ -1045,13 +1045,17 @@ def initialize_diagonal_ad_arrays(
 
 
 class DiagonalAdArray(AdArrayBase):
-    """An Ad array where only the diagonal of the Jacobian is stored.
+    """An Ad array for Jacobian matrices that are block diagonal.
 
-    This representation can be used for quantities which only depend on themselves, and
-    not on any other variables. The operations are implemented in a way that they take
-    advantage of this structure to speed up calculations. Operations whose result cannot
-    be represented this way, such as left-multiplication with a sparse matrix, return an
-    :class:`AdArray`.
+    The array can represent cell-wise quantities that depend only on variables in the
+    same cell (example: a density function that depends on, say, the pressure and
+    temperature in the same cell, but not on any other cells). Thus the Jacobian is
+    block-diagonal, with one block per cell.
+
+    Arithmetic operations involving DiagonalAdArrays, where the output can be
+    represented as a DiagonalAdArray will be significantly faster than the corresponding
+    operations on AdArrays. If the output cannot be represented as a DiagonalAdArray,
+    the result will outomatically be represented as an AdArray,
 
     The derivatives are stored as a 2d numpy array, :attr:`jac`, with one row per block
     of the Jacobian and one column per entry in :attr:`val`. Together with the
@@ -1060,16 +1064,16 @@ class DiagonalAdArray(AdArrayBase):
     :meth:`to_full`.
 
     Parameters:
-        val: The value of the Ad array, as a 1d numpy array.
-        jac: The diagonals of the Jacobian, as a 2d numpy array with one row per block
+        val: The value of the Ad array, as a 1d numpy array. jac: The diagonals of the
+        Jacobian, as a 2d numpy array with one row per block
             of the Jacobian and one column per entry in ``val``. A 1d array is
             interpreted as a single block.
         row_indices: Indices, into the full system of ``num_derivatives`` degrees of
             freedom, of the entries in ``val``.
         col_indices: For each block of the Jacobian, the indices, into the full system,
             of the columns of the full Jacobian that the entries in the block belong to.
-        num_derivatives: Total number of derivatives (degrees of freedom) in the full
-            system, that is, the number of columns of the full Jacobian.
+        num_derivatives: Total number of derivatives (degrees of freedom) in the system,
+            that is, the number of columns of the global Jacobian.
 
     Raises:
         ValueError: If ``val`` is not 1d, or if the number of columns in ``jac`` does
@@ -1091,7 +1095,7 @@ class DiagonalAdArray(AdArrayBase):
         if jac.shape[1] != self.val.size:
             raise ValueError(
                 "The diagonal Jacobian should have one column per array degree of "
-                "freedom"
+                "freedom."
             )
         self.jac: np.ndarray = _as_float(jac)
         """The derivatives, stored as one row per block of the Jacobian."""
