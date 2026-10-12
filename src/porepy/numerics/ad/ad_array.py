@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import abc
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -585,20 +585,6 @@ class AdArray(AdArrayBase):
 
         """
         return sps.diags(a) * self.jac
-
-    if TYPE_CHECKING:
-        # The implementations of these operations are shared with DiagonalAdArray, see
-        # AdArrayBase. They delegate to the operations implemented below, and so return
-        # an AdArray when called on one. Declare this for the type checker.
-        def __radd__(self, other: AdType) -> AdArray: ...
-
-        def __sub__(self, other: AdType) -> AdArray: ...
-
-        def __rsub__(self, other: AdType) -> AdArray: ...
-
-        def __rmul__(self, other: AdType) -> AdArray: ...
-
-        def __neg__(self) -> AdArray: ...
 
     def __str__(self) -> str:
         s = f"Ad array of size {self.val.size}\n"
