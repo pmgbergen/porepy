@@ -15,6 +15,7 @@ needed for quicker test runs.
 
 import logging
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import TYPE_CHECKING, Callable, cast
 
 import numpy as np
@@ -42,6 +43,17 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
+class WellBCType(Enum):
+    """Type of the boundary condition imposed at the top of a well."""
+
+    DIRICHLET = "dirichlet"
+    """The well values (e.g. pressure, temperature) are imposed."""
+    NEUMANN = "neumann"
+    """Zero flux, i.e. the well is closed."""
+    ROBIN = "robin"
+    """Mixed condition. Not implemented by the boundary condition classes below."""
+
+
 @dataclass(frozen=True)
 class WellInterval:
     """One point of a well schedule: the start of an interval and the well values there.
@@ -54,11 +66,14 @@ class WellInterval:
         start: Start time of the interval [s].
         values: Mapping from protocol variable name (e.g. ``"pressures"``,
             ``"temperatures"``) to the value at ``start``, in SI units.
+        bc_type: Type of the boundary condition of the well in this interval. See
+            :meth:`WellSchedule.well_bc_type`.
 
     """
 
     start: float
     values: dict[str, float] = field(default_factory=dict)
+    bc_type: WellBCType = WellBCType.DIRICHLET
 
 
 class WellSchedule(pp.PorePyModel):
@@ -184,6 +199,42 @@ class WellSchedule(pp.PorePyModel):
             end = float(self.time_manager.schedule.get_array()[-1])
         return float(intervals[i].start), float(end)
 
+    def well_bc_type(self, well_tag: str) -> WellBCType:
+        """Return the boundary condition type of the well at the current time, as
+        defined by the active interval of its schedule.
+
+        Parameters:
+            well_tag: Name of the well.
+
+        """
+        intervals = self.well_intervals(well_tag)
+        return intervals[
+            self.well_interval_index(well_tag, self.time_manager.time)
+        ].bc_type
+
+    def well_bc_intervals(
+        self, well_tag: str, bc_type: WellBCType
+    ) -> list[tuple[float, float]]:
+        """Return the time ranges ``(start, end)`` in which the well has a BC type.
+
+        Parameters:
+            well_tag: Name of the well.
+            bc_type: The boundary condition type to look for.
+
+        Returns:
+            One tuple per interval of the schedule of the given type. The end of the
+            last interval is the end of the simulation.
+
+        """
+        intervals = self.well_intervals(well_tag)
+        t_end = float(self.time_manager.schedule.get_array()[-1])
+        ends = [interval.start for interval in intervals[1:]] + [t_end]
+        return [
+            (interval.start, end)
+            for interval, end in zip(intervals, ends)
+            if interval.bc_type == bc_type
+        ]
+
 
 class WellBoundaryConditions(WellSchedule):
     """Class defining boundary conditions values for geothermal reservoir models with
@@ -258,7 +309,8 @@ class WellBoundaryConditions(WellSchedule):
 
 
 class NeumannWellBCsFirstTimeInterval(WellSchedule):
-    """Class defining Neumann BCs on well grids during the first time interval.
+    """Class defining Neumann BCs on well grids during the Neumann intervals of the well
+    schedule, see :class:`WellInterval`. In the example, this is the first time interval.
 
     Rediscretization happens when calling rediscretize_fluxes in the solution strategy
     class. By default, both diffusive fluxes in lower-dimensional subdomains are tagged
@@ -285,18 +337,19 @@ class NeumannWellBCsFirstTimeInterval(WellSchedule):
         Returns:
             The boundary condition type for Darcy flux on the given subdomain.
         """
-        if self.is_well_grid(sd) and (
-            self.well_interval_index(
-                self.parent_well_tag(sd), self.time_manager.time
-            )
-            == 0
-        ):
-            # Before start of injection, impose Neumann BCs on well grids. A zero-flux
-            # condition is imposed by default when no BC values are specified. The <=
-            # comparison ensures that the BCs are kept as Neumann as long as the time
-            # step is within the first time interval [0, t1], where t1 is the start time
-            # of injection, consistent with the implicit time stepping employed in
-            # PorePy.
+        bc_type = (
+            self.well_bc_type(self.parent_well_tag(sd))
+            if self.is_well_grid(sd)
+            else None
+        )
+        if bc_type == WellBCType.ROBIN:
+            raise NotImplementedError("Robin boundary conditions on wells.")
+        if bc_type == WellBCType.NEUMANN:
+            # Impose Neumann BCs on well grids in the Neumann intervals of the well
+            # schedule, e.g. before start of injection. A zero-flux condition is imposed
+            # by default when no BC values are specified. Intervals are right-closed,
+            # so the BCs are kept as Neumann as long as the time step ends within the
+            # interval, consistent with the implicit time stepping employed in PorePy.
             domain_sides = self.domain_boundary_sides(sd)
             inds = domain_sides.top if self.nd == 3 else domain_sides.north
             return pp.BoundaryCondition(sd, inds, "neu")
@@ -312,18 +365,19 @@ class NeumannWellBCsFirstTimeInterval(WellSchedule):
         Returns:
             The boundary condition type for Fourier flux on the given subdomain.
         """
-        if self.is_well_grid(sd) and (
-            self.well_interval_index(
-                self.parent_well_tag(sd), self.time_manager.time
-            )
-            == 0
-        ):
-            # Before start of injection, impose Neumann BCs on well grids. A zero-flux
-            # condition is imposed by default when no BC values are specified. The <=
-            # comparison ensures that the BCs are kept as Neumann as long as the time
-            # step is within the first time interval [0, t1], where t1 is the start time
-            # of injection, consistent with the implicit time stepping employed in
-            # PorePy.
+        bc_type = (
+            self.well_bc_type(self.parent_well_tag(sd))
+            if self.is_well_grid(sd)
+            else None
+        )
+        if bc_type == WellBCType.ROBIN:
+            raise NotImplementedError("Robin boundary conditions on wells.")
+        if bc_type == WellBCType.NEUMANN:
+            # Impose Neumann BCs on well grids in the Neumann intervals of the well
+            # schedule, e.g. before start of injection. A zero-flux condition is imposed
+            # by default when no BC values are specified. Intervals are right-closed,
+            # so the BCs are kept as Neumann as long as the time step ends within the
+            # interval, consistent with the implicit time stepping employed in PorePy.
             domain_sides = self.domain_boundary_sides(sd)
             inds = domain_sides.top if self.nd == 3 else domain_sides.north
             return pp.BoundaryCondition(sd, inds, "neu")
@@ -400,16 +454,23 @@ def set_model_params():
     injection_pressures = injection_pressures[:schedule_length]
     well_schedule = {
         "injection_well": [
-            WellInterval(start, {"pressures": pressure, "temperatures": 300.0})
-            for start, pressure in zip(schedule, injection_pressures)
+            WellInterval(
+                start,
+                {"pressures": pressure, "temperatures": 300.0},
+                bc_type=(  # The well is closed during initialization.
+                    WellBCType.NEUMANN if i == 0 else WellBCType.DIRICHLET
+                ),
+            )
+            for i, (start, pressure) in enumerate(zip(schedule, injection_pressures))
         ],
         # The produced fluid is hotter than the injected one.
         "production_well": [
             WellInterval(
                 start,
                 {"pressures": pp.ATMOSPHERIC_PRESSURE, "temperatures": 350.0},
+                bc_type=WellBCType.NEUMANN if i == 0 else WellBCType.DIRICHLET,
             )
-            for start in schedule
+            for i, start in enumerate(schedule)
         ],
     }
 

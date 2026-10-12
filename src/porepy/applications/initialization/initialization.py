@@ -175,6 +175,10 @@ def default_residual_tolerances() -> dict[str, float]:
     return defaultdict(lambda: 1e-9)
 
 
+_MISSING = object()
+"""Marks a model parameter that did not exist before it was replaced."""
+
+
 class InitializationError(RuntimeError):
     """Raised if the initialization did not end in a verified steady state."""
 
@@ -203,12 +207,22 @@ class _InitializationContext:
     Parameters:
         model: The model, which is changed in place.
         time_manager: Time manager of the time stepping to the steady state.
+        params: Model parameters that replace those of the model while the context is
+            active, e.g. a time independent well schedule. The original values are
+            restored on exit; keys that the model did not have are removed.
 
     """
 
-    def __init__(self, model: pp.PorePyModel, time_manager: pp.TimeManager) -> None:
+    def __init__(
+        self,
+        model: pp.PorePyModel,
+        time_manager: pp.TimeManager,
+        params: dict | None = None,
+    ) -> None:
         self.model = model
         self.time_manager = time_manager
+        self.params = params or {}
+        self._original_params: dict = {}
         self.original_class = model.__class__
         self.original_time_manager = model.time_manager
         self.original_folder_name = model.params["folder_name"]
@@ -270,11 +284,20 @@ class _InitializationContext:
         self.model.__class__ = self.initialized_class
         self.model.time_manager = self.time_manager
         self.model.params["folder_name"] = self.folder_name
+        self._original_params = {
+            key: self.model.params.get(key, _MISSING) for key in self.params
+        }
+        self.model.params.update(self.params)
 
     def __exit__(self, *args: object) -> None:
         self.model.__class__ = self.original_class
         self.model.time_manager = self.original_time_manager
         self.model.params["folder_name"] = self.original_folder_name
+        for key, value in self._original_params.items():
+            if value is _MISSING:
+                self.model.params.pop(key, None)
+            else:
+                self.model.params[key] = value
 
     def update_time_dependent_data(self) -> None:
         """Update the time dependent data of the original model to the data time.
@@ -378,10 +401,11 @@ def initialization_pipeline(
     model: pp.PorePyModel,
     rate_tolerances: dict[str, float],
     residual_tolerances: dict[str, float],
-    nonlinear_solver: pp.solvers.NewtonSolver | None = None,
+    nonlinear_solver: pp.solvers.NonlinearSolverBase | None = None,
     storage: ModelStateStorage | None = None,
     time_manager: pp.TimeManager | None = None,
     earliest_stop_time: float = 1 * pp.YEAR,
+    initialization_params: dict | None = None,
 ) -> pp.PorePyModel:
     """Initialize a model to a steady state.
 
@@ -406,6 +430,9 @@ def initialization_pipeline(
         time_manager: Time manager of the time stepping to the steady state. Defaults
             to :func:`default_initialization_time_manager`.
         earliest_stop_time: The time stepping is not stopped before this time.
+        initialization_params: Model parameters that replace those of the model during
+            the time stepping to the steady state only, e.g. a constant well schedule.
+            The original model is checked and run with its own parameters.
 
     Returns:
         The model, prepared, with the steady state as its initial and reference state.
@@ -430,7 +457,7 @@ def initialization_pipeline(
 
     if time_manager is None:
         time_manager = default_initialization_time_manager()
-    init_context = _InitializationContext(model, time_manager)
+    init_context = _InitializationContext(model, time_manager, initialization_params)
 
     def load_steady_state() -> bool:
         if not storage.exists():

@@ -15,6 +15,7 @@ from porepy.applications.test_utils import well_models
 from porepy.examples.geothermal_reservoir import (
     GeothermalReservoirWellBCs,
     NeumannWellBCsFirstTimeInterval,
+    WellBCType,
     WellInterval,
     WellBoundaryConditions,
     set_model_params,
@@ -54,7 +55,10 @@ class GeothermalModelNeumann(
 def neuBC_model():
     params = {
         "well_schedule": {
-            "injection_well": [WellInterval(0.0), WellInterval(1.0)],
+            "injection_well": [
+                WellInterval(0.0, bc_type=WellBCType.NEUMANN),
+                WellInterval(1.0),
+            ],
         },
     }
     model = GeothermalModelNeumann(params)
@@ -197,12 +201,23 @@ def test_geothermal_reservoir():
     # Injection well schedule, one interval per schedule point.
     injection_pressures = [1e5, 1e5, 5e5]  # [Pa]
     injection_schedule = [
-        WellInterval(start, {"pressures": pressure, "temperatures": 250.00})
-        for start, pressure in zip(schedule, injection_pressures)
+        WellInterval(
+            start,
+            {"pressures": pressure, "temperatures": 250.00},
+            WellBCType.NEUMANN if i == 0 else WellBCType.DIRICHLET,
+        )
+        for i, (start, pressure) in enumerate(zip(schedule, injection_pressures))
     ]
     # The production well keeps the example's protocol values, on this test's schedule.
     production_values = model_params["well_schedule"]["production_well"][0].values
-    production_schedule = [WellInterval(start, production_values) for start in schedule]
+    production_schedule = [
+        WellInterval(
+            start,
+            production_values,
+            WellBCType.NEUMANN if i == 0 else WellBCType.DIRICHLET,
+        )
+        for i, start in enumerate(schedule)
+    ]
 
     time_manager = pp.TimeManager(
         schedule=schedule,
