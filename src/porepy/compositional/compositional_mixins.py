@@ -3344,10 +3344,27 @@ class ReactionRatesKineticFromExperimentReleaseFraction:
         release reactions by water-mineral interactions in deep sedimentary basins
         of the North German Basin and Upper Rhine Graben. Applied Geochem-
         istry, 195:106622, 2025.
-        Sample: DFU_01
+        Sample: DFU_01, GS_01
         """
-        return 5.36e-6
+        default_rate_constants = {
+            "LiX_dissolution": 5.36e-6,
+            "LiY_dissolution": 7.82e-6,
+        }
         # set a fake rate constant
+        constants = self.params.get(
+            "reaction_rate_constants",
+            default_rate_constants,
+        )
+
+        try:
+            return constants[reaction.name]
+        except KeyError:
+            raise ValueError(
+                f"No rate constant configured for reaction {reaction.name!r}"
+            ) from None
+
+
+
 
     def mineral_release_fraction(self, reaction: pp.Reaction):
         """
