@@ -462,13 +462,13 @@ class EnthalpyBasedEnergyBalanceEquations(
                     for phase in self.fluid.phases
                 ],
             )
+            op.set_name("advected_enthalpy")
         else:
             # If the fractional-flow framework is not used, the weight corresponds to
             # the advected enthalpy and a super call is performed (where the respective
             # term is implemented).
             op = super().advection_weight_energy_balance(domains)
 
-        op.set_name("advected_enthalpy")
         return op
 
     def enthalpy_flux(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
