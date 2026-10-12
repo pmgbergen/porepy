@@ -14,6 +14,7 @@ needed for quicker test runs.
 """
 
 import logging
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Callable, cast
 
 import numpy as np
@@ -41,7 +42,150 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
-class WellBoundaryConditions(pp.PorePyModel):
+@dataclass(frozen=True)
+class WellInterval:
+    """One point of a well schedule: the start of an interval and the well values there.
+
+    A well schedule is a list of these, sorted by ``start``. The values are linearly
+    interpolated in time between consecutive starts, so each interval spans from its
+    ``start`` to the start of the next one.
+
+    Attributes:
+        start: Start time of the interval [s].
+        values: Mapping from protocol variable name (e.g. ``"pressures"``,
+            ``"temperatures"``) to the value at ``start``, in SI units.
+
+    """
+
+    start: float
+    values: dict[str, float] = field(default_factory=dict)
+
+
+class WellSchedule(pp.PorePyModel):
+    """Mixin providing the well schedules, which define the well protocols.
+
+    The well schedule is distinct from the time manager's schedule, which only controls
+    time stepping. It is read from ``self.params["well_schedule"]``, a dictionary
+    mapping the well name (e.g. ``"injection_well"``) to a list of
+    :class:`WellInterval`, sorted by start time.
+
+    """
+
+    def parent_well_tag(self, sd: pp.Grid) -> str:
+        """Return the name of the well that a well grid belongs to."""
+        return self.well_network.wells[sd.well_num].tags["well_name"]
+
+    def well_intervals(self, well_tag: str) -> list[WellInterval]:
+        """Return the validated schedule of a well.
+
+        Parameters:
+            well_tag: Name of the well (e.g. ``"injection_well"``).
+
+        Returns:
+            The list of intervals of the well, sorted by start time.
+
+        Raises:
+            ValueError: If the well has no schedule, or the intervals are empty or not
+                strictly increasing in start time.
+
+        """
+        schedules = self.params.get("well_schedule", {})
+        if well_tag not in schedules or len(schedules[well_tag]) == 0:
+            raise ValueError(f"No well schedule provided for well '{well_tag}'.")
+        intervals = list(schedules[well_tag])
+        starts = np.array([interval.start for interval in intervals])
+        if np.any(np.diff(starts) <= 0):
+            raise ValueError(
+                f"Well schedule of '{well_tag}' must have strictly increasing starts."
+            )
+        return intervals
+
+    def well_value(self, well_tag: str, variable: str) -> float:
+        """Return the value of a well protocol variable at the current time.
+
+        The value is linearly interpolated between the interval starts, and kept
+        constant from the last start until the end of the simulation.
+
+        Parameters:
+            well_tag: Name of the well.
+            variable: Protocol variable name (e.g. ``"pressures"``).
+
+        Returns:
+            The value of the variable at the current time, in SI units.
+
+        Raises:
+            ValueError: If the current time is outside the well schedule, or an
+                interval does not define the variable.
+
+        """
+        intervals = self.well_intervals(well_tag)
+        starts = np.array([interval.start for interval in intervals])
+        t = self.time_manager.time
+        # Raises if the time is outside the well schedule. Beyond the last start, the
+        # values of the last interval are kept constant until the end of the simulation.
+        self.well_interval_index(well_tag, t)
+        for interval in intervals:
+            if variable not in interval.values:
+                raise ValueError(
+                    f"Well schedule of '{well_tag}' does not define '{variable}' in "
+                    f"the interval starting at {interval.start}."
+                )
+        values = np.array([interval.values[variable] for interval in intervals])
+        return float(np.interp(t, starts, values))
+
+    def well_interval_index(self, well_tag: str, time: float) -> int:
+        """Return the index of the well interval containing a time.
+
+        Intervals are right-closed, consistent with the implicit time stepping employed
+        in PorePy: a time equal to the start of an interval belongs to the previous
+        interval, except for the very first start, which belongs to the first interval.
+        The last interval ends at the end of the simulation, as given by the time
+        manager's schedule.
+
+        Parameters:
+            well_tag: Name of the well.
+            time: The time to locate, typically the current time.
+
+        Returns:
+            The index of the interval in the list returned by :meth:`well_intervals`.
+
+        Raises:
+            ValueError: If the time is outside the well schedule, i.e. before the first
+                start or after the end of the simulation.
+
+        """
+        starts = np.array(
+            [interval.start for interval in self.well_intervals(well_tag)]
+        )
+        ends = np.append(starts[1:], self.time_manager.schedule.get_array()[-1])
+        if time < starts[0] or time > ends[-1]:
+            raise ValueError(f"Time {time} is outside the schedule of '{well_tag}'.")
+        return int(np.searchsorted(ends, time, side="left"))
+
+    def well_interval_bounds(self, well_tag: str, time: float) -> tuple[float, float]:
+        """Return the start and end time of the well interval containing a time.
+
+        See :meth:`well_interval_index` for the interval convention.
+
+        Parameters:
+            well_tag: Name of the well.
+            time: The time to locate, typically the current time.
+
+        Returns:
+            Tuple ``(start, end)``, where ``end`` is the start of the next interval, or
+            the end of the simulation for the last interval.
+
+        """
+        i = self.well_interval_index(well_tag, time)
+        intervals = self.well_intervals(well_tag)
+        if i + 1 < len(intervals):
+            end = intervals[i + 1].start
+        else:
+            end = float(self.time_manager.schedule.get_array()[-1])
+        return float(intervals[i].start), float(end)
+
+
+class WellBoundaryConditions(WellSchedule):
     """Class defining boundary conditions values for geothermal reservoir models with
     wells.
 
@@ -86,12 +230,7 @@ class WellBoundaryConditions(pp.PorePyModel):
             inds = domain_sides.top if self.nd == 3 else domain_sides.north
             # Set pressure values according to the well protocol.
             values[inds] = self.units.convert_units(
-                self.get_well_value(
-                    self.well_protocols(well_tag, "pressures"),
-                    self.time_manager.schedule.get_array(),
-                    self.time_manager.time,
-                ),
-                "Pa",
+                self.well_value(well_tag, "pressures"), "Pa"
             )
         return values
 
@@ -113,71 +252,12 @@ class WellBoundaryConditions(pp.PorePyModel):
             inds = domain_sides.top if self.nd == 3 else domain_sides.north
             # Set temperature values according to the well protocol.
             values[inds] = self.units.convert_units(
-                self.get_well_value(
-                    self.well_protocols(well_tag, "temperatures"),
-                    self.time_manager.schedule.get_array(),
-                    self.time_manager.time,
-                ),
-                "K",
-            )
-        return values
-
-    def get_well_value(
-        self,
-        values: np.ndarray,
-        times: np.ndarray,
-        current_time: float,
-    ) -> float:
-        """Return the well value at the current time.
-
-        Parameters:
-            values: Array with time-dependent well values.
-            times: Array with time points corresponding to the well values.
-                Linear interpolation is used to find the value at the current time.
-            current_time: Current simulation time.
-
-        Returns:
-            The well value at the current time.
-
-        Raises:
-            ValueError: If the current time is outside the range of the provided times.
-        """
-        if current_time < times[0]:
-            raise ValueError("Current time is before the start of the well protocol.")
-        elif current_time > times[-1]:
-            raise ValueError("Current time is after the end of the well protocol.")
-        else:
-            return float(np.interp(current_time, times, values))
-
-    def well_protocols(self, well_tag: str, variable: str) -> NDArray[np.float64]:
-        """Return the time-dependent protocol array for a given well and variable.
-
-        The value is read from ``self.params`` under the key
-        ``"{well_tag}_{variable}"``. A scalar is broadcast to all schedule times; an
-        array must match schedule length.
-
-        Parameters:
-            well_tag: Name of the well (e.g. ``"injection_well"``).
-            variable: Protocol variable name (e.g. ``"pressures"``, ``"temperatures"``,
-                ``"mass_rates"``).
-
-        Returns:
-            Array of protocol values, one entry per scheduled time point.
-        """
-        num_times = self.time_manager.schedule.get_array().size
-        raw = self.params.get(f"{well_tag}_{variable}", 0.0)
-        if isinstance(raw, (int, float)):
-            return np.full(num_times, float(raw))
-        values = np.asarray(raw, dtype=float)
-        if values.size != num_times:
-            raise ValueError(
-                f"Protocol '{well_tag}_{variable}' has {values.size} entries, "
-                f"expected {num_times} (one per schedule point)."
+                self.well_value(well_tag, "temperatures"), "K"
             )
         return values
 
 
-class NeumannWellBCsFirstTimeInterval(pp.PorePyModel):
+class NeumannWellBCsFirstTimeInterval(WellSchedule):
     """Class defining Neumann BCs on well grids during the first time interval.
 
     Rediscretization happens when calling rediscretize_fluxes in the solution strategy
@@ -205,9 +285,11 @@ class NeumannWellBCsFirstTimeInterval(pp.PorePyModel):
         Returns:
             The boundary condition type for Darcy flux on the given subdomain.
         """
-        if (
-            self.is_well_grid(sd)
-            and self.time_manager.time <= self.time_manager.schedule.get_array()[1]
+        if self.is_well_grid(sd) and (
+            self.well_interval_index(
+                self.parent_well_tag(sd), self.time_manager.time
+            )
+            == 0
         ):
             # Before start of injection, impose Neumann BCs on well grids. A zero-flux
             # condition is imposed by default when no BC values are specified. The <=
@@ -230,9 +312,11 @@ class NeumannWellBCsFirstTimeInterval(pp.PorePyModel):
         Returns:
             The boundary condition type for Fourier flux on the given subdomain.
         """
-        if (
-            self.is_well_grid(sd)
-            and self.time_manager.time <= self.time_manager.schedule.get_array()[1]
+        if self.is_well_grid(sd) and (
+            self.well_interval_index(
+                self.parent_well_tag(sd), self.time_manager.time
+            )
+            == 0
         ):
             # Before start of injection, impose Neumann BCs on well grids. A zero-flux
             # condition is imposed by default when no BC values are specified. The <=
@@ -301,20 +385,33 @@ def set_model_params():
     dt_init = 3 * pp.YEAR
     schedule += dt_init * 2.5
     schedule = np.insert(schedule, 0, 0.0)
-    # Define injection pressures as list of len = schedule.size. For other protocol
-    # values, broadcasting of single values is used for simplicity. The following
-    # schedule is somewhat arbitrary, but meant to represent a ramping up of injection
-    # pressures over time. The initial low pressure represents a start from near
-    # hydrostatic conditions.
-    # We ramp up from 1e5 to 5e6 Pa during initialization (well is closed using a
-    # Neumann BC), then ramp up to 9e6 Pa at injection start (1 hour), then increase to
-    # 11e6 Pa after 10 hours, and finally to 15e6 Pa after 200 days.
+    # Define the well schedules, one list of WellInterval per well, with the values
+    # linearly interpolated between interval starts. The injection pressures are
+    # somewhat arbitrary, but meant to represent a ramping up of injection pressures
+    # over time. The initial low pressure represents a start from near hydrostatic
+    # conditions. We ramp up from 1e5 to 5e6 Pa during initialization (well is closed
+    # using a Neumann BC), then ramp up to 9e6 Pa at injection start (1 hour), then
+    # increase to 11e6 Pa after 10 hours, and finally to 15e6 Pa after 100 days.
     injection_pressures = [1e5, 5e6, 9e6, 11e6, 15e6]  # [Pa]
     # Convenient shortening of simulation schedule for quick simulations. The point is
-    # that injection_pressures must match the size of schedule.
+    # that the well intervals follow the time manager's schedule.
     schedule_length = schedule.size  # Change to 3 or 4 for quicker runs.
     schedule = schedule[:schedule_length]
     injection_pressures = injection_pressures[:schedule_length]
+    well_schedule = {
+        "injection_well": [
+            WellInterval(start, {"pressures": pressure, "temperatures": 300.0})
+            for start, pressure in zip(schedule, injection_pressures)
+        ],
+        # The produced fluid is hotter than the injected one.
+        "production_well": [
+            WellInterval(
+                start,
+                {"pressures": pp.ATMOSPHERIC_PRESSURE, "temperatures": 350.0},
+            )
+            for start in schedule
+        ],
+    }
 
     # Define domain sizes (x, y, z) and fracture size.
     length_scale = 1e3  # [m]
@@ -336,11 +433,7 @@ def set_model_params():
         ),
         # Set physical parameters.
         "lithostatic_stress_multipliers": np.array([0.8, 1.2, 1.0]),
-        "injection_well_temperatures": 300.00,
-        "injection_well_pressures": injection_pressures,
-        # The produced fluid is hotter than the injected one.
-        "production_well_temperatures": 350.0,
-        "production_well_pressures": pp.ATMOSPHERIC_PRESSURE,  # = 1.01325e5 Pa
+        "well_schedule": well_schedule,
         "material_constants": {
             "solid": pp.SolidConstants(**solid_values),  # type: ignore[arg-type]
             "fluid": pp.FluidComponent(**pp.fluid_values.water),  # type: ignore[arg-type]

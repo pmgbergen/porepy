@@ -15,6 +15,7 @@ from porepy.applications.test_utils import well_models
 from porepy.examples.geothermal_reservoir import (
     GeothermalReservoirWellBCs,
     NeumannWellBCsFirstTimeInterval,
+    WellInterval,
     WellBoundaryConditions,
     set_model_params,
     set_solver_params,
@@ -33,9 +34,15 @@ class FastMeshingMixin:
         return "cartesian"
 
 
+class OneVerticalInjectionWell(well_models.OneVerticalWell):
+    def set_well_network(self) -> None:
+        super().set_well_network()
+        self.well_network.wells[0].tags["well_name"] = "injection_well"
+
+
 class GeothermalModelNeumann(
     FastMeshingMixin,
-    well_models.OneVerticalWell,
+    OneVerticalInjectionWell,
     porepy.applications.md_grids.model_geometries.CubeDomainOrthogonalFractures,
     NeumannWellBCsFirstTimeInterval,
     pp.Poromechanics,
@@ -45,7 +52,12 @@ class GeothermalModelNeumann(
 
 @pytest.fixture
 def neuBC_model():
-    model = GeothermalModelNeumann()
+    params = {
+        "well_schedule": {
+            "injection_well": [WellInterval(0.0), WellInterval(1.0)],
+        },
+    }
+    model = GeothermalModelNeumann(params)
     model.prepare_simulation()
     return model
 
@@ -72,12 +84,6 @@ def test_NeumannWellBCs_in_FirstTimeInterval(
         assert not np.any(bc.is_dir)
 
 
-class OneVerticalInjectionWell(well_models.OneVerticalWell):
-    def set_well_network(self) -> None:
-        super().set_well_network()
-        self.well_network.wells[0].tags["well_name"] = "injection_well"
-
-
 class GeothermalModelWell(
     FastMeshingMixin,
     OneVerticalInjectionWell,
@@ -93,8 +99,12 @@ class GeothermalModelWell(
 @pytest.fixture
 def well_bc_model():
     params = {
-        "injection_well_pressures": [1e6, 1e6],
-        "injection_well_temperatures": [300.00, 300.00],
+        "well_schedule": {
+            "injection_well": [
+                WellInterval(0.0, {"pressures": 1e6, "temperatures": 300.00}),
+                WellInterval(1.0, {"pressures": 1e6, "temperatures": 300.00}),
+            ]
+        },
     }
     model = GeothermalModelWell(params)
     model.prepare_simulation()
@@ -184,8 +194,15 @@ def test_geothermal_reservoir():
         ]
     )
 
-    # Injection pressure schedule, its size == schedule.size
+    # Injection well schedule, one interval per schedule point.
     injection_pressures = [1e5, 1e5, 5e5]  # [Pa]
+    injection_schedule = [
+        WellInterval(start, {"pressures": pressure, "temperatures": 250.00})
+        for start, pressure in zip(schedule, injection_pressures)
+    ]
+    # The production well keeps the example's protocol values, on this test's schedule.
+    production_values = model_params["well_schedule"]["production_well"][0].values
+    production_schedule = [WellInterval(start, production_values) for start in schedule]
 
     time_manager = pp.TimeManager(
         schedule=schedule,
@@ -207,8 +224,10 @@ def test_geothermal_reservoir():
             # Set time manager.
             "time_manager": time_manager,
             # Set physical parameters.
-            "injection_well_temperatures": 250.00,
-            "injection_well_pressures": injection_pressures,
+            "well_schedule": {
+                "injection_well": injection_schedule,
+                "production_well": production_schedule,
+            },
             # Set geometry and meshing related parameters.
             "meshing_arguments": {
                 "cell_size": length_scale / 4.0,
