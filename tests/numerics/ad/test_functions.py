@@ -111,18 +111,34 @@ ELEMENTWISE_FUNCTIONS = {
         domain=(0.5, 3.5),
     ),
 }
+# characteristic_function and heaviside are locally constant (almost everywhere), so
+# their Jacobian is defined to be identically zero, regardless of the Jacobian of the
+# argument (unlike the elementwise functions above).
+ZERO_DERIVATIVE_FUNCTIONS = {
+    "characteristic_function": dict(
+        func=functools.partial(af.characteristic_function, 0.5),
+        value=lambda v: np.isclose(v, 0, atol=0.5).astype(float),
+        domain=(-2.0, 2.0),
+    ),
+    "heaviside": dict(
+        func=functools.partial(af.heaviside, 0.5),
+        value=lambda v: np.heaviside(v, 0.5),
+        domain=(-2.0, 2.0),
+    ),
+}
+
 
 # Jacobians of the Ad arrays passed to the tested functions, with respect to the
 # underlying variables. By the chain rule, the Jacobian of an elementwise function of an
 # Ad array is the derivative of the function times the Jacobian of the Ad array; using
 # Jacobians other than the identity checks that this product is formed. The full
 # Jacobian has off-diagonal entries, the diagonal one has distinct diagonal entries.
-# Functions taking two Ad arrays (e.g. maximum) are given an unrelated Jacobian for the
-# second argument, since equal Jacobians for both arguments could hide bugs.
 ARG_JAC: dict[AdRepresentation, np.ndarray] = {
     "full_ad": np.array([[3.0, 2.0, 1.0], [5.0, 6.0, 1.0], [2.0, 3.0, 5.0]]),
     "diagonal_ad": np.diag([2.0, -1.0, 0.5]),
 }
+# Functions taking two Ad arrays (e.g. maximum) need an unrelated Jacobian for the
+# second argument, since equal Jacobians for both arguments could hide bugs.
 SECOND_ARG_JAC: dict[AdRepresentation, np.ndarray] = {
     "full_ad": np.array([[9.0, 9.0, 9.0], [8.0, 8.0, 8.0], [7.0, 7.0, 7.0]]),
     "diagonal_ad": np.diag([4.0, 3.0, -2.0]),
@@ -134,18 +150,17 @@ def _make_ad(
     representation: AdRepresentation,
     jacobians: dict[AdRepresentation, np.ndarray] = ARG_JAC,
 ) -> AdArrayBase:
-    """Build an Ad array with given values and Jacobian.
+    """Helper function to build an Ad array with given values and Jacobian.
 
     Parameters:
         val: Values of the Ad array.
         representation: Build an AdArray (``"full_ad"``) or a DiagonalAdArray
             (``"diagonal_ad"``).
         jacobians: Jacobian of the Ad array for each representation, as a dense matrix.
-            For ``"diagonal_ad"``, only the diagonal is used. Defaults to the Jacobians
-            of the (first) argument of the tested functions.
+            For ``"diagonal_ad"``, only the diagonal is used.
 
     Returns:
-        The Ad array, with Jacobian ``jacobians[representation]``.
+        The Ad array.
 
     """
     jac = jacobians[representation]
@@ -161,7 +176,7 @@ def _make_ad(
 
 
 def _dense_jac(result: AdArrayBase) -> np.ndarray:
-    """Jacobian of an AdArray or DiagonalAdArray, as a dense array."""
+    """Return Jacobian of an AdArray or DiagonalAdArray, as a dense array."""
     return result.full_jac.toarray()
 
 
@@ -190,25 +205,6 @@ def test_elementwise_function(
     np.testing.assert_allclose(_dense_jac(result), expected_jac)
     if representation == "diagonal_ad":
         assert isinstance(result, DiagonalAdArray)
-
-
-# --- Shared scaffolding for zero-derivative functions ---
-#
-# characteristic_function and heaviside are locally constant (almost everywhere), so
-# their Jacobian is defined to be identically zero, regardless of the Jacobian of the
-# argument (unlike the elementwise functions above).
-ZERO_DERIVATIVE_FUNCTIONS = {
-    "characteristic_function": dict(
-        func=functools.partial(af.characteristic_function, 0.5),
-        value=lambda v: np.isclose(v, 0, atol=0.5).astype(float),
-        domain=(-2.0, 2.0),
-    ),
-    "heaviside": dict(
-        func=functools.partial(af.heaviside, 0.5),
-        value=lambda v: np.heaviside(v, 0.5),
-        domain=(-2.0, 2.0),
-    ),
-}
 
 
 @pytest.mark.parametrize("func_name", list(ZERO_DERIVATIVE_FUNCTIONS))
@@ -246,7 +242,7 @@ class TestRegularizedHeaviside:
     @pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
     def test_ad_representations(self, representation: AdRepresentation):
         """Value and Jacobian of RegularizedHeaviside (using heaviside_smooth as the
-        regularization), for a full AdArray and a DiagonalAdArray argument.
+        regularization).
 
         The value is the exact Heaviside function, while the Jacobian is that of the
         regularization, and the representation is that of the argument.
@@ -331,7 +327,7 @@ class TestMaximum:
 class TestL2Norm:
     # Jacobians of the argument, as ARG_JAC at module level, but with four degrees of
     # freedom to match two vectors of dimension two.
-    ARG_JAC: dict[AdRepresentation, np.ndarray] = {
+    LOC_ARG_JAC: dict[AdRepresentation, np.ndarray] = {
         "full_ad": np.array(
             [
                 [2.0, 0.0, 1.0, 0.0],
@@ -367,22 +363,23 @@ class TestL2Norm:
     @pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
     def test_dim_two(self, representation: AdRepresentation):
         """L2 norm reduces dim=2 components per output entry, so a DiagonalAdArray input
-        must densify (to_full) rather than stay diagonal."""
+        must be converted to a full AdArray rather than stay diagonal."""
         # Two 2-vectors, ordered [u0, v0, u1, v1]: (3, 4) has norm 5; (0, 0) has norm 0
-        # (per the module docstring, a zero vector gets a Jacobian entry of 1, not 0).
+        # (per the function docstring, a zero vector gets a Jacobian entry of 1, not 0).
         val = np.array([3.0, 4.0, 0.0, 0.0])
 
-        var = _make_ad(val, representation, self.ARG_JAC)
+        var = _make_ad(val, representation, self.LOC_ARG_JAC)
 
         result = af.l2_norm(2, var)
 
         expected_val = np.array([5.0, 0.0])
         d_norm_d_val = np.array([[0.6, 0.8, 0.0, 0.0], [0.0, 0.0, 1.0, 1.0]])
-        expected_jac = d_norm_d_val @ self.ARG_JAC[representation]
+        expected_jac = d_norm_d_val @ self.LOC_ARG_JAC[representation]
 
         np.testing.assert_allclose(result.val, expected_val)
         np.testing.assert_allclose(_dense_jac(result), expected_jac)
-        # dim > 1 always densifies, regardless of the input's representation.
+        # dim > 1 always return a full AdArray, regardless of the input's
+        # representation.
         assert isinstance(result, AdArray)
 
 
@@ -466,6 +463,8 @@ class TestMaskByThreshold:
         )
         if var_representation == "diagonal_ad":
             assert isinstance(result, DiagonalAdArray)
+        else:
+            assert isinstance(result, AdArray)
 
 
 class TestClip:
