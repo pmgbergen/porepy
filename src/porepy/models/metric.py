@@ -19,8 +19,24 @@ from porepy.numerics.ad.operators import DenseArray
 
 
 class Metric(ABC):
+    """Abstract base class for metrics used in convergence checks.
+
+    A metric maps an array of values (e.g., a nonlinear increment or a residual) to a
+    dictionary of named norms.
+
+    """
+
     @abstractmethod
     def __call__(self, values: np.ndarray) -> dict[str, float]:
+        """Compute the norms of an array.
+
+        Parameters:
+            values: Array to compute the norms of.
+
+        Returns:
+            Dictionary mapping a name (e.g., of a variable or equation) to its norm.
+
+        """
         pass
 
 
@@ -53,7 +69,23 @@ def _initialize_indexer[T: (pp.ad.EquationOnDomain, pp.ad.Variable)](
 
 
 class EuclideanMetric(Metric):
+    """Plain Euclidean norm of an array, without splitting into variables or equations.
+
+    The norm is normalized by the square root of the array size. The result is a
+    dictionary with the single key ``"norm"``.
+
+    """
+
     def __call__(self, values: np.ndarray) -> dict[str, float]:
+        """Compute the Euclidean norm of an array.
+
+        Parameters:
+            values: Array to compute the norm of.
+
+        Returns:
+            Dictionary with the key ``"norm"`` and the norm as value.
+
+        """
         # Compute norms for each variable block
         return {"norm": _euclidean_norm(values)}
 
