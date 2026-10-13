@@ -3190,7 +3190,7 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
 
         where the subscript zero denotes the reference state. The reference stress σ₀ is
         the model developer's choice, corresponding to the in-situ stress data. By
-        default, PorePy assumes that it is zero.        
+        default, PorePy assumes that it is zero.
 
         To assign a reference stress, e.g. one found by an initialization procedure,
         store it in the subdomain data dictionaries:
