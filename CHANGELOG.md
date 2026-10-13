@@ -13,6 +13,8 @@ The lists are sorted on PR numbers.
 ## Unreleased
 
 ### Changes
+PR 1795: Introduced EarlyStopCriterion in ModelRunner. Introduced
+    SteadyStateEarlyStopCriterion.
 PR 1794: Introduced typed interface pp.Metric for convergence metric instead of
     duck-typed pp.ConvergenceMetricType.
 PR 1793: Fix bug related to wrong placement of enthalpy advection Ad operator naming.

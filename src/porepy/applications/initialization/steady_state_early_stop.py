@@ -39,8 +39,7 @@ class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
 
     Parameters:
         rate_tolerances: Tolerance of the norm of the rate of change per variable name,
-            in model units per second. Must return a value for all variable names, e.g.
-            a ``defaultdict``.
+            in model units per second. Must return a value for all variable names.
         residual_tolerances: Tolerance of the norm of the residual per equation name, in
             model units. Must return a value for all equation names.
         earliest_stop_time: The simulation is not stopped before this time, although the
@@ -55,10 +54,22 @@ class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
         earliest_stop_time: float = 0,
     ) -> None:
         self.rate_tolerances = rate_tolerances
+        """Tolerance of the norm of the rate of change per variable name, in model units
+        per second. Must return a value for all variable names.
+
+        """
         self.residual_tolerances = residual_tolerances
+        """Tolerance of the norm of the residual per equation name, in model units.
+        Must return a value for all equation names.
+
+        """
         self.earliest_stop_time = earliest_stop_time
+        """The simulation is not stopped before this time, although the tolerances are
+        fulfilled.
+
+        """
         self.previous: tuple[np.ndarray, float] | None = None
-        """State and time at the previous call."""
+        """(State, time) at the previous call."""
 
     def simulation_should_stop(
         self, model: pp.PorePyModel
