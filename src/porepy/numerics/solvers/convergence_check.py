@@ -29,7 +29,6 @@ __all__ = [
     "ConvergenceStatusHistory",
     "ConvergenceInfo",
     "ConvergenceInfoCollection",
-    "ConvergenceMetricType",
     "ConvergenceInfoHistory",
     "ConvergenceCriterion",
     "DivergenceCriterion",
@@ -468,8 +467,11 @@ class RelativeConvergenceCriterion(RelativeCriterion, ConvergenceCriterion):
         if self.tol == np.inf:
             return ConvergenceStatus.CONVERGED, {}
 
-        if self.reference_value is not None:
-            reference_value = self.metric(kwargs["reference"])
+        # Always recompute the reference: set_reference_value only sets entries that
+        # are not yet set, and skips those that are zero in the reference. Such an
+        # entry must be allowed to be set later, once it becomes non-zero.
+        reference_value = self.metric(kwargs["reference"])
+        if reference_value is not None:
             self.set_reference_value(reference_value)
 
         metric_value = self.metric(kwargs["value"])
@@ -580,8 +582,8 @@ class CombinedConvergenceCriterion(CombinedCriterion, ConvergenceCriterion):
                 non-linear iteration and information about the convergence check.
 
         """
-        if self.reference_value is not None:
-            reference_value = self.metric(kwargs["reference"])
+        reference_value = self.metric(kwargs["reference"])
+        if reference_value is not None:
             self.set_reference_value(reference_value)
 
         metric_value = self.metric(kwargs["value"])

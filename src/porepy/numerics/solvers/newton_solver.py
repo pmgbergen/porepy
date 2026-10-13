@@ -664,7 +664,7 @@ class NewtonSolver(NonlinearSolverBase):
 
         return convergence_status, divergence_status, convergence_info
 
-    def logging(self, convergence_info: dict[str, dict | float]) -> None:
+    def logging(self, convergence_info: ConvergenceInfoCollection) -> None:
         """Log the current state of the nonlinear solver.
 
         This includes printing the current iteration number, nonlinear increment norm,
