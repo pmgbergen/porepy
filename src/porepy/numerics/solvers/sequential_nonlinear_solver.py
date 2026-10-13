@@ -16,7 +16,6 @@ import numpy as np
 import porepy as pp
 from porepy.numerics.solvers.convergence_check import (
     ConvergenceCriteria,
-    ConvergenceInfo,
     ConvergenceInfoCollection,
     ConvergenceStatus,
     ConvergenceStatusCollection,
