@@ -386,36 +386,34 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         # By assumption, there will be one argument per row per dependency.
         row_ptr = np.arange(0, num_args * num_rows + 1, num_args)
 
-        all_diagonal = all(isinstance(arg, DiagonalAdArray) for arg in args)
+        # Find the column index of the single entry in each row of the arguments'
+        # Jacobians.
+        col_indices = []
+        for arg in args:
+            if isinstance(arg, DiagonalAdArray):
+                # For a diagonal argument, the column indices are stored in the argument
+                # itself.
+                col_indices.append(arg.row_indices)
+            elif isinstance(arg, AdArray):
+                # For an AdArray argument, the column indices are found in the Jacobian.
+                jac = arg.jac.tocsr()
+                # A violation here would indicate a misuse of the surrogate operator;
+                # the arguments should have a single derivative per row (see method
+                # docstring).
+                assert jac.nnz == num_rows and np.all(np.diff(jac.indptr) == 1), (
+                    "Arguments of surrogate operators must have one entry per row in"
+                    " their Jacobian."
+                )
+                col_indices.append(jac.indices)
 
-        if all_diagonal:
-            # The Jacobian matrix is in this case a numpy array of stacked derivatives.
-            # To convert this into a DiagonalAdArray, it is necessary to also provide
-            # indices and offsets of the respective derivatives, but this will have to
-            # be handled by the calling function.
-            return derivatives
-        else:
-            # Make sure all the Jacobians are CSR matrices before fetching the
-            # indices of the data. Arguments with a diagonal representation are
-            # converted to the full representation first, since this mix of
-            # representations cannot be summed directly. The full representation of a
-            # diagonal array stores its derivatives with respect to the other blocks as
-            # explicit zeros; these are dropped, from a copy, so that each row holds the
-            # single entry of the variable.
-            csr_jacs = []
-            for arg in args:
-                if isinstance(arg, AdArrayBase):
-                    jac = arg.full_jac.tocsr(copy=True)
-                    jac.eliminate_zeros()
-                    csr_jacs.append(jac)
-
-            # Stack the derivative values, then ravel them in Fortran order, so that the
-            # indices for the zeroth row comes in the first num_args places etc.
-            indices = np.vstack([jac.indices for jac in csr_jacs]).ravel("F")
-            # Do the same for the data, which is the derivative values.
-            data = derivatives.ravel("F")
-            # Create the sparse matrix in CSR format and return it.
-            return sps.csr_matrix((data, indices, row_ptr), shape=(num_rows, num_cols))
+        # Stack the column indices, then ravel them in Fortran order, so that the
+        # indices for the zeroth row comes in the first num_args places etc.
+        indices = np.vstack(col_indices).ravel("F")
+        # Do the same for the data, which is the derivative values. These are inserted
+        # as is, thus a derivative which is exactly zero is kept as an explicit entry.
+        data = derivatives.ravel("F")
+        # Create the sparse matrix in CSR format and return it.
+        return sps.csr_matrix((data, indices, row_ptr), shape=(num_rows, num_cols))
 
 
 def _check_expected_values(
