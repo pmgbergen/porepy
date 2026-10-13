@@ -364,10 +364,10 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         # Jacobians of arguments, with the derivative data inserted in the diagonal
         # of the block, per argument/dependency/provided derivative value.
 
-        # Checking Jacobian shapes to assert they are consistent
-        # The shapes refer to the full representation, so that arguments in different
-        # representations can be compared. For a diagonal argument, the shape is known
-        # without assembling the full Jacobian.
+        # Check that the Jacobian shapes are consistent. The shapes refer to the full
+        # representation, so that arguments in different representations can be
+        # compared. For a diagonal argument, the shape is known without assembling the
+        # full Jacobian.
         shapes = set()
         for arg in args:
             if isinstance(arg, DiagonalAdArray):
