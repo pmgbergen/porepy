@@ -329,6 +329,84 @@ def test_lithostatic(dim: int):
     assert np.allclose(bottom_traction, -rho * g * sd.cell_volumes.sum())
 
 
+class ReferenceStressModel(LinearModel):
+    """Model with a non-trivial reference stress, linear in the face index."""
+
+    def ic_values_reference_stress(self, sd: pp.Grid) -> np.ndarray:
+        return np.arange(sd.num_faces * self.nd, dtype=float)
+
+
+@pytest.mark.parametrize("model_class", [LinearModel, ReferenceStressModel])
+def test_reference_stress(model_class):
+    """The reference stress is zero by default, equals the values given by
+    ``ic_values_reference_stress`` otherwise, and is zero on boundary grids. In the
+    initial state, the total stress equals the reference stress, since the mechanical
+    stress vanishes there.
+
+    """
+    model = model_class({"times_to_export": [], "fracture_indices": [0]})
+    model.prepare_simulation()
+    sd = model.mdg.subdomains(dim=model.nd)[0]
+    evaluate = model.equation_system.evaluate
+
+    expected = np.zeros(sd.num_faces * model.nd)
+    if model_class is ReferenceStressModel:
+        expected = model.ic_values_reference_stress(sd)
+
+    stored = pp.get_solution_values(
+        name=model.reference_stress_key,
+        data=model.mdg.subdomain_data(sd),
+        reference=True,
+    )
+    assert np.array_equal(stored, expected)
+    assert np.allclose(evaluate(model.reference_stress([sd])), expected)
+    assert np.allclose(evaluate(model.stress([sd])), expected)
+
+    # No reference stress on boundary grids; the stress is only defined on the matrix.
+    boundary_grids = model.mdg.boundaries()
+    assert evaluate(model.reference_stress(boundary_grids)) == 0
+    for fracture in model.mdg.subdomains(dim=model.nd - 1):
+        with pytest.raises(KeyError):
+            pp.get_solution_values(
+                name=model.reference_stress_key,
+                data=model.mdg.subdomain_data(fracture),
+                reference=True,
+            )
+
+
+def test_set_boundary_reference_values():
+    """Without boundary reference values, a non-zero boundary displacement acts in
+    absolute terms and gives a non-zero mechanical stress at the initial state. After
+    ``set_boundary_reference_values``, the boundary data are stored as reference values
+    and the stress vanishes in the initial state.
+
+    """
+    model = LinearModel({"times_to_export": [], "u_north": [0.0, 0.3]})
+    model.prepare_simulation()
+    sd = model.mdg.subdomains(dim=model.nd)[0]
+
+    def boundary_data():
+        for bg, data in model.mdg.boundaries(return_data=True):
+            for name in data[pp.ITERATE_SOLUTIONS]:
+                yield bg, data, name
+
+    # No reference values before the call.
+    for _, data, name in boundary_data():
+        assert name not in data.get(pp.REFERENCE_SOLUTIONS, {})
+    assert np.abs(model.equation_system.evaluate(model.stress([sd]))).max() > 1e-8
+
+    model.set_boundary_reference_values()
+
+    num_checked = 0
+    for _, data, name in boundary_data():
+        current = pp.get_solution_values(name=name, data=data, iterate_index=0)
+        reference = pp.get_solution_values(name=name, data=data, reference=True)
+        assert np.array_equal(current, reference)
+        num_checked += 1
+    assert num_checked > 0
+    assert np.allclose(model.equation_system.evaluate(model.stress([sd])), 0)
+
+
 """Tests for elastoplastic split of fracture deformation below."""
 
 
