@@ -99,14 +99,24 @@ def test_diagonal_jacobian_function_accepts_both_representations():
             return sum(a.val for a in args)
 
     domain = OperatorSpace.scalar()
+    # Use a DiagonalJacobianFunction to approximate the function f(x, y) = 2x + 3y.
     function = Sum([2.0, 3.0], "sum", source=domain)
 
-    full = pp.ad.AdArray(np.array([1.0, 2.0]), sps.csr_matrix(np.eye(2, 4)))
-    diagonal = pp.ad.initialize_diagonal_ad_arrays(
-        [np.array([3.0, 4.0])], [np.array([2, 3])], 4
+    # The arguments are two variables, each with two degrees of freedom, in a system
+    # with four degrees of freedom in total. The first variable, x, is in the full
+    # representation and has degrees of freedom 0 and 1, thus its Jacobian is the
+    # identity in the first two columns. The second variable, y, is in the diagonal
+    # representation and has degrees of freedom 2 and 3.
+    x = pp.ad.AdArray(np.array([1.0, 2.0]), sps.csr_matrix(np.eye(2, 4)))
+    y = pp.ad.initialize_diagonal_ad_arrays(
+        [np.array([3.0, 4.0])],  # Variable values.
+        [np.array([2, 3])],  # Dof indices of the variable in the global system.
+        4,  # Total number of degrees of freedom in the system.
     )[0]
 
-    jac = function.get_jacobian(full, diagonal)
+    jac = function.get_jacobian(x, y)
 
-    expected = 2.0 * full.full_jac + 3.0 * diagonal.full_jac
-    assert np.allclose(jac.toarray(), expected.toarray())
+    # As per the design of the DiagonalJacobianFunction, the Jacobian should be 2 times
+    # the identity in the columns of x, and 3 times the identity in the columns of y.
+    expected = np.array([[2.0, 0.0, 3.0, 0.0], [0.0, 2.0, 0.0, 3.0]])
+    np.testing.assert_allclose(jac.toarray(), expected)
