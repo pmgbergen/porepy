@@ -264,7 +264,65 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         # Most likely they will not be operators anymore, but operator factories.
         # Hence there will be no blocking of arithmetic overloads and we can rework the
         # hierarchical structure between this class and AbstractFunction
+
+        # If all arguments are diagonal Ad arrays, so is the result. AbstractFunction
+        # only assembles Ad arrays in the full representation, hence this case is
+        # treated separately.
+        diagonal_args: list[DiagonalAdArray] = []
+        for arg in args:
+            if isinstance(arg, DiagonalAdArray):
+                diagonal_args.append(arg)
+        if len(diagonal_args) > 0 and len(diagonal_args) == len(args):
+            return self._diagonal_value_and_jacobian(*diagonal_args)
         return pp.ad.AbstractFunction.func(self, *args)  # type:ignore[arg-type]
+
+    def _diagonal_value_and_jacobian(self, *args: DiagonalAdArray) -> DiagonalAdArray:
+        """Assemble the value and Jacobian of this operator for diagonal arguments.
+
+        Parameters:
+            *args: The arguments of this operator. As in :meth:`get_jacobian`, these
+                are assumed to be variables. Moreover, they should have been initialized
+                jointly, see
+                :func:`~porepy.numerics.ad.ad_array.initialize_diagonal_ad_arrays`, so
+                that they share the same structure of Jacobian blocks.
+
+        Raises:
+            ValueError: If an argument is not represented by a block in the Jacobian
+                structure of the arguments.
+
+        Returns:
+            The value and derivatives of this operator as a diagonal Ad array.
+
+        """
+        values = self.get_values(*args)
+        derivatives = np.hstack([self._fetch_data(self, g, True) for g in self.domains])
+
+        # The diagonal Jacobian has one block per variable on the subdomains. There can
+        # also be variables defined on the subdomains that are not arguments of this
+        # operator (example: a density is a function of pressure and temperature, while
+        # the global set of variables also includes a component fraction). The
+        # derivatives with respect to such 'additional' variables are zero.
+        col_indices = args[0].col_indices
+        jac = np.zeros((len(col_indices), values.size))
+
+        for derivative, arg in zip(derivatives, args):
+            # The block of a variable is identified by the column indices of the block
+            # coinciding with the degrees of freedom of the variable.
+            blocks = [
+                i
+                for i, block_indices in enumerate(col_indices)
+                if np.array_equal(block_indices, arg.row_indices)
+            ]
+            if len(blocks) == 0:
+                raise ValueError(
+                    "Arguments of a surrogate operator must be variables in the"
+                    " Jacobian structure shared by all arguments."
+                )
+            jac[blocks[0]] = derivative
+
+        return DiagonalAdArray(
+            values, jac, np.arange(values.size), col_indices, args[0].num_derivatives
+        )
 
     def get_values(self, *args: float | np.ndarray | AdArrayBase) -> np.ndarray:
         """Fetches the values stored for this operator at its time or iterate index.
