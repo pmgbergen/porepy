@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from functools import partial
-from typing import Optional, cast
+from typing import Optional, Sequence, cast
 
 import numpy as np
 
@@ -42,7 +42,7 @@ def _euclidean_norm(values: np.ndarray) -> float:
 def _initialize_indexer[T: (pp.ad.EquationOnDomain, pp.ad.Variable)](
     model: pp.PorePyModel,
     global_indexer: pp.ad.Indexer[T],
-    tags: list[pp.solvers.OperatorTag[T]] | None,
+    tags: Sequence[pp.solvers.OperatorTag[T]] | None,
 ):
     if tags is not None:
         # Restrict to a subset of variables.
