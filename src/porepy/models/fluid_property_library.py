@@ -594,7 +594,8 @@ class FluidBuoyancy(pp.PorePyModel):
     the hybrid upwind scheme of Lee, Efendiev & Tchelepi (2015), "Hybrid upwind
     discretization of nonlinear two-phase flow with gravity" (Adv. Water Resour., 82,
     27-38). Since :math:`m_\alpha^{\beta\gamma} = 1 - m_\alpha^{\gamma\beta}`,
-    :math:`\mathcal{H}_{\beta\gamma}(-\nu) = \mathcal{H}_{\gamma\beta}(\nu)`.
+    :math:`\mathcal{H}_{\beta\gamma}(-\nu) = \mathcal{H}_{\gamma\beta}(\nu)`. Since
+    :math:`\sum_\xi \chi_{\xi,\gamma} = 1`, this gives :math:`\sum_\xi b_{\xi,e} = 0`.
 
     :meth:`component_buoyancy` returns
 
@@ -627,11 +628,11 @@ class FluidBuoyancy(pp.PorePyModel):
     Nordbotten (2019), "Consistent MPFA Discretization for Flow in the Presence of
     Gravity" (Water Resour. Res., 55(12), 10105-10118).
 
-    Conservation of mass, component mass and energy, and monotonicity of the buoyancy
-    flux are tested in ``test_buoyancy_flow.py``. Reciprocity of the component
-    buoyancy fluxes is tested there and in ``test_fluid_property_library.py``. A
-    benchmark against the reference solution of Hayek et al. (2009) is in
-    ``test_buoyancy_flow_benchmark.py``.
+    ``test_buoyancy_flow.py`` tests the conservation of mass, component mass and
+    energy, and the monotonicity of the component buoyancy flux in the overall
+    composition, for HU and HU-mwp. The identity :math:`\sum_\xi b_{\xi,e} = 0` is
+    tested there and in ``test_fluid_property_library.py``. A benchmark against the
+    reference solution of Hayek et al. (2009) is in ``test_buoyancy_flow_benchmark.py``.
     """
 
     component_mass_mobility: Callable[

@@ -1,23 +1,24 @@
 """N-phase, N-component buoyancy-driven flow under gravity: conservation and
 hybrid-upwinding monotonicity.
 
-The domain is closed (no-flow Neumann on all boundaries), so pressure is determined
-only up to an additive constant, fixed by a null-mean-pressure gauge, Sum(p_matrix) = 0,
-imposed by NullMeanPressureSolve / NullMeanPressureLinearSolver. Fluids: N = 2 (liquid,
-gas; H2O, CH4) and N = 3 (liquid, oil, gas; H2O, CO2, CH4), in 2D and 3D.
+The domain is closed (no-flow Neumann on all boundaries), so the pressure is
+determined up to an additive constant. NullMeanPressureLinearSolver fixes it by the
+constraint Σ δp = 0 on the matrix pressure DOFs for each Newton increment; with a zero
+initial pressure, Σ p = 0. Fluids: N = 2 (liquid, gas; H2O,
+CH4) and N = 3 (liquid, oil, gas; H2O, C5H12, CH4), in 2D and 3D.
 
 Conservation -- test_buoyancy_model, on each accepted time step:
-  (i)   reciprocity: paired component buoyancy fluxes are equal and opposite (sum to 0);
-  (ii)  |Δ total independent-phase volume| ≤ tol      (mass, to the expected order);
-  (iii) |Δ total fluid energy| ≤ tol                  (energy, to the expected order);
-  (iv)  the null-mean-pressure residual stays ≤ null_mean_res_tolerance
-        (NullSpaceCriterion).
+  (i)   reciprocity: the component buoyancy fluxes sum to zero;
+  (ii)  |Δ total mass| and |Δ component mass| ≤ tol  (to the expected order);
+  (iii) |Δ total fluid energy| ≤ tol                  (to the expected order);
+  (iv)  the compatibility residual |Σ_c r_c| Δt / V of the mass balance stays
+        ≤ null_mean_res_tolerance (NullSpaceCriterion).
 
 Monotonicity -- test_buoyancy_flux_monotonicity and
-test_buoyancy_interface_flux_monotonicity: the component buoyancy flux is monotone in
-the swept cell's overall composition -- the hybrid-upwinding property of Hamon &
-Tchelepi (SIAM J. Numer. Anal. 54(3), 2016), on a subdomain internal face and across
-each matrix-fracture mortar side.
+test_buoyancy_interface_flux_monotonicity: for N = 3, the component buoyancy flux is
+monotone in the overall composition of the swept cell, on a subdomain internal face and
+on each side of a matrix-fracture mortar, for HU and HU-mwp. See Hamon & Tchelepi
+(SIAM J. Numer. Anal. 54(3), 2016) for the three-phase analysis of hybrid upwinding.
 """
 
 from typing import Literal
@@ -70,7 +71,7 @@ def _run_buoyancy_model(
         dt = 1.0 * day
         geometry2d = ModelGeometry2D
         geometry3d = ModelGeometry3D
-    # Per-step null-mean-pressure residual budget: the conservation threshold
+    # Per-step bound on the compatibility residual: the conservation threshold
     # 10^-(order-1) split over n_steps, with a factor-2 margin.
     n_steps = round(tf / dt)
     null_mean_res_tolerance = 10.0 ** (-(expected_order_loss - 1)) / (2 * n_steps)
@@ -113,8 +114,8 @@ def _run_buoyancy_model(
                 tol=residual_tolerance,
                 metric=pp.EquationBasedLebesgueMetric(model),
             ),
-            # The residual is a rate; the null-mean-pressure criterion bounds what
-            # the conservation checks accumulate per step.
+            # The residual is a rate; the compatibility residual bounds what the
+            # conservation checks accumulate per step.
             "null_mean_res": NullSpaceCriterion(model, tol=null_mean_res_tolerance),
         },
         "nl_divergence_criteria": {
@@ -122,8 +123,8 @@ def _run_buoyancy_model(
         },
     }
 
-    # The closed domain leaves a singular pressure mode; the gauge-fixing solver
-    # handles it.
+    # The Jacobian of the closed problem is singular; the solver adds the pressure
+    # constraint.
     nonlinear_solver = pp.solvers.NewtonSolver(
         params=solver_params,
         linear_solver=NullMeanPressureLinearSolver(),
@@ -140,7 +141,7 @@ def _run_buoyancy_model(
 def test_buoyancy_model(
     n_phases, dim: Literal[2, 3], expected_order_loss, md, fractional_flow
 ):
-    """Test buoyancy-driven flow model (FD)."""
+    """Conservation and reciprocity of the mixed-dimensional buoyancy flow model."""
     _run_buoyancy_model(
         n_phases, dim, expected_order_loss, md=md, fractional_flow=fractional_flow
     )
@@ -244,11 +245,10 @@ def subdomain_sweep_model(request):
 def test_buoyancy_flux_monotonicity(
     subdomain_sweep_model, swept_component: str, swept_cell: int
 ):
-    """Buoyant component flux is monotone in the swept cell's overall composition.
+    """The component buoyancy flux on the internal face is monotone in the overall
+    composition of the swept cell.
 
-    Flux monotonicity w.r.t. its own saturation is the hybrid-upwinding property of
-    Hamon and Tchelepi (SIAM J. Numer. Anal. 54(3), 2016); both matrix cells are swept
-    and both flux formulations (total-mass, CFF) are covered.
+    Both cells are swept, for HU and HU-mwp.
     """
     model = subdomain_sweep_model
     model._swept_component = swept_component
@@ -437,10 +437,8 @@ def test_buoyancy_interface_flux_monotonicity(
     """Buoyant component flux across each matrix-fracture mortar side is monotone in the
     composition of each cell it couples.
 
-    Mixed-dimensional analogue of the hybrid-upwinding flux monotonicity of Hamon and
-    Tchelepi (SIAM J. Numer. Anal. 54(3), 2016); the "below" side couples the bottom
-    matrix cell and the fracture, the "above" side the top cell and the fracture. Both
-    flux formulations are covered.
+    The "below" side couples the bottom matrix cell and the fracture, the "above" side
+    the top cell and the fracture. HU and HU-mwp are covered.
     """
     model = interface_sweep_model
     model._swept_component = swept_component
