@@ -15,7 +15,7 @@ import logging
 from abc import ABC, abstractmethod
 from copy import copy
 from enum import StrEnum
-from typing import Callable, Optional, cast
+from typing import cast
 
 import numpy as np
 
@@ -419,8 +419,8 @@ class RelativeCriterion:
     def set_reference_value(self, reference_value: ConvergenceInfo) -> None:
         """Set the reference value for relative convergence.
 
-        The reference value is only set for entries of self.reference_value that are not
-        already set and are non-zero in the provided reference value.
+        The reference value is only set for entries of ``self.reference_value`` that are
+        not already set and are non-zero in the provided reference value.
 
         Parameters:
             reference_value: Reference value to set.
@@ -450,9 +450,9 @@ class RelativeConvergenceCriterion(RelativeCriterion, ConvergenceCriterion):
     def check(self, *args, **kwargs) -> tuple[ConvergenceStatus, ConvergenceInfo]:
         """Check convergence.
 
-        If self.reference_value is a dictionary, the criterion is checked for each entry
-        in this dictionary separately, and the convergence is declared only if all
-        entries satisfy the criterion.
+        The criterion is checked for each entry of ``self.reference_value``
+        separately, and the convergence is declared only if all entries satisfy the
+        criterion.
 
         Parameters:
             args: Positional arguments for the convergence check.
@@ -568,9 +568,9 @@ class CombinedConvergenceCriterion(CombinedCriterion, ConvergenceCriterion):
     def check(self, *args, **kwargs) -> tuple[ConvergenceStatus, ConvergenceInfo]:
         """Check convergence.
 
-        If self.reference_value is a dictionary, the criterion is checked for each entry
-        in this dictionary separately, and the convergence is declared only if all
-        entries satisfy the criterion.
+        The criterion is checked for each entry of ``self.reference_value``
+        separately, and the convergence is declared only if all entries satisfy the
+        criterion.
 
         Parameters:
             args: Positional arguments for the convergence check.
