@@ -185,6 +185,32 @@ def test_hupwind_coupling_builds_both_directions():
     np.testing.assert_allclose(g + d, np.ones(intf.num_cells))
 
 
+def test_coupling_geometry_cache_tracks_primary_grid():
+    """The coupling geometry is rebuilt when the primary cell-face map is replaced.
+
+    Let the cache be built for a primary grid. After a new ``cell_faces`` object is
+    assigned, the cached trace must not be reused.
+    """
+    from porepy.numerics.fv.upwind import _coupling_geometry_cache
+
+    mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+        "cartesian",
+        {"cell_size": 0.5},
+        fracture_indices=[1],
+    )
+    intf = mdg.interfaces(codim=1)[0]
+    sd_primary, _ = mdg.interface_to_subdomain_pair(intf)
+    data_intf: dict = {}
+
+    first = _coupling_geometry_cache(data_intf, "cache", "kw", sd_primary, intf)
+    assert _coupling_geometry_cache(data_intf, "cache", "kw", sd_primary, intf) is first
+
+    sd_primary.cell_faces = sd_primary.cell_faces.copy()
+    second = _coupling_geometry_cache(data_intf, "cache", "kw", sd_primary, intf)
+    assert second is not first
+    assert second["trace"] is not first["trace"]
+
+
 def test_hupwind_ad_wrappers_expose_directions():
     """The AD wrappers expose per-direction matrices as callable MergedOperators."""
     sd = _grid()

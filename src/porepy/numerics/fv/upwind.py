@@ -33,6 +33,45 @@ def _fixed_diag(vec: np.ndarray) -> sps.csr_matrix:
     return m
 
 
+def _coupling_geometry_cache(
+    data_intf: dict,
+    name: str,
+    keyword: str,
+    sd_primary: pp.Grid,
+    intf: pp.MortarGrid,
+) -> dict:
+    """Per-interface cache of the geometric coupling matrices.
+
+    The cache is valid for the ``cell_faces`` object of the primary grid and the
+    number of mortar cells it was built with. If either differs, all entries,
+    including cached diagonals, are discarded and the geometry is rebuilt.
+
+    Returns:
+        The cache, holding ``inv_trace``, ``trace`` and ``mortar_discr``.
+
+    """
+    caches = data_intf.setdefault(name, {})
+    cache = caches.get(keyword)
+    if (
+        cache is None
+        or cache["cell_faces"] is not sd_primary.cell_faces
+        or cache["num_mortar_cells"] != intf.num_cells
+    ):
+        # Mapping from primary cells to faces. The mortars point from primary to
+        # secondary, so no signs are flipped; faces not adjacent to the mortar are
+        # removed by the mortar projections.
+        inv_trace = np.abs(sd_primary.divergence(dim=1))
+        cache = {
+            "cell_faces": sd_primary.cell_faces,
+            "num_mortar_cells": intf.num_cells,
+            "inv_trace": inv_trace,
+            "trace": inv_trace.T,
+            "mortar_discr": sps.eye(intf.num_cells),
+        }
+        caches[keyword] = cache
+    return cache
+
+
 class Upwind(Discretization):
     """Discretize a hyperbolic transport equation using a single point upstream
     weighting scheme.
@@ -550,23 +589,12 @@ class UpwindCoupling(InterfaceDiscretization):
             data_intf[pp.PARAMETERS][self.keyword][self._flux_array_key]
         )
 
-        # Re-discretization on a fixed mesh only changes the upwind DATA (flow signs).
-        # The trace/inv-trace projections and mortar identity are pure geometry, and the
-        # diagonal sparsity is invariant (_fixed_diag). Cache the geometry per
-        # interface+keyword and rewrite the cached diagonals' .data in place on later
-        # calls, instead of allocating fresh CSRs -- the dominant re-discretization cost
-        # on many-interface problems. Bit-identical to the explicit build.
-        cache = data_intf.setdefault("_upwind_coupling_fast_cache", {}).setdefault(
-            self.keyword, {}
+        # The trace projections and the mortar identity depend only on the geometry;
+        # the upwind diagonals have a flow-independent pattern (_fixed_diag). Both are
+        # cached, and only the diagonal data is rewritten on later calls.
+        cache = _coupling_geometry_cache(
+            data_intf, "_upwind_coupling_fast_cache", self.keyword, sd_primary, intf
         )
-        if "inv_trace" not in cache:
-            # Mapping from upper dim cells to faces. The mortars always point from upper
-            # to lower, so no sign flips; faces not adjacent to the mortar grid are
-            # killed later by mortar projections.
-            inv_trace_h = np.abs(sd_primary.divergence(dim=1))
-            cache["inv_trace"] = inv_trace_h
-            cache["trace"] = inv_trace_h.T  # trace-like projection from cells to faces
-            cache["mortar_discr"] = sps.eye(intf.num_cells)
         matrix_dictionary[self.inv_trace_primary_matrix_key] = cache["inv_trace"]
         matrix_dictionary[self.trace_primary_matrix_key] = cache["trace"]
         matrix_dictionary[self.mortar_discr_matrix_key] = cache["mortar_discr"]
@@ -1038,21 +1066,10 @@ class HUpwindCoupling(UpwindCoupling):
         matrix_dictionary = data_intf[pp.DISCRETIZATION_MATRICES][self.keyword]
         parameter_dictionary = data_intf[pp.PARAMETERS][self.keyword]
 
-        # Re-discretization on a fixed mesh only changes the upwind DATA (flow signs);
-        # the geometry (trace/inv_trace/mortar identity) and the diagonal sparsity
-        # pattern are invariant. Cache them per interface+keyword and, on later calls,
-        # rewrite the cached diagonals' .data in place instead of allocating fresh CSRs,
-        # the dominant cost of re-discretizing a many-interface (mixed-dimensional)
-        # problem. Bit-identical to the plain build below (same values, same fixed
-        # _fixed_diag structure).
-        cache = data_intf.setdefault("_hu_coupling_fast_cache", {}).setdefault(
-            self.keyword, {}
+        # Geometry and diagonal patterns are cached, see UpwindCoupling.discretize.
+        cache = _coupling_geometry_cache(
+            data_intf, "_hu_coupling_fast_cache", self.keyword, sd_primary, intf
         )
-        if "inv_trace" not in cache:
-            inv_trace_h = np.abs(sd_primary.divergence(dim=1))
-            cache["inv_trace"] = inv_trace_h
-            cache["trace"] = inv_trace_h.T
-            cache["mortar_discr"] = sps.eye(intf.num_cells)
         matrix_dictionary["inv_trace"] = cache["inv_trace"]
         matrix_dictionary["trace"] = cache["trace"]
         matrix_dictionary["mortar_discr"] = cache["mortar_discr"]
