@@ -15,7 +15,8 @@ specified operator function type.
 from __future__ import annotations
 
 import abc
-from functools import partial
+import operator
+from functools import partial, reduce
 from typing import Callable, Optional, Sequence, Type
 
 import numpy as np
@@ -285,11 +286,11 @@ class DiagonalJacobianFunction(AbstractFunction):
         """The approximate Jacobian consists of identity blocks times scalar multiplier
         per every function dependency."""
         jacs = [
-            arg.jac * m
+            arg.full_jac * m
             for arg, m in zip(args, self._multipliers)
             if isinstance(arg, AdArray)
         ]
-        return sum(jacs).tocsr()
+        return reduce(operator.add, jacs).tocsr()
 
 
 class Function(AbstractFunction):
@@ -440,14 +441,14 @@ class InterpolatedFunction(AbstractFunction):
             if isinstance(arg, AdArray):
                 # The trivial Jacobian of one argument gives us the correct position for
                 # the entries as ones
-                partial_jac = arg.jac
+                partial_jac = sps.csr_matrix(arg.full_jac, copy=True)
                 # replace the ones with actual values
                 # Since csr, we can simply replace the data array with the values of the
                 # derivative
                 partial_jac.data = self._table.gradient(X, axis)[0]
                 jacs.append(partial_jac)
 
-        return sum(jacs).tocsr()
+        return reduce(operator.add, jacs).tocsr()
 
 
 ### FUNCTION DECORATOR
