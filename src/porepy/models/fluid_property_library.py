@@ -1554,28 +1554,16 @@ class FluidBuoyancy(pp.PorePyModel):
                 hybrid_discr = self.hybrid_upwind_discretization(
                     gamma, delta, self.mdg.subdomains()
                 )
-                self.add_nonlinear_discretization(
-                    hybrid_discr.upwind_gamma()
-                )
-                self.add_nonlinear_discretization(
-                    hybrid_discr.upwind_delta()
-                )
+                self.add_nonlinear_discretization(hybrid_discr.upwind_gamma())
+                self.add_nonlinear_discretization(hybrid_discr.upwind_delta())
                 # One hybrid interface (mortar) discretization per pair, four matrices.
                 intf_discr = self.hybrid_interface_upwind_discretization(
                     gamma, delta, self.mdg.interfaces(codim=1)
                 )
-                self.add_nonlinear_discretization(
-                    intf_discr.upwind_primary_gamma()
-                )
-                self.add_nonlinear_discretization(
-                    intf_discr.upwind_secondary_gamma()
-                )
-                self.add_nonlinear_discretization(
-                    intf_discr.upwind_primary_delta()
-                )
-                self.add_nonlinear_discretization(
-                    intf_discr.upwind_secondary_delta()
-                )
+                self.add_nonlinear_discretization(intf_discr.upwind_primary_gamma())
+                self.add_nonlinear_discretization(intf_discr.upwind_secondary_gamma())
+                self.add_nonlinear_discretization(intf_discr.upwind_primary_delta())
+                self.add_nonlinear_discretization(intf_discr.upwind_secondary_delta())
 
     def update_buoyancy_driven_fluxes(self):
         """Evaluate and store the upwind directions of the buoyancy discretizations:

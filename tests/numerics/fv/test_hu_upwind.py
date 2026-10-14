@@ -225,7 +225,6 @@ def test_hupwind_ad_wrappers_expose_directions():
         assert isinstance(getattr(discr, attr)(), pp.ad.MergedOperator)
 
 
-
 def test_hupwind_coupling_ad_wrapper_methods():
     """The coupling wrapper exposes the annotated methods, and both wrappers have a
     representation."""
