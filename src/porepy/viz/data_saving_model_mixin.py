@@ -9,6 +9,7 @@ or to a file format other than vtu.
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence, Union, cast
 
@@ -257,7 +258,8 @@ class DataSavingMixin(pp.PorePyModel):
         """Overwrite the reference values in the grid data by those saved to file.
 
         Histories written before the reference state was saved have no such file, in
-        which case the reference state of the model setup is kept.
+        which case a warning is issued and the reference state of the model setup is
+        kept.
 
         Parameters:
             folder: Folder to read from.
@@ -265,7 +267,15 @@ class DataSavingMixin(pp.PorePyModel):
         """
         path = folder / self._reference_state_file_name
         if not path.exists():
+            warnings.warn(
+                f"No reference state found at {path}. The reference state of the "
+                "model setup is kept, which may differ from the restarted simulation.",
+                stacklevel=2,
+            )
             return
+        # NOTE: The restarted model is assumed to be identical to the one that wrote
+        # the file: the same grids in the same order, hence the positional keys, and
+        # the same units. This is not checked.
         data_of = self._reference_state_data()
         with np.load(path) as saved:
             for entry in saved.files:
