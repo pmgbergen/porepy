@@ -223,3 +223,29 @@ def test_hupwind_ad_wrappers_expose_directions():
     ):
         assert callable(getattr(discr, attr))
         assert isinstance(getattr(discr, attr)(), pp.ad.MergedOperator)
+
+
+
+def test_hupwind_coupling_ad_wrapper_methods():
+    """The coupling wrapper exposes the annotated methods, and both wrappers have a
+    representation."""
+    mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+        "cartesian",
+        {"cell_size": 0.5},
+        fracture_indices=[1],
+    )
+    discr = pp.ad.HUpwindCouplingAd("hybrid_upwind", mdg.interfaces(codim=1))
+    for attr in (
+        "upwind_primary_gamma",
+        "upwind_secondary_gamma",
+        "upwind_primary_delta",
+        "upwind_secondary_delta",
+        "flux_gamma",
+        "flux_delta",
+        "trace_primary",
+        "inv_trace_primary",
+        "mortar_discr",
+    ):
+        assert isinstance(getattr(discr, attr)(), pp.ad.MergedOperator)
+    assert "1 interfaces" in repr(discr)
+    assert "1 subdomains" in repr(pp.ad.HUpwindAd("hybrid_upwind", [_grid()]))

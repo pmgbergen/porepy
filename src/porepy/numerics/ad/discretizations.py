@@ -303,6 +303,12 @@ class HUpwindAd(DiscretizationAd):
             self, self._discretization, nd=1, subdomains=subdomains
         )
 
+    def __repr__(self) -> str:
+        return (
+            f"Ad discretization of type {self._name}. "
+            f"Defined on {len(self.subdomains)} subdomains."
+        )
+
 
 class HUpwindCouplingAd(DiscretizationAd):
     """AD wrapper for :class:`~porepy.numerics.fv.upwind.HUpwindCoupling`."""
@@ -319,10 +325,16 @@ class HUpwindCouplingAd(DiscretizationAd):
         self.upwind_secondary_delta: Callable[[], pp.ad.MergedOperator]
         self.flux_gamma: Callable[[], pp.ad.MergedOperator]
         self.flux_delta: Callable[[], pp.ad.MergedOperator]
-        self.trace: Callable[[], pp.ad.MergedOperator]
-        self.inv_trace: Callable[[], pp.ad.MergedOperator]
+        self.trace_primary: Callable[[], pp.ad.MergedOperator]
+        self.inv_trace_primary: Callable[[], pp.ad.MergedOperator]
         self.mortar_discr: Callable[[], pp.ad.MergedOperator]
         # Upwind discretizations always act on scalar fields, so nd=1 is used here.
         pp.ad.wrap_discretization(
             self, self._discretization, nd=1, interfaces=interfaces
+        )
+
+    def __repr__(self) -> str:
+        return (
+            f"Ad discretization of type {self._name}. "
+            f"Defined on {len(self.interfaces)} interfaces."
         )
