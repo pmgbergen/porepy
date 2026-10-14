@@ -450,7 +450,7 @@ class EnthalpyBasedEnergyBalanceEquations(
 
         """
 
-        op: pp.ad.Operator | pp.ad.TimeDependentDenseArray
+        op: pp.ad.Operator
 
         if len(domains) == 0:
             op = pp.wrap_as_dense_ad_array(
@@ -459,7 +459,9 @@ class EnthalpyBasedEnergyBalanceEquations(
         elif is_fractional_flow(self) and all(
             [isinstance(g, pp.BoundaryGrid) for g in domains]
         ):
-            op = self.create_boundary_operator(
+            # The name of a boundary operator is the key of its stored values, hence it
+            # is not renamed.
+            return self.create_boundary_operator(
                 self.bc_data_fractional_flow_energy_key,
                 cast(Sequence[pp.BoundaryGrid], domains),
             )

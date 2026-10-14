@@ -1250,15 +1250,8 @@ class FluidBuoyancy(pp.PorePyModel):
             raise ValueError("domains must consist entirely of subdomains.")
         domains = cast(list[pp.Grid], domains)
 
+        # The callers provide the zero term, so the list is empty without interfaces.
         b_flux_jumps: List[pp.ad.Operator] = []
-        size = sum(g.num_cells for g in domains)
-        zero = pp.wrap_as_dense_ad_array(
-            np.zeros(size), name="component_buoyancy_jump_zero", grids=domains
-        )
-        b_flux_jumps.append(zero)
-
-        rho_gamma = gamma.density(domains)
-        rho_delta = delta.density(domains)
 
         interfaces = self.subdomains_to_interfaces(domains, [1])
         if len(interfaces) != 0:

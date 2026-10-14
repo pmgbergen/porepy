@@ -418,8 +418,9 @@ class SchurEliminationDirectSolver(pp.solvers.LinearSolverBase):
         # equation block next to its own variable's dofs); each closure is
         # ``var - func = 0``, so paired ordering makes A_ss the identity, while
         # independent sorting would scramble it into a permutation.
+        rows_by_name = es.equation_indexer.group_by_name()
         sec_rows = np.concatenate(
-            [es.assembled_equation_indices[name] for name in eliminations]
+            [np.concatenate(list(rows_by_name[name].values())) for name in eliminations]
         )
         sec_cols = np.concatenate(
             [es.dofs_of([var]) for var, *_ in eliminations.values()]
@@ -511,7 +512,13 @@ class NullSpaceCriterion(pp.solvers.ConvergenceCriterion):
         self, residual: np.ndarray, **kwargs
     ) -> tuple[pp.solvers.ConvergenceStatus, float]:
         model = self._model
-        rows = model.equation_system.assembled_equation_indices["mass_balance_equation"]
+        rows = np.concatenate(
+            list(
+                model.equation_system.equation_indexer.group_by_name()[
+                    "mass_balance_equation"
+                ].values()
+            )
+        )
         if self._total_volume is None:
             # The geometry is fixed, so the normalization volume is computed once.
             self._total_volume = sum(
@@ -702,7 +709,11 @@ class BaseFlowModel(FullIterateCacheMixin):
     ``BuoyancyFlowModel*`` classes (see :func:`buoyancy_flow_model`), one statically
     declared per ``fractional_flow`` template."""
 
-    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
+    def after_nonlinear_iteration(
+        self,
+        nonlinear_increment: np.ndarray,
+        updated_variables: Optional[list[pp.ad.Variable]] = None,
+    ) -> None:
         """Newton update with a projected iterate (a saturation chop).
 
         Projecting the overall fractions onto [0, 1] keeps saturations and mobilities
@@ -710,7 +721,10 @@ class BaseFlowModel(FullIterateCacheMixin):
         """
         self.equation_system.shift_iterate_values(max_index=len(self.iterate_indices))
         self.equation_system.set_variable_values(
-            values=nonlinear_increment, additive=True, iterate_index=0
+            values=nonlinear_increment,
+            variables=updated_variables,
+            additive=True,
+            iterate_index=0,
         )
         self._project_overall_fractions()
         self.update_derived_quantities()
