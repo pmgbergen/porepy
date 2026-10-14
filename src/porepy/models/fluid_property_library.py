@@ -521,8 +521,8 @@ class _PairBuoyancyTerms(NamedTuple):
     f_delta_upwind: pp.ad.Operator
     """Fractional mobility of ``δ``, upwinded in the ``δ`` direction."""
     lambda_upwind: Optional[pp.ad.Operator]
-    """The denominator ``Λ_γδ`` of the mobility-product form, see
-    :class:`FluidBuoyancy`. ``None`` in the fractional-flow form."""
+    """The face total mobility of the pair, see :class:`FluidBuoyancy`. ``None`` in the
+    fractional-flow form."""
     l_delta_upwind: Optional[pp.ad.Operator]
     """Mass mobility of ``δ``, upwinded in the ``δ`` direction. ``None`` in the
     fractional-flow form."""
@@ -558,64 +558,72 @@ def _phase_density_weight(z: pp.ad.AdArray) -> pp.ad.AdArray:
 class FluidBuoyancy(pp.PorePyModel):
     r"""Buoyancy fluxes for multiphase, multicomponent flow by hybrid upwinding.
 
-    Let :math:`\lambda_k = \rho_k k_{r,k} / \mu_k` be the mass mobility of phase
-    :math:`k`, :math:`\lambda = \sum_k \lambda_k` the total mass mobility and
-    :math:`f_k = \lambda_k / \lambda`. For a phase pair :math:`(\gamma, \delta)`, let
-    :math:`w_{\gamma\delta}` be the face flux of the vector source
-    :math:`K (\rho_\gamma - \rho_\delta) \mathbf{g}`, with
-    :math:`\mathbf{g} = -g \mathbf{e}_d`, see :meth:`density_driven_flux`. Let
-    :math:`U_\gamma` and :math:`U_\delta` be the single-point upwind operators with
-    respect to :math:`w_{\gamma\delta}` and :math:`-w_{\gamma\delta}`. The buoyancy flux
-    of a quantity :math:`a_\gamma` advected in phase :math:`\gamma` is
+    Let :math:`\lambda_\gamma = \rho_\gamma k_{r\gamma} / \mu_\gamma` be the phase mass
+    mobility, :math:`\lambda = \sum_\gamma \lambda_\gamma` and
+    :math:`f_\gamma = \lambda_\gamma / \lambda`. For a cellwise quantity :math:`a` and
+    a signed direction :math:`\nu` on a face, :math:`\langle a \rangle_\nu` is the
+    value of :math:`a` in the upstream cell. For an active phase pair
+    :math:`(\gamma, \beta)`, passed as ``gamma`` and ``delta``, the direction is
+    :math:`\nu_{\gamma\beta} = w_e(\rho_\gamma - \rho_\beta)`, the discrete
+    density-driven flux of :math:`\mathbf{w}(\varrho) = \mathbf{K} \varrho \mathbf{g}`,
+    see :meth:`density_driven_flux`.
 
-    - fractional flow (``params["fractional_flow"]`` is ``True``), with :math:`K`
-      containing :math:`\lambda`:
-
-      .. math::
-
-          G_{\gamma\delta}(a) = U_\gamma(a_\gamma f_\gamma)\, U_\delta(f_\delta)\,
-          w_{\gamma\delta},
-
-    - mobility product, which for two phases is the hybrid upwind scheme of Lee,
-      Efendiev & Tchelepi (2015), "Hybrid upwind discretization of nonlinear two-phase
-      flow with gravity" (Adv. Water Resour., 82, 27-38):
-
-      .. math::
-
-          G_{\gamma\delta}(a) = \frac{U_\gamma(a_\gamma \lambda_\gamma)\,
-          U_\delta(\lambda_\delta)}{\Lambda_{\gamma\delta}}\, w_{\gamma\delta},
-          \qquad
-          \Lambda_{\gamma\delta} = U_\gamma\Bigl(\lambda_\gamma + \sum_e m_e
-          \lambda_e\Bigr) + U_\delta\Bigl(\lambda_\delta + \sum_e (1 - m_e)
-          \lambda_e\Bigr) + \varepsilon.
-
-    The sums run over the phases :math:`e \notin \{\gamma, \delta\}`, with density
-    weight
+    The hybrid upwind operator is
 
     .. math::
 
-        m_e = \tfrac12 \bigl(1 + \operatorname{sgn}\bigl[(\rho_\gamma - \rho_\delta)
-        (2 \rho_e - \rho_\gamma - \rho_\delta)\bigr]\bigr) \in \{0, \tfrac12, 1\},
+        \mathcal{H}_{\gamma\beta}(\nu) = \frac{\langle \lambda_\gamma \rangle_\nu\,
+        \langle \lambda_\beta \rangle_{-\nu}}{\hat\lambda_{\gamma\beta}},
+        \qquad
+        \hat\lambda_{\gamma\beta} = \langle \lambda_\gamma \rangle_\nu
+        + \langle \lambda_\beta \rangle_{-\nu}
+        + \sum_{\alpha \notin \{\gamma, \beta\}} \bigl(
+        \langle m_\alpha^{\gamma\beta} \lambda_\alpha \rangle_\nu
+        + \langle (1 - m_\alpha^{\gamma\beta}) \lambda_\alpha \rangle_{-\nu} \bigr)
+        + \varepsilon,
 
-    and :math:`\varepsilon` is :data:`_TOTAL_MOBILITY_FLOOR`. Since :math:`m_e` for
-    the pair :math:`(\delta, \gamma)` equals :math:`1 - m_e`,
-    :math:`\Lambda_{\delta\gamma} = \Lambda_{\gamma\delta}` and
-    :math:`G_{\delta\gamma}(1) = -G_{\gamma\delta}(1)`.
+    with the density weight
 
-    The buoyancy flux of component :math:`\xi` is
-    :math:`\sum_\gamma \sum_{\delta \neq \gamma} G_{\gamma\delta}(\chi_{\xi})`, with
-    :math:`\chi_{\xi\gamma}` the partial fraction of :math:`\xi` in :math:`\gamma`.
-    The enthalpy buoyancy flux advects the phase specific enthalpies :math:`h_\gamma`.
-    On interfaces, the same expressions use the mortar upwind operators of
-    :class:`~porepy.numerics.fv.upwind.HUpwindCoupling` and the interface flux of
+    .. math::
+
+        m_\alpha^{\gamma\beta} = \tfrac12 \bigl(1 + \operatorname{sgn}\bigl[
+        (\rho_\gamma - \rho_\beta)(2 \rho_\alpha - \rho_\gamma - \rho_\beta)
+        \bigr]\bigr) \in \{0, \tfrac12, 1\}
+
+    and :math:`\varepsilon` given by :data:`_TOTAL_MOBILITY_FLOOR`. For two phases it is
+    the hybrid upwind scheme of Lee, Efendiev & Tchelepi (2015), "Hybrid upwind
+    discretization of nonlinear two-phase flow with gravity" (Adv. Water Resour., 82,
+    27-38). Since :math:`m_\alpha^{\beta\gamma} = 1 - m_\alpha^{\gamma\beta}`,
+    :math:`\mathcal{H}_{\beta\gamma}(-\nu) = \mathcal{H}_{\gamma\beta}(\nu)`.
+
+    :meth:`component_buoyancy` returns
+
+    .. math::
+
+        -b_{\xi,e} = \sum_\gamma \sum_{\beta \neq \gamma}
+        \langle \chi_{\xi,\gamma} \rangle_{\nu_{\gamma\beta}}\,
+        \mathcal{H}_{\gamma\beta}(\nu_{\gamma\beta})\, \nu_{\gamma\beta},
+
+    with :math:`\chi_{\xi,\gamma}` the mass fraction of component :math:`\xi` in phase
+    :math:`\gamma`, and :meth:`enthalpy_buoyancy` returns :math:`-q_{b,e}`, with
+    :math:`h_\gamma` in place of :math:`\chi_{\xi,\gamma}`. Both enter the face fluxes
+    with a plus sign.
+
+    If ``params["fractional_flow"]`` is ``True`` (HU-mwp), :math:`\lambda` is part of
+    the transmissibilities, :math:`\nu_{\gamma\beta} = w_e^{\mathrm{mwp}}(\rho_\gamma
+    - \rho_\beta)`, and :math:`\mathcal{H}_{\gamma\beta}(\nu)` is replaced by
+    :math:`\langle f_\gamma \rangle_\nu \langle f_\beta \rangle_{-\nu}`.
+
+    On interfaces, :math:`\langle \cdot \rangle_\nu` uses the mortar projections, and
+    :math:`\nu_{\gamma\beta} = w^\perp(\rho_\gamma - \rho_\beta)`, see
     :meth:`interface_density_driven_flux`.
 
     The three-phase IHU (implicit hybrid upwinding) of Hamon & Tchelepi (2016),
     "Analysis of hybrid upwinding for fully-implicit simulation of three-phase flow
     with gravity" (SIAM J. Numer. Anal., 54(3), 1682-1712), ranks the phases by
-    density. The weights :math:`m_e` require no such ordering. The upwind operators
-    are those of :class:`~porepy.numerics.fv.upwind.HUpwind`.
-    The gravity term is discretized following Starnoni, Berre, Keilegavlen &
+    density. The weights :math:`m_\alpha^{\gamma\beta}` require no such ordering. The
+    upwind operators are those of :class:`~porepy.numerics.fv.upwind.HUpwind`. The
+    gravity term is discretized following Starnoni, Berre, Keilegavlen &
     Nordbotten (2019), "Consistent MPFA Discretization for Flow in the Presence of
     Gravity" (Water Resour. Res., 55(12), 10105-10118).
 
@@ -714,7 +722,7 @@ class FluidBuoyancy(pp.PorePyModel):
     ) -> pp.ad.Operator:
         r"""Compute the fractional-flow-weighted density.
 
-        It computes :math:`\hat\rho = \sum_k f_k \rho_k`.
+        It computes :math:`\hat\rho = \sum_\gamma f_\gamma \rho_\gamma`.
 
         Parameters:
             domains: The domains to consider for the density computation.
@@ -810,9 +818,9 @@ class FluidBuoyancy(pp.PorePyModel):
     def density_driven_flux(
         self, subdomains: pp.SubdomainsOrBoundaries, density_metric: pp.ad.Operator
     ) -> pp.ad.Operator:
-        r"""Face flux of the vector source :math:`K \rho \mathbf{g}`, with
-        :math:`\rho` the given density metric and :math:`\mathbf{g} = -g
-        \mathbf{e}_d`.
+        r"""Face flux :math:`w_e(\varrho)` of :math:`\mathbf{w}(\varrho) = \mathbf{K}
+        \varrho \mathbf{g}`, with :math:`\varrho` the density metric and
+        :math:`\mathbf{g} = -g \mathbf{e}_d`.
 
         It is discretized by the vector source of the Darcy flux discretization.
 
@@ -855,12 +863,12 @@ class FluidBuoyancy(pp.PorePyModel):
     def interface_density_driven_flux(
         self, interfaces: list[pp.MortarGrid], density_metric: pp.ad.Operator
     ) -> pp.ad.Operator:
-        r"""Interface flux :math:`\kappa_n\, \mathbf{n} \cdot \Pi(\rho \mathbf{g})`,
-        integrated over the mortar cells.
+        r"""Interface flux :math:`w^\perp(\varrho) = k^\perp \varrho\, \mathbf{g} \cdot
+        \mathbf{n}`, integrated over the mortar cells.
 
-        Here :math:`\kappa_n` is :meth:`normal_permeability`, :math:`\mathbf{n}` the
-        unit normal pointing out of the primary subdomain, and :math:`\Pi` the average
-        projection of the secondary subdomain to the mortar.
+        Here :math:`k^\perp` is :meth:`normal_permeability`, :math:`\mathbf{n}` the unit
+        normal pointing out of the primary subdomain, and :math:`\varrho` the density
+        metric, projected from the secondary subdomain to the mortar.
 
         Parameters:
             interfaces: Interfaces where the density metric is applied.
@@ -913,9 +921,10 @@ class FluidBuoyancy(pp.PorePyModel):
     def pair_density_driven_flux(
         self, gamma: pp.Phase, delta: pp.Phase, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
-        r"""The flux :math:`w_{\gamma\delta}` of :class:`FluidBuoyancy`.
+        r"""The direction :math:`\nu_{\gamma\beta} = w_e(\rho_\gamma - \rho_\beta)` of
+        :class:`FluidBuoyancy`.
 
-        Since :math:`w_{\delta\gamma} = -w_{\gamma\delta}`, only the orientation
+        Since :math:`\nu_{\beta\gamma} = -\nu_{\gamma\beta}`, only the orientation
         following the phase order is built.
         """
         phases = list(self.fluid.phases)
@@ -950,25 +959,18 @@ class FluidBuoyancy(pp.PorePyModel):
     def _passive_background_split(
         self, gamma: pp.Phase, delta: pp.Phase, domains: list[pp.Grid]
     ) -> tuple[pp.ad.Operator | None, pp.ad.Operator | None]:
-        r"""Passive-phase background mass mobility, split by the phase density weights.
+        r"""Passive mobilities of the pair :math:`(\gamma, \beta)`, split by the density
+        weights :math:`m_\alpha^{\gamma\beta}` of :class:`FluidBuoyancy`.
 
-        For every phase :math:`e` outside the active pair (:math:`\gamma`,
-        :math:`\delta`) the density weight
-
-        .. math::
-
-            m_e = \tfrac12\bigl(1 + \operatorname{sgn}\bigl[(\rho_\gamma - \rho_\delta)
-            (2\rho_e - \rho_\gamma - \rho_\delta)\bigr]\bigr) \in \{0, \tfrac12, 1\}
-
-        is :math:`1` if :math:`\rho_e` is closer to :math:`\rho_\gamma`, :math:`0` if
-        it is closer to :math:`\rho_\delta`, and :math:`\tfrac12` if it is equally
-        close.
+        The weight is :math:`1` if :math:`\rho_\alpha` is closer to :math:`\rho_\gamma`,
+        :math:`0` if it is closer to :math:`\rho_\beta`, and :math:`\tfrac12` if it is
+        equally close.
 
         Returns:
-            The cell quantities :math:`\sum_e m_e \lambda_e` and
-            :math:`\sum_e (1 - m_e) \lambda_e`, added to :math:`\lambda_\gamma` and
-            :math:`\lambda_\delta` in :math:`\Lambda_{\gamma\delta}`. ``(None, None)``
-            for two phases.
+            The cell quantities :math:`\sum_\alpha m_\alpha^{\gamma\beta}
+            \lambda_\alpha` and :math:`\sum_\alpha (1 - m_\alpha^{\gamma\beta})
+            \lambda_\alpha`, upwinded along :math:`\nu` and :math:`-\nu` in
+            :math:`\hat\lambda_{\gamma\beta}`. ``(None, None)`` for two phases.
         """
         phases = list(self.fluid.phases)
         passive = [e for e in phases if e is not gamma and e is not delta]
@@ -1010,11 +1012,10 @@ class FluidBuoyancy(pp.PorePyModel):
         primary_trace: pp.ad.Operator,
         secondary_to_mortar: pp.ad.Operator,
     ) -> pp.ad.Operator:
-        r"""The denominator :math:`\Lambda_{\gamma\delta}` of :class:`FluidBuoyancy`
-        on the mortar cells.
+        r"""The face total mobility :math:`\hat\lambda_{\gamma\beta}` of
+        :class:`FluidBuoyancy` on the mortar cells.
 
-        The mortar upwind operators replace :math:`U_\gamma` and :math:`U_\delta`. The
-        flux and the jump share this expression.
+        The flux and the jump share this expression.
 
         Parameters:
             gamma: The first (reference) phase of the pair.
@@ -1026,7 +1027,7 @@ class FluidBuoyancy(pp.PorePyModel):
             secondary_to_mortar: Secondary-to-mortar average projection.
 
         Returns:
-            :math:`\Lambda_{\gamma\delta}` on the mortar cells, including
+            :math:`\hat\lambda_{\gamma\beta}` on the mortar cells, including
             :math:`\varepsilon`.
 
         """
@@ -1076,7 +1077,8 @@ class FluidBuoyancy(pp.PorePyModel):
         secondary_to_mortar: pp.ad.Operator,
         intf_w_flux_gamma_delta: pp.ad.Operator,
     ) -> pp.ad.Operator:
-        r"""Mobility-product :math:`G_{\gamma\delta}(a)` on the mortar cells.
+        r"""The pair term :math:`\langle a \rangle_\nu \mathcal{H}_{\gamma\beta}(\nu)
+        \nu` of :class:`FluidBuoyancy` on the mortar cells.
 
         The flux and the jump share this expression.
         """
@@ -1112,8 +1114,8 @@ class FluidBuoyancy(pp.PorePyModel):
     def _entity_buoyancy_pair_common(
         self, gamma: pp.Phase, delta: pp.Phase, domains: list[pp.Grid]
     ) -> _PairBuoyancyTerms:
-        r"""The terms of :math:`G_{\gamma\delta}` that do not depend on the advected
-        quantity, see :class:`_PairBuoyancyTerms`."""
+        r"""The terms of the pair flux that do not depend on the advected quantity, see
+        :class:`_PairBuoyancyTerms`."""
         w_flux_gamma_delta = self.pair_density_driven_flux(gamma, delta, domains)
         f_delta = self.fractional_phase_mass_mobility(delta, domains)
         discr = self.hybrid_upwind_discretization(gamma, delta, domains)
@@ -1157,8 +1159,9 @@ class FluidBuoyancy(pp.PorePyModel):
         delta: pp.Phase,
         domains: pp.SubdomainsOrBoundaries,
     ) -> List[pp.ad.Operator]:
-        r"""The flux :math:`G_{\gamma\delta}(a)` on the subdomain faces, and its
-        interface contribution to the primary faces.
+        r"""The pair term :math:`\langle a \rangle_\nu \mathcal{H}_{\gamma\beta}(\nu)
+        \nu` of :class:`FluidBuoyancy` on the subdomain faces, and its interface
+        contribution to the primary faces.
 
         Parameters:
             advected_gamma_quantity: The quantity advected in phase gamma.
@@ -1231,8 +1234,8 @@ class FluidBuoyancy(pp.PorePyModel):
         delta: pp.Phase,
         domains: pp.SubdomainsOrBoundaries,
     ) -> List[pp.ad.Operator]:
-        r"""The interface flux :math:`G_{\gamma\delta}(a)`, projected to the secondary
-        cells.
+        r"""The interface pair term of :class:`FluidBuoyancy`, projected to the
+        secondary cells.
 
         Parameters:
             advected_gamma_quantity: The quantity advected in phase gamma.
@@ -1408,8 +1411,8 @@ class FluidBuoyancy(pp.PorePyModel):
     def component_buoyancy(
         self, component_xi: pp.Component, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
-        r"""The buoyancy flux :math:`\sum_\gamma \sum_{\delta \neq \gamma}
-        G_{\gamma\delta}(\chi_\xi)` of a component, see :class:`FluidBuoyancy`.
+        r"""The component buoyancy face flux :math:`-b_{\xi,e}` of
+        :class:`FluidBuoyancy`.
 
         Parameters:
             component_xi: The component for which to get the buoyancy flux.
@@ -1438,9 +1441,8 @@ class FluidBuoyancy(pp.PorePyModel):
     def enthalpy_buoyancy(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         r"""Get the buoyancy flux for specific enthalpy.
 
-        The flux is :math:`\sum_\gamma \sum_{\delta \neq \gamma}
-        G_{\gamma\delta}(h)`, with :math:`h_\gamma` the specific enthalpy of
-        :math:`\gamma`.
+        The flux is :math:`-q_{b,e}` of :class:`FluidBuoyancy`, with :math:`h_\gamma`
+        the specific enthalpy of phase :math:`\gamma`.
 
         Parameters:
             domains: The domains to consider for the buoyancy flux calculation.
@@ -1577,8 +1579,8 @@ class FluidBuoyancy(pp.PorePyModel):
                 self.add_nonlinear_discretization(intf_discr.upwind_secondary_delta())
 
     def update_buoyancy_driven_fluxes(self):
-        r"""Store the upwind directions :math:`w_{\gamma\delta}` and
-        :math:`-w_{\gamma\delta}` of each phase pair, on subdomains and interfaces."""
+        r"""Store the upwind directions :math:`\nu_{\gamma\beta}` and
+        :math:`-\nu_{\gamma\beta}` of each phase pair, on subdomains and interfaces."""
         subdomains = self.mdg.subdomains()
         subdomain_offsets = np.cumsum([0] + [sd.num_faces for sd in subdomains])
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
