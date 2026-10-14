@@ -99,6 +99,26 @@ def test_hupwind_fixed_sparsity_under_sign_flip():
     np.testing.assert_array_equal(a.indices, b.indices)
 
 
+def test_single_point_upwind_cache_tracks_boundary_types():
+    """A cached structure is discarded when the boundary types change.
+
+    Let the cache be built with Neumann conditions on all boundary faces. With the same
+    flux and Dirichlet conditions, the result must equal an uncached build.
+    """
+    sd = _grid()
+    faces = sd.get_boundary_faces()
+    bc_neu = pp.BoundaryCondition(sd, faces, "neu")
+    bc_dir = pp.BoundaryCondition(sd, faces, "dir")
+    flux = np.linspace(-1.0, 1.0, sd.num_faces)
+
+    cache: dict = {}
+    _single_point_upwind_matrices(sd, flux, bc_neu, 1, cache=cache)
+    cached = _single_point_upwind_matrices(sd, flux, bc_dir, 1, cache=cache)
+    fresh = _single_point_upwind_matrices(sd, flux, bc_dir, 1)
+    for a, b in zip(cached, fresh):
+        assert abs(a - b).max() == 0.0
+
+
 def test_single_point_upwind_matrices_zero_dim():
     """The helper returns empty matrices on a 0d grid."""
     sd = pp.PointGrid(np.zeros(3))

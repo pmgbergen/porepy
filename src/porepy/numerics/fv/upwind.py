@@ -777,9 +777,10 @@ def _single_point_upwind_matrices(
     :class:`HUpwind`. Returns ``(upwind, bound_transport_dir, bound_transport_neu)``.
 
     The sparsity pattern is flow-independent, so with a caller-owned ``cache`` dict
-    re-discretization only rewrites the matrix data. The structure is rebuilt when a
-    Dirichlet face flips inflow/outflow. The fast path applies to
-    ``num_components == 1`` only and is bit-identical to the full build.
+    re-discretization only rewrites the matrix data. The cached structure is valid
+    for fixed boundary types (``bc.is_neu``, ``bc.is_dir``) and a fixed set of
+    Dirichlet inflow faces; it is rebuilt when either changes. The fast path applies
+    to ``num_components == 1`` only and is bit-identical to the full build.
     """
     if sd.dim == 0:
         return (
@@ -792,7 +793,11 @@ def _single_point_upwind_matrices(
     neg_flux = np.logical_not(pos_flux)
 
     # Data-only fast path: cached structure, single component, unchanged drop-mask.
+    # The cache is invalid if the boundary types differ from those it was built with.
+    bc_types = (bc.is_neu.tobytes(), bc.is_dir.tobytes())
     st = cache.get("struct") if (cache is not None and num_components == 1) else None
+    if st is not None and st["bc_types"] != bc_types:
+        st = None
     if st is not None:
         if not st["has_dir"]:
             # No Dirichlet faces, so the drop-mask is fixed.
@@ -819,7 +824,8 @@ def _single_point_upwind_matrices(
             upwind.has_sorted_indices = True
             return upwind, bc_dir, st["bc_neu"]
 
-    # Full build: first call, changed structure, no cache, or num_components != 1.
+    # Full build: first call, changed structure or boundary types, no cache, or
+    # num_components != 1.
     cf_dense = sd.cell_faces_as_dense()
 
     neumann_ind = np.where(bc.is_neu)[0]
@@ -870,6 +876,7 @@ def _single_point_upwind_matrices(
                 "shape": upstream_mat.shape,
                 "data_src": perm.data.astype(np.intp),
                 "keep": keep,
+                "bc_types": bc_types,
                 "has_dir": bool(np.any(bc.is_dir)),
                 "col_ok": col_ok,
                 "row": row,
