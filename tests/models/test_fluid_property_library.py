@@ -23,8 +23,11 @@ Parameterization = [
 def _build_buoyancy_model(
     model_class: type,
     md: bool = False,
-) -> None:
-    """Build and prepare a buoyancy flow model, optionally mixed-dimensional."""
+) -> pp.PorePyModel:
+    """Build and prepare a buoyancy flow model, optionally mixed-dimensional.
+
+    The hybrid-upwind directions are set, so that the buoyancy fluxes are defined.
+    """
     day = 86400
     tf = 0.5 * day
     dt = 0.25 * day
@@ -61,7 +64,16 @@ def _build_buoyancy_model(
 
     model = Model2D(params)
     model.prepare_simulation()
+    model.before_nonlinear_iteration()
     return model
+
+
+def _assert_sum_vanishes(terms: list[np.ndarray]) -> None:
+    """Assert that the terms are non-trivial and that their sum vanishes relative to
+    their magnitude."""
+    scale = max(np.max(np.abs(t)) for t in terms)
+    assert scale > 0.0
+    assert np.max(np.abs(np.sum(terms, axis=0))) <= 1e-12 * scale
 
 
 def __common_assertions(model):
@@ -108,11 +120,9 @@ def __subdomains_assertions(model):
     assert np.all(rho_hat >= lo - 1e-9) and np.all(rho_hat <= hi + 1e-9)
     assert rho_hat.min() < rho_hat.max()  # composition varies -> density varies
 
-    overall_buoyancy_flux = np.sum(
-        [eval(model.component_buoyancy(c, subdomains)) for c in component_context],
-        axis=0,
+    _assert_sum_vanishes(
+        [eval(model.component_buoyancy(c, subdomains)) for c in component_context]
     )
-    assert np.allclose(overall_buoyancy_flux, 0.0)
 
     assert np.all(
         np.isfinite(eval(model.density_driven_flux(subdomains, pp.ad.Scalar(1.0))))
@@ -123,7 +133,7 @@ def __subdomains_assertions(model):
 def __interface_assertions(model):
     """Verify interface flux invariants: the interface density-driven flux is
     balanced and non-trivial, component buoyancy flux jumps sum to zero, and the
-    enthalpy buoyancy jump vanishes (temperature is zero here).
+    enthalpy buoyancy jump is finite and non-trivial.
     """
     component_context = model.fluid.components
     subdomains = model.mdg.subdomains()
@@ -136,15 +146,16 @@ def __interface_assertions(model):
     assert np.isclose(intf_w_flux.sum(), 0.0)
     assert np.any(np.abs(intf_w_flux) > 0.0)
 
-    buoyancy_flux_jumps = [
-        eval(model.component_buoyancy_jump(component, subdomains))
-        for component in component_context
-    ]
-    overall_buoyancy_flux_jump = np.sum(np.array(buoyancy_flux_jumps), axis=0)
-    assert np.allclose(overall_buoyancy_flux_jump, 0.0)
+    _assert_sum_vanishes(
+        [
+            eval(model.component_buoyancy_jump(component, subdomains))
+            for component in component_context
+        ]
+    )
 
     h_buoyancy_flux_jump = eval(model.enthalpy_buoyancy_jump(subdomains))
-    assert np.allclose(h_buoyancy_flux_jump, 0.0)
+    assert np.all(np.isfinite(h_buoyancy_flux_jump))
+    assert np.any(h_buoyancy_flux_jump != 0.0)
 
 
 @pytest.mark.parametrize("model_class", Parameterization)

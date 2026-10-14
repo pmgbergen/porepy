@@ -257,7 +257,9 @@ def test_buoyancy_flux_monotonicity(
     internal_face = subdomains[0].get_internal_faces()[0]
     component = next(c for c in model.fluid.components if c.name == swept_component)
 
-    z_sweep = np.linspace(0.05, 1.0, 11)
+    # The other non-water component is fixed at the reference fraction, so the swept
+    # fraction is bounded by 1 - z_ref to keep the water fraction non-negative.
+    z_sweep = np.linspace(0.05, 1.0 - model._reference_fraction, 11)
     fluxes = []
     for z in z_sweep:
         model._swept_value = float(z)
@@ -446,7 +448,9 @@ def test_buoyancy_interface_flux_monotonicity(
     below, above = _below_above_mortar_indices(model)
     component = next(c for c in model.fluid.components if c.name == swept_component)
 
-    z_sweep = np.linspace(0.05, 1.0, 11)
+    # The other non-water component is fixed at the reference fraction, so the swept
+    # fraction is bounded by 1 - z_ref to keep the water fraction non-negative.
+    z_sweep = np.linspace(0.05, 1.0 - model._reference_fraction, 11)
     fluxes = []
     for z in z_sweep:
         model._swept_value = float(z)
