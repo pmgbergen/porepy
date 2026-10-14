@@ -540,22 +540,17 @@ class FluidBuoyancy(pp.PorePyModel):
     The three-phase IHU (implicit hybrid upwinding) of Hamon & Tchelepi (2016),
     "Analysis of hybrid upwinding for fully-implicit simulation of three-phase flow
     with gravity" (SIAM J. Numer. Anal., 54(3), 1682-1712), ranks the phases by
-    density; once the densities ``ρ_k = ρ_k(θ)`` depend on the thermodynamic state
-    ``θ``, the direct extension of IHU to thermal compositional flow is ill-defined.
-    The passive-phase concept, realized through the density weights ``m_e``, is designed
-    to require no phase ordering and to reuse PorePy's verified first-order upwinding;
-    it extends HU to arbitrary ``N`` and is proven monotone, conservative, and
-    reciprocal, so the extension to thermal compositional flow is straightforward in
-    the supported construction. The gravity term is discretized consistently following
-    Starnoni, Berre, Keilegavlen &
+    density. The density weights ``m_e`` require no such ordering, and each side of a
+    pair is upwinded with the first-order :class:`~porepy.numerics.fv.upwind.HUpwind`.
+    The gravity term is discretized following Starnoni, Berre, Keilegavlen &
     Nordbotten (2019), "Consistent MPFA Discretization for Flow in the Presence of
-    Gravity" (Water Resour. Res., 55(12), 10105-10118). Together these make this HU
-    implementation unique and production-ready for truly multiphase thermal
-    compositional flow.
+    Gravity" (Water Resour. Res., 55(12), 10105-10118).
 
-    Mass, component mass, and energy conservation are tested in
-    ``test_buoyancy_flow.py``, and a benchmark against an analytical buoyancy solution
-    is provided in ``test_buoyancy_flow_benchmark.py``.
+    Conservation of mass, component mass and energy, and monotonicity of the buoyancy
+    flux are tested in ``test_buoyancy_flow.py``. Reciprocity of the component
+    buoyancy fluxes is tested there and in ``test_fluid_property_library.py``. A
+    benchmark against the reference solution of Hayek et al. (2009) is in
+    ``test_buoyancy_flow_benchmark.py``.
     """
 
     component_mass_mobility: Callable[
