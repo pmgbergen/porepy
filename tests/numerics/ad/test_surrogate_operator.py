@@ -377,15 +377,30 @@ def test_secondary_operators_on_boundaries(
     )
 
 
-def test_jacobian_with_arguments_in_different_representations(
+def _surrogate_and_arguments(
     equation_system: pp.ad.EquationSystem,
-):
-    """The Jacobian of a surrogate operator does not depend on the representation of
-    its arguments, also when the representations are mixed.
+    dependencies: list[str],
+    derivatives: list[float],
+) -> tuple[
+    pp.ad.SurrogateOperator,
+    list[pp.ad.AdArray],
+    list[pp.ad.DiagonalAdArray],
+    np.ndarray,
+]:
+    """Set up a surrogate operator, its arguments in both representations, and its
+    expected Jacobian.
 
-    The diagonal arguments are initialized jointly, as by the Ad parser, so that their
-    full representation stores the derivatives with respect to the other variable as
-    explicit zeros.
+    Parameters:
+        equation_system: The equation system containing the variables.
+        dependencies: Names of the variables the surrogate operator depends on.
+        derivatives: Derivative values of the surrogate operator, one per dependency.
+
+    Returns:
+        The surrogate operator; Ad arrays in the full representation for the variables
+        ``var1`` and ``var2``; diagonal Ad arrays for the same variables; and the
+        expected Jacobian of the surrogate operator, as a dense array. The expected
+        Jacobian is assembled directly from the derivative values and the degrees of
+        freedom of the dependencies, independently of the surrogate operator.
 
     """
     mdg = equation_system.mdg
@@ -393,21 +408,25 @@ def test_jacobian_with_arguments_in_different_representations(
     nc = mdg.num_subdomain_cells()
     num_dofs = equation_system.num_dofs()
 
-    variables = [
-        equation_system.md_variable(name, subdomains) for name in [VAR1_NAME, VAR2_NAME]
-    ]
     factory = pp.ad.SurrogateFactory(
-        "mixed_expression",
+        "surrogate",
         mdg,
-        [lambda d, v=v: equation_system.md_variable(v.name, d) for v in variables],
+        [lambda d, n=n: equation_system.md_variable(n, d) for n in dependencies],
     )
     sop = factory(subdomains)
     factory.subdomain_values = np.ones(nc)
-    factory.subdomain_derivatives = np.array([2 * np.ones(nc), 3 * np.ones(nc)])
+    # The derivatives are set to a constant value for each variable, but the first entry
+    # is zero.
+    derivative_values = np.array([d * np.ones(nc) for d in derivatives])
+    derivative_values[:, 0] = 0.0
+    factory.subdomain_derivatives = derivative_values
 
+    variables = [
+        equation_system.md_variable(name, subdomains) for name in [VAR1_NAME, VAR2_NAME]
+    ]
     indices = [equation_system.dofs_of([v]) for v in variables]
     values = [np.arange(ind.size, dtype=float) for ind in indices]
-    full = [
+    sparse_array = [
         pp.ad.AdArray(
             val,
             sps.csr_matrix(
@@ -417,8 +436,87 @@ def test_jacobian_with_arguments_in_different_representations(
         )
         for val, ind in zip(values, indices)
     ]
-    diagonal = pp.ad.initialize_diagonal_ad_arrays(values, indices, num_dofs)
+    diagonal_array_array = pp.ad.initialize_diagonal_ad_arrays(
+        values, indices, num_dofs
+    )
 
-    reference = sop.get_jacobian(*full).toarray()
-    for args in [(diagonal[0], full[1]), (full[0], diagonal[1])]:
-        assert np.allclose(sop.get_jacobian(*args).toarray(), reference)
+    # Each cell has the derivative with respect to a dependency in the column of the
+    # degree of freedom of that dependency in the cell.
+    expected_jacobian = np.zeros((nc, num_dofs))
+    for name, derivative in zip(dependencies, derivative_values):
+        dofs = equation_system.dofs_of([equation_system.md_variable(name, subdomains)])
+        expected_jacobian[np.arange(nc), dofs] = derivative
+
+    return sop, sparse_array, diagonal_array_array, expected_jacobian
+
+
+def test_jacobian_with_arguments_in_different_representations(
+    equation_system: pp.ad.EquationSystem,
+):
+    """The Jacobian of a surrogate operator does not depend on the representation of its
+    arguments, which can be full, diagonal or a mix of the two.
+    """
+    # Use _surrogate_and_arguments to create a surrogate operator and its arguments in
+    # both sparse and diagonal representations. The surrogate operator has a constant
+    # value of 1.0, and its derivatives are set to a constant value for each variable,
+    # but the first entry is zero (see _surrogate_and_arguments).
+    sop, sparse_array, diagonal_array, expected_jacobian = _surrogate_and_arguments(
+        equation_system, [VAR1_NAME, VAR2_NAME], [2.0, 3.0]
+    )
+    num_cells = sparse_array[0].val.size
+
+    for args in [
+        (sparse_array[0], sparse_array[1]),
+        (diagonal_array[0], sparse_array[1]),
+        (sparse_array[0], diagonal_array[1]),
+    ]:
+        jac = sop.get_jacobian(*args)
+        # One entry per row and dependency, that is, the zero derivatives should be
+        # included in the Jacobian.
+        assert jac.nnz == 2 * num_cells
+        # The Jacobian of the surrogate operator should be the same, regardless of the
+        # representation of its arguments.
+        np.testing.assert_allclose(jac.toarray(), expected_jacobian)
+
+    result = sop.func(*diagonal_array)
+    assert isinstance(result, pp.ad.DiagonalAdArray)
+    np.testing.assert_allclose(result.val, np.ones(num_cells))
+    np.testing.assert_allclose(result.full_jac.toarray(), expected_jacobian)
+
+
+def test_diagonal_jacobian_with_variables_not_arguments(
+    equation_system: pp.ad.EquationSystem,
+):
+    """The diagonal Jacobian of a surrogate operator, when the Jacobian structure of its
+    arguments also contains variables which are not arguments.
+
+    Test: Evaluation of the surrogate operator gives a diagonal Ad array with the same
+    structure as its argument. The block of ``var1`` contains the derivatives of the
+    surrogate operator, while the block of ``var2`` is zero. The full representation
+    equals the expected Jacobian.
+
+    """
+    known_derivative_value = 2.0
+    # The surrogate operator depends on ``var1`` only, since only this variable is
+    # passed as a dependency. Independent of the dependencies, _surrogate_and_arguments
+    # initializes the diagonal Ad arrays of ``var1`` and ``var2`` jointly, thus the
+    # Jacobian structure of the argument ``var1`` contains a block also for ``var2``.
+    sop, sparse_array, diagonal_array, expected_jacobian = _surrogate_and_arguments(
+        equation_system, [VAR1_NAME], [known_derivative_value]
+    )
+
+    result = sop.func(diagonal_array[0])
+    assert isinstance(result, pp.ad.DiagonalAdArray)
+    assert result.jac.shape == (2, sparse_array[0].val.size)
+
+    expected_derivatives = known_derivative_value * np.ones(sparse_array[0].val.size)
+    expected_derivatives[0] = 0.0
+    np.testing.assert_allclose(result.jac[0], expected_derivatives)
+    # The derivative with respect to ``var2`` is zero, since the surrogate operator does
+    # not depend on ``var2``.
+    np.testing.assert_allclose(result.jac[1], 0.0)
+
+    np.testing.assert_allclose(result.full_jac.toarray(), expected_jacobian)
+    # The same Jacobian is obtained from ``var1`` in the full representation.
+    jac = sop.get_jacobian(sparse_array[0])
+    np.testing.assert_allclose(jac.toarray(), expected_jacobian)
