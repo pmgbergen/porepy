@@ -512,6 +512,11 @@ class FluidMobility(pp.PorePyModel):
         return frac_mob
 
 
+_TOTAL_MOBILITY_FLOOR = 1.0e-15
+"""Lower bound added to the upwinded total mobility, the denominator of the
+mobility-product form. It is positive where all phase mobilities vanish."""
+
+
 class _PairBuoyancyTerms(NamedTuple):
     """Advected-independent subdomain terms of a phase pair (``γ``, ``δ``)."""
 
@@ -1050,7 +1055,8 @@ class FluidBuoyancy(pp.PorePyModel):
             intf_discr.upwind_secondary_delta,
             lam_co_delta,
         )
-        return co_gamma_interface + co_delta_interface + pp.ad.Scalar(1.0e-15)
+        floor = pp.ad.Scalar(_TOTAL_MOBILITY_FLOOR)
+        return co_gamma_interface + co_delta_interface + floor
 
     def __interface_mp_coupling(
         self,
@@ -1137,10 +1143,8 @@ class FluidBuoyancy(pp.PorePyModel):
                 if bg_co_delta is None
                 else l_delta_upwind + discr.upwind_delta() @ (bg_co_delta)
             )
-            # Floor keeps lambda_upwind (the mobility-product kernel's denominator)
-            # strictly positive at fully-segregated faces where every mobility on both
-            # sides vanishes.
-            lambda_upwind = gamma_side + delta_side + pp.ad.Scalar(1.0e-15)
+            floor = pp.ad.Scalar(_TOTAL_MOBILITY_FLOOR)
+            lambda_upwind = gamma_side + delta_side + floor
         return _PairBuoyancyTerms(
             w_flux_gamma_delta, f_delta_upwind, lambda_upwind, l_delta_upwind
         )
