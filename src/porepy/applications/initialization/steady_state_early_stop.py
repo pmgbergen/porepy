@@ -27,8 +27,10 @@ class SteadyStateModelRunnerSuccess(pp.ModelRunnerStatusSuccess):
 
 
 class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
-    """Stops the initialization run once both the rate of change of the variables and
-    the residual of the equations are below their tolerances.
+    """Stops the run once the variables and equations are in a steady state.
+
+    The model is in a steady state if both the rate of change of the variables and the
+    residual of the equations are below their tolerances.
 
     The rate of change of the variables is the change since the previous call divided by
     the time between the calls, measured per variable with the variable indexer of the
@@ -39,9 +41,9 @@ class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
 
     Parameters:
         rate_tolerances: Tolerance of the norm of the rate of change per variable name,
-            in model units per second. Must return a value for all variable names.
+            in model units per second. Must contain all variable names.
         residual_tolerances: Tolerance of the norm of the residual per equation name, in
-            model units. Must return a value for all equation names.
+            model units. Must contain all equation names.
         earliest_stop_time: The simulation is not stopped before this time, although the
             tolerances are fulfilled.
 
@@ -55,12 +57,12 @@ class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
     ) -> None:
         self.rate_tolerances = rate_tolerances
         """Tolerance of the norm of the rate of change per variable name, in model units
-        per second. Must return a value for all variable names.
+        per second. Must contain all variable names.
 
         """
         self.residual_tolerances = residual_tolerances
         """Tolerance of the norm of the residual per equation name, in model units.
-        Must return a value for all equation names.
+        Must contain all equation names.
 
         """
         self.earliest_stop_time = earliest_stop_time
@@ -75,6 +77,9 @@ class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
         self, model: pp.PorePyModel
     ) -> pp.ModelRunnerStatus | None:
         """Check the rate of change and the residual after an accepted time step.
+
+        Parameters:
+            model: The model in the state after the time step.
 
         Returns:
             :class:`SteadyStateModelRunnerSuccess` if the model is in a steady state,
@@ -116,7 +121,7 @@ def check_and_log_tolerances(
     Parameters:
         metric: Computes the norm of each variable or equation block of ``values``.
         values: Rate of change of all variables, or residual of all equations.
-        tolerances: Absolute tolerance by name. Must return a value for all names.
+        tolerances: Absolute tolerance by name. Must contain all names.
         name: What the values are, for logging, e.g. "rate".
 
     Returns:
