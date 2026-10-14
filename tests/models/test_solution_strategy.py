@@ -246,9 +246,9 @@ def test_restarted_well_flow_continues_as_if_uninterrupted(restarted_well_flow):
     expected_path = uninterrupted.nonlinear_solver_statistics.convergence_info
     actual_path = restarted.nonlinear_solver_statistics.convergence_info
     for norm in ("inc_abs", "res_abs"):
-        assert np.allclose(actual_path[norm], expected_path[norm], rtol=1e-8), (
-            f"the Newton path differs after the restart ({norm})"
-        )
+        assert np.allclose(
+            actual_path[norm]["norm"], expected_path[norm]["norm"], rtol=1e-8
+        ), f"the Newton path differs after the restart ({norm})"
     well_fluxes = 0.0
     for variable, resumed_variable in zip(
         uninterrupted.equation_system.variables,
@@ -732,3 +732,58 @@ def test_linear_or_nonlinear_model(params: dict):
 
     model = models.model(model_type=model_name, dim=2, num_fracs=num_fracs)
     assert model._is_nonlinear_problem() == is_nonlinear
+
+
+@pytest.mark.parametrize("kind", ["variables", "stress", "boundary"])
+def test_restart_keeps_nonzero_reference_state(tmp_path, kind):
+    """A restart must reproduce the reference state, that involves (i) primary
+    variables, (ii) boundary data and (iii) stress.
+
+    The way it is checked is by comparing the stress operator, since it depends on all
+    these reference terms.
+
+    """
+
+    class ModelWithNonzeroReference(TailoredPoromechanics):
+        def prepare_simulation(self):
+            super().prepare_simulation()
+            es = self.equation_system
+            if kind == "variables":
+                es.set_variable_values(np.full(es.num_dofs(), 1e-3), reference=True)
+            elif kind == "stress":
+                for sd, data in self.mdg.subdomains(return_data=True, dim=self.nd):
+                    values = np.ones(sd.num_faces * self.nd)
+                    pp.set_solution_values(
+                        self.reference_stress_key, values, data, reference=True
+                    )
+            else:
+                self.set_boundary_reference_values()
+
+    def build(model_class, restart: bool):
+        params = create_model_with_fracture(
+            {}, {}, {}, 0.1, TailoredPoromechanics
+        ).params
+        params["folder_name"] = str(tmp_path)
+        params["times_to_export"] = None
+        params["time_manager"] = pp.TimeManager(
+            schedule=[0, 1], dt_init=0.5, constant_dt=True
+        )
+        params["restart_options"] = {
+            "restart": restart,
+            "pvd_file": tmp_path / "data.pvd",
+            "times_file": tmp_path / "times.json",
+        }
+        return model_class(params)
+
+    def stress(model):
+        sd = model.mdg.subdomains(dim=model.nd)[0]
+        return model.equation_system.evaluate(model.stress([sd]))
+
+    original = build(ModelWithNonzeroReference, restart=False)
+    pp.run_time_dependent_model(original)
+    restarted = build(TailoredPoromechanics, restart=True)
+    restarted.prepare_simulation()
+
+    expected = stress(original)
+    assert np.abs(expected).max() > 0
+    assert np.allclose(stress(restarted), expected)

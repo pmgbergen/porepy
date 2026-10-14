@@ -100,6 +100,7 @@ class DataSavingMixin(pp.PorePyModel):
             Path(self.params["folder_name"]) / "times.json"
         )
         self.exporter.write_vtu(self.data_to_export(), time_dependent=True)
+        self._save_reference_state(Path(self.params["folder_name"]))
         # Both the time history and the exporter's time steps count the exports, so the
         # time of each written time step is found at its own index in the history. After
         # a restart, the exporter has written only the time steps since the restart,
@@ -215,6 +216,62 @@ class DataSavingMixin(pp.PorePyModel):
                 / self.params["solver_statistics_file_name"]
             )
 
+    _reference_state_file_name: str = "reference_state.npz"
+    """Name of the file, next to the time history, holding the reference state."""
+
+    def _reference_state_data(self) -> dict[str, dict]:
+        """Data dictionaries of all grids, keyed by their position in the md-grid."""
+        mdg = self.mdg
+        groups = {
+            "sd": mdg.subdomains(return_data=True),
+            "intf": mdg.interfaces(return_data=True),
+            "bg": mdg.boundaries(return_data=True),
+        }
+        return {
+            f"{group}{i}": data
+            for group, items in groups.items()
+            for i, (_, data) in enumerate(items)
+        }
+
+    def _save_reference_state(self, folder: Path) -> None:
+        """Write the reference values stored in the grid data to file.
+
+        The reference state (of variables, stress and boundary values) is not part of
+        the exported fields, and is not recovered by the model setup, e.g., if it was
+        set to a state found during the simulation. It is saved in the units of
+        the model, and must be read back by a model with the same units and grids.
+
+        Parameters:
+            folder: Folder to write to.
+
+        """
+        arrays = {
+            f"{key}::{name}": np.asarray(values)
+            for key, data in self._reference_state_data().items()
+            for name, values in data.get(pp.REFERENCE_SOLUTIONS, {}).items()
+        }
+        folder.mkdir(parents=True, exist_ok=True)
+        np.savez(folder / self._reference_state_file_name, **arrays)
+
+    def _load_reference_state(self, folder: Path) -> None:
+        """Overwrite the reference values in the grid data by those saved to file.
+
+        Histories written before the reference state was saved have no such file, in
+        which case the reference state of the model setup is kept.
+
+        Parameters:
+            folder: Folder to read from.
+
+        """
+        path = folder / self._reference_state_file_name
+        if not path.exists():
+            return
+        data_of = self._reference_state_data()
+        with np.load(path) as saved:
+            for entry in saved.files:
+                key, name = entry.split("::", 1)
+                data_of[key].setdefault(pp.REFERENCE_SOLUTIONS, {})[name] = saved[entry]
+
     def _convert_imported_state_from_si(self) -> None:
         """Undo the conversion to SI units that :meth:`data_to_export` applied.
 
@@ -276,6 +333,7 @@ class DataSavingMixin(pp.PorePyModel):
         # Load states and read time index, connecting data and time history.
         self.exporter.import_state_from_vtu(vtu_files, keys, **kwargs)
         self._convert_imported_state_from_si()
+        self._load_reference_state(times_file.parent)
 
         # Load time and time step size.
         self.time_manager.load_time_information(times_file)
@@ -316,6 +374,7 @@ class DataSavingMixin(pp.PorePyModel):
         # Import data and determine time index corresponding to the pvd file.
         time_index: int = self.exporter.import_from_pvd(pvd_file, is_mdg_pvd, keys)
         self._convert_imported_state_from_si()
+        self._load_reference_state(times_file.parent)
 
         # Load time and time step size.
         self.time_manager.load_time_information(times_file)
