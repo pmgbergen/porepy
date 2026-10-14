@@ -340,14 +340,10 @@ class Upwind(Discretization):
             # consistent handling of sinking phases.
             bc = pp.BoundaryCondition(sd, sd.get_boundary_faces(), "dir")
 
-        # Single-point upstream weighting via the shared, structure-caching helper (the
-        # same extraction used by HUpwind). The upwind sparsity pattern is
-        # flow-independent (the helper keeps both neighbour entries per face -- weight 1
-        # upstream, explicit 0 downstream -- so the product is unchanged), which lets
-        # re-discretization on a fixed mesh rewrite only the matrix data instead of
-        # rebuilding CSRs. This is the dominant cost when the upwind runs per subdomain
-        # on every nonlinear iteration. Bit-identical values to the explicit build; the
-        # pattern carries extra structural zeros.
+        # Single-point upstream weighting, shared with HUpwind. Each face keeps entries
+        # for both neighbour cells (weight 1 upstream, explicit 0 downstream), so the
+        # sparsity pattern is independent of the flow direction and the cached
+        # structure is reused on re-discretization.
         cache = data.setdefault("_upwind_fast_cache", {}).setdefault(self.keyword, {})
         upwind, bound_dir, bound_neu = _single_point_upwind_matrices(
             sd,
@@ -803,7 +799,7 @@ def _single_point_upwind_matrices(
     re-discretization only rewrites the matrix data. The cached structure is valid
     for fixed boundary types (``bc.is_neu``, ``bc.is_dir``) and a fixed set of
     Dirichlet inflow faces; it is rebuilt when either changes. The fast path applies
-    to ``num_components == 1`` only and is bit-identical to the full build.
+    to ``num_components == 1`` only and gives the same values as the full build.
     """
     if sd.dim == 0:
         return (
@@ -998,6 +994,14 @@ class HUpwindCoupling(UpwindCoupling):
     :meth:`discretize`; the geometric trace matrices are built once and shared.
     """
 
+    _DIRECTION_ENTITIES: dict[str, GridEntities] = {
+        f"{term}_{suffix}": GridEntities(cells=1)
+        for term in ("upwind_primary", "upwind_secondary", "flux")
+        for suffix in ("gamma", "delta")
+    }
+    """Row and column entities of the per-direction matrices. Each matches its base
+    counterpart in :class:`UpwindCoupling`."""
+
     def __init__(self, keyword: str) -> None:
         super().__init__(keyword)
         # Geometric / shared matrices keep the base keys.
@@ -1019,30 +1023,14 @@ class HUpwindCoupling(UpwindCoupling):
 
     def get_col_entities(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
         """Domain entities: each gamma/delta matrix matches its base counterpart."""
-        extra = {
-            "upwind_primary_gamma": GridEntities(cells=1),
-            "upwind_secondary_gamma": GridEntities(cells=1),
-            "flux_gamma": GridEntities(cells=1),
-            "upwind_primary_delta": GridEntities(cells=1),
-            "upwind_secondary_delta": GridEntities(cells=1),
-            "flux_delta": GridEntities(cells=1),
-        }
-        if matrix_key in extra:
-            return extra[matrix_key]
+        if matrix_key in self._DIRECTION_ENTITIES:
+            return self._DIRECTION_ENTITIES[matrix_key]
         return super().get_col_entities(matrix_key, nd)
 
     def get_row_entities(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
         """Codomain entities: each gamma/delta matrix matches its base counterpart."""
-        extra = {
-            "upwind_primary_gamma": GridEntities(cells=1),
-            "upwind_secondary_gamma": GridEntities(cells=1),
-            "flux_gamma": GridEntities(cells=1),
-            "upwind_primary_delta": GridEntities(cells=1),
-            "upwind_secondary_delta": GridEntities(cells=1),
-            "flux_delta": GridEntities(cells=1),
-        }
-        if matrix_key in extra:
-            return extra[matrix_key]
+        if matrix_key in self._DIRECTION_ENTITIES:
+            return self._DIRECTION_ENTITIES[matrix_key]
         return super().get_row_entities(matrix_key, nd)
 
     def discretize(
