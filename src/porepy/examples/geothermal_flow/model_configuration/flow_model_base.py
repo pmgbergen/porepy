@@ -1622,7 +1622,9 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         g_constant = pp.GRAVITY_ACCELERATION if self.params.get("gravity", True) else 0.0
         val = self.units.convert_units(g_constant, "m*s^-2") * to_Mega
         size = np.sum([g.num_cells for g in subdomains]).astype(int)
-        gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
+        gravity_field = pp.wrap_as_dense_ad_array(
+            val, grids=list(subdomains), size=size
+        )
         gravity_field.set_name("gravity_field")
         return gravity_field
 

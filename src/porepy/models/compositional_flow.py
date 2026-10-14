@@ -448,7 +448,12 @@ class EnthalpyBasedEnergyBalanceEquations(
         elif is_fractional_flow(self) and all(
             [isinstance(g, pp.BoundaryGrid) for g in domains]
         ):
-            op = self.create_boundary_operator(
+            # Keep the storage-key name. The values are seeded under the key
+            # ``bc_data_fractional_flow_energy_key`` by
+            # update_boundary_values_fractional_flow, and TimeDependentDenseArray.parse
+            # looks them up by the operator name; renaming it to "advected_enthalpy"
+            # below would desync the lookup from the stored data.
+            return self.create_boundary_operator(
                 self.bc_data_fractional_flow_energy_key,
                 cast(Sequence[pp.BoundaryGrid], domains),
             )

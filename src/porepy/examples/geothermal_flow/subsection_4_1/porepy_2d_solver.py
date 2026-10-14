@@ -1403,16 +1403,16 @@ class _FlowModelBody(
         # (the N=3 reference matching two equal QUADRATIC-kr intermediates).
         k = PHASE_NAMES.index(phase.name)
         if MIDDLE_MERGE[k]:                          # 2 (s/2)^2 = s^2 / 2 (merged-band kr)
-            return pp.ad.Scalar(0.5) * phase.saturation(domains) ** 2
+            return pp.ad.Scalar(0.5) * phase.saturation(domains) ** pp.ad.Scalar(2.0)
         if MIDDLE_LINEAR[k]:
             return phase.saturation(domains)
-        return phase.saturation(domains) ** 2
+        return phase.saturation(domains) ** pp.ad.Scalar(2.0)
 
     def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.TpfaAd:
-        return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
+        return pp.ad.TpfaAd(self.darcy_keyword, subdomains, nd=self.nd)
 
     def fourier_flux_discretization(self, subdomains: Sequence[pp.Grid]) -> pp.ad.TpfaAd:
-        return pp.ad.TpfaAd(self.fourier_keyword, list(subdomains))
+        return pp.ad.TpfaAd(self.fourier_keyword, list(subdomains), nd=self.nd)
 
     def _rock_permeability_values(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Cell-wise ROCK permeability (no mobility weighting), branching on dimension:
@@ -1434,7 +1434,9 @@ class _FlowModelBody(
             else:                                       # 1D/0D fractures: fully conductive
                 cell_vals[:] = self.solid.permeability * FRACTURE_K_FACTOR
             offset += sd.num_cells
-        return pp.wrap_as_dense_ad_array(vals, size, name="permeability")
+        return pp.wrap_as_dense_ad_array(
+            vals, grids=subdomains, size=size, name="permeability"
+        )
 
     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Rock permeability (barrier-masked matrix + conductive fractures), scheme-branched.
