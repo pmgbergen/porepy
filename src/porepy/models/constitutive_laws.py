@@ -3675,6 +3675,10 @@ class ConstitutiveLawsTpsaPoromechanics(pp.PorePyModel):
         In the four-field formulation, the fluid pressure is not directly included in
         the stress definition, but is instead included in the total pressure.
 
+        The stress is the sum of the reference stress, see
+        :meth:`~.LinearElasticMechanicalStress.reference_stress`,
+        and the mechanical stress, which is measured relative to the reference state.
+
         Parameters:
             subdomains: List of subdomains where the stress is defined.
 
@@ -4194,15 +4198,16 @@ class ShearDilation(pp.PorePyModel):
     """
 
     def shear_dilation_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Shear dilation [m].
+        r"""Shear dilation [m].
 
-        Shear dilation accumulates when the fracture sides move relatively to each other
+        Shear dilation accumulates when the fracture sides move relative to each other
         due to roughness in their surfaces. Only plastic deformations contribute to it.
         By convention, at the reference simulation state, shear dilation is zero.
 
-        ```
-        g_shear = tan(θ) || [u - u_0]^p_t ||,
-        ```
+        .. math::
+
+            g_{shear} = \tan(\theta) \| [u - u_0]^p_t \|,
+
         where the subscript zero denotes the reference state, subscript t denotes the
         tangential part of the vector (in the fracture plane), superscript p denotes
         the plastic part of the displacement jump, and θ is the dilation angle.

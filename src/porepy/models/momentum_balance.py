@@ -387,8 +387,12 @@ class ConstitutiveLawsMomentumBalance(
     def stress(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Stress operator.
 
+        The stress is the sum of the reference stress, see
+        :meth:`~.LinearElasticMechanicalStress.reference_stress`,
+        and the mechanical stress, which is measured relative to the reference state.
+
         Parameters:
-            subdomains: List of subdomains where the stress is defined.
+            domains: List of subdomains where the stress is defined.
 
         Returns:
             Operator for the stress.
@@ -674,8 +678,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         self.reference_stress_key: str = "reference_stress"
         """Key used to store the reference stress in the subdomain data dictionaries.
 
-        See :meth:`~porepy.models.constitutive_laws.LinearElasticMechanicalStress.
-        reference_stress`.
+        See :meth:`~.LinearElasticMechanicalStress.reference_stress`.
 
         """
 
@@ -840,8 +843,7 @@ class InitialConditionsMomentumBalance(pp.InitialConditionMixin):
         """Values for the reference stress on the matrix grid.
 
         Override this method to prescribe a non-zero reference stress, see
-        :meth:`~porepy.models.constitutive_laws.LinearElasticMechanicalStress.
-        reference_stress`.
+        :meth:`~.LinearElasticMechanicalStress.reference_stress`.
 
         Note:
             This method will only be called with the matrix grid (ambient dimension),
