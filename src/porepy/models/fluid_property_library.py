@@ -599,7 +599,7 @@ class FluidBuoyancy(pp.PorePyModel):
     total_mass_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`FluidMobility`."""
 
-    _nonlinear_discretizations: list[pp.ad.MergedOperator]
+    add_nonlinear_discretization: Callable[[pp.ad.MergedOperator], None]
     """See :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
 
     def hybrid_upwind_key(self, gamma: pp.Phase, delta: pp.Phase) -> str:
@@ -1529,21 +1529,6 @@ class FluidBuoyancy(pp.PorePyModel):
                         }
                     )
 
-    def _register_hybrid_nonlinear_discretization(
-        self, op: pp.ad.MergedOperator
-    ) -> None:
-        """Register a hybrid upwind operator for per-iteration re-discretization.
-
-        Appends directly to the nonlinear-discretization list, bypassing
-        :meth:`add_nonlinear_discretization`'s exact-type guardrail. That guardrail
-        admits
-        only the base ``Upwind`` / ``UpwindCoupling`` types; ``HUpwind`` /
-        ``HUpwindCoupling`` are functionally valid subclasses, so this keeps the change
-        contained to this module instead of relaxing the core check.
-        """
-        if op not in self._nonlinear_discretizations:
-            self._nonlinear_discretizations.append(op)
-
     def set_nonlinear_buoyancy_discretization(self):
         """Register nonlinear upwind discretizations for buoyancy terms."""
         for phase_gamma in self.fluid.phases:
@@ -1554,26 +1539,26 @@ class FluidBuoyancy(pp.PorePyModel):
                 hybrid_discr = self.hybrid_upwind_discretization(
                     gamma, delta, self.mdg.subdomains()
                 )
-                self._register_hybrid_nonlinear_discretization(
+                self.add_nonlinear_discretization(
                     hybrid_discr.upwind_gamma()
                 )
-                self._register_hybrid_nonlinear_discretization(
+                self.add_nonlinear_discretization(
                     hybrid_discr.upwind_delta()
                 )
                 # One hybrid interface (mortar) discretization per pair, four matrices.
                 intf_discr = self.hybrid_interface_upwind_discretization(
                     gamma, delta, self.mdg.interfaces(codim=1)
                 )
-                self._register_hybrid_nonlinear_discretization(
+                self.add_nonlinear_discretization(
                     intf_discr.upwind_primary_gamma()
                 )
-                self._register_hybrid_nonlinear_discretization(
+                self.add_nonlinear_discretization(
                     intf_discr.upwind_secondary_gamma()
                 )
-                self._register_hybrid_nonlinear_discretization(
+                self.add_nonlinear_discretization(
                     intf_discr.upwind_primary_delta()
                 )
-                self._register_hybrid_nonlinear_discretization(
+                self.add_nonlinear_discretization(
                     intf_discr.upwind_secondary_delta()
                 )
 
