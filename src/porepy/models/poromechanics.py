@@ -54,6 +54,11 @@ class ConstitutiveLawsPoromechanics(
     def stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Stress operator.
 
+        The stress is the sum of the reference stress, see
+        :meth:`~.LinearElasticMechanicalStress.reference_stress`,
+        the mechanical stress and the pressure stress. The mechanical stress is measured
+        relative to the reference state.
+
         Parameters:
             subdomains: List of subdomains where the stress is defined.
 
