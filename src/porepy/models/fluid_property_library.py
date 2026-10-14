@@ -657,12 +657,10 @@ class FluidBuoyancy(pp.PorePyModel):
     ) -> pp.ad.HUpwindAd:
         """Return the two-direction hybrid-upwind discretization for the pair.
 
-        A single :class:`HUpwind` whose two stored directions ``"hybrid_gamma_flux"`` /
-        ``"hybrid_delta_flux"`` yield ``upwind_gamma`` and ``upwind_delta``
-        respectively.
-        The model fills the two directions per scheme (inter-phase gravity flux ``+/-``
-        for
-        hybrid; the per-phase potential fluxes for phase-potential upwinding).
+        A single :class:`HUpwind` whose two stored directions ``"hybrid_gamma_flux"``
+        and ``"hybrid_delta_flux"`` yield ``upwind_gamma`` and ``upwind_delta``,
+        respectively. The directions are the inter-phase gravity flux with opposite
+        signs, see :meth:`update_buoyancy_driven_fluxes`.
 
         Parameters:
             gamma: The first (reference) phase.
@@ -682,9 +680,8 @@ class FluidBuoyancy(pp.PorePyModel):
         """Return the two-direction hybrid interface (mortar) upwind for the pair.
 
         A single :class:`HUpwindCoupling` whose two stored interface directions
-        (``hybrid_gamma_flux`` / ``hybrid_delta_flux``) yield the two phases' mortar
-        upwind
-        matrices.
+        (``hybrid_gamma_flux`` and ``hybrid_delta_flux``) yield the mortar upwind
+        matrices of the two phases.
         """
         return pp.ad.HUpwindCouplingAd(self.hybrid_upwind_key(gamma, delta), interfaces)
 
@@ -1039,9 +1036,8 @@ class FluidBuoyancy(pp.PorePyModel):
         l_gamma = self._phase_mass_mobility(gamma, domains)
         l_delta = self._phase_mass_mobility(delta, domains)
 
-        # Background: split each passive phase between the sides by its density weight
-        # BEFORE projecting to the mortar, so the two inter-phase directions carry it --
-        # 2 to_interface calls (lam_co_gamma / lam_co_delta) instead of 4.
+        # Each passive phase is split between the sides by its density weight before
+        # the projection to the mortar, so the two inter-phase directions carry it.
         bg_co_gamma, bg_co_delta = self._passive_background_split(gamma, delta, domains)
         lam_co_gamma = l_gamma if bg_co_gamma is None else l_gamma + bg_co_gamma
         lam_co_delta = l_delta if bg_co_delta is None else l_delta + bg_co_delta
@@ -1110,29 +1106,25 @@ class FluidBuoyancy(pp.PorePyModel):
         the mobility-product branch) the inter-phase total and delta mass mobilities.
         Cached so they are shared across all advected quantities of the pair.
         """
-        from porepy.models.compositional_flow import is_fractional_flow
-
         w_flux_gamma_delta = self.pair_density_driven_flux(gamma, delta, domains)
         f_delta = self.fractional_phase_mass_mobility(delta, domains)
         discr = self.hybrid_upwind_discretization(gamma, delta, domains)
         f_delta_upwind = discr.upwind_delta() @ f_delta
 
-        if is_fractional_flow(self):
+        if pp.compositional_flow.is_fractional_flow(self):
             lambda_upwind = None
             l_delta_upwind = None
         else:
             l_gamma = self._phase_mass_mobility(gamma, domains)
             l_delta = self._phase_mass_mobility(delta, domains)
             l_delta_upwind = discr.upwind_delta() @ (l_delta)
-            # Background: each passive phase e gets a density weight m_e in {0, 1/2, 1}.
-            # A weight of 1 (resp. 0) groups it with the pair member it advects
-            # co-current with, gamma (resp. delta), and folds it into that side BEFORE
-            # the upwind, so the pair's own two upwinds carry it:
+            # Each passive phase e has a density weight m_e in {0, 1/2, 1}. A fraction
+            # m_e of its mobility is added to the gamma side and 1 - m_e to the delta
+            # side before the upwind:
             #   lambda_upwind = U_gamma(l_gamma + bg_co_gamma)
             #                 + U_delta(l_delta + bg_co_delta).
-            # The exact 1/2 at a tie (a phase on the pair's density separator) is what
-            # makes the scheme reduction-consistent when two densities coincide. Reuse
-            # l_delta_upwind on the delta side (the numerator shares it).
+            # The value 1/2 applies if rho_e equals the mean of rho_gamma and
+            # rho_delta. The delta side reuses l_delta_upwind from the numerator.
             bg_co_gamma, bg_co_delta = self._passive_background_split(
                 gamma, delta, domains
             )
@@ -1173,8 +1165,6 @@ class FluidBuoyancy(pp.PorePyModel):
             A list of Ad operators representing the buoyancy flux is phase gamma.
 
         """
-        from porepy.models.compositional_flow import is_fractional_flow
-
         b_fluxes: List[pp.ad.Operator] = []
 
         # Verify that the domains are subdomains.
@@ -1189,7 +1179,7 @@ class FluidBuoyancy(pp.PorePyModel):
         # Advected-independent pieces, shared across the pair's advected quantities.
         pair = self._entity_buoyancy_pair_common(gamma, delta, domains)
 
-        if is_fractional_flow(self):
+        if pp.compositional_flow.is_fractional_flow(self):
             f_gamma = self.fractional_phase_mass_mobility(gamma, domains)
             f_gamma_upwind = discr.upwind_gamma() @ (advected_gamma_quantity * f_gamma)
             b_flux_gamma_delta = (f_gamma_upwind * pair.f_delta_upwind) * pair.w_flux
@@ -1373,8 +1363,6 @@ class FluidBuoyancy(pp.PorePyModel):
     ) -> pp.ad.Operator:
         """Interface buoyancy coupling of the pair for one advected quantity, shared
         by the flux and the jump (they differ only in the final projection)."""
-        from porepy.models.compositional_flow import is_fractional_flow
-
         common = self._interface_pair_common(gamma, delta, domains)
         intf_discr = common.intf_discr
         mortar_avg = common.mortar_avg
@@ -1382,7 +1370,7 @@ class FluidBuoyancy(pp.PorePyModel):
         secondary_to_mortar = common.secondary_to_mortar
         intf_w_flux = common.intf_w_flux
 
-        if is_fractional_flow(self):
+        if pp.compositional_flow.is_fractional_flow(self):
             f_gamma = self.fractional_phase_mass_mobility(gamma, domains)
             gamma_interface = (
                 intf_discr.upwind_primary_gamma()
@@ -1440,10 +1428,8 @@ class FluidBuoyancy(pp.PorePyModel):
     def enthalpy_buoyancy(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Get the buoyancy flux for specific enthalpy.
 
-        Both schemes use the same simplicial inter-phase buoyancy term
-        (:meth:`__entity_buoyancy_flux`); they differ only in the two upwind directions
-        stored for the :class:`HUpwind` discretization (hybrid: inter-phase gravity flux
-        with opposite signs; phase-potential: each phase's own potential flux).
+        The flux is the sum over phase pairs of the inter-phase buoyancy term
+        :meth:`__entity_buoyancy_flux`, advecting the specific enthalpy of each phase.
 
         Parameters:
             domains: The domains to consider for the buoyancy flux calculation.
@@ -1537,10 +1523,9 @@ class FluidBuoyancy(pp.PorePyModel):
                 key = self.hybrid_upwind_key(gamma, delta)
                 for sd, data in self.mdg.subdomains(return_data=True):
                     null_vals = np.zeros(sd.num_faces)
-                    # Same advective-flux boundary classification as the mobility
-                    # discretization, so the upwind/bound_transport matrices partition
-                    # the
-                    # boundary faces consistently with the advective flux.
+                    # Same boundary classification as the mobility discretization, so
+                    # the upwind and boundary matrices partition the boundary faces
+                    # consistently with the advective flux.
                     pp.initialize_data(data, key)
                     data[pp.PARAMETERS][key].update(
                         {

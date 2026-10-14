@@ -77,6 +77,7 @@ def _run_buoyancy_model(
 
     solid_constants = pp.SolidConstants(
         permeability=1.0e-14,
+        normal_permeability=1.0e-14,
         porosity=0.1,
         thermal_conductivity=2.0 * to_Mega,
         density=2500.0,
@@ -209,6 +210,7 @@ def subdomain_sweep_model(request):
 
     solid_constants = pp.SolidConstants(
         permeability=1.0e-14,
+        normal_permeability=1.0e-14,
         porosity=0.1,
         thermal_conductivity=2.0 * to_Mega,
         density=2500.0,
@@ -396,6 +398,7 @@ def interface_sweep_model(request):
 
     solid_constants = pp.SolidConstants(
         permeability=1.0e-14,
+        normal_permeability=1.0e-14,
         porosity=0.1,
         thermal_conductivity=2.0 * to_Mega,
         density=2500.0,

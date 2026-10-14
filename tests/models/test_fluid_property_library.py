@@ -30,6 +30,7 @@ def _build_buoyancy_model(
     dt = 0.25 * day
     solid_constants = pp.SolidConstants(
         permeability=1.0e-14,
+        normal_permeability=1.0e-14,
         porosity=0.1,
         thermal_conductivity=2.0 * to_Mega,
         density=2500.0,
