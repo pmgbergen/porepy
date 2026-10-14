@@ -16,21 +16,16 @@ def _fixed_diag(vec: np.ndarray) -> sps.csr_matrix:
 
     Unlike ``sps.diags``, the sparsity pattern does not change when the flow
     direction flips, so downstream structure caches stay valid.
-
-    The diagonal CSR structure (``indices = arange(n)``, ``indptr = arange(n+1)``) is
-    known-valid, so the matrix is assembled directly and scipy's per-construction
-    validation (``get_index_dtype`` / ``check_format`` / ``prune``) is skipped. This
-    is a hot inner-loop constructor in the upwind discretization (called
-    ~n_grids x n_equations times per re-discretization).
     """
     n = int(vec.size)
-    m = sps.csr_matrix((n, n))
-    m.data = np.ascontiguousarray(vec, dtype=float)
-    m.indices = np.arange(n, dtype=np.int32)
-    m.indptr = np.arange(n + 1, dtype=np.int32)
-    m._has_sorted_indices = True
-    m._has_canonical_format = True
-    return m
+    return sps.csr_matrix(
+        (
+            np.array(vec, dtype=float),
+            np.arange(n, dtype=np.int32),
+            np.arange(n + 1, dtype=np.int32),
+        ),
+        shape=(n, n),
+    )
 
 
 def _coupling_geometry_cache(
