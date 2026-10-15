@@ -36,9 +36,18 @@ def mock_model(state: np.ndarray, residual: np.ndarray, time: float) -> MagicMoc
 
 
 def tolerances(rate: float, residual: float, **kwargs):
+    """Criterion with the same tolerance for all variables and for the equation.
+
+    The rate metric is the Euclidean one, since the default Lebesgue metric needs a real
+    model. The metric only reads the indexer, which is the same in all mock models.
+
+    """
     return SteadyStateEarlyStopCriterion(
         rate_tolerances={"a": rate, "b": rate},
         residual_tolerances={"eq": residual},
+        variable_rate_metric=pp.VariableBasedEuclideanMetric(
+            mock_model(np.zeros(2), np.zeros(2), 0)
+        ),
         **kwargs,
     )
 
@@ -63,23 +72,26 @@ def test_simulation_should_stop(rate_tol, residual_tol, earliest_stop_time, stop
         rate_tol, residual_tol, earliest_stop_time=earliest_stop_time
     )
 
-    assert (
-        criterion.simulation_should_stop(mock_model(np.zeros(2), np.ones(2), 0)) is None
+    first_status = criterion.simulation_should_stop(
+        mock_model(np.zeros(2), np.ones(2), 0)
     )
+    assert isinstance(first_status, pp.EarlyStopNotRequested)
 
     # Over two seconds, "a" does not change and "b" changes by 1.
     model = mock_model(np.array([0.0, 1.0]), np.ones(2), 2)
     status = criterion.simulation_should_stop(model)
-    assert isinstance(status, SteadyStateModelRunnerSuccess) == stops
+    if stops:
+        assert isinstance(status, SteadyStateModelRunnerSuccess)
+    else:
+        assert isinstance(status, pp.EarlyStopNotRequested)
 
 
 def test_rate_uses_previous_call():
     """The rate is measured against the state of the previous call, not the first."""
     criterion = tolerances(0.1, np.inf)
     criterion.simulation_should_stop(mock_model(np.zeros(2), np.zeros(2), 0))
-    assert (
-        criterion.simulation_should_stop(mock_model(np.ones(2), np.zeros(2), 1)) is None
-    )
+    status = criterion.simulation_should_stop(mock_model(np.ones(2), np.zeros(2), 1))
+    assert isinstance(status, pp.EarlyStopNotRequested)
     # No change since the previous call.
     status = criterion.simulation_should_stop(mock_model(np.ones(2), np.zeros(2), 2))
     assert isinstance(status, SteadyStateModelRunnerSuccess)

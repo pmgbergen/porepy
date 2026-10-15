@@ -28,6 +28,7 @@ __all__ = [
     "ModelRunnerStatusFailure",
     "ModelRunner",
     "EarlyStopCriterion",
+    "EarlyStopNotRequested",
 ]
 
 # Module-wide logger
@@ -71,6 +72,15 @@ class ModelRunnerStatusFailure(ModelRunnerStatus):
     "Reason why the model runner failed."
 
 
+@dataclass
+class EarlyStopNotRequested:
+    """A marker object indicating that an early stop criterion does not request to stop.
+
+    If all early stop criteria return this status, the simulation continues.
+
+    """
+
+
 class EarlyStopCriterion(ABC):
     """Abstract base class for criteria that stop the time stepping early.
 
@@ -79,15 +89,18 @@ class EarlyStopCriterion(ABC):
     """
 
     @abstractmethod
-    def simulation_should_stop(self, model: pp.PorePyModel) -> ModelRunnerStatus | None:
+    def simulation_should_stop(
+        self, model: pp.PorePyModel
+    ) -> ModelRunnerStatus | EarlyStopNotRequested:
         """Decide whether the simulation should stop after an accepted time step.
 
         Parameters:
             model: The model in the state after the time step.
 
         Returns:
-            None to continue the simulation, or a :class:`ModelRunnerStatus` to stop it
-            and return this status from the runner.
+            :class:`EarlyStopNotRequested` to continue the simulation, or a
+            :class:`ModelRunnerStatus` to stop it and return this status from the
+            runner.
 
         """
 
@@ -182,8 +195,9 @@ class ModelRunner:
             expensive convergence checks). The reverse is also true: You can pass a
             customized solver that treats the problem as linear even if it is not.
         early_stop_criteria: Criteria evaluated after each accepted time step of a
-            time-dependent model. If one of them returns a status, the time stepping
-            stops and the runner returns this status. By default, there are none.
+            time-dependent model. If one of them returns a
+            :class:`ModelRunnerStatus`, the time stepping stops and the runner returns
+            this status. By default, there are none.
 
     """
 
@@ -348,10 +362,10 @@ class ModelRunner:
                     logger.error(f"Time stepping failed: {time_step_status.reason}")
                     return ModelRunnerStatusFailure(reason=time_step_status.reason)
 
-                # Stop early if any of the criteria returns a status.
+                # Stop early if any of the criteria returns a ModelRunnerStatus.
                 for criterion in self.early_stop_criteria:
                     early_stop_status = criterion.simulation_should_stop(self.model)
-                    if early_stop_status is not None:
+                    if isinstance(early_stop_status, ModelRunnerStatus):
                         return early_stop_status
 
             # Conclude the simulation status.
