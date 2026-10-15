@@ -33,11 +33,15 @@ class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
     residual of the equations are below their tolerances.
 
     The rate of change of the variables is the change since the previous call divided by
-    the time between the calls, measured per variable with the variable indexer of the
-    model. The residual is that of the equations of the model at the new state, measured
-    per equation with the equation indexer. After an accepted time step the previous
-    time step equals the new state, so the accumulation terms vanish and the residual is
-    that of the steady problem. Each norm is the root mean square of the block.
+    the time between the calls. The residual is that of the equations of the model at
+    the new state. After an accepted time step the previous time step equals the new
+    state, so the accumulation terms vanish and the residual is that of the steady
+    problem.
+
+    The norms are computed per variable and per equation by the metrics
+    :attr:`variable_rate_metric` and :attr:`residual_metric`. By default, these are the
+    Lebesgue L2 norm for the rate and the normalized Euclidean norm (root mean square
+    of the block) for the residual.
 
     Parameters:
         rate_tolerances: Tolerance of the norm of the rate of change per variable name,
@@ -46,6 +50,12 @@ class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
             model units. Must contain all equation names.
         earliest_stop_time: The simulation is not stopped before this time, although the
             tolerances are fulfilled.
+        variable_rate_metric: Metric computing the norm of the rate of change per
+            variable name. If None (default), a
+            :class:`~porepy.VariableBasedLebesgueMetric` is created at the first call.
+        residual_metric: Metric computing the norm of the residual per equation name.
+            If None (default), an :class:`~porepy.EquationBasedEuclideanMetric` is
+            created at the first call.
 
     """
 
@@ -54,6 +64,8 @@ class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
         rate_tolerances: dict[str, float],
         residual_tolerances: dict[str, float],
         earliest_stop_time: float = 0,
+        variable_rate_metric: pp.Metric | None = None,
+        residual_metric: pp.Metric | None = None,
     ) -> None:
         self.rate_tolerances = rate_tolerances
         """Tolerance of the norm of the rate of change per variable name, in model units
@@ -73,9 +85,24 @@ class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
         self.previous: tuple[np.ndarray, float] | None = None
         """(State, time) at the previous call."""
 
+        self.variable_rate_metric: pp.Metric | None = variable_rate_metric
+        """Metric computing the norm of the rate of change per variable name.
+
+        If None, it is set to :class:`~porepy.VariableBasedLebesgueMetric` of the model
+        at the first call of :meth:`simulation_should_stop`.
+
+        """
+        self.residual_metric: pp.Metric | None = residual_metric
+        """Metric computing the norm of the residual per equation name.
+
+        If None, it is set to :class:`~porepy.EquationBasedEuclideanMetric` of the model
+        at the first call of :meth:`simulation_should_stop`.
+
+        """
+
     def simulation_should_stop(
         self, model: pp.PorePyModel
-    ) -> pp.ModelRunnerStatus | None:
+    ) -> pp.ModelRunnerStatus | pp.EarlyStopNotRequested:
         """Check the rate of change and the residual after an accepted time step.
 
         Parameters:
@@ -83,30 +110,36 @@ class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
 
         Returns:
             :class:`SteadyStateModelRunnerSuccess` if the model is in a steady state,
-            otherwise None. The first call only stores the state, since the rate needs
-            two states.
+            otherwise :class:`~porepy.EarlyStopNotRequested`. The first call only stores
+            the state, since the rate needs two states.
 
         """
+        # Lazy initialization of metrics with the model.
+        if self.variable_rate_metric is None:
+            self.variable_rate_metric = pp.VariableBasedLebesgueMetric(model)
+        if self.residual_metric is None:
+            self.residual_metric = pp.EquationBasedEuclideanMetric(model)
+
         state = model.equation_system.get_variable_values(iterate_index=0)
         time = model.time_manager.time
         previous, self.previous = self.previous, (state, time)
         if previous is None:
-            return None
+            return pp.EarlyStopNotRequested()
         rate = (state - previous[0]) / (time - previous[1])
         failed_rate = check_and_log_tolerances(
-            pp.VariableBasedEuclideanMetric(model),
+            self.variable_rate_metric,
             rate,
             self.rate_tolerances,
             "rate",
         )
         failed_residual = check_and_log_tolerances(
-            pp.EquationBasedEuclideanMetric(model),
+            self.residual_metric,
             model.equation_system.assemble(evaluate_jacobian=False),
             self.residual_tolerances,
             "residual",
         )
         if failed_rate or failed_residual or time < self.earliest_stop_time:
-            return None
+            return pp.EarlyStopNotRequested()
         return SteadyStateModelRunnerSuccess()
 
 
@@ -125,7 +158,7 @@ def check_and_log_tolerances(
         name: What the values are, for logging, e.g. "rate".
 
     Returns:
-        The norms that are not below the tolerance, by name.
+        The norms that are not below the tolerance, by name-value mappings.
 
     """
     norms = metric(values)

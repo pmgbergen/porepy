@@ -134,7 +134,9 @@ def test_early_stop(num_steps, stop_status):
 
         def simulation_should_stop(self, model):
             self.calls += 1
-            return stop_status if self.calls == num_steps else None
+            if self.calls == num_steps:
+                return stop_status
+            return pp.EarlyStopNotRequested()
 
     # MagicMock stands in for the model and the time stepper, so that the test does not
     # need a real model. Attributes the runner reads are set explicitly.
