@@ -12,6 +12,7 @@ from typing import (
     TypeVar,
     Union,
     cast,
+    overload,
 )
 
 import numpy as np
@@ -32,7 +33,7 @@ Function = pp.ad.Function
 
 if TYPE_CHECKING:
     number = pp.number
-    ArrayType = TypeVar("ArrayType", pp.ad.AdArray, np.ndarray)
+    ArrayType = TypeVar("ArrayType", pp.ad.AdArrayBase, np.ndarray)
 
 
 class DisplacementJump(pp.PorePyModel):
@@ -1200,6 +1201,37 @@ class DarcysLaw(pp.PorePyModel):
         return dot_product
 
 
+@overload
+def _with_full_jacobian(array: np.ndarray) -> np.ndarray: ...
+
+
+@overload
+def _with_full_jacobian(array: pp.ad.AdArrayBase) -> pp.ad.AdArray: ...
+
+
+def _with_full_jacobian(
+    array: np.ndarray | pp.ad.AdArrayBase,
+) -> np.ndarray | pp.ad.AdArray:
+    """Return an array whose Jacobian, if any, is stored as a sparse matrix.
+
+    The Jacobians assembled in :class:`AdTpfaFlux` are formed by multiplication with
+    discretization matrices, which mix degrees of freedom from different cells. The
+    diagonal Jacobian representation cannot express the result, so arguments in that
+    representation must be converted first.
+
+    Parameters:
+        array: A numpy array, or an AdArray in either Jacobian representation.
+
+    Returns:
+        The array unchanged if it is a numpy array, otherwise the AdArray in its full
+            representation.
+
+    """
+    if isinstance(array, pp.ad.AdArrayBase):
+        return array.to_full()
+    return array
+
+
 class AdTpfaFlux(pp.PorePyModel):
     """Differentiable discretization of a diffusive flux.
 
@@ -1730,8 +1762,12 @@ class AdTpfaFlux(pp.PorePyModel):
         base_bound_flux = base_discr.bound_flux().parse(self.mdg)
         # If the function has been called using .value, p is a numpy array and we pass
         # only the value.
-        if not isinstance(p, pp.ad.AdArray):
+        if not isinstance(p, pp.ad.AdArrayBase):
             return base_flux @ p + base_bound_flux @ bv
+        p = _with_full_jacobian(p)
+        bv = _with_full_jacobian(bv)
+        T_f = _with_full_jacobian(T_f)
+        T_bnd = _with_full_jacobian(T_bnd)
         # Otherwise, at the time of evaluation, p will be an AdArray, thus we can access
         # its val and jac attributes.
         val = base_flux @ p.val + base_bound_flux @ bv.val
@@ -1808,6 +1844,8 @@ class AdTpfaFlux(pp.PorePyModel):
         # vector source, the latter to a vector source that depends on the primary
         # variable (e.g., a non-constant density in a gravity term). We need to unify
         # these cases:
+        vs = _with_full_jacobian(vs)
+        T_f = _with_full_jacobian(T_f)
         if isinstance(vs, np.ndarray):
             # If this is broken, something really weird is going on.
             assert isinstance(vs_diff, np.ndarray)
@@ -1881,8 +1919,10 @@ class AdTpfaFlux(pp.PorePyModel):
 
         # If the function has been called using .value, p is a numpy array and we pass
         # only the value.
-        if not isinstance(internal_flux, pp.ad.AdArray):
+        if not isinstance(internal_flux, pp.ad.AdArrayBase):
             return base_term @ (internal_flux + external_bc)
+        internal_flux = _with_full_jacobian(internal_flux)
+        bound_pressure_face = _with_full_jacobian(bound_pressure_face)
 
         # Otherwise, at the time of evaluation, internal_flux will be an AdArray, thus
         # we can access its val and jac attributes.
@@ -1890,7 +1930,7 @@ class AdTpfaFlux(pp.PorePyModel):
         # EK: Testing revealed a case where the external_bc was an AdArray. The precise
         # reason for this is not clear (it could be a straightforward result of the
         # rules of parsing), but to cover all cases, we do a if-else here.
-        if isinstance(external_bc, pp.ad.AdArray):
+        if isinstance(external_bc, pp.ad.AdArrayBase):
             external_bc_val = external_bc.val
         else:
             external_bc_val = external_bc
