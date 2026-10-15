@@ -16,6 +16,7 @@ The lists are sorted on PR numbers.
 PR 1794: Introduced typed interface pp.Metric for convergence metric instead of
     duck-typed pp.ConvergenceMetricType.
 PR 1793: Fix bug related to wrong placement of enthalpy advection Ad operator naming.
+PR 1785: Ad Operator functions can deal with forward-mode DiagonalAdArray class. Update the test suite.
 PR 1784: Make forward-mode Ad functions compatible with DiagonalAdArray. Update the function test suite.
 PR 1783: Introduce DiagonalAdArray class, with AdArrayBase as common parent of it and AdArray. Not yet used elsewhere in the code base.
 PR 1782: Rename module containing AdArray class.
