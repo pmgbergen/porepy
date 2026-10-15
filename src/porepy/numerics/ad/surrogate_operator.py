@@ -356,13 +356,12 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
 
         derivatives = np.hstack([self._fetch_data(self, g, True) for g in self.domains])
 
-        # NOTE: The Jacobians of individual args must be of same shape, with a
-        # diagonal (identity) in some column block per arg.
-        # Otherwise this operator has no way of knowing in which column to insert the
-        # derivative values.
+        # NOTE: The Jacobians of individual args must be of same shape, with a diagonal
+        # (identity) in some column block per arg. Otherwise this operator has no way of
+        # knowing in which column to insert the derivative values.
         # Also, the comlete Jacobian of this operator is created by summing the
-        # Jacobians of arguments, with the derivative data inserted in the diagonal
-        # of the block, per argument/dependency/provided derivative value.
+        # Jacobians of arguments, with the derivative data inserted in the diagonal of
+        # the block, per argument/dependency/provided derivative value.
 
         # Check that the Jacobian shapes are consistent. The shapes refer to the full
         # representation, so that arguments in different representations can be
