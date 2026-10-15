@@ -467,7 +467,7 @@ def _run_buoyancy_case(
         def relative_permeability(
             self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
         ) -> pp.ad.Operator:
-            return phase.saturation(domains) ** 2
+            return phase.saturation(domains) ** pp.ad.Scalar(2)
 
         def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.TpfaAd:
             return pp.ad.TpfaAd(self.darcy_keyword, subdomains, nd=self.nd)
@@ -475,7 +475,7 @@ def _run_buoyancy_case(
         def fourier_flux_discretization(
             self, subdomains: list[pp.Grid]
         ) -> pp.ad.TpfaAd:
-            return pp.ad.TpfaAd(self.fourier_keyword, subdomains)
+            return pp.ad.TpfaAd(self.fourier_keyword, subdomains, nd=self.nd)
 
         def set_equations(self):
             super().set_equations()
