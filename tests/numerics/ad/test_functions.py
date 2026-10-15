@@ -300,7 +300,7 @@ class TestMaximum:
             pick_ad = val > constant
 
         expected_val = np.maximum(val, constant)
-        # Build the Jacobian: Where pick_1 is True, the value 0 is assigned; else, the
+        # Build the Jacobian: Where pick_ad is True, the value 0 is assigned; else, the
         # Jacobian of var_0 (that is, ARG_JAC[representation]) is used.
         expected_jac = np.where(pick_ad.reshape((-1, 1)), ARG_JAC[representation], 0.0)
 

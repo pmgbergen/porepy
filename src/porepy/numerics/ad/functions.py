@@ -408,7 +408,7 @@ def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
     The arguments can be either Ad arrays, ndarrays, or scalars, this duality is needed
     to allow for parsing of operators that can be taken at the current iteration (in
     which case it will parse as an AdArray) or at the previous iteration or time step
-    (in which case it will parse as a numpy array).
+    (in which case it will parse as a numpy array or scalar).
 
     Parameters:
         var_0: First argument to the maximum function.
@@ -450,8 +450,7 @@ def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
     zero_jac = sps.csr_matrix(ad_var.jac.shape)
 
     # Collect values and Jacobians.
-    vals = []
-    jacs = []
+    vals, jacs = [], []
     for var in [var_0, var_1]:
         if isinstance(var, AdArray):
             vals.append(var.val)
