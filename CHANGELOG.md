@@ -13,8 +13,15 @@ The lists are sorted on PR numbers.
 ## Unreleased
 
 ### Changes
+PR 1797: Changed model physics to respect the reference state. Affected: shear dilation,
+    porosity, stress. This change is non-breaking: by default the model should behave
+    exactly like before.
+PR 1795: Introduced EarlyStopCriterion in ModelRunner. Introduced
+    SteadyStateEarlyStopCriterion.
 PR 1794: Introduced typed interface pp.Metric for convergence metric instead of
     duck-typed pp.ConvergenceMetricType.
+PR 1793: Fix bug related to wrong placement of enthalpy advection Ad operator naming.
+PR 1784: Make forward-mode Ad functions compatible with DiagonalAdArray. Update the function test suite.
 PR 1783: Introduce DiagonalAdArray class, with AdArrayBase as common parent of it and AdArray. Not yet used elsewhere in the code base.
 PR 1782: Rename module containing AdArray class.
 PR 1781: Add documentation for devcontainers to Readme.

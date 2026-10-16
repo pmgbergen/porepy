@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock
+
 import numpy as np
 import pytest
 
@@ -112,3 +114,46 @@ def test_time_data_seeded_from_time_stepper_before_prepare_simulation():
     )
     _ = pp.ModelRunner(model)
     assert prepare_simulation_called
+
+
+@pytest.mark.parametrize("num_steps", [1, 3])
+@pytest.mark.parametrize(
+    "stop_status",
+    [pp.ModelRunnerStatusSuccess(), pp.ModelRunnerStatusFailure(reason="Mock stop")],
+)
+def test_early_stop(num_steps, stop_status):
+    """The runner stops after the time step at which an early stop criterion returns a
+    status, although the final time is not reached. A success status is returned by the
+    runner, a failure status is raised.
+
+    """
+
+    class StopAfter(pp.EarlyStopCriterion):
+        def __init__(self):
+            self.calls = 0
+
+        def simulation_should_stop(self, model):
+            self.calls += 1
+            if self.calls == num_steps:
+                return stop_status
+            return pp.EarlyStopNotRequested()
+
+    # MagicMock stands in for the model and the time stepper, so that the test does not
+    # need a real model. Attributes the runner reads are set explicitly.
+    model = MagicMock()
+    model.time_manager.final_time_reached.return_value = False
+    model.time_manager.dt = 1.0
+    time_stepper = MagicMock()
+    time_stepper.perform_time_step.return_value = (
+        pp.time_stepper.TimeStepperStatusSuccess(time=0, attempts=[])
+    )
+    runner = pp.ModelRunner(
+        model, time_stepper=time_stepper, early_stop_criteria=[StopAfter()]
+    )
+
+    if stop_status.is_failure():
+        with pytest.raises(RuntimeError):
+            runner.run()
+    else:
+        assert runner.run() is stop_status
+    assert time_stepper.perform_time_step.call_count == num_steps

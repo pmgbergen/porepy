@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import warnings
-from abc import ABC
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional, cast
 
@@ -27,6 +27,8 @@ __all__ = [
     "ModelRunnerStatusSuccess",
     "ModelRunnerStatusFailure",
     "ModelRunner",
+    "EarlyStopCriterion",
+    "EarlyStopNotRequested",
 ]
 
 # Module-wide logger
@@ -68,6 +70,39 @@ class ModelRunnerStatusFailure(ModelRunnerStatus):
 
     reason: str
     "Reason why the model runner failed."
+
+
+@dataclass
+class EarlyStopNotRequested:
+    """A marker object indicating that an early stop criterion does not request to stop.
+
+    If all early stop criteria return this status, the simulation continues.
+
+    """
+
+
+class EarlyStopCriterion(ABC):
+    """Abstract base class for criteria that stop the time stepping early.
+
+    The :class:`ModelRunner` evaluates the criteria after each accepted time step.
+
+    """
+
+    @abstractmethod
+    def simulation_should_stop(
+        self, model: pp.PorePyModel
+    ) -> ModelRunnerStatus | EarlyStopNotRequested:
+        """Decide whether the simulation should stop after an accepted time step.
+
+        Parameters:
+            model: The model in the state after the time step.
+
+        Returns:
+            :class:`EarlyStopNotRequested` to continue the simulation, or a
+            :class:`ModelRunnerStatus` to stop it and return this status from the
+            runner.
+
+        """
 
 
 def run_stationary_model(model, params: dict) -> None:
@@ -159,6 +194,10 @@ class ModelRunner:
             may exploit model's linearity and apply shortcuts for it (e.g. avoid
             expensive convergence checks). The reverse is also true: You can pass a
             customized solver that treats the problem as linear even if it is not.
+        early_stop_criteria: Criteria evaluated after each accepted time step of a
+            time-dependent model. If one of them returns a
+            :class:`ModelRunnerStatus`, the time stepping stops and the runner returns
+            this status. By default, there are none.
 
     """
 
@@ -168,6 +207,7 @@ class ModelRunner:
         params: Optional[dict] = None,
         time_stepper: Optional[TimeStepper] = None,
         nonlinear_solver: Optional[pp.solvers.NonlinearSolverBase] = None,
+        early_stop_criteria: Optional[list[EarlyStopCriterion]] = None,
     ) -> None:
         self.params = params if isinstance(params, dict) else {}
         """Parameters passed at instantiation."""
@@ -206,6 +246,11 @@ class ModelRunner:
             )
         )
         """Solver instance."""
+
+        if early_stop_criteria is None:
+            early_stop_criteria = []
+        self.early_stop_criteria: list[EarlyStopCriterion] = early_stop_criteria
+        """Criteria to stop the time stepping before the final time is reached."""
 
         if self._is_time_dependent:
             self.init_time_progressbar()
@@ -316,6 +361,12 @@ class ModelRunner:
                 if isinstance(time_step_status, TimeStepperStatusFailure):
                     logger.error(f"Time stepping failed: {time_step_status.reason}")
                     return ModelRunnerStatusFailure(reason=time_step_status.reason)
+
+                # Stop early if any of the criteria returns a ModelRunnerStatus.
+                for criterion in self.early_stop_criteria:
+                    early_stop_status = criterion.simulation_should_stop(self.model)
+                    if isinstance(early_stop_status, ModelRunnerStatus):
+                        return early_stop_status
 
             # Conclude the simulation status.
             if self.model.time_manager.final_time_reached():

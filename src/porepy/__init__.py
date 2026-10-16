@@ -155,6 +155,8 @@ from porepy.models.model_runner import (
     ModelRunnerStatusFailure,
     ModelRunnerStatusSuccess,
     ModelRunner,
+    EarlyStopCriterion,
+    EarlyStopNotRequested,
     run_time_dependent_model,
     run_stationary_model,
 )
