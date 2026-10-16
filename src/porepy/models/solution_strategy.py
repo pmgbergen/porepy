@@ -149,6 +149,10 @@ class SolutionStrategy(pp.PorePyModel):
         Can be called more than once, which discards the previous preparation. This is
         used e.g. to change constitutive laws after the model state was found.
 
+        The time manager and the model parameters are not reset, and objects created
+        before the call (e.g. a solver) keep references to the previous equation system
+        and mixed-dimensional grid, which are replaced.
+
         """
         # Discard what was set during a previous call.
         self._operator_cache.clear()
