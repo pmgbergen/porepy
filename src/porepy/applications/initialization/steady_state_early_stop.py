@@ -40,8 +40,8 @@ class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
 
     The norms are computed per variable and per equation by the metrics
     :attr:`variable_rate_metric` and :attr:`residual_metric`. By default, these are the
-    Lebesgue L2 norm for the rate and the normalized Euclidean norm (root mean square
-    of the block) for the residual.
+    normalized Euclidean norm (root mean square of the block) for the rate and the
+    Lebesgue L2 norm for the residual.
 
     Parameters:
         rate_tolerances: Tolerance of the norm of the rate of change per variable name,
@@ -52,9 +52,9 @@ class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
             tolerances are fulfilled.
         variable_rate_metric: Metric computing the norm of the rate of change per
             variable name. If None (default), a
-            :class:`~porepy.VariableBasedLebesgueMetric` is created at the first call.
+            :class:`~porepy.VariableBasedEuclideanMetric` is created at the first call.
         residual_metric: Metric computing the norm of the residual per equation name.
-            If None (default), an :class:`~porepy.EquationBasedEuclideanMetric` is
+            If None (default), an :class:`~porepy.EquationBasedLebesgueMetric` is
             created at the first call.
 
     """
@@ -88,14 +88,14 @@ class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
         self.variable_rate_metric: pp.Metric | None = variable_rate_metric
         """Metric computing the norm of the rate of change per variable name.
 
-        If None, it is set to :class:`~porepy.VariableBasedLebesgueMetric` of the model
+        If None, it is set to :class:`~porepy.VariableBasedEuclideanMetric` of the model
         at the first call of :meth:`simulation_should_stop`.
 
         """
         self.residual_metric: pp.Metric | None = residual_metric
         """Metric computing the norm of the residual per equation name.
 
-        If None, it is set to :class:`~porepy.EquationBasedEuclideanMetric` of the model
+        If None, it is set to :class:`~porepy.EquationBasedLebesgueMetric` of the model
         at the first call of :meth:`simulation_should_stop`.
 
         """
@@ -116,9 +116,9 @@ class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
         """
         # Lazy initialization of metrics with the model.
         if self.variable_rate_metric is None:
-            self.variable_rate_metric = pp.VariableBasedLebesgueMetric(model)
+            self.variable_rate_metric = pp.VariableBasedEuclideanMetric(model)
         if self.residual_metric is None:
-            self.residual_metric = pp.EquationBasedEuclideanMetric(model)
+            self.residual_metric = pp.EquationBasedLebesgueMetric(model)
 
         state = model.equation_system.get_variable_values(iterate_index=0)
         time = model.time_manager.time
