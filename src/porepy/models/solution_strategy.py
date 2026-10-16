@@ -144,7 +144,21 @@ class SolutionStrategy(pp.PorePyModel):
         """
 
     def prepare_simulation(self) -> None:
-        """Run at the start of simulation. Used for initialization etc."""
+        """Run at the start of simulation. Used for initialization etc.
+
+        Can be called more than once, which discards the previous preparation. This is
+        used e.g. to change constitutive laws after the model state was found.
+
+        The time manager and the model parameters are not reset, and objects created
+        before the call (e.g. a solver) keep references to the previous equation system
+        and mixed-dimensional grid, which are replaced.
+
+        """
+        # Discard what was set during a previous call.
+        self._operator_cache.clear()
+        self._nonlinear_discretizations.clear()
+        self._nonlinear_diffusive_flux_discretizations.clear()
+
         # Set the material and geometry of the problem. The geometry method must be
         # implemented in a ModelGeometry class.
         self.set_materials()
@@ -250,8 +264,7 @@ class SolutionStrategy(pp.PorePyModel):
 
     def set_equation_system_manager(self) -> None:
         """Create an equation_system manager on the mixed-dimensional grid."""
-        if not hasattr(self, "equation_system"):
-            self.equation_system = pp.ad.EquationSystem(self.mdg)
+        self.equation_system = pp.ad.EquationSystem(self.mdg)
 
     def set_nonlinear_solver_statistics(self) -> None:
         """Set the solver statistics object.
