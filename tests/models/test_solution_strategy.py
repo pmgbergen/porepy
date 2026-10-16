@@ -24,7 +24,7 @@ import copy
 import json
 import shutil
 from pathlib import Path
-from typing import Callable, Optional, cast
+from typing import Any, Callable, Optional, cast
 
 import numpy as np
 import pytest
@@ -47,6 +47,7 @@ from porepy.numerics.solvers.convergence_check import (
 )
 
 from ..functional.setups.linear_tracer import TracerFlowModel_3p
+from .test_fluid_mass_balance import WellModel
 from .test_poromechanics import TailoredPoromechanics, create_model_with_fracture
 
 # Store current directory, directory containing reference files, and temporary
@@ -85,6 +86,226 @@ def create_restart_model(
     # Redefine model.
     model = TailoredPoromechanics(params)
     return model
+
+
+@pytest.fixture(scope="module")
+def restarted_poromechanics(tmp_path_factory) -> tuple[Any, Any]:
+    """Run a fractured poromechanics case, then resume it from its own output.
+
+    The unit system is scaled and the times are large and unevenly spaced on purpose:
+    both are properties of a realistic simulation that a restart has to survive, and
+    both are absent from the reference-file test below. Length is what is scaled,
+    because displacement is the only variable this setup drives to a magnitude worth
+    comparing - its pressures sit at 1e-24, where any discrepancy hides inside the
+    tolerance of the comparison.
+
+    Returns:
+        The model that was run, and the model restarted from its output.
+
+    """
+    directory = tmp_path_factory.mktemp("restart")
+
+    def build(restart: bool):
+        model = create_model_with_fracture(
+            {"porosity": 0.5}, {}, {}, 0.1, TailoredPoromechanics
+        )
+        params = model.params
+        params["units"] = pp.Units(m=1e2)
+        params["folder_name"] = str(directory)
+        params["times_to_export"] = None
+        params["time_manager"] = pp.TimeManager(
+            schedule=[0, 1.8e8], dt_init=9e7, constant_dt=True
+        )
+        params["restart_options"] = {
+            "restart": restart,
+            "pvd_file": directory / "data.pvd",
+            "times_file": directory / "times.json",
+        }
+        return TailoredPoromechanics(params)
+
+    original = build(restart=False)
+    pp.run_time_dependent_model(original)
+    restarted = build(restart=True)
+    restarted.prepare_simulation()
+    return original, restarted
+
+
+def test_restart_resumes_from_the_exported_state(restarted_poromechanics):
+    """A restarted model must resume from the state it was exported with.
+
+    Exported values are written in SI units, while the model works in the scaled units
+    given by ``units``. A failure here means the conversion back is missing, so the
+    restart resumes from values off by the scaling factor -- invisibly, since the
+    resumed simulation runs perfectly happily on the wrong numbers.
+
+    Every variable is compared, so this also covers the vector-valued ones
+    (displacement, contact traction) and those living on interfaces.
+
+    """
+    original, restarted = restarted_poromechanics
+
+    # The two models build the same variables in the same order, on equal grids.
+    largest = 0.0
+    for exported_variable, resumed_variable in zip(
+        original.equation_system.variables,
+        restarted.equation_system.variables,
+        strict=True,
+    ):
+        assert exported_variable.name == resumed_variable.name
+        exported = original.equation_system.get_variable_values(
+            variables=[exported_variable], time_step_index=0
+        )
+        resumed = restarted.equation_system.get_variable_values(
+            variables=[resumed_variable], time_step_index=0
+        )
+        assert np.allclose(exported, resumed), (
+            f"{exported_variable.name} did not survive the restart"
+        )
+        largest = max(largest, float(np.max(np.abs(exported))))
+
+    # Without this the test passes on a state of all zeros, which is what a comparison
+    # of quantities this setup never drives away from zero amounts to.
+    assert largest > 1e-3, "no variable is large enough for the comparison to mean much"
+
+
+def test_restart_resumes_at_the_exported_time(restarted_poromechanics):
+    """A restarted model must resume at the time it stopped at.
+
+    The time index is read from the pvd file, whose entries are labelled by simulation
+    time. A failure here means the time is being used as an index into the exported
+    history, or that the entries are being ordered as strings rather than as numbers.
+
+    """
+    original, restarted = restarted_poromechanics
+    assert restarted.time_manager.time == original.time_manager.time
+    assert restarted.time_manager.dt == original.time_manager.dt
+
+
+@pytest.fixture(scope="module")
+def restarted_well_flow(tmp_path_factory) -> dict[str, Any]:
+    """Run a compressible flow case with a well crossing a fracture three time steps,
+    once uninterrupted, and once restarted after the second step.
+
+    The well is coupled to the fracture through an interface of codimension two, and
+    the compressible fluid makes the problem both transient and nonlinear, so that a
+    restart has to reproduce the state of every variable exactly for the continued run
+    to take the same Newton path as the uninterrupted one.
+
+    Returns:
+        The uninterrupted run, the run that was restarted from, the restarted run, and
+        the folder of the restarted run.
+
+    """
+    directory = tmp_path_factory.mktemp("restart_well")
+
+    def run(name: str, end_time: float, restart_from: Optional[str] = None):
+        params = {
+            "fracture_indices": [2],
+            "material_constants": {
+                "solid": pp.SolidConstants(permeability=1e-6, well_radius=0.01),
+                "fluid": pp.FluidComponent(compressibility=1e-7),
+            },
+            "time_manager": pp.TimeManager(
+                schedule=[0, end_time], dt_init=1.0, constant_dt=True
+            ),
+            "times_to_export": None,
+            "folder_name": str(directory / name),
+        }
+        if restart_from is not None:
+            params["restart_options"] = {
+                "restart": True,
+                "pvd_file": directory / restart_from / "data.pvd",
+                "times_file": directory / restart_from / "times.json",
+            }
+        model = WellModel(params)
+        pp.run_time_dependent_model(model)
+        return model
+
+    return {
+        "uninterrupted": run("uninterrupted", 3.0),
+        "first_part": run("first_part", 2.0),
+        "restarted": run("restarted", 3.0, restart_from="first_part"),
+        "restarted_folder": directory / "restarted",
+    }
+
+
+def test_restarted_well_flow_continues_as_if_uninterrupted(restarted_well_flow):
+    """A run restarted from its own output must continue exactly as the uninterrupted
+    run does: along the same Newton path, to the same state.
+
+    The Newton path is what reveals a state that was not restored. A converged step
+    forgets its initial guess, so a variable restored wrongly, such as a well flux
+    between the well and the fracture it crosses restored as zero because it was not
+    exported, changes the converged state only within the solver tolerance - but it
+    changes the increments and residuals of every iteration on the way.
+
+    """
+    uninterrupted = restarted_well_flow["uninterrupted"]
+    restarted = restarted_well_flow["restarted"]
+    assert restarted.time_manager.time == uninterrupted.time_manager.time
+    expected_path = uninterrupted.nonlinear_solver_statistics.convergence_info
+    actual_path = restarted.nonlinear_solver_statistics.convergence_info
+    for norm in ("inc_abs", "res_abs"):
+        assert np.allclose(
+            actual_path[norm]["norm"], expected_path[norm]["norm"], rtol=1e-8
+        ), f"the Newton path differs after the restart ({norm})"
+    well_fluxes = 0.0
+    for variable, resumed_variable in zip(
+        uninterrupted.equation_system.variables,
+        restarted.equation_system.variables,
+        strict=True,
+    ):
+        expected = uninterrupted.equation_system.get_variable_values(
+            variables=[variable], time_step_index=0
+        )
+        actual = restarted.equation_system.get_variable_values(
+            variables=[resumed_variable], time_step_index=0
+        )
+        scale = max(float(np.max(np.abs(expected))), 1e-300)
+        assert np.allclose(actual, expected, rtol=0, atol=1e-10 * scale), (
+            f"{variable.name} differs after the restart"
+        )
+        if variable.domain in uninterrupted.mdg.interfaces(codim=2):
+            well_fluxes = max(well_fluxes, float(np.max(np.abs(expected))))
+    # Without this the test passes when the flux through the codimension-two interface
+    # is zero anyway, which would not tell a lost variable from a restored one.
+    assert well_fluxes > 0, "no flux through the codimension-two interface"
+
+
+def test_restart_resumes_the_time_step_count(restarted_well_flow):
+    """A restarted run must continue counting time steps where it stopped.
+
+    A failure means the time index restarts from zero, which misplaces everything
+    indexed by it, such as the time step dependent boundary data of some models.
+
+    """
+    first_part = restarted_well_flow["first_part"]
+    restarted = restarted_well_flow["restarted"]
+    uninterrupted = restarted_well_flow["uninterrupted"]
+    assert first_part.time_manager.time_index == 2
+    assert restarted.time_manager.time_index == uninterrupted.time_manager.time_index
+
+
+def test_restarted_pvd_file_labels_every_step_with_its_time(restarted_well_flow):
+    """The pvd file continued by a restarted run must label each exported step with
+    the time it was exported at, before and after the restart.
+
+    A failure means that the steps exported after the restart are paired with times
+    from the start of the history, so that a later restart from this file, or a look at
+    it in ParaView, finds the wrong state at a given time.
+
+    """
+    folder = restarted_well_flow["restarted_folder"]
+    times = json.loads((folder / "times.json").read_text())["time"]
+    labelled = {}
+    for line in (folder / "data.pvd").read_text().splitlines():
+        if "<DataSet" in line:
+            time = float(line.split('timestep="')[1].split('"')[0])
+            step = int(line.split('file="')[1].split('"')[0].split("_")[-1][:-4])
+            labelled.setdefault(step, set()).add(time)
+    assert sorted(labelled) == list(range(len(times)))
+    for step, labels in labelled.items():
+        assert all(label == pytest.approx(times[step]) for label in labels)
 
 
 @pytest.mark.parametrize(
@@ -511,3 +732,58 @@ def test_linear_or_nonlinear_model(params: dict):
 
     model = models.model(model_type=model_name, dim=2, num_fracs=num_fracs)
     assert model._is_nonlinear_problem() == is_nonlinear
+
+
+@pytest.mark.parametrize("kind", ["variables", "stress", "boundary"])
+def test_restart_keeps_nonzero_reference_state(tmp_path, kind):
+    """A restart must reproduce the reference state, that involves (i) primary
+    variables, (ii) boundary data and (iii) stress.
+
+    The way it is checked is by comparing the stress operator, since it depends on all
+    these reference terms.
+
+    """
+
+    class ModelWithNonzeroReference(TailoredPoromechanics):
+        def prepare_simulation(self):
+            super().prepare_simulation()
+            es = self.equation_system
+            if kind == "variables":
+                es.set_variable_values(np.full(es.num_dofs(), 1e-3), reference=True)
+            elif kind == "stress":
+                for sd, data in self.mdg.subdomains(return_data=True, dim=self.nd):
+                    values = np.ones(sd.num_faces * self.nd)
+                    pp.set_solution_values(
+                        self.reference_stress_key, values, data, reference=True
+                    )
+            else:
+                self.set_boundary_reference_values()
+
+    def build(model_class, restart: bool):
+        params = create_model_with_fracture(
+            {}, {}, {}, 0.1, TailoredPoromechanics
+        ).params
+        params["folder_name"] = str(tmp_path)
+        params["times_to_export"] = None
+        params["time_manager"] = pp.TimeManager(
+            schedule=[0, 1], dt_init=0.5, constant_dt=True
+        )
+        params["restart_options"] = {
+            "restart": restart,
+            "pvd_file": tmp_path / "data.pvd",
+            "times_file": tmp_path / "times.json",
+        }
+        return model_class(params)
+
+    def stress(model):
+        sd = model.mdg.subdomains(dim=model.nd)[0]
+        return model.equation_system.evaluate(model.stress([sd]))
+
+    original = build(ModelWithNonzeroReference, restart=False)
+    pp.run_time_dependent_model(original)
+    restarted = build(TailoredPoromechanics, restart=True)
+    restarted.prepare_simulation()
+
+    expected = stress(original)
+    assert np.abs(expected).max() > 0
+    assert np.allclose(stress(restarted), expected)

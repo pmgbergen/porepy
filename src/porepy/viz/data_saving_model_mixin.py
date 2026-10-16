@@ -9,6 +9,7 @@ or to a file format other than vtu.
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence, Union, cast
 
@@ -100,7 +101,14 @@ class DataSavingMixin(pp.PorePyModel):
             Path(self.params["folder_name"]) / "times.json"
         )
         self.exporter.write_vtu(self.data_to_export(), time_dependent=True)
-        times = np.array(self.time_manager.exported_times)
+        self._save_reference_state(Path(self.params["folder_name"]))
+        # Both the time history and the exporter's time steps count the exports, so the
+        # time of each written time step is found at its own index in the history. After
+        # a restart, the exporter has written only the time steps since the restart,
+        # while the history reaches back to the start.
+        times = np.array(self.time_manager.exported_times)[
+            self.exporter.exported_time_steps
+        ]
         if self.restart_options.get("restart", False):
             # For a pvd file addressing all time steps (before and after restart
             # time), resume based on restart input pvd file through append.
@@ -209,6 +217,93 @@ class DataSavingMixin(pp.PorePyModel):
                 / self.params["solver_statistics_file_name"]
             )
 
+    _reference_state_file_name: str = "reference_state.npz"
+    """Name of the file, next to the time history, holding the reference state."""
+
+    def _reference_state_data(self) -> dict[str, dict]:
+        """Data dictionaries of all grids, keyed by their position in the md-grid."""
+        mdg = self.mdg
+        groups: dict[str, Sequence[tuple[pp.GridLike, dict]]] = {
+            "sd": mdg.subdomains(return_data=True),
+            "intf": mdg.interfaces(return_data=True),
+            "bg": mdg.boundaries(return_data=True),
+        }
+        return {
+            f"{group}{i}": data
+            for group, items in groups.items()
+            for i, (_, data) in enumerate(items)
+        }
+
+    def _save_reference_state(self, folder: Path) -> None:
+        """Write the reference values stored in the grid data to file.
+
+        The reference state (of variables, stress and boundary values) is not part of
+        the exported fields, and is not recovered by the model setup, e.g., if it was
+        set to a state found during the simulation. It is saved in the units of
+        the model, and must be read back by a model with the same units and grids.
+
+        Parameters:
+            folder: Folder to write to.
+
+        """
+        arrays = {
+            f"{key}::{name}": np.asarray(values)
+            for key, data in self._reference_state_data().items()
+            for name, values in data.get(pp.REFERENCE_SOLUTIONS, {}).items()
+        }
+        folder.mkdir(parents=True, exist_ok=True)
+        np.savez(folder / self._reference_state_file_name, **arrays)  # type: ignore[arg-type]
+
+    def _load_reference_state(self, folder: Path) -> None:
+        """Overwrite the reference values in the grid data by those saved to file.
+
+        Histories written before the reference state was saved have no such file, in
+        which case a warning is issued and the reference state of the model setup is
+        kept.
+
+        Parameters:
+            folder: Folder to read from.
+
+        """
+        path = folder / self._reference_state_file_name
+        if not path.exists():
+            warnings.warn(
+                f"No reference state found at {path}. The reference state of the "
+                "model setup is kept, which may differ from the restarted simulation.",
+                stacklevel=2,
+            )
+            return
+        # NOTE: The restarted model is assumed to be identical to the one that wrote
+        # the file: the same grids in the same order, hence the positional keys, and
+        # the same units. This is not checked.
+        data_of = self._reference_state_data()
+        with np.load(path) as saved:
+            for entry in saved.files:
+                key, name = entry.split("::", 1)
+                data_of[key].setdefault(pp.REFERENCE_SOLUTIONS, {})[name] = saved[entry]
+
+    def _convert_imported_state_from_si(self) -> None:
+        """Undo the conversion to SI units that :meth:`data_to_export` applied.
+
+        Exported values are written in SI units so that the files are meaningful on
+        their own. The model, however, works in the scaled units given by
+        :attr:`units`, so a state read back from those files has to be converted the
+        other way before it can be used - otherwise a restart of a model with a
+        non-trivial unit system silently resumes from the wrong numbers.
+
+        """
+        for variable in self.equation_system.variables:
+            values_si = self.equation_system.get_variable_values(
+                variables=[variable], time_step_index=0
+            )
+            self.equation_system.set_variable_values(
+                self.units.convert_units(
+                    values_si, variable.tags["si_units"], to_si=False
+                ),
+                variables=[variable],
+                time_step_index=0,
+            )
+
     def load_data_from_vtu(
         self,
         vtu_files: Union[Path, list[Path]],
@@ -247,6 +342,8 @@ class DataSavingMixin(pp.PorePyModel):
 
         # Load states and read time index, connecting data and time history.
         self.exporter.import_state_from_vtu(vtu_files, keys, **kwargs)
+        self._convert_imported_state_from_si()
+        self._load_reference_state(times_file.parent)
 
         # Load time and time step size.
         self.time_manager.load_time_information(times_file)
@@ -286,6 +383,8 @@ class DataSavingMixin(pp.PorePyModel):
 
         # Import data and determine time index corresponding to the pvd file.
         time_index: int = self.exporter.import_from_pvd(pvd_file, is_mdg_pvd, keys)
+        self._convert_imported_state_from_si()
+        self._load_reference_state(times_file.parent)
 
         # Load time and time step size.
         self.time_manager.load_time_information(times_file)

@@ -199,6 +199,15 @@ class TimeManager:
         duplication are NOT guaranteed.
 
         """
+        self.exported_time_indices: list[Optional[int]] = []
+        """The :attr:`time_index` of each state in :attr:`exported_times`, so that a
+        restart resumes the count of time steps where it stopped. ``None`` for states
+        read from a history that did not record it.
+
+        NOTE: This property cannot be inferred from the position in `exported_times`,
+        consider the case when not every time step is saved.
+
+        """
 
     @property
     def time_init(self) -> float:
@@ -304,9 +313,17 @@ class TimeManager:
         self.exported_dt.append(
             int(self.dt) if isinstance(self.dt, np.integer) else float(self.dt)
         )
+        self.exported_time_indices.append(int(self.time_index))
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as out_file:
-            json.dump({"time": self.exported_times, "dt": self.exported_dt}, out_file)
+            json.dump(
+                {
+                    "time": self.exported_times,
+                    "dt": self.exported_dt,
+                    "time_index": self.exported_time_indices,
+                },
+                out_file,
+            )
 
     def load_time_information(self, path: Path) -> None:
         """Keep track of history of time and time step size and store.
@@ -321,9 +338,15 @@ class TimeManager:
             data = json.load(in_file)
             self.exported_times = data["time"]
             self.exported_dt = data["dt"]
+            self.exported_time_indices = data.get(
+                "time_index", [None] * len(self.exported_times)
+            )
 
     def set_time_and_dt_from_exported_steps(self, time_index: int = -1) -> None:
-        """Load time and dt (time step) and cut off all later times and time steps.
+        """Load time, dt (time step) and time index, and cut off all later times and
+        time steps.
+
+        The time index is left unchanged if the history does not record it.
 
         NOTE: This method by itself does NOT update the simulation state arrays.
 
@@ -346,9 +369,13 @@ class TimeManager:
 
         self.time = self.exported_times[time_index]
         self.dt = self.exported_dt[time_index]
+        exported_time_index = self.exported_time_indices[time_index]
+        if exported_time_index is not None:
+            self.time_index = exported_time_index
 
         self.exported_times = self.exported_times[:time_index]
         self.exported_dt = self.exported_dt[:time_index]
+        self.exported_time_indices = self.exported_time_indices[:time_index]
 
 
 @dataclass
