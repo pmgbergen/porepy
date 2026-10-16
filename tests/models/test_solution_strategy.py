@@ -788,6 +788,79 @@ def test_linear_or_nonlinear_model(params: dict):
     assert model._is_nonlinear_problem() == is_nonlinear
 
 
+class ConstantPorosityTest(pp.PorePyModel):
+    """Alters a constitutive law, as done by temporarily swapping the model class."""
+
+    def matrix_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        space = pp.ad.OperatorSpace.from_domains(subdomains)
+        ones = pp.ad.DenseArray(
+            np.ones(sum(sd.num_cells for sd in subdomains)), source=space, target=space
+        )
+        return self.reference_porosity(subdomains) * ones
+
+
+def test_prepare_simulation_twice_after_class_swap():
+    """Repeated calls of ``prepare_simulation`` must not keep stale operators.
+
+    The test calls ``prepare_simulation`` so that the AD tree is assembled. Then it
+    temporarily replaces a constitutive law (the matrix porosity) at runtime by swapping
+    the model class, calls ``prepare_simulation`` again, and checks that the residual is
+    different. Then it restores the original class, calls ``prepare_simulation`` once
+    more, and checks that the residual and the Jacobian equal the original ones. The
+    goal is to ensure that the operator cache and the nonlinear discretizations are
+    invalidated correctly when ``prepare_simulation`` is called repeatedly.
+
+    """
+    params = {
+        "fracture_indices": [0, 1],
+        "cartesian": True,
+        "material_constants": {"fluid": pp.FluidComponent(compressibility=1.0)},
+        "times_to_export": [],
+    }
+    model_class = models.Poromechanics
+    altered_class = models.add_mixin(ConstantPorosityTest, model_class)
+
+    original_model = model_class(copy.deepcopy(params))
+    original_model.prepare_simulation()
+
+    swapped = model_class(copy.deepcopy(params))
+    swapped.__class__ = altered_class
+    swapped.prepare_simulation()
+    swapped.__class__ = model_class
+
+    def set_state(model: pp.PorePyModel) -> None:
+        rng = np.random.default_rng(0)
+        values = rng.random(model.equation_system.num_dofs())
+        model.equation_system.set_variable_values(values, iterate_index=0)
+        model.update_derived_quantities()
+
+    def assemble(model: pp.PorePyModel):
+        set_state(model)
+        system = model.equation_system.assemble()
+        assert system.matrix is not None
+        return system.matrix, system.rhs
+
+    jac_original, res_original = assemble(original_model)
+
+    # Sanity check: the swapped model's equations differ, so the test is meaningful.
+    jac_stale, res_stale = assemble(swapped)
+    assert not np.allclose(res_stale, res_original)
+    assert not abs(jac_stale - jac_original).max() < 1e-12 * max(
+        1.0, abs(jac_original).max()
+    )
+
+    swapped.prepare_simulation()
+    assert len(swapped.nonlinear_discretizations) == len(
+        original_model.nonlinear_discretizations
+    )
+    assert len(swapped.nonlinear_diffusive_flux_discretizations) == len(
+        original_model.nonlinear_diffusive_flux_discretizations
+    )
+    jac, res = assemble(swapped)
+    assert np.allclose(res, res_original)
+    assert abs(jac - jac_original).max() < 1e-12 * max(1.0, abs(jac_original).max())
+
+
 if __name__ == "__main__":
     # Generate the stored output of an uninterrupted run.
     shutil.rmtree(RESTART_DATA_DIR, ignore_errors=True)
