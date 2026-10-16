@@ -429,6 +429,9 @@ def _get_previous_time_or_iterate(
         # children, for which the recursion is invoked
         # NOTE copy takes care of references to original_operator and func
         new_op = copy.copy(op)
+        # The key is composed from the children's keys, which change. A key cached on
+        # the original would make the copy indistinguishable from it during evaluation.
+        new_op._cached_key = None
         new_op.children = [
             _get_previous_time_or_iterate(child, prev_time=prev_time, steps=steps)
             for child in op.children
