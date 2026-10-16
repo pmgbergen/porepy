@@ -223,7 +223,7 @@ class DataSavingMixin(pp.PorePyModel):
     def _reference_state_data(self) -> dict[str, dict]:
         """Data dictionaries of all grids, keyed by their position in the md-grid."""
         mdg = self.mdg
-        groups = {
+        groups: dict[str, Sequence[tuple[pp.GridLike, dict]]] = {
             "sd": mdg.subdomains(return_data=True),
             "intf": mdg.interfaces(return_data=True),
             "bg": mdg.boundaries(return_data=True),
@@ -252,7 +252,7 @@ class DataSavingMixin(pp.PorePyModel):
             for name, values in data.get(pp.REFERENCE_SOLUTIONS, {}).items()
         }
         folder.mkdir(parents=True, exist_ok=True)
-        np.savez(folder / self._reference_state_file_name, **arrays)
+        np.savez(folder / self._reference_state_file_name, **arrays)  # type: ignore[arg-type]
 
     def _load_reference_state(self, folder: Path) -> None:
         """Overwrite the reference values in the grid data by those saved to file.
