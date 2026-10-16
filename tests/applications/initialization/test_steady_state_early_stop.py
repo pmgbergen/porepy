@@ -38,16 +38,17 @@ def mock_model(state: np.ndarray, residual: np.ndarray, time: float) -> MagicMoc
 def tolerances(rate: float, residual: float, **kwargs):
     """Criterion with the same tolerance for all variables and for the equation.
 
-    The rate metric is the Euclidean one, since the default Lebesgue metric needs a real
-    model. The metric only reads the indexer, which is the same in all mock models.
+    The metrics are the Euclidean ones, since the default Lebesgue metric of the
+    residual needs real grids. The metrics only read the indexers, which are the same in
+    all mock models.
 
     """
+    metric_model = mock_model(np.zeros(2), np.zeros(2), 0)
     return SteadyStateEarlyStopCriterion(
         rate_tolerances={"a": rate, "b": rate},
         residual_tolerances={"eq": residual},
-        variable_rate_metric=pp.VariableBasedEuclideanMetric(
-            mock_model(np.zeros(2), np.zeros(2), 0)
-        ),
+        variable_rate_metric=pp.VariableBasedEuclideanMetric(metric_model),
+        residual_metric=pp.EquationBasedEuclideanMetric(metric_model),
         **kwargs,
     )
 
