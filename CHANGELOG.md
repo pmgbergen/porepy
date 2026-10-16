@@ -13,6 +13,7 @@ The lists are sorted on PR numbers.
 ## Unreleased
 
 ### Changes
+PR 1801: prepare_simulation can be called multiple times to fully regenerate the model.
 PR 1797: Changed model physics to respect the reference state. Affected: shear dilation,
     porosity, stress. This change is non-breaking: by default the model should behave
     exactly like before.
