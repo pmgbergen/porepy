@@ -813,7 +813,7 @@ def test_prepare_simulation_twice_after_class_swap():
 
     """
     params = {
-        "fracture_indices": [0, 1],
+        "fracture_indices": [1],
         "cartesian": True,
         "material_constants": {"fluid": pp.FluidComponent(compressibility=1.0)},
         "times_to_export": [],
