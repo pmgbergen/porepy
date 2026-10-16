@@ -409,6 +409,11 @@ def extract_subgrid(
     If the parent grid has geometry attributes (cell centers etc.), these are copied
     to the child.
 
+    The standard face and node tags of the parent are transferred to the child. Faces
+    that are in the interior of the parent, but on the boundary of the child because
+    the child has been cut out of the parent, are tagged as domain boundary faces.
+    Non-standard tags are not transferred.
+
     No checks are done on whether the cells/faces form a connected area. The method
     should work in theory for non-connected cells, the user will then have to decide
     what to do with the resulting grid. This option has however not been tested.
@@ -488,10 +493,28 @@ def extract_subgrid(
         h.face_normals = g.face_normals[:, unique_faces]
     if hasattr(g, "face_areas"):
         h.face_areas = g.face_areas[unique_faces]
+
+    # Under initialization, the extracted grid will have all faces with a single
+    # neighbouring cell as domain boundary faces. Transfer fracture and tip tags from
+    # the parent grid and remove their domain boundary tag.
+    for key in ["fracture_faces", "tip_faces"]:
+        h.tags[key] = g.tags[key][unique_faces]
+    h.tags["domain_boundary_faces"] = np.logical_and(
+        h.tags["domain_boundary_faces"],
+        np.logical_not(np.logical_or(h.tags["fracture_faces"], h.tags["tip_faces"])),
+    )
+
     if hasattr(g, "periodic_face_map"):
         if h.num_faces != g.num_faces:
             raise NotImplementedError("Cannot extract grids with periodic boundaries")
-        h.periodic_face_map = g.periodic_face_map.copy()
+        # Faces identified with each other across a periodic boundary have a single
+        # neighbouring cell, but are not boundary faces. Going through set_periodic_map
+        # (rather than assigning the attribute) removes the domain boundary tag which
+        # the constructor of h has given them.
+        h.set_periodic_map(g.periodic_face_map.copy())
+
+    # The node tags follow from the face tags.
+    h.update_boundary_node_tag()
 
     h.parent_cell_ind = c
 
