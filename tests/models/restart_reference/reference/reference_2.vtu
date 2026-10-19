@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" compressor="vtkZLibDataCompressor">
+<!--This file was created by meshio v5.3.5-->
+<UnstructuredGrid>
+<Piece NumberOfPoints="32" NumberOfCells="32">
+<Points>
+<DataArray type="Float64" Name="Points" NumberOfComponents="3" format="binary">
+AQAAAACAAAAAAwAAeAAAAA==eJy1kUsKwDAIRI2l58r9dzlClll6hFLiB21soFA3gy9GcQS4o1dYRuSS7zjVbzybG/+RKjI/WDFo5NLnTPbwddZ/1jfmLcwZrMYL8+Leu9YJh2Xs9v/7Ltk9KKkH8H7m/r/fhR53mtrUfwzc+5/77nPrcwFGylzj
+</DataArray>
+</Points>
+<Cells>
+<DataArray type="Int64" Name="connectivity" format="binary">
+AQAAAACAAAAAAwAAjwAAAA==eJx1js0SgjAYA0URKCIqyl9VfP+35ODmkpmvl53ZJmnbw/908AqbwOu0dl8EvRM8BzvqdZbTvvLaacwfYYI3WMIa9rCCF8sn833glde7lfna8trRf5L5BX7gF66Bvwe9Ieg94CvYGYL8Ynn1V/NPmOEPjnCGG5zg2/LZ/BZ45fXuZH62vHb0n2x+B0shBmA=
+</DataArray>
+<DataArray type="Int64" Name="offsets" format="binary">
+AQAAAACAAAAAAQAATgAAAA==eJwtxdEGgwAAAMCIiIiIiIgYETFGRMQYETEiov//ih66e7kweESOnTh15tyFS1eu3fjl1p17v/3x4NGTZ3/98+LVm//effj05RsyHgYx
+</DataArray>
+<DataArray type="Int64" Name="types" format="binary">
+AQAAAACAAAAAAQAADwAAAA==eJxjZYAA1hFKAwBTgACh
+</DataArray>
+</Cells>
+<PointData>
+<DataArray type="Int64" Name="node_id" format="binary">
+AQAAAACAAAAAAQAAMQAAAA==eJzFzakBACAQxMDlPX767xZBDBUQMzLSzaHHgBETZjQsWLFhx4ETF269/fofZ4AA8Q==
+</DataArray>
+</PointData>
+<CellData>
+<DataArray type="Int64" Name="cell_id" format="binary">
+AQAAAACAAAAAAQAAMQAAAA==eJzFzakBACAQxMDlPX767xZBDBUQMzLSzaHHgBETZjQsWLFhx4ETF269/fofZ4AA8Q==
+</DataArray>
+<DataArray type="Int64" Name="grid_dim" format="binary">
+AQAAAACAAAAAAQAADwAAAA==eJxjYoAAphFKAwAiAABB
+</DataArray>
+<DataArray type="Int64" Name="is_mortar" format="binary">
+AQAAAACAAAAAAQAADAAAAA==eJxjYBjZAAABAAAB
+</DataArray>
+<DataArray type="Int64" Name="mortar_side" format="binary">
+AQAAAACAAAAAAQAADAAAAA==eJxjYBjZAAABAAAB
+</DataArray>
+<DataArray type="Float64" Name="pressure" format="binary">
+AQAAAACAAAAAAQAAFAAAAA==eJz7s/LjJd+kAPs/I5QGAEFllME=
+</DataArray>
+<DataArray type="Int64" Name="subdomain_id" format="binary">
+AQAAAACAAAAAAQAAEgAAAA==eJxjZIAAxgGimQaYBgAVwAAx
+</DataArray>
+</CellData>
+</Piece>
+</UnstructuredGrid>
+</VTKFile>
