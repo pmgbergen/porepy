@@ -59,6 +59,7 @@ The model must fulfill the following, otherwise the result is not defined:
 import logging
 from collections import defaultdict
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 
@@ -343,14 +344,16 @@ def _set_state_as_reference(model: pp.PorePyModel) -> None:
     es = model.equation_system
     # The total stress depends on the reference state, hence it is evaluated first.
     matrix = model.mdg.subdomains(dim=model.nd, return_data=True)
-    reference_stress = {
-        sd: np.asarray(es.evaluate(model.stress([sd]))) for sd, _ in matrix
-    }
+    reference_stress: dict[pp.Grid, np.ndarray] = {}
+    for sd, _ in matrix:
+        stress = model.stress([sd])  # type: ignore[attr-defined]
+        reference_stress[sd] = np.asarray(es.evaluate(stress))
+
     es.set_variable_values(es.get_variable_values(iterate_index=0), reference=True)
     model.set_boundary_reference_values()
     for sd, data in matrix:
         pp.set_solution_values(
-            name=model.reference_stress_key,
+            name=model.reference_stress_key,  # type: ignore[attr-defined]
             values=reference_stress[sd],
             data=data,
             reference=True,
@@ -386,7 +389,7 @@ def _run_to_steady_state(
 
     """
     runner = pp.ModelRunner(
-        model,
+        cast(pp.SolutionStrategy, model),
         params={"prepare_simulation": False},
         nonlinear_solver=nonlinear_solver,
         early_stop_criteria=[
