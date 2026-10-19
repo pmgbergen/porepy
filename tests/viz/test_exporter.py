@@ -411,17 +411,15 @@ class FractureCrossedByWell(
     well_models.OneVerticalWell, CubeDomainOrthogonalFractures, pp.SinglePhaseFlow
 ):
     """A vertical well crossing a horizontal fracture. The two are coupled through an
-    interface of codimension two, next to the codimension-one interfaces of the same
-    dimension that couple the well to the point where it crosses the fracture."""
+    interface of codimension two."""
 
 
 def test_codim2_interfaces_round_trip(setup: ExporterTestSetup):
     """Data on interfaces of codimension two must be exported, to files of their own
     listed in the pvd file, and read back on import.
 
-    A failure means that these interfaces are dropped again: a restarted simulation
-    then resumes with their variables (well fluxes, for wells crossing fractures) set
-    to zero, and they are missing from the visualisation.
+    A failure means that these interfaces are dropped: a restarted simulation resumes
+    with its variables, e.g., well fluxes, set to zero.
 
     """
     model = FractureCrossedByWell({"fracture_indices": [2]})

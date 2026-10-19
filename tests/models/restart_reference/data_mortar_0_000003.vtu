@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" compressor="vtkZLibDataCompressor">
+<!--This file was created by meshio v5.3.5-->
+<UnstructuredGrid>
+<Piece NumberOfPoints="2" NumberOfCells="2">
+<Points>
+<DataArray type="Float64" Name="Points" NumberOfComponents="3" format="binary">
+AQAAAACAAAAwAAAAGAAAAA==eJwzNgaBy/bGUJqJAQQewPno4gAa1QtT
+</DataArray>
+</Points>
+<Cells>
+<DataArray type="Int64" Name="connectivity" format="binary">
+AQAAAACAAAAQAAAADgAAAA==eJxjYIAARigNAAAYAAI=
+</DataArray>
+<DataArray type="Int64" Name="offsets" format="binary">
+AQAAAACAAAAQAAAADgAAAA==eJxjZIAAJigNAAAwAAQ=
+</DataArray>
+<DataArray type="Int64" Name="types" format="binary">
+AQAAAACAAAAQAAAADgAAAA==eJxjZIAARigNAAAoAAM=
+</DataArray>
+</Cells>
+<PointData>
+<DataArray type="Int64" Name="node_id" format="binary">
+AQAAAACAAAAQAAAADgAAAA==eJxjYIAARigNAAAYAAI=
+</DataArray>
+</PointData>
+<CellData>
+<DataArray type="Int64" Name="cell_id" format="binary">
+AQAAAACAAAAQAAAADgAAAA==eJxjYIAARigNAAAYAAI=
+</DataArray>
+<DataArray type="Int64" Name="grid_dim" format="binary">
+AQAAAACAAAAQAAAACwAAAA==eJxjYEAFAAAQAAE=
+</DataArray>
+<DataArray type="Float64" Name="interface_darcy_flux" format="binary">
+AQAAAACAAAAQAAAADQAAAA==eJxjYEAGH+wBAi8BMA==
+</DataArray>
+<DataArray type="Int64" Name="interface_id" format="binary">
+AQAAAACAAAAQAAAADgAAAA==eJxjYYAAFigNAABwAAk=
+</DataArray>
+<DataArray type="Int64" Name="is_mortar" format="binary">
+AQAAAACAAAAQAAAADgAAAA==eJxjZIAARigNAAAoAAM=
+</DataArray>
+<DataArray type="Int64" Name="mortar_side" format="binary">
+AQAAAACAAAAQAAAADgAAAA==eJxjZIAAJigNAAAwAAQ=
+</DataArray>
+</CellData>
+</Piece>
+</UnstructuredGrid>
+</VTKFile>

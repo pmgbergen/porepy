@@ -333,6 +333,7 @@ class Exporter:
         vtu_files: Union[Path, list[Path]],
         keys: Optional[Union[str, list[str]]] = None,
         keys_pt: Optional[Union[str, list[str]]] = None,
+        reference: bool = False,
         **kwargs,
     ) -> None:
         """Import state variables from vtu file. It is assumed that the vtu file was
@@ -345,6 +346,8 @@ class Exporter:
                 mixed-dimensional grid is checked for keywords corresponding to primary
                 variables identified through pp.TIME_STEP_SOLUTIONS.
             keys_pt: keywords addressing point data to be transferred.
+            reference: If True, the data is stored as reference values, instead of
+                at time step index 0.
 
             kwargs:
                 automatic: boolean flag controlling whether dimensionality of the grids
@@ -529,7 +532,11 @@ class Exporter:
                             value[offset : offset + num_dofs], num_dofs
                         )
                         pp.set_solution_values(
-                            name=key, values=values, data=sd_data, time_step_index=0
+                            name=key,
+                            values=values,
+                            data=sd_data,
+                            time_step_index=0,
+                            reference=reference,
                         )
 
                         offset += num_dofs
@@ -547,6 +554,7 @@ class Exporter:
                             values=values,
                             data=intf_data,
                             time_step_index=0,
+                            reference=reference,
                         )
 
                         offset += num_dofs
