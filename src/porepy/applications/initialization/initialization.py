@@ -214,6 +214,12 @@ class _InitializationContext:
             original_folder_path.name + "_initialization"
         )
         """Output folder of the model in the context."""
+        # Time at which boundary conditions and sources are evaluated during
+        # initialization. The initialization clock runs far beyond the simulation's
+        # start, but the reference state must match the data seen by the first time
+        # step of the main simulation. This is the first target time rather than the
+        # start time, since e.g. lithostatic boundary conditions are different at the
+        # initial time itself.
         data_time = (
             self.original_time_manager.time_init + self.original_time_manager.dt_init
         )
