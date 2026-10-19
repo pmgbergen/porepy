@@ -64,8 +64,8 @@ import numpy as np
 
 import porepy as pp
 from porepy.applications.initialization.model_state_storage import (
-    ModelStateStorage,
     LoadedStateMismatch,
+    ModelStateStorage,
 )
 from porepy.applications.initialization.steady_state_early_stop import (
     SteadyStateEarlyStopCriterion,
@@ -82,9 +82,12 @@ __all__ = [
 
 
 def default_initialization_time_manager() -> pp.TimeManager:
-    """Time manager of the time stepping to the steady state.
+    """Create the default time manager of the time stepping to the steady state.
 
     The time steps grow from a second to a year, within 100 years.
+
+    Returns:
+        The time manager.
 
     """
     return pp.TimeManager(
@@ -133,9 +136,18 @@ def default_initialization_time_manager() -> pp.TimeManager:
 
 
 def default_rate_tolerances(model: pp.PorePyModel) -> dict[str, float]:
-    """Tolerances of the rate of change of variables, in the units of the model per
-    second. They correspond to the changes of 100 Pa, 1 K and 1 cm per year. Other
-    variables use 1e-3."""
+    """Create the default tolerances of the rate of change of variables.
+
+    The tolerances are in the units of the model per second. They correspond to the
+    changes of 100 Pa, 1 K and 1 cm per year. Other variables use 1e-3.
+
+    Parameters:
+        model: The model, whose units are used.
+
+    Returns:
+        The tolerances per variable name.
+
+    """
     return defaultdict(
         lambda: 1e-3,
         {
@@ -147,7 +159,12 @@ def default_rate_tolerances(model: pp.PorePyModel) -> dict[str, float]:
 
 
 def default_residual_tolerances() -> dict[str, float]:
-    """Tolerance of the residual of all equations, in the units of the model."""
+    """Create the default tolerances of the residual of equations.
+
+    Returns:
+        The tolerance of 1e-9 in the units of the model, for all equations.
+
+    """
     return defaultdict(lambda: 1e-9)
 
 
@@ -160,8 +177,9 @@ class InitializationError(RuntimeError):
 
 
 class _InitializationContext:
-    """Context manager that temporarily replaces the model class, time manager and
-    output folder with those used for initialization.
+    """Temporarily replaces the model class, time manager and output folder.
+
+    The context manager sets those used for initialization.
 
     The class of the model is replaced by a subclass, with the following changes:
 
@@ -193,15 +211,23 @@ class _InitializationContext:
         params: dict | None = None,
     ) -> None:
         self.model = model
+        """The model, which is changed in place."""
         self.time_manager = time_manager
+        """Time manager of the time stepping to the steady state."""
         self.params = params or {}
+        """Model parameters that replace those of the model in the context."""
         self._original_params: dict = {}
+        """Original values of :attr:`params`, or ``_MISSING`` for absent keys."""
         self.original_class = model.__class__
+        """Class of the model outside the context."""
         self.original_time_manager = model.time_manager
+        """Time manager of the model outside the context."""
         self.original_folder_name = model.params["folder_name"]
+        """Output folder of the model outside the context."""
         self.folder_name = Path(self.original_folder_name).with_name(
             Path(self.original_folder_name).name + "_initialization"
         )
+        """Output folder of the model in the context."""
         # Time at which boundary conditions and sources are evaluated during
         # initialization. The initialization clock runs far beyond the simulation's
         # start, but the reference state must match the data seen by the first time
@@ -215,12 +241,14 @@ class _InitializationContext:
         """Time at which time dependent data is evaluated during the initialization."""
 
         class InitializedModel(self.original_class):  # type: ignore[name-defined]
+            """The model with the simplifications of the initialization."""
+
             def shear_dilation_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-                # No dilation of the fractures during the initialization.
+                """No dilation of the fractures during the initialization."""
                 return pp.ad.Scalar(0)
 
             def matrix_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-                # Constant porosity: the reference porosity in each cell.
+                """Constant porosity: the reference porosity in each cell."""
                 space = pp.ad.OperatorSpace.from_domains(subdomains)
                 ones = pp.ad.DenseArray(
                     np.ones(sum(sd.num_cells for sd in subdomains)),
@@ -230,29 +258,37 @@ class _InitializationContext:
                 return self.reference_porosity(subdomains) * ones
 
             def before_time_step(self) -> None:
-                # The initialization clock runs far beyond the simulation start, but
-                # time dependent data (boundary values, sources) must be the data of
-                # the first time step of the simulation. Therefore, the clock is
-                # frozen at data_time from before_time_step, which updates this data,
-                # until the nonlinear loop has finished. It cannot be frozen until
-                # after_time_step_*: the time stepper reads the clock between the
-                # solve and these hooks to log the step and to choose the next time
-                # step size, so it needs the actual time.
+                """Freeze the clock at the data time during the nonlinear loop.
+
+                The initialization clock runs far beyond the simulation start, but
+                time dependent data (boundary values, sources) must be the data of
+                the first time step of the simulation. Therefore, the clock is
+                frozen at data_time from before_time_step, which updates this data,
+                until the nonlinear loop has finished. It cannot be frozen until
+                after_time_step_*: the time stepper reads the clock between the
+                solve and these hooks to log the step and to choose the next time
+                step size, so it needs the actual time.
+
+                """
                 self.__clock_time = self.time_manager.time
                 self.time_manager.time = data_time
                 super().before_time_step()
 
             def after_nonlinear_convergence(self) -> None:
+                """Restore the clock."""
                 super().after_nonlinear_convergence()
                 self.time_manager.time = self.__clock_time
 
             def after_nonlinear_failure(self) -> None:
+                """Restore the clock."""
                 super().after_nonlinear_failure()
                 self.time_manager.time = self.__clock_time
 
         self.initialized_class = InitializedModel
+        """The subclass of the original model class used in the context."""
 
     def __enter__(self) -> None:
+        """Replace the class, time manager, folder and parameters of the model."""
         self.model.__class__ = self.initialized_class
         self.model.time_manager = self.time_manager
         self.model.params["folder_name"] = self.folder_name
@@ -262,6 +298,12 @@ class _InitializationContext:
         self.model.params.update(self.params)
 
     def __exit__(self, *args: object) -> None:
+        """Restore the class, time manager, folder and parameters of the model.
+
+        Parameters:
+            *args: Exception information, not used.
+
+        """
         self.model.__class__ = self.original_class
         self.model.time_manager = self.original_time_manager
         self.model.params["folder_name"] = self.original_folder_name
@@ -293,6 +335,9 @@ def _set_state_as_reference(model: pp.PorePyModel) -> None:
     The reference values of the variables and of the boundary operators are set to the
     current values, and the reference stress is set to the total stress of the current
     state, such that the stress perturbation from the reference vanishes.
+
+    Parameters:
+        model: A prepared model with mechanics.
 
     """
     es = model.equation_system
@@ -374,12 +419,18 @@ def _run_to_steady_state(
 def _validate_steady_state(
     model: pp.PorePyModel, residual_tolerances: dict[str, float]
 ) -> bool:
-    """Check that the residual of the equations of the model is below the tolerances
-    at its current state.
+    """Check the residual of the equations of the model at its current state.
 
     The previous time step must equal the current state, as it does for a state that is
     just loaded or set. The residual is then that of the steady problem, without
     accumulation.
+
+    Parameters:
+        model: A prepared model.
+        residual_tolerances: Tolerances of the residual of equations.
+
+    Returns:
+        True if the residual is below the tolerances, False otherwise.
 
     """
     failed = check_and_log_tolerances(
@@ -465,7 +516,12 @@ def initialization_pipeline(
     init_context = _InitializationContext(model, time_manager, initialization_params)
 
     def load_steady_state() -> bool:
-        """Returns True if loaded successfully, False otherwise."""
+        """Load the saved steady state and validate it.
+
+        Returns:
+            True if loaded successfully, False otherwise.
+
+        """
         if not storage.exists():
             return False
         logger.info(f"Trying to load steady state from {storage.path}.")

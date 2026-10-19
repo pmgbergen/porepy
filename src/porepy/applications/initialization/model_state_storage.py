@@ -40,8 +40,12 @@ __all__ = [
 
 
 class LoadedStateMismatch(ValueError):
-    """The saved state does not match the model: it is unreadable, or the layout or the
-    shapes of its arrays differ from those of the model."""
+    """The saved state does not match the model.
+
+    The file is unreadable, or the layout or the shapes of its arrays differ from those
+    of the model.
+
+    """
 
 
 class ModelStateStorage:
@@ -77,8 +81,15 @@ class ModelStateStorage:
 
     def __init__(self, path: Path | str) -> None:
         self.path = Path(path)
+        """File to save to and load from."""
 
     def exists(self) -> bool:
+        """Check whether the file of the saved state exists.
+
+        Returns:
+            True if the file exists, False otherwise.
+
+        """
         return self.path.is_file()
 
     def discard(self) -> None:
@@ -89,6 +100,9 @@ class ModelStateStorage:
         self, model: pp.PorePyModel
     ) -> dict[str, tuple[dict, str, str, int | None]]:
         """Locate the stored values of the model.
+
+        Parameters:
+            model: A prepared model.
 
         Returns:
             The key in the archive mapped to the data dictionary, the location, the
@@ -121,12 +135,25 @@ class ModelStateStorage:
 
     @staticmethod
     def _get(entry: tuple[dict, str, str, int | None]) -> np.ndarray:
+        """Copy the stored value of an entry.
+
+        Parameters:
+            entry: The data dictionary, the location, the name of the quantity and the
+                index (None for reference values), see :meth:`_entries`.
+
+        Returns:
+            The copy of the stored value.
+
+        """
         data, location, name, index = entry
         stored = data[location][name]
         return np.array(stored if index is None else stored[index])
 
     def capture_state(self, model: pp.PorePyModel) -> dict[str, np.ndarray]:
         """Collect the arrays defining the current state of the model.
+
+        Parameters:
+            model: A prepared model.
 
         Returns:
             The arrays, with the names described in the class documentation.
@@ -135,13 +162,21 @@ class ModelStateStorage:
         return {key: self._get(e) for key, e in self._entries(model).items()}
 
     def save_state(self, model: pp.PorePyModel) -> None:
-        """Save the state of the model."""
+        """Save the state of the model.
+
+        Parameters:
+            model: A prepared model.
+
+        """
         self.path.parent.mkdir(parents=True, exist_ok=True)
         np.savez(self.path, **self.capture_state(model))  # type: ignore[arg-type]
         logger.info(f"Saved state to {self.path}.")
 
     def load_state(self, model: pp.PorePyModel) -> None:
         """Load the saved state into the model.
+
+        Parameters:
+            model: A prepared model.
 
         Raises:
             LoadedStateMismatch: If the file is unreadable, or the names or shapes of
@@ -160,7 +195,20 @@ class ModelStateStorage:
     def _check_consistency(
         self, model: pp.PorePyModel, arrays: dict[str, np.ndarray]
     ) -> None:
+        """Check that the arrays are consistent with the model.
+
+        Parameters:
+            model: A prepared model.
+            arrays: Arrays as returned by :meth:`capture_state`.
+
+        Raises:
+            LoadedStateMismatch: If the names or shapes of the arrays are inconsistent
+                with the model, or the values are not finite.
+
+        """
+
         def fail(message: str) -> None:
+            """Raise the error of an inconsistent state."""
             raise LoadedStateMismatch(f"Saved state is inconsistent: {message}")
 
         entries = self._entries(model)
