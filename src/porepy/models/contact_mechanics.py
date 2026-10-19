@@ -14,34 +14,21 @@ import numpy as np
 
 import porepy as pp
 from porepy.models import constitutive_laws
-from porepy.models.abstract_equations import VariableMixin
+from porepy.models.abstract_equations import EquationMixin, VariableMixin
 from porepy.numerics.ad import GridEntity, OperatorSpace
 
 
-class ContactMechanicsEquations(pp.BalanceEquation):
-    """Class for contact mechanics equations governing fracture deformation."""
-
-    nd: int
-    """Ambient dimension of the problem."""
+class NormalContactMechanicsEquation(pp.PorePyModel):
+    """Contact mechanics equation for the normal component of fracture deformation."""
 
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact traction variable. Normally defined in a mixin instance of
     :class:`~porepy.models.contact_mechanics.ContactTractionVariable`.
 
     """
-    plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """The plastic component of the displacement jump. Normally defined in a mixin
-    instance of
-    :class:`~porepy.models.constitutive_laws.DisplacementJump`.
-    """
     fracture_gap: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Gap of a fracture. Normally provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.FractureGap`.
-
-    """
-    friction_bound: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Friction bound of a fracture. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.CoulombFrictionBound`.
 
     """
     contact_mechanics_numerical_constant: Callable[[list[pp.Grid]], pp.ad.Scalar]
@@ -49,30 +36,6 @@ class ContactMechanicsEquations(pp.BalanceEquation):
     of :class:`~porepy.models.momuntum_balance.SolutionStrategyMomentumBalance`.
 
     """
-    contact_mechanics_open_state_characteristic: Callable[
-        [list[pp.Grid]], pp.ad.Operator
-    ]
-    """Characteristic function used in the tangential contact mechanics relation.
-    Can be interpreted as an indicator of the fracture cells in the open state.
-    Normally provided by a mixin instance of
-    :class:`~porepy.models.contact_mechanics.SolutionStrategyMomentumBalance`.
-
-    """
-
-    def set_equations(self) -> None:
-        """Set the contact mechanics equations to the equation system."""
-        super().set_equations()
-        fracture_subdomains = self.mdg.subdomains(dim=self.nd - 1)
-        # We split the contact mechanics equations into two parts, for the normal and
-        # tangential components for convenience.
-        fracture_eq_normal = self.normal_fracture_deformation_equation(
-            fracture_subdomains
-        )
-        fracture_eq_tangential = self.tangential_fracture_deformation_equation(
-            fracture_subdomains
-        )
-        self.equation_system.set_equation(fracture_eq_normal)
-        self.equation_system.set_equation(fracture_eq_tangential)
 
     def normal_fracture_deformation_equation(
         self, subdomains: list[pp.Grid]
@@ -131,6 +94,43 @@ class ContactMechanicsEquations(pp.BalanceEquation):
         )
         equation.set_name("normal_fracture_deformation_equation")
         return equation
+
+
+class ScaledProjectionTangentialContactMechanicsEquation(pp.PorePyModel):
+    """Contact mechanics equation for the tangential component of fracture deformation,
+    formulated as the scaled projection of Berge et al. (2020).
+
+    """
+
+    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Contact traction variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.contact_mechanics.ContactTractionVariable`.
+
+    """
+    plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """The plastic component of the displacement jump. Normally defined in a mixin
+    instance of
+    :class:`~porepy.models.constitutive_laws.DisplacementJump`.
+    """
+    friction_bound: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Friction bound of a fracture. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.CoulombFrictionBound`.
+
+    """
+    contact_mechanics_numerical_constant: Callable[[list[pp.Grid]], pp.ad.Scalar]
+    """Numerical constant for contact mechanics. Normally provided by a mixin instance
+    of :class:`~porepy.models.momuntum_balance.SolutionStrategyMomentumBalance`.
+
+    """
+    contact_mechanics_open_state_characteristic: Callable[
+        [list[pp.Grid]], pp.ad.Operator
+    ]
+    """Characteristic function used in the tangential contact mechanics relation.
+    Can be interpreted as an indicator of the fracture cells in the open state.
+    Normally provided by a mixin instance of
+    :class:`~porepy.models.contact_mechanics.SolutionStrategyMomentumBalance`.
+
+    """
 
     def tangential_fracture_deformation_equation(
         self,
@@ -264,6 +264,35 @@ class ContactMechanicsEquations(pp.BalanceEquation):
         ) + characteristic * t_t
         equation.set_name("tangential_fracture_deformation_equation")
         return equation
+
+
+class ContactMechanicsEquations(
+    NormalContactMechanicsEquation,
+    ScaledProjectionTangentialContactMechanicsEquation,
+    EquationMixin,
+):
+    """Contact mechanics equations governing fracture deformation.
+
+    Collects the equations for the normal and tangential components of the fracture
+    deformation and sets them to the equation system.
+
+    """
+
+    def set_equations(self) -> None:
+        """Set the contact mechanics equations to the equation system."""
+        # Call super to include equations from other classes.
+        super().set_equations()
+        # Add equations for normal and tangential fracture deformation for all
+        # fractures.
+        fracture_subdomains = self.mdg.subdomains(dim=self.nd - 1)
+        fracture_eq_normal = self.normal_fracture_deformation_equation(
+            fracture_subdomains
+        )
+        fracture_eq_tangential = self.tangential_fracture_deformation_equation(
+            fracture_subdomains
+        )
+        self.equation_system.set_equation(fracture_eq_normal)
+        self.equation_system.set_equation(fracture_eq_tangential)
 
 
 class ConstitutiveLawsContactMechanics(
