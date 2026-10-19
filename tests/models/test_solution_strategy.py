@@ -30,7 +30,6 @@ import numpy as np
 import pytest
 
 import porepy as pp
-
 from porepy.applications.test_utils import models
 from porepy.applications.test_utils.vtk import compare_pvd_files, compare_vtu_files
 from porepy.models.metric import EuclideanMetric
