@@ -13,6 +13,9 @@ The lists are sorted on PR numbers.
 ## Unreleased
 
 ### Changes
+PR 1804: Fix RadialReturnTangentialContactMechanicsEquation for vanishing trial
+    traction, which was treated as an open fracture instead of sticking. Elastoplastic
+    momentum balance tests now also run with this formulation.
 PR 1797: Changed model physics to respect the reference state. Affected: shear dilation,
     porosity, stress. This change is non-breaking: by default the model should behave
     exactly like before.
