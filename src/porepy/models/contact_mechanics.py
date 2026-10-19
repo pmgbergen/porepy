@@ -667,7 +667,7 @@ class RadialReturnTangentialContactMechanicsEquation(pp.PorePyModel):
             \\mathbf{t}_t^{trial} &= \\mathbf{t}_t + c_{num} \\Delta \\mathbf{u}_t \\\\
             \\mathbf{t}_t &= \\min\\left(
                 1,
-                -\\frac{b_p}{\\|\\mathbf{t}_t^{trial}\\|}
+                \\frac{b_p}{\\|\\mathbf{t}_t^{trial}\\|}
             \\right) \\cdot \\mathbf{t}_t^{trial}
 
         where :math:`b_p = \\max(\\text{friction\\_bound}, 0)` is the friction bound.
@@ -737,16 +737,14 @@ class RadialReturnTangentialContactMechanicsEquation(pp.PorePyModel):
         b_p = f_max(self.friction_bound(subdomains), zeros_frac)
 
         # Define the traction to be the linear radial return projection of the augmented
-        # traction. The use of the mask function allows for ignoring cases when the
-        # denominator degenerates.
-        min_term = scalar_to_tangential @ (
-            f_mask_by_threshold(
-                norm_t_t_trial,
-                -f_max(
-                    pp.ad.Scalar(-1.0),
-                    pp.ad.Scalar(-1.0) * b_p / norm_t_t_trial,
-                ),
-            )
+        # traction. The scaling factor min(1, b_p / |t_t_trial|) is computed as
+        # b_p / max(b_p, |t_t_trial|), which is equivalent for b_p > 0 and takes the
+        # correct value 1 (stick) for a vanishing trial traction. The denominator only
+        # degenerates if b_p and |t_t_trial| both vanish, i.e., in the open state. The
+        # mask function then sets the factor to 0, which yields t_t = 0.
+        max_bp_norm = f_max(b_p, norm_t_t_trial)
+        min_term = scalar_to_tangential @ f_mask_by_threshold(
+            max_bp_norm, b_p / max_bp_norm
         )
         equation: pp.ad.Operator = t_t - min_term * t_t_trial
         equation.set_name("tangential_fracture_deformation_equation")
