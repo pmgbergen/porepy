@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" compressor="vtkZLibDataCompressor">
+<!--This file was created by meshio v5.3.5-->
+<UnstructuredGrid>
+<Piece NumberOfPoints="64" NumberOfCells="64">
+<Points>
+<DataArray type="Float64" Name="Points" NumberOfComponents="3" format="binary">
+AQAAAACAAAAABgAAiQAAAA==eJztkTEOwCAIRdGm5/L+m0dwdOQITSNq+JWaNHWT5YcnonyI7kiBhoG85jPO4Ru33sV73NQLP0Q9KPLa5zTm0HW9f6mPwiO8k0U7d8KdOk+trvLxvP0/43z7/6//GLP5V+/F2gcb9UTaT9v/973wY09FY/PfA9f+277rHPtgbP91/3X+X0btucU=
+</DataArray>
+</Points>
+<Cells>
+<DataArray type="Int64" Name="connectivity" format="binary">
+AQAAAACAAAAABgAACAEAAA==eJx1jtkyQ2EYBK3ZRIglyQmCIBuCIBvi/d/KhZ6bqZpz01V9Zub7a1v/Xx0ewkrw+mr2fzv0duF+2FGvbjntK6+divkdWIVHcA+WYQOW4IHlq+YbwSuvuyXzZctrR++pmu/CS3gFO8Efh14z9E7hedhpWl65ruW10zF/Agt4Dc9gG/ZgC15YvjDfC1553W2Zb1teO3pPYX4En+AzHAd/E3r90LuF92GnH/Ijy6s/Nn8HJ/AFPsAhnMIBfLT8xPw0eOV1d2B+aHnt6D0T80v4DX/gKvjX0JuF3hv8CDuzkF9aXv2V+Xe4hr/wEy7gBs7hl+XX5jfBK6+7c/MLy2tH71mb/wPj7Ri/
+</DataArray>
+<DataArray type="Int64" Name="offsets" format="binary">
+AQAAAACAAAAAAgAAiQAAAA==eJwtxdFmAgAAAMCIGBERIyIiImJERERERERERMQYIyIiIiIiIiIiIiIiIqJP66G7lwsGPkL+ctgRRx3zt+NOOOmU084465x/nHfBRZdcdsVV11x3w0233HbHXffc96///O+Bhx557ImnnnnuhZdeee2Nt95574OPPvnsi6+++e6Hn375DcTwGGE=
+</DataArray>
+<DataArray type="Int64" Name="types" format="binary">
+AQAAAACAAAAAAgAAEAAAAA==eJxjZYAA1lF6RNIARw8BQQ==
+</DataArray>
+</Cells>
+<PointData>
+<DataArray type="Int64" Name="node_id" format="binary">
+AQAAAACAAAAAAgAASwAAAA==eJzlz7kBgkAAAMFDHnlEVH4B6b9LAiahBjeZeEM4i3hjzIQpM96Zs2DJig/WfLLhi29+2LJjz4EjJ878cuHKjT/u4dq//h9HLQPh
+</DataArray>
+</PointData>
+<CellData>
+<DataArray type="Int64" Name="cell_id" format="binary">
+AQAAAACAAAAAAgAASwAAAA==eJzlz7kBgkAAAMFDHnlEVH4B6b9LAiahBjeZeEM4i3hjzIQpM96Zs2DJig/WfLLhi29+2LJjz4EjJ878cuHKjT/u4dq//h9HLQPh
+</DataArray>
+<DataArray type="Int64" Name="grid_dim" format="binary">
+AQAAAACAAAAAAgAAEAAAAA==eJxjYoAAplF6RNIAhAAAgQ==
+</DataArray>
+<DataArray type="Int64" Name="interface_id" format="binary">
+AQAAAACAAAAAAgAADwAAAA==eJxjYBjZgHGE0wASgAAh
+</DataArray>
+<DataArray type="Int64" Name="is_mortar" format="binary">
+AQAAAACAAAAAAgAAEAAAAA==eJxjZIAAxlF6RNIAQwAAQQ==
+</DataArray>
+<DataArray type="Int64" Name="mortar_side" format="binary">
+AQAAAACAAAAAAgAAGAAAAA==eJxjZIAAxgGimQaYHih/Dxb/AwBbgABh
+</DataArray>
+</CellData>
+</Piece>
+</UnstructuredGrid>
+</VTKFile>

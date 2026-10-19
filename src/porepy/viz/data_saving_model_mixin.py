@@ -100,8 +100,14 @@ class DataSavingMixin(pp.PorePyModel):
         self.time_manager.write_time_information(
             Path(self.params["folder_name"]) / "times.json"
         )
+        # self.exporter.exported_time_steps is empty only before the first time step was
+        # written, so saving the reference state only once.
+        if not self.exporter.exported_time_steps and not self.restart_options.get(
+            "restart", False
+        ):
+            # The reference state is fixed once the simulation is set up.
+            self._save_reference_state(Path(self.params["folder_name"]))
         self.exporter.write_vtu(self.data_to_export(), time_dependent=True)
-        self._save_reference_state(Path(self.params["folder_name"]))
         # Both the time history and the exporter's time steps count the exports, so the
         # time of each written time step is found at its own index in the history. After
         # a restart, the exporter has written only the time steps since the restart,
@@ -217,11 +223,15 @@ class DataSavingMixin(pp.PorePyModel):
                 / self.params["solver_statistics_file_name"]
             )
 
-    _reference_state_file_name: str = "reference_state.npz"
-    """Name of the file, next to the time history, holding the reference state."""
+    _reference_state_folder_name: str = "reference"
+    """Name of the sub-folder, next to the time history, holding the reference state."""
 
-    def _reference_state_data(self) -> dict[str, dict]:
-        """Data dictionaries of all grids, keyed by their position in the md-grid."""
+    _reference_state_file_name: str = "reference_state.npz"
+    """Name of the file, in the reference state folder, holding the reference values
+    that are not cell data."""
+
+    def _reference_state_data(self) -> dict[str, tuple[pp.GridLike, dict]]:
+        """Grids and their data dictionaries, keyed by position in the md-grid."""
         mdg = self.mdg
         groups: dict[str, Sequence[tuple[pp.GridLike, dict]]] = {
             "sd": mdg.subdomains(return_data=True),
@@ -229,9 +239,9 @@ class DataSavingMixin(pp.PorePyModel):
             "bg": mdg.boundaries(return_data=True),
         }
         return {
-            f"{group}{i}": data
+            f"{group}{i}": item
             for group, items in groups.items()
-            for i, (_, data) in enumerate(items)
+            for i, item in enumerate(items)
         }
 
     def _save_reference_state(self, folder: Path) -> None:
@@ -242,43 +252,73 @@ class DataSavingMixin(pp.PorePyModel):
         set to a state found during the simulation. It is saved in the units of
         the model, and must be read back by a model with the same units and grids.
 
+        The reference values of the primary variables are cell data, and are written to
+        vtu files. The remaining values (e.g., stress and boundary values) are written
+        to a npz file. Both are placed in a sub-folder of ``folder``.
+
         Parameters:
-            folder: Folder to write to.
+            folder: Folder to write the reference state sub-folder to.
 
         """
-        arrays = {
-            f"{key}::{name}": np.asarray(values)
-            for key, data in self._reference_state_data().items()
-            for name, values in data.get(pp.REFERENCE_SOLUTIONS, {}).items()
-        }
+        folder = folder / self._reference_state_folder_name
+        variable_names = {var.name for var in self.equation_system.variables}
+        cell_data = []
+        arrays = {}
+        for key, (grid, data) in self._reference_state_data().items():
+            for name, values in data.get(pp.REFERENCE_SOLUTIONS, {}).items():
+                if name in variable_names and isinstance(
+                    grid, (pp.Grid, pp.MortarGrid)
+                ):
+                    # Cell-based data is saved in vtu.
+                    cell_data.append((grid, name, values))
+                else:
+                    # The rest of the data (boundary grids data and stress) is saved in
+                    # npz.
+                    arrays[f"{key}::{name}"] = np.asarray(values)
+
         folder.mkdir(parents=True, exist_ok=True)
+        pp.Exporter(
+            self.mdg,
+            Path(self._reference_state_folder_name),
+            folder_name=folder,
+            length_scale=self.units.m,
+        ).write_vtu(cell_data)  # type: ignore[arg-type]
         np.savez(folder / self._reference_state_file_name, **arrays)  # type: ignore[arg-type]
 
     def _load_reference_state(self, folder: Path) -> None:
         """Overwrite the reference values in the grid data by those saved to file.
 
-        Histories written before the reference state was saved have no such file, in
+        Histories written before the reference state was saved have no such folder, in
         which case a warning is issued and the reference state of the model setup is
         kept.
 
         Parameters:
-            folder: Folder to read from.
+            folder: Folder containing the reference state sub-folder.
 
         """
-        path = folder / self._reference_state_file_name
-        if not path.exists():
+        folder = folder / self._reference_state_folder_name
+        if not folder.exists():
             warnings.warn(
-                f"No reference state found at {path}. The reference state of the "
+                f"No reference state found at {folder}. The reference state of the "
                 "model setup is kept, which may differ from the restarted simulation.",
                 stacklevel=2,
             )
             return
 
+        # Cell-based data is saved in vtu.
+        self.exporter.import_state_from_vtu(
+            sorted(folder.glob("*.vtu")),
+            keys=[var.name for var in self.equation_system.variables],
+            reference=True,
+        )
+        # The rest of the data (boundary grids data and stress) is saved in npz.
         data_of = self._reference_state_data()
-        with np.load(path) as saved:
+        with np.load(folder / self._reference_state_file_name) as saved:
             for entry in saved.files:
                 key, name = entry.split("::", 1)
-                data_of[key].setdefault(pp.REFERENCE_SOLUTIONS, {})[name] = saved[entry]
+                data_of[key][1].setdefault(pp.REFERENCE_SOLUTIONS, {})[name] = saved[
+                    entry
+                ]
 
     def _convert_imported_state_from_si(self) -> None:
         """Undo the conversion to SI units that :meth:`data_to_export` applied.
