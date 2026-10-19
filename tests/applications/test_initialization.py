@@ -27,43 +27,54 @@ from porepy.applications.initialization.initialization import (
     initialization_pipeline,
 )
 from porepy.applications.initialization.model_state_storage import (
-    ModelStateStorage,
     LoadedStateMismatch,
+    ModelStateStorage,
 )
 from porepy.applications.test_utils import models
 
 
 class RampedBoundary(pp.PorePyModel):
-    """Nonzero boundary values which grow linearly with time. At time t, pressure and
-    temperature on the boundary are (1 + t / day) * 1e3 and 1, respectively.
+    """Nonzero boundary values which grow linearly with time.
+
+    At time t, pressure and temperature on the boundary are (1 + t / day) * 1e3 and 1,
+    respectively.
 
     """
 
     def ramp(self) -> float:
+        """Growth factor of the boundary values at the current time."""
         return 1 + self.time_manager.time / pp.DAY
 
     def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        """Pressure on the boundary, growing with time."""
         return np.full(bg.num_cells, 1e3 * self.ramp())
 
     def bc_values_temperature(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        """Temperature on the boundary, growing with time."""
         return np.full(bg.num_cells, self.ramp())
 
     def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        """Displacement on the boundary, growing with time."""
         values = np.zeros((self.nd, bg.num_cells))
         values[0] = 1e-4 * self.ramp()
         return values.ravel("F")
 
 
 class RampedSource(pp.PorePyModel):
-    """Fluid source of 1e-3 * (1 + t / day) in each cell, updated with the time
-    dependent data of the model."""
+    """Fluid source of 1e-3 * (1 + t / day) in each cell.
+
+    The source is updated with the time dependent data of the model.
+
+    """
 
     def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Add the ramped source to the fluid source."""
         return super().fluid_source(subdomains) + pp.ad.TimeDependentDenseArray(
             "ramped_source", subdomains
         )
 
     def update_time_dependent_ad_arrays(self) -> None:
+        """Update the ramped source with the current time."""
         super().update_time_dependent_ad_arrays()
         for sd, data in self.mdg.subdomains(return_data=True):
             values = np.full(sd.num_cells, 1e-3 * (1 + self.time_manager.time / pp.DAY))
@@ -81,7 +92,15 @@ ZERO = defaultdict(lambda: 0.0)
 
 
 def time_manager(constant_dt: bool = False) -> pp.TimeManager:
-    """Time manager of five days with time steps of one day."""
+    """Create a time manager of five days with time steps of one day.
+
+    Parameters:
+        constant_dt: Whether the time step is constant.
+
+    Returns:
+        The time manager.
+
+    """
     if constant_dt:
         return pp.TimeManager(
             schedule=[0, 5 * pp.DAY], dt_init=pp.DAY, constant_dt=True
@@ -102,8 +121,17 @@ def time_manager(constant_dt: bool = False) -> pp.TimeManager:
 
 
 def make_model(folder: Path, model_class=models.Thermoporomechanics, **params):
-    """Model with a fracture, time dependent boundary values and source, and time steps
-    of one day."""
+    """Create a model with a fracture, time dependent data and time steps of one day.
+
+    Parameters:
+        folder: Output folder of the model.
+        model_class: Class of the model, extended by the time dependent data.
+        **params: Parameters of the model, overriding the defaults.
+
+    Returns:
+        The model, not prepared.
+
+    """
     model_class = models.add_mixin(RampedSource, model_class)
     return models.add_mixin(RampedBoundary, model_class)(
         {
@@ -120,7 +148,19 @@ def make_model(folder: Path, model_class=models.Thermoporomechanics, **params):
 
 
 def initialize(model, rate_tolerances=None, residual_tolerances=None, **kwargs):
-    """Initialization with tolerances that are reached within a time step."""
+    """Initialize a model with tolerances that are reached within a time step.
+
+    Parameters:
+        model: The model, not prepared.
+        rate_tolerances: Tolerances of the rate of change. Defaults to 1e-3.
+        residual_tolerances: Tolerances of the residual. Defaults to the library ones.
+        **kwargs: Keyword arguments of :func:`initialization_pipeline`, overriding the
+            defaults of this function.
+
+    Returns:
+        The initialized model.
+
+    """
     return initialization_pipeline(
         model,
         rate_tolerances=defaultdict(lambda: 1e-3)
@@ -134,6 +174,15 @@ def initialize(model, rate_tolerances=None, residual_tolerances=None, **kwargs):
 
 
 def assert_restored(model, original_class, original_time_manager, folder: Path):
+    """Assert that the class, time manager, clock and folder of the model are original.
+
+    Parameters:
+        model: The model after initialization.
+        original_class: Class of the model before initialization.
+        original_time_manager: Time manager of the model before initialization.
+        folder: Output folder of the model before initialization.
+
+    """
     assert model.__class__ is original_class
     assert model.time_manager is original_time_manager
     assert model.time_manager.time == 0
@@ -188,8 +237,11 @@ def test_pipeline(tmp_path, caplog, saved_state, logged, not_logged):
 
 @pytest.mark.parametrize("failure", ["solver", "never_steady", "saved_state"])
 def test_pipeline_failure(tmp_path, failure):
-    """If no steady state is found, an error is raised and an invalid saved state is
-    discarded. The model is restored."""
+    """If no steady state is found, an error is raised and the model is restored.
+
+    An invalid saved state is discarded.
+
+    """
     folder = tmp_path / "simulation"
     if failure == "saved_state":
         initialize(make_model(folder))
@@ -219,7 +271,11 @@ def test_pipeline_failure(tmp_path, failure):
 
 
 def test_data_time_frozen(tmp_path):
-    """Boundary values are those of the first time step of the simulation, although the clock of the initialization is different."""
+    """Boundary values are those of the first time step of the simulation.
+
+    This holds although the clock of the initialization is different.
+
+    """
     model = make_model(tmp_path / "simulation")
     initialize(model)
 
@@ -238,10 +294,13 @@ def test_data_time_frozen(tmp_path):
     "hook", ["after_nonlinear_convergence", "after_nonlinear_failure"]
 )
 def test_time_dependent_data_in_initialization_context(tmp_path, hook):
-    """Inside the initialization context, the boundary values and the source term of a
-    time step are those of the data time, whatever the clock is. The clock is restored
-    when the nonlinear loop has finished, with either hook. Outside the context, they
-    are those of the clock."""
+    """Inside the initialization context, the time dependent data is that of data time.
+
+    The boundary values and the source term of a time step are those of the data time,
+    whatever the clock is. The clock is restored when the nonlinear loop has finished,
+    with either hook. Outside the context, they are those of the clock.
+
+    """
     model = make_model(tmp_path / "simulation")
     # The data time is the first target time of the simulation.
     ramp = lambda time: 1 + time / pp.DAY  # noqa: E731
@@ -294,8 +353,12 @@ def test_mechanics_required(tmp_path):
     ],
 )
 def test_reference_state(tmp_path, model_class, perturbations):
-    """After initialization, the model is in its reference state: Perturbations from
-    the reference state vanish, and the total stress and porosity are equal to it."""
+    """After initialization, the model is in its reference state.
+
+    Perturbations from the reference state vanish, and the total stress and porosity
+    are equal to it.
+
+    """
     model = make_model(tmp_path / "simulation", model_class)
     initialize(model)
 
@@ -320,8 +383,11 @@ def test_reference_state(tmp_path, model_class, perturbations):
     ],
 )
 def test_state_storage(tmp_path, corruption):
-    """A saved state is loaded into the model exactly as it was saved. Inconsistent
-    states are rejected, and leave the model unchanged."""
+    """A saved state is loaded into the model exactly as it was saved.
+
+    Inconsistent states are rejected, and leave the model unchanged.
+
+    """
     model = make_model(tmp_path / "simulation")
     model.prepare_simulation()
     system = model.equation_system
