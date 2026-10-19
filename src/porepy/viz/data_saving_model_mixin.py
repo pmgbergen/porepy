@@ -273,9 +273,7 @@ class DataSavingMixin(pp.PorePyModel):
                 stacklevel=2,
             )
             return
-        # NOTE: The restarted model is assumed to be identical to the one that wrote
-        # the file: the same grids in the same order, hence the positional keys, and
-        # the same units. This is not checked.
+
         data_of = self._reference_state_data()
         with np.load(path) as saved:
             for entry in saved.files:
@@ -313,6 +311,9 @@ class DataSavingMixin(pp.PorePyModel):
         **kwargs,
     ) -> None:
         """Initialize data in the model by reading from a pvd file.
+
+        The model is assumed to be identical to the one that wrote the file: same grids
+        in the same order, same equations and same units. This is not validated.
 
         Parameters:
             vtu_files: Path(s) to vtu file(s).
