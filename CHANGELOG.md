@@ -22,6 +22,7 @@ PR 1805: The tangential contact mechanics equation now defaults to the projectio
 PR 1804: Fix RadialReturnTangentialContactMechanicsEquation for vanishing trial
     traction, which was treated as an open fracture instead of sticking. Elastoplastic
     momentum balance tests now also run with this formulation.
+PR 1802: Introduced initialization pipeline.
 PR 1801: prepare_simulation can be called multiple times to fully regenerate the model.
 PR 1798: Restarting a model now converts the imported state from SI back to the model's
     units, restores the reference state (variables, stress, boundary values) and the
