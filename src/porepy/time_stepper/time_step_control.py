@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import logging
 import json
 from dataclasses import dataclass
+from optparse import Option
 from pathlib import Path
 from typing import Optional
 from warnings import warn
@@ -22,6 +24,8 @@ __all__ = [
     "TimeInterval",
     "Schedule",
 ]
+
+logger = logging.getLogger(__name__)
 
 
 class TimeManager:
@@ -199,13 +203,12 @@ class TimeManager:
         duplication are NOT guaranteed.
 
         """
+        # NOTE: This property cannot be inferred from the position in `exported_times`,
+        # consider the case when not every time step is saved.
         self.exported_time_indices: list[Optional[int]] = []
         """The :attr:`time_index` of each state in :attr:`exported_times`, so that a
         restart resumes the count of time steps where it stopped. ``None`` for states
         read from a history that did not record it.
-
-        NOTE: This property cannot be inferred from the position in `exported_times`,
-        consider the case when not every time step is saved.
 
         """
 
@@ -338,15 +341,25 @@ class TimeManager:
             data = json.load(in_file)
             self.exported_times = data["time"]
             self.exported_dt = data["dt"]
-            self.exported_time_indices = data.get(
-                "time_index", [None] * len(self.exported_times)
+            exported_time_indices: list[Optional[int]] | None = data.get(
+                "time_index", None
             )
+            if exported_time_indices is None:
+                logger.warning(
+                    "The restart file does not contain exported_time_indices. Time "
+                    "index won't be updated. This can happen if you load an old "
+                    "version of the restart file. In this case, the behavior is "
+                    "backward-compatible."
+                )
+                exported_time_indices = [None] * len(self.exported_times)
+            self.exported_time_indices = exported_time_indices
 
     def set_time_and_dt_from_exported_steps(self, time_index: int = -1) -> None:
         """Load time, dt (time step) and time index, and cut off all later times and
         time steps.
 
-        The time index is left unchanged if the history does not record it.
+        If the history does not record the time index, it is left unmodified from the
+        current value in the time manager.
 
         NOTE: This method by itself does NOT update the simulation state arrays.
 

@@ -1698,7 +1698,7 @@ class Exporter:
                 for codim, dim in self._m_groups
             ]
 
-        # Collect the data and extra data in a single stack for each group
+        # Collect the data in a single stack for each group.
         for dim, entities, meshio_geom, file_name_tag in groups:
             # Define the full file name
             file_name_base: Path = self._append_folder_name(
