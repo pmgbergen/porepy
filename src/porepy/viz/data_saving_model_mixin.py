@@ -100,13 +100,14 @@ class DataSavingMixin(pp.PorePyModel):
         self.time_manager.write_time_information(
             Path(self.params["folder_name"]) / "times.json"
         )
+
         # self.exporter.exported_time_steps is empty only before the first time step was
         # written, so saving the reference state only once.
         if not self.exporter.exported_time_steps and not self.restart_options.get(
             "restart", False
         ):
-            # The reference state is fixed once the simulation is set up.
             self._save_reference_state(Path(self.params["folder_name"]))
+
         self.exporter.write_vtu(self.data_to_export(), time_dependent=True)
         # Both the time history and the exporter's time steps count the exports, so the
         # time of each written time step is found at its own index in the history. After
@@ -224,7 +225,7 @@ class DataSavingMixin(pp.PorePyModel):
             )
 
     _reference_state_folder_name: str = "reference"
-    """Name of the sub-folder, next to the time history, holding the reference state."""
+    """Name of the sub-folder holding the reference state."""
 
     _reference_state_file_name: str = "reference_state.npz"
     """Name of the file, in the reference state folder, holding the reference values
@@ -245,12 +246,8 @@ class DataSavingMixin(pp.PorePyModel):
         }
 
     def _save_reference_state(self, folder: Path) -> None:
-        """Write the reference values stored in the grid data to file.
-
-        The reference state (of variables, stress and boundary values) is not part of
-        the exported fields, and is not recovered by the model setup, e.g., if it was
-        set to a state found during the simulation. It is saved in the units of
-        the model, and must be read back by a model with the same units and grids.
+        """Write the reference values (variables, stress and boundary data) stored in
+        the grid data to file.
 
         The reference values of the primary variables are cell data, and are written to
         vtu files. The remaining values (e.g., stress and boundary values) are written
@@ -288,9 +285,8 @@ class DataSavingMixin(pp.PorePyModel):
     def _load_reference_state(self, folder: Path) -> None:
         """Overwrite the reference values in the grid data by those saved to file.
 
-        Histories written before the reference state was saved have no such folder, in
-        which case a warning is issued and the reference state of the model setup is
-        kept.
+        If no reference files exist, a warning is issued and the reference state is not
+        modified.
 
         Parameters:
             folder: Folder containing the reference state sub-folder.

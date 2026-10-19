@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import logging
 import json
+import logging
 from dataclasses import dataclass
 from optparse import Option
 from pathlib import Path
@@ -358,8 +358,8 @@ class TimeManager:
         """Load time, dt (time step) and time index, and cut off all later times and
         time steps.
 
-        If the history does not record the time index, it is left unmodified from the
-        current value in the time manager.
+        If the history does not contain the time index, the time manager’s current value
+        is left unchanged.
 
         NOTE: This method by itself does NOT update the simulation state arrays.
 
