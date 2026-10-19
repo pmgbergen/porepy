@@ -280,9 +280,9 @@ class Exporter:
             # corresponding to that time step. Utilize hardcoded format in
             # Exporter.write_pvd().
 
-            # Collect all timesteps first listed in the pvd file, and sort them. They
-            # are compared as numbers: sorted as strings, a time of 9e7 would come
-            # after one of 2e8.
+            # Collect all timesteps listed in the pvd file, and sort them in ascending
+            # order as numbers We need to convert them to numbers, because if we sorted
+            # strings, 2e8 would go before 9e7, and we do not want it.
             timesteps = []
             # Use the ET package from the standard library to parse the XML-file.
             tree_pvd = ET.parse(pvd_file)
@@ -300,10 +300,8 @@ class Exporter:
                 if float(data["timestep"]) == restart_timestep:
                     restart_vtu_files.append(data["file"])
 
-            # The time index is this exporter's own counter, which the vtu file names
-            # carry - the same source the mdg branch above reads it from. The `timestep`
-            # attribute holds the simulation time instead, which equals the counter only
-            # by coincidence.
+            # The time index is the step counter in the vtu file names, as in the mdg
+            # pvd case.
             time_index = int(Path(restart_vtu_files[0]).stem[-self._padding :])
 
         # Cache the number of restart files used
