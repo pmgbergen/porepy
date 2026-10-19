@@ -26,6 +26,7 @@ Note:
 
 import logging
 from pathlib import Path
+from typing import Sequence
 
 import numpy as np
 
@@ -110,7 +111,7 @@ class ModelStateStorage:
 
         """
         mdg = model.mdg
-        groups = {
+        groups: dict[str, Sequence[tuple[pp.GridLike, dict]]] = {
             "sd": mdg.subdomains(return_data=True),
             "intf": mdg.interfaces(return_data=True),
             "bg": mdg.boundaries(return_data=True),
