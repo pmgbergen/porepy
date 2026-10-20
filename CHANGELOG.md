@@ -10,6 +10,9 @@ author.
 
 The lists are sorted on PR numbers.
 
+A PR with breaking changes has an entry under both Changes (what changed) and
+Breaking changes (what users must do when upgrading).
+
 ## Unreleased
 
 ### Changes
