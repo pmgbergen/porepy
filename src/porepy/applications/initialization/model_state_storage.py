@@ -239,8 +239,7 @@ class ModelStateStorage:
     def apply_state(self, model: pp.PorePyModel, arrays: dict[str, np.ndarray]) -> None:
         """Replace the stored values of the model by the arrays.
 
-        The reference values that do not exist in the model yet are created. Iterate
-        and time step values must exist in the model.
+        The values that do not exist in the model yet are created.
 
         Parameters:
             model: A prepared model. The arrays must be consistent with it, see
@@ -251,11 +250,13 @@ class ModelStateStorage:
         groups = self._groups(model)
         for key, array in arrays.items():
             grid, location, name, *index = key.split("::")
+            # This splits letters from numbers, e.g., "sd0" becomes "sd" and "0".
             group, position = re.fullmatch(r"([a-z]+)(\d+)", grid).groups()  # type: ignore[union-attr]
             data = groups[group][int(position)][1]
+            stored = data.setdefault(location, {})
             if location == pp.REFERENCE_SOLUTIONS:
-                data.setdefault(location, {})[name] = array.copy()
+                stored[name] = array.copy()
             else:
-                data[location][name][int(index[0])] = array.copy()
+                stored.setdefault(name, {})[int(index[0])] = array.copy()
         # Fluxes, upwind and other discretizations depend on the state.
         model.update_derived_quantities()

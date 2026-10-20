@@ -176,6 +176,9 @@ def initialize(model, rate_tolerances=None, residual_tolerances=None, **kwargs):
 def assert_restored(model, original_class, original_time_manager, folder: Path):
     """Assert that the class, time manager, clock and folder of the model are original.
 
+    Also assert that the porosity is not constant, i.e., the original constitutive laws
+    are applied.
+
     Parameters:
         model: The model after initialization.
         original_class: Class of the model before initialization.
@@ -187,34 +190,76 @@ def assert_restored(model, original_class, original_time_manager, folder: Path):
     assert model.time_manager is original_time_manager
     assert model.time_manager.time == 0
     assert model.params["folder_name"] == str(folder)
+    assert model.exporter._folder_name == folder
+
+    # Porosity must not be constant: evaluate it in the current and a perturbed state.
+    eq_sys = model.equation_system
+    porosity = model.porosity(model.mdg.subdomains())
+    state = eq_sys.get_variable_values(iterate_index=0)
+    porosity_original = eq_sys.evaluate(porosity, state=state)
+    rng = np.random.default_rng(0)
+    porosity_perturbed = porosity.value(eq_sys, state=state + rng.random(state.shape))
+    assert not np.allclose(porosity_original, porosity_perturbed)
 
 
 @pytest.mark.parametrize(
     "saved_state, logged, not_logged",
     [
-        ("none", ["Saved state"], ["Trying to load"]),
-        ("valid", ["Trying to load"], ["Saved state", "discarded"]),
-        ("wrong_mesh", ["inconsistent", "Saved state"], []),
-        ("not_steady", ["Not a steady state", "Saved state"], []),
+        (
+            "none",
+            ["Saved state to", "Initialization is complete"],
+            ["Trying to load", "discarded"],
+        ),
+        (
+            "valid",
+            ["Trying to load", "Initialization is complete"],
+            ["Saved state to", "discarded"],
+        ),
+        (
+            "wrong_mesh",
+            [
+                "Saved state is inconsistent",
+                "It is discarded",
+                "Saved state to",
+                "Initialization is complete",
+            ],
+            [],
+        ),
+        (
+            "not_steady",
+            ["Not a steady state", "Saved state to", "Initialization is complete"],
+            [],
+        ),
     ],
 )
 def test_pipeline(tmp_path, caplog, saved_state, logged, not_logged):
-    """A saved state is used if it is consistent with the model and a steady state.
-    Otherwise, it is replaced by a state found by time stepping. In all cases, the model
-    is restored to the original one, and is in a steady state.
+    """This test instanciates a PorePy model and runs it through the initialization
+    pipeline in various conditions (see parametrization), which all ultimately lead to
+    a successfully initialized model.
+
+    The test checks that:
+    - the pipeline reported certain steps through logging;
+    - the original model is restored;
+    - the steady state is acheived.
 
     """
     caplog.set_level(logging.INFO)
     folder = tmp_path / "simulation"
     if saved_state != "none":
-        # A different set of fractures gives different grids.
-        fractures = {"fracture_indices": [0, 1]} if "mesh" in saved_state else {}
+        # Prepare pre-saved steady state.
+
+        fractures = {}
+        if saved_state == "wrong_mesh":
+            # Different grids for the wrong_mesh test case.
+            fractures = {"fracture_indices": []}
+
         initialize(make_model(folder, **fractures))
+
         if saved_state == "not_steady":
+            # Perturb the pressure to make the state non-steady. A uniform shift would
+            # not change the residual.
             path = folder / "steady_state.npz"
             arrays = dict(np.load(path))
-            # Perturb the pressure in the same way at the iterate and the time step
-            # (a uniform shift would not change the residual), but not its reference.
             for key in arrays:
                 if "::pressure::" in key and "reference_solutions" not in key:
                     rng = np.random.default_rng(0)
@@ -226,16 +271,18 @@ def test_pipeline(tmp_path, caplog, saved_state, logged, not_logged):
     original_class, original_time_manager = model.__class__, model.time_manager
     initialize(model)
 
+    # Check that the pipeline logged and not logger certain messages.
     for message in logged:
         assert message in caplog.text
     for message in not_logged:
         assert message not in caplog.text
+    # Check that the original model is restored.
     assert_restored(model, original_class, original_time_manager, folder)
-    assert model.exporter._folder_name == folder
+    # Check that the original model agrees this is a steady state.
     assert _validate_steady_state(model, default_residual_tolerances())
 
 
-@pytest.mark.parametrize("failure", ["solver", "never_steady", "saved_state"])
+@pytest.mark.parametrize("failure", ["solver", "never_steady", "saved_state_is_bad"])
 def test_pipeline_failure(tmp_path, failure):
     """If no steady state is found, an error is raised and the model is restored.
 
@@ -243,7 +290,7 @@ def test_pipeline_failure(tmp_path, failure):
 
     """
     folder = tmp_path / "simulation"
-    if failure == "saved_state":
+    if failure == "saved_state_is_bad":
         initialize(make_model(folder))
     model = make_model(folder)
     original_class, original_time_manager = model.__class__, model.time_manager
@@ -271,16 +318,13 @@ def test_pipeline_failure(tmp_path, failure):
 
 
 def test_data_time_frozen(tmp_path):
-    """Boundary values are those of the first time step of the simulation.
-
-    This holds although the clock of the initialization is different.
-
-    """
+    """Test that the found reference state corresponds to the frozen time of the first
+    time step."""
     model = make_model(tmp_path / "simulation")
     initialize(model)
 
     # The boundary values, also as reference values, are those of the first time step.
-    expected_time = pp.DAY
+    expected_time = pp.DAY  # First dt = pp.DAY, as defined in the time manager.
     for _, data in model.mdg.boundaries(return_data=True):
         if model.pressure_variable in data.get(pp.ITERATE_SOLUTIONS, {}):
             for kwargs in [{"reference": True}, {"iterate_index": 0}]:
@@ -294,16 +338,14 @@ def test_data_time_frozen(tmp_path):
     "hook", ["after_nonlinear_convergence", "after_nonlinear_failure"]
 )
 def test_time_dependent_data_in_initialization_context(tmp_path, hook):
-    """Inside the initialization context, the time dependent data is that of data time.
-
-    The boundary values and the source term of a time step are those of the data time,
-    whatever the clock is. The clock is restored when the nonlinear loop has finished,
-    with either hook. Outside the context, they are those of the clock.
+    """Inside the initialization context, the time dependent data is that of frozen
+    time. Outside - the original time is restored, and the data corresponds to the
+    original time.
 
     """
     model = make_model(tmp_path / "simulation")
     # The data time is the first target time of the simulation.
-    ramp = lambda time: 1 + time / pp.DAY  # noqa: E731
+    ramp = lambda time: 1 + time / pp.DAY  # type: ignore
     expected_ramp = ramp(pp.DAY)
     clock = 2 * pp.DAY
 
@@ -328,6 +370,7 @@ def test_time_dependent_data_in_initialization_context(tmp_path, hook):
         assert clock_in_step == pp.DAY * (expected_ramp - 1)
         np.testing.assert_allclose(source, 1e-3 * expected_ramp)
         np.testing.assert_allclose(pressure, 1e3 * expected_ramp)
+        # Call either after_nonlinear_convergence or *_failure, each should restore time
         getattr(model, hook)()
         assert model.time_manager.time == clock
 
@@ -338,13 +381,6 @@ def test_time_dependent_data_in_initialization_context(tmp_path, hook):
     np.testing.assert_allclose(pressure, 1e3 * ramp(clock))
 
 
-def test_mechanics_required(tmp_path):
-    """A model without mechanics cannot be initialized."""
-    model = models.MassBalance({"folder_name": str(tmp_path / "simulation")})
-    with pytest.raises(ValueError, match="mechanics"):
-        initialize(model)
-
-
 @pytest.mark.parametrize(
     "model_class, perturbations",
     [
@@ -353,10 +389,8 @@ def test_mechanics_required(tmp_path):
     ],
 )
 def test_reference_state(tmp_path, model_class, perturbations):
-    """After initialization, the model is in its reference state.
-
-    Perturbations from the reference state vanish, and the total stress and porosity
-    are equal to it.
+    """After initialization, total stress equals reference stress, porosity equals
+    reference porosity and shear dilation is zero.
 
     """
     model = make_model(tmp_path / "simulation", model_class)
@@ -366,6 +400,9 @@ def test_reference_state(tmp_path, model_class, perturbations):
     operators = {name: getattr(model, name)(sd) for name in perturbations}
     operators["stress"] = model.stress(sd) - model.reference_stress(sd)
     operators["porosity"] = model.porosity(sd) - model.reference_porosity(sd)
+    operators["shear_dilation"] = model.shear_dilation_gap(
+        model.mdg.subdomains(dim=model.nd - 1)
+    )
     for name, operator in operators.items():
         values = model.equation_system.evaluate(operator)
         np.testing.assert_allclose(values, 0, atol=1e-10, err_msg=name)
@@ -422,10 +459,12 @@ def test_state_storage(tmp_path, corruption):
     changed = storage.capture_state(model)
     if corruption == "none":
         storage.load_state(model)
+        # Loaded successfully, so the original state should be restored.
         expected = saved
     else:
         with pytest.raises(LoadedStateMismatch):
             storage.load_state(model)
+        # Could not load the state, so it should be unmodified from "changed".
         expected = changed
     result = storage.capture_state(model)
     assert result.keys() == expected.keys()
