@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
-from optparse import Option
 from pathlib import Path
 from typing import Optional
 from warnings import warn
@@ -175,7 +174,7 @@ class TimeManager:
         simulation loop, corresponds to the implicit trial time, where the unknown
         solution is defined. E.g., in the very first time step with dt = 0.5, time =
         0.5.
-        
+
         """
         self.dt = float(self.dt_init)
         """Current time step size, seconds."""
@@ -184,7 +183,7 @@ class TimeManager:
         """Counter of successful time steps. E.g., the simulation attempted to make the
         very first time step 3 times: failed, failed and succeeded. Then,
         time_index = 1.
-        
+
         """
 
         # Bookkeeping of saved time steps for restarting purposes.
@@ -358,7 +357,7 @@ class TimeManager:
         """Load time, dt (time step) and time index, and cut off all later times and
         time steps.
 
-        If the history does not contain the time index, the time manager’s current value
+        If the history does not contain the time index, the time manager's current value
         is left unchanged.
 
         NOTE: This method by itself does NOT update the simulation state arrays.

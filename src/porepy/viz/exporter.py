@@ -281,8 +281,8 @@ class Exporter:
             # Exporter.write_pvd().
 
             # Collect all timesteps listed in the pvd file, and sort them in ascending
-            # order as numbers We need to convert them to numbers, because if we sorted
-            # strings, 2e8 would go before 9e7, and we do not want it.
+            # order as numbers. We need to convert them to numbers, because if we sorted
+            # strings, 2e8 would go before 9e7.
             timesteps = []
             # Use the ET package from the standard library to parse the XML-file.
             tree_pvd = ET.parse(pvd_file)
@@ -344,8 +344,8 @@ class Exporter:
                 mixed-dimensional grid is checked for keywords corresponding to primary
                 variables identified through pp.TIME_STEP_SOLUTIONS.
             keys_pt: keywords addressing point data to be transferred.
-            reference: If True, the data is stored as reference values, instead of
-                at time step index 0.
+            reference: If True, the data is stored as reference values, instead of at
+                time step index 0.
 
             kwargs:
                 automatic: boolean flag controlling whether dimensionality of the grids
@@ -1706,7 +1706,7 @@ class Exporter:
 
         # Collect the data in a single stack for each group.
         for dim, entities, meshio_geom, file_name_tag in groups:
-            # Define the full file name
+            # Define the full file name.
             file_name_base: Path = self._append_folder_name(
                 Path(file_name_stem + file_name_tag), self._folder_name
             )
@@ -1827,13 +1827,13 @@ class Exporter:
         # Interfaces
         for codim, dim in self._m_groups:
             # Extract the mortar grids of this codimension and dimension, unrolled by
-            # sides
+            # sides.
             interface_side_grids = [
                 grid
                 for intf in self._mdg.interfaces(dim=dim, codim=codim)
                 for _, grid in intf.side_grids.items()
             ]
-            # Export and store
+            # Export and store.
             self.m_meshio_geom[(codim, dim)] = self._export_grid(
                 interface_side_grids, dim
             )
