@@ -2,9 +2,9 @@
 
 This module finds the steady state of a model, given its boundary conditions and
 sources at initial time. The steady state becomes initial *and* the reference state of
-the model. In the new reference state, the stress, the porosity and the shear
-dilation of the model are the reference values, and the equations of the model are
-satisfied without accumulation.
+the model. In the new initial state, the stress, the porosity and the shear dilation of
+the model are the reference values, and the equations of the model are satisfied without
+accumulation.
 
 What the pipeline does
 ======================
@@ -12,54 +12,33 @@ What the pipeline does
 :func:`initialization_pipeline` takes a model that is not yet prepared and does the
 following:
 
-1. Replaces temporarily the class, the time manager and the output folder of the model
-   (see :class:`_InitializationContext`). The simplified model has zero shear dilation
-   and constant porosity, which makes the nonlinear problem easier. Its time dependent
-   data (boundary values, sources) is evaluated at one fixed time, see below. The
-   results of the time stepping are written to ``<folder_name>_initialization``.
-2. Prepares the simplified model, and either
+1. Replaces temporarily the model class, the time manager and the output folder (see
+   :class:`_InitializationContext`). The simplified model has zero shear dilation and
+   constant porosity, which makes the nonlinear problem easier. Its time dependent data
+   (boundary values, sources) is evaluated at the initial time. The results of the time
+   stepping are written to ``<folder_name>_initialization``.
 
+2. Prepares the simplified model, and either
    - loads a previously saved state from ``<folder_name>/steady_state.npz``, if it
-     exists. It is used if the saved arrays have the shapes of the model and the
-     residual of the equations is below the tolerances. Otherwise, it is discarded.
+     exists. If the saved state is incompatible, it is discarded.
    - or time steps the simplified model until both the rate of change of the variables
      and the residual of the equations are below the tolerances
      (:class:`~.steady_state_early_stop.SteadyStateEarlyStopCriterion`). The time
      stepping starts from the initial condition of the model. The state is saved.
+   The found state is made the reference state of the simplified model: the variables
+   and the boundary values are set as reference values, and the total stress becomes the
+   reference stress.
 
-   The found state is made the reference state of the simplified model before it is
-   saved: the variables and the boundary values are set as reference values, and the
-   total stress as the reference stress.
-3. Restores the original model, prepares it again, updates its time dependent data to
-   the data time, and sets the saved state, which includes the reference state, in it
-   (:class:`~.model_state_storage.ModelStateStorage`).
-4. Checks that the residual of the equations of the original model, with the shear
-   dilation and porosity that were simplified, is below the tolerances at that state.
+3. Restores the original model and checks that the residual of the equations of the
+   original model, with original shear dilation and porosity, is below the tolerances.
    If not, the saved state is discarded and :class:`InitializationError` is raised.
-
-Assumptions about the model
-===========================
-
-The model must fulfill the following, otherwise the result is not defined:
-
-- **Mechanics.** The model has a momentum balance, with a stress, and the reference
-  stress ``reference_stress_key`` of it. A :class:`ValueError` is raised otherwise.
-- **Library constitutive laws.** The stress, porosity and shear dilation are formulated
-  as perturbations from the reference state, as the constitutive laws of the library
-  are. A model that overrides ``stress``, ``mechanical_stress``, ``porosity`` or
-  ``shear_dilation_gap`` and does not do this does not vanish its perturbations in the
-  new reference state. If the model has a ``matrix_porosity``, it has a
-  ``reference_porosity``.
-- **Time dependent data is frozen.** The boundary values and sources are the data of the
-  first time step of the simulation, i.e. at the time ``start + initial time step``.
-  They are frozen during the initialization (simulation time does not go forward).
 
 """
 
 import logging
 from collections import defaultdict
 from pathlib import Path
-from typing import cast
+from typing import Optional, cast
 
 import numpy as np
 
@@ -186,12 +165,12 @@ class _InitializationContext:
 
     - The shear dilation is zero, and the matrix porosity is the reference porosity.
       This removes the nonlinearities that depend on the plastic displacement and the
-      deformation, so that the time stepping to the steady state converges easily.
-    - The clock of the time manager is set to the data time from the start of a time
-      step until the end of the nonlinear loop. The model updates its time dependent
-      data (boundary values, sources) at the start of a time step from the clock, so
-      this data is constant, and is that of the first time step of the simulation. The
-      clock is restored at the end of the nonlinear loop.
+      deformation.
+    - The clock of the time manager is fixed to t_0 + dt_0 (as in the first time step of
+      the simulation). This makes the time-dependent data (boundary conditions and
+      source terms) constant. The clock is restored at the end of the nonlinear loop.
+    - The model parameters are updated with ``params`` and the original values are
+      restored on exit.
 
     The time manager and the folder are restored on exit, also if an error is raised.
     The exporter and statistics of the model are recreated by ``prepare_simulation``.
@@ -199,9 +178,8 @@ class _InitializationContext:
     Parameters:
         model: The model, which is changed in place.
         time_manager: Time manager of the time stepping to the steady state.
-        params: Model parameters that replace those of the model while the context is
-            active, e.g. a time independent well schedule. The original values are
-            restored on exit; keys that the model did not have are removed.
+        params: Model parameters that are applied while the context is active. The
+            original parameters are restored on exit.
 
     """
 
@@ -229,15 +207,13 @@ class _InitializationContext:
             Path(self.original_folder_name).name + "_initialization"
         )
         """Output folder of the model in the context."""
-        # Time at which boundary conditions and sources are evaluated during
-        # initialization. The initialization clock runs far beyond the simulation's
-        # start, but the reference state must match the data seen by the first time
-        # step of the main simulation. This is the first target time rather than the
-        # start time, since e.g. lithostatic boundary conditions are different at the
-        # initial time itself.
         data_time = (
             self.original_time_manager.time_init + self.original_time_manager.dt_init
         )
+        # Note: The reason why not just time_init, but (time_init + dt_init) is because
+        # the lithostatic boundary condition mixin applies the nonzero bc only when
+        # t > time_init. This is an implementation detail which can be reconsidered. If
+        # so, there is no other particular reason why not to use just time_init.
         self.data_time: float = data_time
         """Time at which time dependent data is evaluated during the initialization."""
 
@@ -261,14 +237,10 @@ class _InitializationContext:
             def before_time_step(self) -> None:
                 """Freeze the clock at the data time during the nonlinear loop.
 
-                The initialization clock runs far beyond the simulation start, but
-                time dependent data (boundary values, sources) must be the data of
-                the first time step of the simulation. Therefore, the clock is
-                frozen at data_time from before_time_step, which updates this data,
-                until the nonlinear loop has finished. It cannot be frozen until
-                after_time_step_*: the time stepper reads the clock between the
-                solve and these hooks to log the step and to choose the next time
-                step size, so it needs the actual time.
+                The time unfreezes at after_nonlinear_* hooks. It cannot be frozen until
+                after_time_step_*: the TimeStepper reads the clock between
+                after_nonlinear_* and after_time_step_* to adjust dt, so it needs the
+                actual time.
 
                 """
                 self.__clock_time = self.time_manager.time
@@ -452,13 +424,13 @@ def _validate_steady_state(
 
 def initialization_pipeline(
     model: pp.PorePyModel,
-    rate_tolerances: dict[str, float],
-    residual_tolerances: dict[str, float],
-    nonlinear_solver: pp.solvers.NonlinearSolverBase | None = None,
-    storage: ModelStateStorage | None = None,
-    time_manager: pp.TimeManager | None = None,
+    rate_tolerances: Optional[dict[str, float]] = None,
+    residual_tolerances: Optional[dict[str, float]] = None,
+    nonlinear_solver: Optional[pp.solvers.NonlinearSolverBase] = None,
+    storage: Optional[ModelStateStorage] = None,
+    time_manager: Optional[pp.TimeManager] = None,
     earliest_stop_time: float = 1 * pp.YEAR,
-    initialization_params: dict | None = None,
+    initialization_params: Optional[dict] = None,
 ) -> pp.PorePyModel:
     """Initialize a model to a steady state.
 
@@ -466,24 +438,21 @@ def initialization_pipeline(
     the model and verified to be a steady state. Otherwise it is found by time stepping
     with a simplified model, and saved. The state is then set in the original model as
     its state and reference state, and verified there. See the module documentation for
-    the steps and the assumptions about the model.
+    details.
 
     Warning:
         The returned model is already prepared. Do not call
         :meth:`~porepy.models.solution_strategy.SolutionStrategy.prepare_simulation`
-        on it afterwards: it recreates the grids, variables and equations from the
-        initial condition of the model, which discards the initialized state and the
-        reference state. Run the returned model without preparing it again, e.g.
-        ``pp.run_time_dependent_model(model, {"prepare_simulation": False})``.
+        on it afterwards: it discards the obtained initialized reference states.
 
     Parameters:
         model: A model with mechanics that has not been prepared. It is prepared by the
             pipeline, and is ready to be run when this function returns.
         rate_tolerances: Tolerances of the rate of change of variables, per variable
-            name and in model units per second. See
+            name and in model units per second. Defaults to
             :func:`default_rate_tolerances`.
         residual_tolerances: Tolerances of the residual of equations, per equation name
-            and in model units. See :func:`default_residual_tolerances`.
+            and in model units. Defaults to :func:`default_residual_tolerances`.
         nonlinear_solver: Solver for the time steps to the steady state. A default
             solver of the model runner is used if it is None.
         storage: Where to save the steady state. Defaults to a file in the simulation
@@ -509,6 +478,12 @@ def initialization_pipeline(
             "The initialization requires a model with mechanics (a momentum balance)."
         )
 
+    if rate_tolerances is None:
+        rate_tolerances = default_rate_tolerances(model)
+
+    if residual_tolerances is None:
+        residual_tolerances = default_residual_tolerances()
+
     if storage is None:
         storage = ModelStateStorage(
             Path(model.params["folder_name"]) / "steady_state.npz"
@@ -529,8 +504,7 @@ def initialization_pipeline(
             return False
         logger.info(f"Trying to load steady state from {storage.path}.")
         # The saved state includes reference values, which exist in the data of the
-        # model only after they are set. They are replaced by the loaded ones. This is
-        # not done before time stepping, since it would change the equations.
+        # model only after they are set. They are replaced by the loaded ones.
         _set_state_as_reference(model)
         try:
             storage.load_state(model)
@@ -567,11 +541,18 @@ def initialization_pipeline(
     # The arrays are collected from the simplified model, before the original model is
     # prepared again, since preparing resets the state.
     state_arrays = storage.capture_state(model)
+
     # Check that the full model, with the nonlinearities that were disabled, is in a
     # steady state.
     model.prepare_simulation()
+    # The line below is needed to check the steady state exactly at time
+    # (time_init + dt_init), and not just time_init. It becomes an important difference
+    # for time-dependent BCs and source terms.
     init_context.update_time_dependent_data()
-    # The saved state includes reference values, see load_steady_state.
+
+    # This is a little hack below. The intended state is loaded in storage.apply_state.
+    # Call prior to it to _set_state_as_reference initializes data arrays in the mdg,
+    # which would otherwise be skipped in storage.apply_state.
     _set_state_as_reference(model)
     storage.apply_state(model, arrays=state_arrays)
     if not _validate_steady_state(model, residual_tolerances):
