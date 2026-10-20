@@ -189,9 +189,9 @@ def test_restart(restart_runs):
     """The output of a restarted run is the same as the stored output of an
     uninterrupted run.
 
-    This includes the exported states of the last time step, the pvd file combining
-    old and new steps, the time history, and the reference state written once at the
-    start of the simulation.
+    This includes the exported states of the last time step, the pvd file combining old
+    and new steps, the time history, and the reference state written once at the start
+    of the simulation.
 
     Run this module as a script to generate the stored files, see
     :data:`restart_data_dir`.
