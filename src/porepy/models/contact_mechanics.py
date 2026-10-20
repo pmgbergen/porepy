@@ -5,6 +5,13 @@ of classes for the equations, constitutive laws, variables, initial conditions, 
 conditions, and solution strategy. The model is primarily intended to be used in
 combination with the momentum balance model, but can be used as a standalone model.
 
+The contact mechanics equations are collected in :class:`ContactMechanicsEquations`,
+which combines :class:`NormalContactMechanicsEquation` and
+:class:`TangentialContactMechanicsEquation`. An alternative formulation of the
+tangential equation is provided by
+:class:`ScaledProjectionTangentialContactMechanicsEquation`, collected in
+:class:`ScaledProjectionContactMechanicsEquation`.
+
 """
 
 from functools import partial
@@ -93,6 +100,130 @@ class NormalContactMechanicsEquation(pp.PorePyModel):
             zeros_frac,
         )
         equation.set_name("normal_fracture_deformation_equation")
+        return equation
+
+
+class TangentialContactMechanicsEquation(pp.PorePyModel):
+    """Contact mechanics equation for the tangential component of fracture deformation,
+    formulated as the projection of the augmented traction onto the friction disc of
+    Alart and Curnier (1991).
+
+    """
+
+    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Contact traction variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.contact_mechanics.ContactTractionVariable`.
+
+    """
+    plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """The plastic component of the displacement jump. Normally defined in a mixin
+    instance of
+    :class:`~porepy.models.constitutive_laws.DisplacementJump`.
+    """
+    friction_bound: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Friction bound of a fracture. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.CoulombFrictionBound`.
+
+    """
+    contact_mechanics_numerical_constant: Callable[[list[pp.Grid]], pp.ad.Scalar]
+    """Numerical constant for contact mechanics. Normally provided by a mixin instance
+    of :class:`~porepy.models.momuntum_balance.SolutionStrategyMomentumBalance`.
+
+    """
+
+    def tangential_fracture_deformation_equation(
+        self,
+        subdomains: list[pp.Grid],
+    ) -> pp.ad.Operator:
+        """Contact mechanics equation for the tangential constraints.
+
+        .. math::
+
+            \\mathbf{t}_t^{trial} &= \\mathbf{t}_t + c_{num} \\Delta \\mathbf{u}_t \\\\
+            \\mathbf{t}_t &= \\min\\left(
+                1,
+                \\frac{b_p}{\\|\\mathbf{t}_t^{trial}\\|}
+            \\right) \\cdot \\mathbf{t}_t^{trial}
+
+        where :math:`b_p = \\max(\\text{friction\\_bound}, 0)` is the friction bound.
+
+        See e.g.: Eq. (48c) in Alart and Curnier, "A mixed formulation for frictional
+        contact problems prone to Newton like solution methods", CMAME, 1991,
+        DOI: 10.1016/0045-7825(91)90022-X.
+
+        """
+
+        # Basis vector combinations.
+        num_cells = sum([sd.num_cells for sd in subdomains])
+
+        # Mapping from a full vector to the tangential component.
+        nd_vec_to_tangential = self.tangential_component(subdomains)
+
+        # Basis vectors for the tangential components.
+        tangential_basis = self.basis(
+            subdomains, self.nd - 1, domain_type=pp.ad.DomainType.subdomains
+        )
+
+        # To map a scalar to the tangential plane, we need to sum the basis vectors.
+        scalar_to_tangential = pp.ad.sum_projection_list(tangential_basis)
+
+        # Variables: The tangential component of the contact traction and the plastic
+        # displacement jump, and its time increment.
+        t_t: pp.ad.Operator = nd_vec_to_tangential @ self.contact_traction(subdomains)
+        u_t: pp.ad.Operator = nd_vec_to_tangential @ self.plastic_displacement_jump(
+            subdomains
+        )
+
+        # The time increment of the tangential displacement jump.
+        u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
+
+        # Auxiliary functions.
+        domain_and_range = OperatorSpace.from_domains(subdomains)
+
+        f_max = pp.ad.Function(pp.ad.maximum, "max_function", domain_and_range)
+        f_norm = pp.ad.Function(
+            partial(pp.ad.l2_norm, self.nd - 1),
+            "norm_function",
+            domain_and_range,
+        )
+        f_mask_by_threshold = pp.ad.Function(
+            partial(
+                pp.ad.mask_by_threshold,
+                self.numerical.open_state_tolerance,
+            ),
+            "mask_by_threshold_function",
+            domain_and_range,
+        )
+
+        # Augment the traction.
+        c_num = scalar_to_tangential @ self.contact_mechanics_numerical_constant(
+            subdomains
+        )
+        t_t_trial = t_t + c_num * u_t_increment
+        t_t_trial.set_name("t_t_trial")
+
+        norm_t_t_trial = f_norm(t_t_trial)
+        norm_t_t_trial.set_name("norm_t_t_trial")
+
+        # Friction bound - cut off negative values to avoid open state.
+        zeros_frac = pp.ad.DenseArray(
+            np.zeros(num_cells), source=domain_and_range, target=domain_and_range
+        )
+        b_p = f_max(self.friction_bound(subdomains), zeros_frac)
+
+        # Define the traction to be the projection of the augmented traction onto the
+        # friction disc. The scaling factor min(1, b_p / |t_t_trial|) is computed as
+        # b_p / max(b_p, |t_t_trial|), which is equivalent for b_p > 0 and takes the
+        # correct value 1 (stick) for a vanishing trial traction. The denominator only
+        # degenerates if b_p and |t_t_trial| both vanish, i.e., in the open state. The
+        # mask function then sets the factor to 0, which yields t_t = 0.
+        max_bp_norm = f_max(b_p, norm_t_t_trial)
+        min_term = scalar_to_tangential @ f_mask_by_threshold(
+            max_bp_norm, b_p / max_bp_norm
+        )
+        equation: pp.ad.Operator = t_t - min_term * t_t_trial
+        equation.set_name("tangential_fracture_deformation_equation")
+
         return equation
 
 
@@ -268,13 +399,15 @@ class ScaledProjectionTangentialContactMechanicsEquation(pp.PorePyModel):
 
 class ContactMechanicsEquations(
     NormalContactMechanicsEquation,
-    ScaledProjectionTangentialContactMechanicsEquation,
+    TangentialContactMechanicsEquation,
     EquationMixin,
 ):
     """Contact mechanics equations governing fracture deformation.
 
     Collects the equations for the normal and tangential components of the fracture
-    deformation and sets them to the equation system.
+    deformation and sets them to the equation system. The tangential component uses
+    the formulation of :class:`TangentialContactMechanicsEquation`; see
+    :class:`ScaledProjectionContactMechanicsEquation` for an alternative.
 
     """
 
@@ -293,6 +426,15 @@ class ContactMechanicsEquations(
         )
         self.equation_system.set_equation(fracture_eq_normal)
         self.equation_system.set_equation(fracture_eq_tangential)
+
+
+class ScaledProjectionContactMechanicsEquation(
+    ScaledProjectionTangentialContactMechanicsEquation, ContactMechanicsEquations
+):
+    """Contact mechanics equations with the tangential component formulated as in
+    :class:`ScaledProjectionTangentialContactMechanicsEquation`.
+
+    """
 
 
 class ConstitutiveLawsContactMechanics(
@@ -643,145 +785,3 @@ class ContactMechanics(
     pp.DataSavingMixin,
 ):
     pass
-
-
-# ! ---- VARIANT BASED ON RADIAL RETURN ---- ! #
-
-
-class RadialReturnTangentialContactMechanicsEquation(pp.PorePyModel):
-    """Alternative formulation for tangential fracture deformation based on the
-    classical radial return projection.
-
-    """
-
-    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Contact traction variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.contact_mechanics.ContactTractionVariable`.
-
-    """
-    plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """The plastic component of the displacement jump. Normally defined in a mixin
-    instance of
-    :class:`~porepy.models.constitutive_laws.DisplacementJump`.
-    """
-
-    friction_bound: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Friction bound of a fracture. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.CoulombFrictionBound`.
-
-    """
-    contact_mechanics_numerical_constant: Callable[[list[pp.Grid]], pp.ad.Scalar]
-    """Numerical constant for contact mechanics. Normally provided by a mixin instance
-    of :class:`~porepy.models.momuntum_balance.SolutionStrategyMomentumBalance`.
-
-    """
-    contact_mechanics_open_state_characteristic: Callable[
-        [list[pp.Grid]], pp.ad.Operator
-    ]
-    """Characteristic function used in the tangential contact mechanics relation.
-    Can be interpreted as an indicator of the fracture cells in the open state.
-    Normally provided by a mixin instance of
-    :class:`~porepy.models.contact_mechanics.SolutionStrategyMomentumBalance`.
-
-    """
-
-    def tangential_fracture_deformation_equation(
-        self,
-        subdomains: list[pp.Grid],
-    ) -> pp.ad.Operator:
-        """Contact mechanics equation for the tangential constraints.
-
-        .. math::
-
-            \\mathbf{t}_t^{trial} &= \\mathbf{t}_t + c_{num} \\Delta \\mathbf{u}_t \\\\
-            \\mathbf{t}_t &= \\min\\left(
-                1,
-                \\frac{b_p}{\\|\\mathbf{t}_t^{trial}\\|}
-            \\right) \\cdot \\mathbf{t}_t^{trial}
-
-        where :math:`b_p = \\max(\\text{friction\\_bound}, 0)` is the friction bound.
-
-        See e.g.: Eq. (48c) in Alart and Curnier, "A mixed formulation for frictional
-        contact problems prone to Newton like solution methods", CMAME, 1991,
-        DOI: 10.1016/0045-7825(91)90022-X.
-
-        """
-
-        # Basis vector combinations.
-        num_cells = sum([sd.num_cells for sd in subdomains])
-
-        # Mapping from a full vector to the tangential component.
-        nd_vec_to_tangential = self.tangential_component(subdomains)
-
-        # Basis vectors for the tangential components.
-        tangential_basis = self.basis(
-            subdomains, self.nd - 1, domain_type=pp.ad.DomainType.subdomains
-        )
-
-        # To map a scalar to the tangential plane, we need to sum the basis vectors.
-        scalar_to_tangential = pp.ad.sum_projection_list(tangential_basis)
-
-        # Variables: The tangential component of the contact traction and the plastic
-        # displacement jump, and its time increment.
-        t_t: pp.ad.Operator = nd_vec_to_tangential @ self.contact_traction(subdomains)
-        u_t: pp.ad.Operator = nd_vec_to_tangential @ self.plastic_displacement_jump(
-            subdomains
-        )
-
-        # The time increment of the tangential displacement jump.
-        u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
-
-        # Auxiliary functions.
-        domain_and_range = OperatorSpace.from_domains(subdomains)
-
-        f_max = pp.ad.Function(pp.ad.maximum, "max_function", domain_and_range)
-        f_norm = pp.ad.Function(
-            partial(pp.ad.l2_norm, self.nd - 1),
-            "norm_function",
-            domain_and_range,
-        )
-        f_mask_by_threshold = pp.ad.Function(
-            partial(
-                pp.ad.mask_by_threshold,
-                self.numerical.open_state_tolerance,
-            ),
-            "mask_by_threshold_function",
-            domain_and_range,
-        )
-
-        # Augment the traction.
-        c_num = scalar_to_tangential @ self.contact_mechanics_numerical_constant(
-            subdomains
-        )
-        t_t_trial = t_t + c_num * u_t_increment
-        t_t_trial.set_name("t_t_trial")
-
-        norm_t_t_trial = f_norm(t_t_trial)
-        norm_t_t_trial.set_name("norm_t_t_trial")
-
-        # Friction bound - cut off negative values to avoid open state.
-        zeros_frac = pp.ad.DenseArray(
-            np.zeros(num_cells), source=domain_and_range, target=domain_and_range
-        )
-        b_p = f_max(self.friction_bound(subdomains), zeros_frac)
-
-        # Define the traction to be the linear radial return projection of the augmented
-        # traction. The scaling factor min(1, b_p / |t_t_trial|) is computed as
-        # b_p / max(b_p, |t_t_trial|), which is equivalent for b_p > 0 and takes the
-        # correct value 1 (stick) for a vanishing trial traction. The denominator only
-        # degenerates if b_p and |t_t_trial| both vanish, i.e., in the open state. The
-        # mask function then sets the factor to 0, which yields t_t = 0.
-        max_bp_norm = f_max(b_p, norm_t_t_trial)
-        min_term = scalar_to_tangential @ f_mask_by_threshold(
-            max_bp_norm, b_p / max_bp_norm
-        )
-        equation: pp.ad.Operator = t_t - min_term * t_t_trial
-        equation.set_name("tangential_fracture_deformation_equation")
-
-        return equation
-
-
-class RadialReturnContactMechanics(
-    RadialReturnTangentialContactMechanicsEquation, ContactMechanics
-):
-    """Full contact mechanics model with (linear instead of rescaled) radial return."""
