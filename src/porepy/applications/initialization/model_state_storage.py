@@ -1,26 +1,23 @@
-"""Saving and loading of the state of a model as numpy arrays.
+"""Saving and loading of the state of a model as numpy arrays. The state of a model is
+everything that is stored in the data dictionaries of its grids.
 
-The state of a model is everything that is stored in the data dictionaries of its
-subdomains, interfaces and boundary grids as iterate values, time step values and
-reference values: the values of the variables, the boundary values, the time dependent
-arrays and the reference quantities (e.g. the reference stress).
+The functionality partly overlaps with saving and restarting through
+:class:`~porepy.viz.exporter.Exporter` and the DataSavingMixin.
 
-Note:
-    The functionality partly overlaps with saving and restarting through
-    :class:`~porepy.viz.exporter.Exporter` and the data saving mixin of the model
-    (``reference_state.npz``, ``load_data_from_pvd``). This module is not a replacement
-    for it, since it serves a different purpose:
+We cannot reuse DataSavingMixin, because it is deeply coupled with the model lifecycle
+hooks (before_* and after_*). The initialization procedure uses model beyond the
+originally-intended lifecycle, which makes depending on DataSavingMixin error-prone.
 
-    - A restart resumes a time history: it reads the last exported vtu files, converts
-      them from SI units, and sets the time, the time step size and the step counter of
-      the model. Here, the state is a single snapshot, and the time manager is not
-      touched.
-    - A restart needs the exporter and a pvd history, and the values pass through vtu
-      files in SI units. Here, the arrays are stored in the units of the model.
+We cannot use the Exporter, because it does not support boundary grids and the reference
+stress (since it is defined not on the cell centers).
 
-    The storage is meant to be used in the initialization sub-package only. The file
-    layout is not a stable format. Talk to the maintainers if you intend to use it in
-    your own code.
+These arguments suggest that it is easier to repeat yourself and write a tailored
+exporter/importer for initialization than to extend the existing Exporter. This tailored
+class is not intended for ParaView exporting.
+
+The storage is meant to be used in the initialization sub-package only. The file layout
+is not a stable format. Talk to the maintainers if you intend to use it in your own
+code.
 
 """
 
@@ -67,10 +64,8 @@ class ModelStateStorage:
     The consistency of a saved state with a model is checked by the names and shapes of
     the arrays only, which must be those of the data dictionaries of the model.
 
-    When loading, the stored values of the model are replaced by the saved ones.
-    Nothing else is changed. In particular, the iterates and time steps are not copied
-    to each other, and the reference values are not derived from the current values.
-    Derived quantities of the model (e.g. fluxes) are updated, since they are computed
+    When loading, the stored values of the model are replaced by the saved ones, and
+    derived quantities of the model (e.g. fluxes) are updated, since they are computed
     from the state and are not saved.
 
     Parameters:
