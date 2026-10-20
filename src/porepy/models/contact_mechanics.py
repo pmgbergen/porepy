@@ -10,7 +10,8 @@ which combines :class:`NormalContactMechanicsEquation` and
 :class:`TangentialContactMechanicsEquation`. An alternative formulation of the
 tangential equation is provided by
 :class:`ScaledProjectionTangentialContactMechanicsEquation`, collected in
-:class:`ScaledProjectionContactMechanicsEquation`.
+:class:`ScaledProjectionContactMechanicsEquation`. The two formulations of the
+tangential equation are equivalent up to a scaling.
 
 """
 
@@ -40,7 +41,7 @@ class NormalContactMechanicsEquation(pp.PorePyModel):
     """
     contact_mechanics_numerical_constant: Callable[[list[pp.Grid]], pp.ad.Scalar]
     """Numerical constant for contact mechanics. Normally provided by a mixin instance
-    of :class:`~porepy.models.momuntum_balance.SolutionStrategyMomentumBalance`.
+    of :class:`~porepy.models.contact_mechanics.SolutionStrategyContactMechanics`.
 
     """
 
@@ -105,8 +106,14 @@ class NormalContactMechanicsEquation(pp.PorePyModel):
 
 class TangentialContactMechanicsEquation(pp.PorePyModel):
     """Contact mechanics equation for the tangential component of fracture deformation,
-    formulated as the projection of the augmented traction onto the friction disc of
-    Alart and Curnier (1991).
+    formulated as the projection of the augmented traction onto the friction disc.
+
+    The formulation follows Alart and Curnier (1991): A mixed formulation for frictional
+    contact problems prone to Newton like solution methods (CMAME), see
+    https://doi.org/10.1016/0045-7825(91)90022-X.
+
+    :class:`ScaledProjectionTangentialContactMechanicsEquation` provides an equivalent
+    formulation, obtained by multiplying the projection with its denominator.
 
     """
 
@@ -127,7 +134,7 @@ class TangentialContactMechanicsEquation(pp.PorePyModel):
     """
     contact_mechanics_numerical_constant: Callable[[list[pp.Grid]], pp.ad.Scalar]
     """Numerical constant for contact mechanics. Normally provided by a mixin instance
-    of :class:`~porepy.models.momuntum_balance.SolutionStrategyMomentumBalance`.
+    of :class:`~porepy.models.contact_mechanics.SolutionStrategyContactMechanics`.
 
     """
 
@@ -137,19 +144,28 @@ class TangentialContactMechanicsEquation(pp.PorePyModel):
     ) -> pp.ad.Operator:
         """Contact mechanics equation for the tangential constraints.
 
+        The equation is dimensionless, as we use nondimensionalized contact traction.
+        It reads
+
         .. math::
 
-            \\mathbf{t}_t^{trial} &= \\mathbf{t}_t + c_{num} \\Delta \\mathbf{u}_t \\\\
-            \\mathbf{t}_t &= \\min\\left(
+            t_t^{trial} &= t_t + c_{num} \\Delta u_t \\\\
+            t_t &= \\min\\left(
                 1,
-                \\frac{b_p}{\\|\\mathbf{t}_t^{trial}\\|}
-            \\right) \\cdot \\mathbf{t}_t^{trial}
+                \\frac{b_p}{\\|t_t^{trial}\\|}
+            \\right) \\cdot t_t^{trial}
 
-        where :math:`b_p = \\max(\\text{friction\\_bound}, 0)` is the friction bound.
+        where :math:`b_p = \\max(\\text{friction\\_bound}, 0)` is the friction bound and
+        :math:`\\Delta u_t` the time increment of the tangential plastic displacement
+        jump, see Eq. (48c) in Alart and Curnier (1991). In the open state, where both
+        :math:`b_p` and :math:`\\|t_t^{trial}\\|` vanish, the scaling factor is set to
+        zero, which yields :math:`t_t = 0`.
 
-        See e.g.: Eq. (48c) in Alart and Curnier, "A mixed formulation for frictional
-        contact problems prone to Newton like solution methods", CMAME, 1991,
-        DOI: 10.1016/0045-7825(91)90022-X.
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Operator for the tangential deformation equation.
 
         """
 
@@ -229,7 +245,17 @@ class TangentialContactMechanicsEquation(pp.PorePyModel):
 
 class ScaledProjectionTangentialContactMechanicsEquation(pp.PorePyModel):
     """Contact mechanics equation for the tangential component of fracture deformation,
-    formulated as the scaled projection of Berge et al. (2020).
+    formulated as the scaled projection of the augmented traction onto the friction
+    disc.
+
+    The formulation follows Berge et al. (2020): Finite volume discretization for
+    poroelastic media with fractures modeled by contact mechanics (IJNME), see
+    https://doi.org/10.1002/nme.6238.
+
+    The equation is obtained from the projection in
+    :class:`TangentialContactMechanicsEquation` by multiplying with its denominator. In
+    the open state, i.e., for a vanishing friction bound, the scaled equation does not
+    determine the traction, which is instead set to zero by a characteristic function.
 
     """
 
@@ -250,16 +276,15 @@ class ScaledProjectionTangentialContactMechanicsEquation(pp.PorePyModel):
     """
     contact_mechanics_numerical_constant: Callable[[list[pp.Grid]], pp.ad.Scalar]
     """Numerical constant for contact mechanics. Normally provided by a mixin instance
-    of :class:`~porepy.models.momuntum_balance.SolutionStrategyMomentumBalance`.
+    of :class:`~porepy.models.contact_mechanics.SolutionStrategyContactMechanics`.
 
     """
     contact_mechanics_open_state_characteristic: Callable[
         [list[pp.Grid]], pp.ad.Operator
     ]
-    """Characteristic function used in the tangential contact mechanics relation.
-    Can be interpreted as an indicator of the fracture cells in the open state.
-    Normally provided by a mixin instance of
-    :class:`~porepy.models.contact_mechanics.SolutionStrategyMomentumBalance`.
+    """Characteristic function of the fracture cells in the open state. Normally
+    provided by a mixin instance of
+    :class:`~porepy.models.contact_mechanics.SolutionStrategyContactMechanics`.
 
     """
 
@@ -270,22 +295,25 @@ class ScaledProjectionTangentialContactMechanicsEquation(pp.PorePyModel):
         """Contact mechanics equation for the tangential constraints.
 
         The equation is dimensionless, as we use nondimensionalized contact traction.
-        The function reads
+        It reads
+
         .. math::
-            C_t = max(b_p, ||T_t+c_t u_t||) T_t - max(0, b_p) (T_t+c_t u_t)
 
-        with `u` being displacement jump increments, `t` denoting tangential component
-        and `b_p` the friction bound.
+            t_t^{trial} &= t_t + c_{num} \\Delta u_t \\\\
+            0 &= \\max\\left(b_p, \\|t_t^{trial}\\|\\right) t_t - b_p t_t^{trial}
 
-        For `b_p = 0`, the equation `C_t = 0` does not in itself imply `T_t = 0`, which
-        is what the contact conditions require. The case is handled through the use of a
-        characteristic function.
+        where :math:`b_p = \\max(\\text{friction\\_bound}, 0)` is the friction bound and
+        :math:`\\Delta u_t` the time increment of the tangential plastic displacement
+        jump, see Eqs. (25) and (27) in Berge et al. (2020). For :math:`b_p = 0`, the
+        equation does not in itself imply :math:`t_t = 0`, which is what the contact
+        conditions require. In this case, the equation is replaced by :math:`t_t = 0`
+        through a characteristic function.
 
         Parameters:
             subdomains: List of fracture subdomains.
 
         Returns:
-            complementary_eq: Contact mechanics equation for the tangential constraints.
+            Operator for the tangential deformation equation.
 
         """
         # The lines below is an implementation of equations (25) and (27) in the paper
@@ -704,9 +732,8 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
     def contact_mechanics_open_state_characteristic(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
-        r"""Characteristic function used in the tangential contact mechanics relation.
-        Can be interpreted as an indicator of the fracture cells in the open state.
-        Used to make the problem well-posed in the case b_p is zero.
+        r"""Characteristic function of the fracture cells in the open state, i.e., where
+        the friction bound vanishes.
 
         The function reads
         .. math::
