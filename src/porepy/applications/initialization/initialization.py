@@ -503,9 +503,6 @@ def initialization_pipeline(
         if not storage.exists():
             return False
         logger.info(f"Trying to load steady state from {storage.path}.")
-        # The saved state includes reference values, which exist in the data of the
-        # model only after they are set. They are replaced by the loaded ones.
-        _set_state_as_reference(model)
         try:
             storage.load_state(model)
         except LoadedStateMismatch as e:
@@ -550,10 +547,6 @@ def initialization_pipeline(
     # for time-dependent BCs and source terms.
     init_context.update_time_dependent_data()
 
-    # This is a little hack below. The intended state is loaded in storage.apply_state.
-    # Call prior to it to _set_state_as_reference initializes data arrays in the mdg,
-    # which would otherwise be skipped in storage.apply_state.
-    _set_state_as_reference(model)
     storage.apply_state(model, arrays=state_arrays)
     if not _validate_steady_state(model, residual_tolerances):
         storage.discard()

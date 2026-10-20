@@ -25,6 +25,7 @@ Note:
 """
 
 import logging
+import re
 from pathlib import Path
 from typing import Sequence
 
@@ -97,6 +98,25 @@ class ModelStateStorage:
         """Delete the saved state."""
         self.path.unlink(missing_ok=True)
 
+    @staticmethod
+    def _groups(model: pp.PorePyModel) -> dict[str, Sequence[tuple[pp.GridLike, dict]]]:
+        """Grids of the md-grid with their data dictionaries, by type of the grid.
+
+        Parameters:
+            model: A prepared model.
+
+        Returns:
+            The subdomains (``sd``), interfaces (``intf``) and boundary grids
+            (``bg``) with their data dictionaries.
+
+        """
+        mdg = model.mdg
+        return {
+            "sd": mdg.subdomains(return_data=True),
+            "intf": mdg.interfaces(return_data=True),
+            "bg": mdg.boundaries(return_data=True),
+        }
+
     def _entries(
         self, model: pp.PorePyModel
     ) -> dict[str, tuple[dict, str, str, int | None]]:
@@ -110,14 +130,8 @@ class ModelStateStorage:
             name of the quantity and the index (None for reference values).
 
         """
-        mdg = model.mdg
-        groups: dict[str, Sequence[tuple[pp.GridLike, dict]]] = {
-            "sd": mdg.subdomains(return_data=True),
-            "intf": mdg.interfaces(return_data=True),
-            "bg": mdg.boundaries(return_data=True),
-        }
         entries: dict[str, tuple[dict, str, str, int | None]] = {}
-        for group, items in groups.items():
+        for group, items in self._groups(model).items():
             for i, (_, data) in enumerate(items):
                 for location in self._locations:
                     for name, stored in data.get(location, {}).items():
@@ -213,10 +227,15 @@ class ModelStateStorage:
             raise LoadedStateMismatch(f"Saved state is inconsistent: {message}")
 
         entries = self._entries(model)
-        if set(arrays) != set(entries):
-            fail(f"arrays differ by {sorted(set(arrays) ^ set(entries))}")
+        # Reference values may be absent in the model, they are created by
+        # apply_state. Everything else must match.
+        reference = f"::{pp.REFERENCE_SOLUTIONS}::"
+        saved_keys = {key for key in arrays if reference not in key}
+        model_keys = {key for key in entries if reference not in key}
+        if saved_keys != model_keys:
+            fail(f"arrays differ by {sorted(saved_keys ^ model_keys)}")
         for key, entry in entries.items():
-            if arrays[key].shape != self._get(entry).shape:
+            if key in arrays and arrays[key].shape != self._get(entry).shape:
                 fail(f"shape of {key}")
         floats = [a for a in arrays.values() if a.dtype.kind == "f"]
         if not all(np.all(np.isfinite(a)) for a in floats):
@@ -225,16 +244,23 @@ class ModelStateStorage:
     def apply_state(self, model: pp.PorePyModel, arrays: dict[str, np.ndarray]) -> None:
         """Replace the stored values of the model by the arrays.
 
+        The reference values that do not exist in the model yet are created. Iterate
+        and time step values must exist in the model.
+
         Parameters:
             model: A prepared model. The arrays must be consistent with it, see
                 :meth:`load_state`.
             arrays: Arrays as returned by :meth:`capture_state`.
 
         """
-        for key, (data, location, name, index) in self._entries(model).items():
-            if index is None:
-                data[location][name] = arrays[key].copy()
+        groups = self._groups(model)
+        for key, array in arrays.items():
+            grid, location, name, *index = key.split("::")
+            group, position = re.fullmatch(r"([a-z]+)(\d+)", grid).groups()  # type: ignore[union-attr]
+            data = groups[group][int(position)][1]
+            if location == pp.REFERENCE_SOLUTIONS:
+                data.setdefault(location, {})[name] = array.copy()
             else:
-                data[location][name][index] = arrays[key].copy()
+                data[location][name][int(index[0])] = array.copy()
         # Fluxes, upwind and other discretizations depend on the state.
         model.update_derived_quantities()
