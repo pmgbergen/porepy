@@ -285,6 +285,11 @@ class _InitializationContext:
                 self.model.params.pop(key, None)
             else:
                 self.model.params[key] = value
+        # The exporter and statistics path were created in the initialization folder.
+        # Recreate them in the original one, also if the initialization failed and the
+        # model is not prepared again.
+        if hasattr(self.model, "exporter"):
+            self.model.initialize_data_saving()
 
     def update_time_dependent_data(self) -> None:
         """Update the time dependent data of the original model to the data time.
@@ -478,19 +483,18 @@ def initialization_pipeline(
             "The initialization requires a model with mechanics (a momentum balance)."
         )
 
+    # Initialize defaults.
     if rate_tolerances is None:
         rate_tolerances = default_rate_tolerances(model)
-
     if residual_tolerances is None:
         residual_tolerances = default_residual_tolerances()
-
     if storage is None:
         storage = ModelStateStorage(
             Path(model.params["folder_name"]) / "steady_state.npz"
         )
-
     if time_manager is None:
         time_manager = default_initialization_time_manager()
+
     init_context = _InitializationContext(model, time_manager, initialization_params)
 
     def load_steady_state() -> bool:
@@ -522,9 +526,8 @@ def initialization_pipeline(
     # Find the steady state with the simplified model: load it, or time step to it.
     with init_context:
         model.prepare_simulation()
-        # A prepared model has the data of the start time. The time stepping updates it,
-        # but a loaded state is checked before that.
-        init_context.update_time_dependent_data()
+
+        # Try to load steady state from file, if cannot load, run initialization.
         if not load_steady_state():
             _run_to_steady_state(
                 model=model,
@@ -535,17 +538,13 @@ def initialization_pipeline(
                 earliest_stop_time=earliest_stop_time,
             )
 
-    # The arrays are collected from the simplified model, before the original model is
-    # prepared again, since preparing resets the state.
-    state_arrays = storage.capture_state(model)
+        # The arrays are collected from the simplified model, before the original model
+        # is prepared again, since preparing resets the state.
+        state_arrays = storage.capture_state(model)
 
-    # Check that the full model, with the nonlinearities that were disabled, is in a
+    # Prepare that the full model (enable nonlinearities) and check that it is in a
     # steady state.
     model.prepare_simulation()
-    # The line below is needed to check the steady state exactly at time
-    # (time_init + dt_init), and not just time_init. It becomes an important difference
-    # for time-dependent BCs and source terms.
-    init_context.update_time_dependent_data()
 
     storage.apply_state(model, arrays=state_arrays)
     if not _validate_steady_state(model, residual_tolerances):
