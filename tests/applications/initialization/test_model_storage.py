@@ -9,8 +9,7 @@ from porepy.applications.initialization.model_state_storage import (
     LoadedStateMismatch,
     ModelStateStorage,
 )
-
-from .test_initialization import make_model
+from tests.applications.initialization.test_initialization import make_model
 
 
 @pytest.mark.parametrize(
