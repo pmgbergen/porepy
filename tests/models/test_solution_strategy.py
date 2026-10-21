@@ -23,6 +23,7 @@ from __future__ import annotations
 import copy
 import json
 import shutil
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any, Optional
 
@@ -38,8 +39,7 @@ from porepy.numerics.solvers.convergence_check import (
     ConvergenceStatus,
     DivergenceCriteria,
 )
-
-from .test_poromechanics import PoromechanicsWell
+from tests.models.test_poromechanics import PoromechanicsWell
 
 
 class RestartModel(PoromechanicsWell):
@@ -68,12 +68,23 @@ class RestartModelWithReference(RestartModel):
     """
 
     def initialize_operator_reference_values_from_initial_state(self) -> None:
+        """TODO"""
         super().initialize_operator_reference_values_from_initial_state()
         es = self.equation_system
         # Shifting all variables, e.g., the contact traction, hinders convergence.
-        variables = es.get_variables([self.pressure_variable])
+        variables = es.get_variables(
+            [
+                self.pressure_variable,
+                self.interface_displacement_variable,
+                self.interface_darcy_flux_variable,
+                self.well_flux_variable,
+            ]
+        )
         values = es.get_variable_values(variables, iterate_index=0)
-        es.set_variable_values(values + 1e-3, variables, reference=True)
+        rng = np.random.default_rng(seed=0)
+        es.set_variable_values(
+            values + 1e-3 * rng.random(values.size), variables, reference=True
+        )
         for sd, data in self.mdg.subdomains(return_data=True, dim=self.nd):
             pp.set_solution_values(
                 self.reference_stress_key,
@@ -199,8 +210,14 @@ def test_restart(restart_runs):
     """
     folder = restart_runs["restarted_folder"]
     compared = 0
+    # RESTART_DATA_DIR contains *.vtu, *.pvd and times.json files. The data files are
+    # only stored for time step 3, so the actual simulation's output is a superset of
+    # what is stored in RESTART_DATA_DIR. We iterate over stored files and compare them
+    # with the actual simulation's
     for stored in sorted(RESTART_DATA_DIR.iterdir()):
         if stored.is_dir():
+            # Skipping the ./reference directory that is handled later. If some other
+            # directories are added in the future, they are also skipped.
             continue
         file = folder / stored.name
         if file.suffix == ".vtu":
@@ -249,12 +266,13 @@ def test_restart_continues_as_if_uninterrupted(restart_runs):
     # Time bookkeeping.
     assert restart_runs["first_part"].time_manager.time_index == RESTART_FROM_STEP
     expected_time = uninterrupted.time_manager
-    actual_time = restarted.time_manager
-    assert actual_time.time == expected_time.time
-    assert actual_time.time_index == expected_time.time_index
-    assert actual_time.dt == expected_time.dt
-    assert actual_time.exported_times == expected_time.exported_times
-    assert actual_time.exported_dt == expected_time.exported_dt
+    restarted_time = restarted.time_manager
+    assert restarted_time.time == expected_time.time
+    assert restarted_time.time_index == expected_time.time_index
+    assert restarted_time.dt == expected_time.dt
+    assert restarted_time.exported_times == expected_time.exported_times
+    assert restarted_time.exported_dt == expected_time.exported_dt
+    assert restarted_time.exported_time_indices == expected_time.exported_time_indices
 
     # The reference state, of variables, stress and boundary values, is the one of the
     # uninterrupted run, which sets it in the model setup. The reference stress is
@@ -266,31 +284,36 @@ def test_restart_continues_as_if_uninterrupted(restart_runs):
             uninterrupted.reference_stress_key, data, reference=True
         )
         assert np.any(reference_stress != 0), "the reference stress is zero"
-    actual_reference = restarted._reference_state_data()
+    restarted_reference = restarted._reference_state_data()
     for key, (_, expected_data) in uninterrupted._reference_state_data().items():
-        expected_values = expected_data.get(pp.REFERENCE_SOLUTIONS, {})
-        actual_values = actual_reference[key][1].get(pp.REFERENCE_SOLUTIONS, {})
-        assert actual_values.keys() == expected_values.keys(), key
+        expected_values = expected_data[pp.REFERENCE_SOLUTIONS]
+        restarted_values = restarted_reference[key][1][pp.REFERENCE_SOLUTIONS]
+        assert restarted_values.keys() == expected_values.keys(), key
         for name, values in expected_values.items():
             # The reference state is stored in the units of the model, without any
             # conversion, hence the values are equal.
-            assert np.array_equal(actual_values[name], values), (
+            assert np.array_equal(restarted_values[name], values), (
                 f"the reference {name} of {key} differs after the restart"
             )
 
-    # Newton path. Only the number of iterations and the first iteration are compared:
-    # The unit conversion of the imported state is exact only up to round-off, which
-    # the later iterations of this sensitive problem amplify. The final state, compared
-    # below, is not affected.
+    # Newton path. Only the number of iterations and norms after the first iteration are
+    # compared The unit conversion of the imported state is exact only up to round-off
+    # due to conversion to SI and back, which the later iterations of this sensitive
+    # problem amplify.
     expected_path = uninterrupted.nonlinear_solver_statistics.convergence_info
-    actual_path = restarted.nonlinear_solver_statistics.convergence_info
+    restarted_path = restarted.nonlinear_solver_statistics.convergence_info
     for norm in ("inc_abs", "res_abs"):
         expected_norms = expected_path[norm]["norm"]
-        actual_norms = actual_path[norm]["norm"]
-        assert len(actual_norms) == len(expected_norms), (
+        restarted_norms = restarted_path[norm]["norm"]
+        assert len(restarted_norms) == len(expected_norms), (
             f"the number of iterations differs after the restart ({norm})"
         )
-        assert np.isclose(actual_norms[0], expected_norms[0], rtol=1e-8), (
+        # Rtol is loose here, because residual is sensetive to the. Error accumulates
+        # due to the unit conversion to SI and back in restarting. It is confirmed, that
+        # if we replace units to pp.Units(m=1, kg=1e3), this test passes with
+        # rtol=1e-10. It is also confirmed, that the data is loaded correctly up to
+        # the round-off tolerance.
+        assert np.isclose(restarted_norms[0], expected_norms[0], rtol=1e-5), (
             f"the first iteration differs after the restart ({norm})"
         )
 
@@ -308,11 +331,11 @@ def test_restart_continues_as_if_uninterrupted(restart_runs):
         expected = uninterrupted.equation_system.get_variable_values(
             variables=[variable], time_step_index=0
         )
-        actual = restarted.equation_system.get_variable_values(
+        restarted_val = restarted.equation_system.get_variable_values(
             variables=[resumed_variable], time_step_index=0
         )
         scale = max(float(np.max(np.abs(expected))), 1e-300)
-        assert np.allclose(actual, expected, rtol=0, atol=1e-10 * scale), (
+        assert np.allclose(restarted_val, expected, rtol=0, atol=1e-10 * scale), (
             f"{variable.name} differs after the restart"
         )
         largest_change = max(
@@ -340,22 +363,23 @@ def test_restarted_pvd_file_labels_every_step_with_its_time(restart_runs):
     """The pvd file continued by a restarted run must label each exported step with
     the time it was exported at, before and after the restart.
 
-    A failure means that the steps exported after the restart are paired with times
-    from the start of the history, so that a later restart from this file, or a look at
-    it in ParaView, finds the wrong state at a given time.
-
     """
     folder = restart_runs["restarted_folder"]
     times = json.loads((folder / "times.json").read_text())["time"]
-    labelled: dict[int, set[float]] = {}
-    for line in (folder / "data.pvd").read_text().splitlines():
-        if "<DataSet" in line:
-            time = float(line.split('timestep="')[1].split('"')[0])
-            step = int(line.split('file="')[1].split('"')[0].split("_")[-1][:-4])
-            labelled.setdefault(step, set()).add(time)
+    labelled: dict[int, list[float]] = {}
+    # Collect, for each exported step (the suffix of the vtu file names), the times it
+    # is labelled with in the pvd file. All files of a step should carry one time.
+    for dataset in ET.parse(folder / "data.pvd").iter("DataSet"):
+        step = int(Path(dataset.attrib["file"]).stem.split("_")[-1])
+        # There are multiple files corresponding to the same step (data_0_*, data_1_*,
+        # data_mortar_0_*, etc.). All these data should contain the same simulation
+        # time.
+        labelled.setdefault(step, list()).append(float(dataset.attrib["timestep"]))
+    # Every step of the history, before and after the restart, is in the pvd file,
+    # labelled with the time the history records for it.
     assert sorted(labelled) == list(range(len(times)))
     for step, labels in labelled.items():
-        assert all(label == pytest.approx(times[step]) for label in labels)
+        assert all(label == times[step] for label in labels)
 
 
 def test_restart_without_reference_state_warns(restart_runs, tmp_path):
@@ -381,6 +405,49 @@ def test_restart_without_reference_state_warns(restart_runs, tmp_path):
     )
     with pytest.warns(UserWarning, match="No reference state found"):
         RestartModel(params).prepare_simulation()
+
+
+def test_restart_without_time_indices_keeps_time_index(restart_runs, tmp_path, caplog):
+    """Restarting is backward-compatible in a sense that "times.json" may not contain
+    field "time_index". In this case, a warning should be printed, and the time
+    manager's time index should remain unchanged.
+
+    """
+    # Copy the restart folder and delete "time_index" from "times.json", to mimic the
+    # older version of "times.json".
+    folder = tmp_path / "first_part"
+    shutil.copytree(restart_runs["first_part_folder"], folder)
+    times_file = folder / "times.json"
+    history = json.loads(times_file.read_text())
+    assert "time_index" in history
+    del history["time_index"]
+    times_file.write_text(json.dumps(history))
+
+    # Set up and prepare the model.
+    params = restart_model_params(
+        tmp_path / "restarted",
+        RESTART_END_TIME,
+        {
+            "restart": True,
+            "pvd_file": folder / "data.pvd",
+            "times_file": times_file,
+        },
+    )
+    model = RestartModel(params)
+
+    # Check that the warning is logged.
+    with caplog.at_level("WARNING"):
+        model.prepare_simulation()
+
+    assert "does not contain exported_time_indices" in caplog.text
+    time_manager = model.time_manager
+    assert time_manager.time == pytest.approx(RESTART_FROM_TIME)
+    # Time index remains as it was.
+    assert time_manager.time_index == 0
+    # The history before the restart state has unknown indices, while the restart state
+    # is exported again with the unchanged time index.
+    assert time_manager.exported_time_indices == [None] * RESTART_FROM_STEP + [0]
+    assert len(time_manager.exported_times) == RESTART_FROM_STEP + 1
 
 
 # Directory containing the stored output of an uninterrupted run of RestartModel, to
