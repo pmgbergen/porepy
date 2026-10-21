@@ -31,6 +31,9 @@ AQAAAACAAAAQAAAADgAAAA==eJxjYIAARigNAAAYAAI=
 <DataArray type="Int64" Name="grid_dim" format="binary">
 AQAAAACAAAAQAAAACwAAAA==eJxjYEAFAAAQAAE=
 </DataArray>
+<DataArray type="Float64" Name="interface_darcy_flux" format="binary">
+AQAAAACAAAAQAAAAGQAAAA==eJzbpvNwV/FzJ3t1gYV/1ng72gMARowHpA==
+</DataArray>
 <DataArray type="Int64" Name="interface_id" format="binary">
 AQAAAACAAAAQAAAADgAAAA==eJxjYYAAFigNAABwAAk=
 </DataArray>
