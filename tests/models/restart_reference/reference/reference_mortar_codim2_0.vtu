@@ -40,6 +40,9 @@ AQAAAACAAAAIAAAACwAAAA==eJxjZIAAAAAQAAI=
 <DataArray type="Int64" Name="mortar_side" format="binary">
 AQAAAACAAAAIAAAACwAAAA==eJxjZIAAAAAQAAI=
 </DataArray>
+<DataArray type="Float64" Name="well_flux" format="binary">
+AQAAAACAAAAIAAAAEAAAAA==eJxz2jNP5qinuT0AEBgDPQ==
+</DataArray>
 </CellData>
 </Piece>
 </UnstructuredGrid>
