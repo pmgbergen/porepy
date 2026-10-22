@@ -15,7 +15,7 @@ import logging
 from abc import ABC, abstractmethod
 from copy import copy
 from enum import StrEnum
-from typing import Callable, Optional, cast
+from typing import cast
 
 import numpy as np
 
@@ -29,7 +29,6 @@ __all__ = [
     "ConvergenceStatusHistory",
     "ConvergenceInfo",
     "ConvergenceInfoCollection",
-    "ConvergenceMetricType",
     "ConvergenceInfoHistory",
     "ConvergenceCriterion",
     "DivergenceCriterion",
@@ -183,18 +182,11 @@ class ConvergenceStatusHistory(dict[str, list[ConvergenceStatus]]):
         _recursive_append(self, status)
 
 
-ConvergenceInfo = float | dict[str, float]
+ConvergenceInfo = dict[str, float]
 """Expected type for convergence information."""
 
 ConvergenceInfoCollection = dict[str, ConvergenceInfo]
 """Collection of convergence information for a collection of criteria."""
-
-ConvergenceMetricType = Callable[[np.ndarray], float | dict]
-"""Type annotation for a convergence metric function. It takes an array and returns
-either a single float or a dictionary of keys (e.g. equation / variable names) to float
-values.
-
-"""
 
 
 class ConvergenceInfoHistory(dict[str, list[float] | dict[str, list[float]]]):
@@ -344,7 +336,7 @@ class AbsoluteCriterion:
     def __init__(
         self,
         tol: float,
-        metric: ConvergenceMetricType,
+        metric: pp.Metric,
     ) -> None:
         self.tol = tol
         """Tolerance for convergence - criterion in active if set to `np.inf`."""
@@ -374,18 +366,11 @@ class AbsoluteConvergenceCriterion(AbsoluteCriterion, ConvergenceCriterion):
 
         """
         metric_value = self.metric(kwargs["value"])
-        if isinstance(metric_value, dict):
-            status = (
-                ConvergenceStatus.CONVERGED
-                if all(v < self.tol for v in metric_value.values())
-                else ConvergenceStatus.CONTINUE_ITERATING
-            )
-        else:
-            status = (
-                ConvergenceStatus.CONVERGED
-                if metric_value < self.tol
-                else ConvergenceStatus.CONTINUE_ITERATING
-            )
+        status = (
+            ConvergenceStatus.CONVERGED
+            if all(v < self.tol for v in metric_value.values())
+            else ConvergenceStatus.CONTINUE_ITERATING
+        )
         return status, metric_value
 
 
@@ -417,7 +402,7 @@ class RelativeCriterion:
     def __init__(
         self,
         tol: float,
-        metric: ConvergenceMetricType,
+        metric: pp.Metric,
         reference_value: ConvergenceInfo | None = None,
     ) -> None:
         self.tol = tol
@@ -434,24 +419,20 @@ class RelativeCriterion:
     def set_reference_value(self, reference_value: ConvergenceInfo) -> None:
         """Set the reference value for relative convergence.
 
-        The reference value is only set for entries of self.reference_value that are not
-        already set and are non-zero in the provided reference value.
+        The reference value is only set for entries of ``self.reference_value`` that are
+        not already set and are non-zero in the provided reference value.
 
         Parameters:
             reference_value: Reference value to set.
 
         """
-        if isinstance(reference_value, dict):
-            self.reference_value = self.reference_value or {}
-            assert isinstance(self.reference_value, dict)
-            non_zero_reference_value = {}
-            for key, val in reference_value.items():
-                if self.reference_value.get(key) is None and not np.isclose(val, 0.0):
-                    non_zero_reference_value[key] = val
-            self.reference_value.update(non_zero_reference_value)
-        else:  # float
-            if self.reference_value is None and not np.isclose(reference_value, 0.0):
-                self.reference_value = reference_value
+        self.reference_value = self.reference_value or {}
+        assert isinstance(self.reference_value, dict)
+        non_zero_reference_value = {}
+        for key, val in reference_value.items():
+            if self.reference_value.get(key) is None and not np.isclose(val, 0.0):
+                non_zero_reference_value[key] = val
+        self.reference_value.update(non_zero_reference_value)
 
     def __repr__(self) -> str:
         s = f"{self.__class__.__name__}(tol={self.tol}, "
@@ -469,9 +450,9 @@ class RelativeConvergenceCriterion(RelativeCriterion, ConvergenceCriterion):
     def check(self, *args, **kwargs) -> tuple[ConvergenceStatus, ConvergenceInfo]:
         """Check convergence.
 
-        If self.reference_value is a dictionary, the criterion is checked for each entry
-        in this dictionary separately, and the convergence is declared only if all
-        entries satisfy the criterion.
+        The criterion is checked for each entry of ``self.reference_value``
+        separately, and the convergence is declared only if all entries satisfy the
+        criterion.
 
         Parameters:
             args: Positional arguments for the convergence check.
@@ -484,37 +465,32 @@ class RelativeConvergenceCriterion(RelativeCriterion, ConvergenceCriterion):
         """
         # Check if tol is np.inf - do not check convergence in this case.
         if self.tol == np.inf:
-            return ConvergenceStatus.CONVERGED, 0.0
+            return ConvergenceStatus.CONVERGED, {}
 
+        # Always recompute the reference: set_reference_value only sets entries that
+        # are not yet set, and skips those that are zero in the reference. Such an
+        # entry must be allowed to be set later, once it becomes non-zero.
         reference_value = self.metric(kwargs["reference"])
         if reference_value is not None:
             self.set_reference_value(reference_value)
 
         metric_value = self.metric(kwargs["value"])
-        if isinstance(metric_value, dict):
-            assert isinstance(self.reference_value, dict)
-            status = (
-                ConvergenceStatus.CONVERGED
-                if all(
-                    val < self.tol * (self.reference_value[key])
-                    for key, val in metric_value.items()
-                    if key in self.reference_value
-                )
-                else ConvergenceStatus.CONTINUE_ITERATING
-            )
-            relative_metric_value: ConvergenceInfo = {
-                key: val / self.reference_value[key]
+        assert isinstance(self.reference_value, dict)
+        status = (
+            ConvergenceStatus.CONVERGED
+            if all(
+                val < self.tol * (self.reference_value[key])
                 for key, val in metric_value.items()
                 if key in self.reference_value
-            }
-        else:
-            assert isinstance(self.reference_value, float)
-            status = (
-                ConvergenceStatus.CONVERGED
-                if metric_value < self.tol * self.reference_value
-                else ConvergenceStatus.CONTINUE_ITERATING
             )
-            relative_metric_value = metric_value / self.reference_value
+            else ConvergenceStatus.CONTINUE_ITERATING
+        )
+        relative_metric_value: ConvergenceInfo = {
+            key: val / self.reference_value[key]
+            for key, val in metric_value.items()
+            if key in self.reference_value
+        }
+
         return status, relative_metric_value
 
 
@@ -558,7 +534,7 @@ class CombinedCriterion:
         self,
         atol: float,
         rtol: float,
-        metric: ConvergenceMetricType,
+        metric: pp.Metric,
         reference_value: ConvergenceInfo | None = None,
     ) -> None:
         self.atol = atol
@@ -592,9 +568,9 @@ class CombinedConvergenceCriterion(CombinedCriterion, ConvergenceCriterion):
     def check(self, *args, **kwargs) -> tuple[ConvergenceStatus, ConvergenceInfo]:
         """Check convergence.
 
-        If self.reference_value is a dictionary, the criterion is checked for each entry
-        in this dictionary separately, and the convergence is declared only if all
-        entries satisfy the criterion.
+        The criterion is checked for each entry of ``self.reference_value``
+        separately, and the convergence is declared only if all entries satisfy the
+        criterion.
 
         Parameters:
             args: Positional arguments for the convergence check.
@@ -611,24 +587,17 @@ class CombinedConvergenceCriterion(CombinedCriterion, ConvergenceCriterion):
             self.set_reference_value(reference_value)
 
         metric_value = self.metric(kwargs["value"])
-        if isinstance(metric_value, dict):
-            assert isinstance(self.reference_value, dict)
-            status = (
-                ConvergenceStatus.CONVERGED
-                if all(
-                    v < self.atol + self.rtol * self.reference_value[key]
-                    for key, v in metric_value.items()
-                    if key in self.reference_value
-                )
-                else ConvergenceStatus.CONTINUE_ITERATING
+        assert isinstance(self.reference_value, dict)
+        status = (
+            ConvergenceStatus.CONVERGED
+            if all(
+                v < self.atol + self.rtol * self.reference_value[key]
+                for key, v in metric_value.items()
+                if key in self.reference_value
             )
-        else:
-            assert isinstance(self.reference_value, float)
-            status = (
-                ConvergenceStatus.CONVERGED
-                if metric_value < self.atol + self.rtol * self.reference_value
-                else ConvergenceStatus.CONTINUE_ITERATING
-            )
+            else ConvergenceStatus.CONTINUE_ITERATING
+        )
+
         return status, metric_value
 
 
@@ -1004,7 +973,7 @@ def assemble_default_divergence_criteria(
     max_iterations: int,
     inc_div_atol: float,
     res_div_atol: float,
-    metric: ConvergenceMetricType,
+    metric: pp.Metric,
 ) -> DivergenceCriteria:
     """A convenience factory for the default divergence criteria. Returns different
     criteria based on whether the problem is nonlinear.
@@ -1041,7 +1010,7 @@ def assemble_default_convergence_criteria(
     inc_rtol: float,
     res_atol: float,
     res_rtol: float,
-    metric: ConvergenceMetricType,
+    metric: pp.Metric,
 ) -> ConvergenceCriteria:
     """A convenience factory for the default convergence criteria. Returns different
     criteria based on whether the problem is nonlinear.

@@ -155,6 +155,8 @@ from porepy.models.model_runner import (
     ModelRunnerStatusFailure,
     ModelRunnerStatusSuccess,
     ModelRunner,
+    EarlyStopCriterion,
+    EarlyStopNotRequested,
     run_time_dependent_model,
     run_stationary_model,
 )
@@ -264,8 +266,8 @@ from porepy import applications
 
 # Metrics for assessing convergence
 from porepy.models.metric import (
+    Metric,
     EuclideanMetric,
-    LebesgueMetric,
     VariableBasedEuclideanMetric,
     EquationBasedEuclideanMetric,
     VariableBasedLebesgueMetric,

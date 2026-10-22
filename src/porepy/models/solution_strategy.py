@@ -598,7 +598,12 @@ class SolutionStrategy(pp.PorePyModel):
 
         """
         discr_type = type(discretization._discr)
-        admissible_types = [pp.Upwind, pp.UpwindCoupling]
+        admissible_types = [
+            pp.Upwind,
+            pp.UpwindCoupling,
+            pp.HUpwind,
+            pp.HUpwindCoupling,
+        ]
         if discr_type not in admissible_types:
             raise TypeError(
                 f"Expecting discretizations of type {admissible_types}."

@@ -741,35 +741,27 @@ class MassWeightedPermeability(ConstantPermeability):
 
     @pp.ad.cached_method
     def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-        """Normal permeability of the lower-dimensional subdomain, projected to the
-        mortar.
+        """Normal permeability on the interfaces.
 
-        Branches on the formulation like :meth:`permeability`: mobility-weighted in
-        the fractional-flow formulation, rock-only otherwise. In the standard
-        formulation the mobility is applied as an upwinded advective weight, so
-        keeping it here would count it twice on matrix-fracture interfaces.
+        Branches on the formulation like :meth:`permeability`. In the fractional-flow
+        formulation it is the mass-mobility-weighted permeability of the
+        lower-dimensional subdomain, projected to the mortar. Otherwise the mobility
+        enters as an upwinded advective weight, and the normal permeability is
+        obtained via super-call, so the mobility is not counted twice.
 
         Parameters:
             interfaces: A list of mortar grids.
 
         Returns:
-            The projected lower-dimensional permeability.
+            The normal permeability on the interfaces.
 
         """
+        if not pp.compositional_flow.is_fractional_flow(self):
+            return super().normal_permeability(interfaces)
 
         subdomains = self.interfaces_to_subdomains(interfaces)
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-
-        if pp.compositional_flow.is_fractional_flow(self):
-            permeability = self.mass_mobility_weighted_permeability(subdomains)
-        else:
-            permeability = pp.wrap_as_dense_ad_array(
-                self.solid.permeability,
-                size=sum(sd.num_cells for sd in subdomains),
-                name="absolute_permeability",
-                grids=subdomains,
-            )
-
+        permeability = self.mass_mobility_weighted_permeability(subdomains)
         normal_permeability = projection.secondary_to_mortar_avg() @ permeability
         normal_permeability.set_name("normal_permeability")
         return normal_permeability
@@ -3080,6 +3072,12 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
     :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
 
     """
+    reference_stress_key: str
+    """Key used to store the reference stress in the subdomain data dictionaries.
+    Normally set by a mixin instance of
+    :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
+
+    """
     displacement: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
     """Displacement variable. Normally defined in a mixin instance of
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
@@ -3175,16 +3173,63 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
         # stress on the external boundaries, and the stress on the interfaces. The
         # latter is found by projecting the displacement on the interfaces to the
         # subdomains, and let these act as Dirichlet boundary conditions on the
-        # subdomains.
+        # subdomains. It is measured relative to the reference state, hence
+        # perturbation_from_reference. This includes the boundary values, so that the
+        # mechanical stress vanishes in the reference state.
         stress = (
             discr.stress() @ self.displacement(domains)
             + discr.bound_stress() @ boundary_operator
             + discr.bound_stress()
             @ proj.mortar_to_primary_avg()
             @ self.interface_displacement(interfaces)
-        )
+        ).perturbation_from_reference()
         stress.set_name("mechanical_stress")
         return stress
+
+    def reference_stress(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        r"""Stress in the reference state [Pa * m^(nd-1)].
+
+        The total stress in the THM model is given by
+        σ = σ₀ + ℂ : ε(u − u₀) − α (p − p₀) I − β (T − T₀) I,
+
+        where the subscript zero denotes the reference state. The reference stress σ₀ is
+        the model developer's choice, corresponding to the in-situ stress data. By
+        default, PorePy assumes that it is zero.
+
+        To assign a reference stress, e.g. one found by an initialization procedure,
+        store it in the subdomain data dictionaries:
+
+        .. code:: python
+
+            pp.set_solution_values(
+                name=model.reference_stress_key,
+                values=values,
+                data=model.mdg.subdomain_data(sd),
+                reference=True,
+            )
+
+        Parameters:
+            domains: List of subdomains. If boundary grids are passed, returns zero.
+
+        Returns:
+            Operator representing the reference stress on the faces of the
+            subdomains.
+
+        """
+        if len(domains) == 0 or isinstance(domains[0], pp.BoundaryGrid):
+            # Reference stress is zero on boundaries, since the stress boundary
+            # condition is given in absolute values, not in differences from the
+            # reference value.
+            return pp.ad.Scalar(0)
+
+        # The reference stress is fixed throughout a simulation, hence the operator is
+        # explicitly evaluated in the reference state.
+        return pp.ad.TimeDependentDenseArray(
+            self.reference_stress_key,
+            domains,
+            dof_info={pp.ad.GridEntity.faces: self.nd},
+            domain_type=pp.ad.DomainType.subdomains,
+        ).reference()
 
     def combine_boundary_operators_mechanical_stress(
         self, subdomains: list[pp.Grid]
@@ -3378,6 +3423,8 @@ class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
         # Boundary conditions on external boundaries.
         boundary_operator = self.combine_boundary_operators_mechanical_stress(domains)
         proj = pp.ad.MortarProjections(self.mdg, domains, interfaces, dim=self.nd)
+        # The mechanical stress is measured relative to the reference state, hence
+        # perturbation_from_reference.
         stress = (
             discr.stress_displacement() @ self.displacement(domains)
             + discr.bound_stress() @ boundary_operator
@@ -3386,7 +3433,7 @@ class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
             @ self.interface_displacement(interfaces)
             + discr.stress_rotation() @ self.rotation_stress(domains)
             + discr.stress_total_pressure() @ self.total_pressure(domains)
-        )
+        ).perturbation_from_reference()
         stress.set_name("mechanical_stress")
         return stress
 
@@ -3610,6 +3657,11 @@ class ConstitutiveLawsTpsaPoromechanics(pp.PorePyModel):
 
     mechanical_stress: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Operator for the mechanical stress."""
+    reference_stress: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Operator for the reference stress. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.LinearElasticMechanicalStress`.
+
+    """
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """The fluid pressure variable."""
     total_pressure: Callable[
@@ -3627,6 +3679,10 @@ class ConstitutiveLawsTpsaPoromechanics(pp.PorePyModel):
         In the four-field formulation, the fluid pressure is not directly included in
         the stress definition, but is instead included in the total pressure.
 
+        The stress is the sum of the reference stress, see
+        :meth:`~.LinearElasticMechanicalStress.reference_stress`,
+        and the mechanical stress, which is measured relative to the reference state.
+
         Parameters:
             subdomains: List of subdomains where the stress is defined.
 
@@ -3635,7 +3691,7 @@ class ConstitutiveLawsTpsaPoromechanics(pp.PorePyModel):
 
         """
         # Method from constitutive library's LinearElasticRock.
-        return self.mechanical_stress(subdomains)
+        return self.reference_stress(subdomains) + self.mechanical_stress(subdomains)
 
     def porosity_change_from_displacement(
         self, subdomains: list[pp.Grid]
@@ -3658,10 +3714,15 @@ class ConstitutiveLawsTpsaPoromechanics(pp.PorePyModel):
         alpha = self.biot_coefficient(subdomains)
         lmbda = self.second_lame_parameter(subdomains)
 
+        # Porosity contribution is measured relative to the reference configuration.
+        # This ensures that the porosity equals the reference porosity when the primary
+        # variables are in the reference state.
         coeff = (
             alpha
             / lmbda
-            * (self.total_pressure(subdomains) + alpha * self.pressure(subdomains))
+            * (
+                self.total_pressure(subdomains) + alpha * self.pressure(subdomains)
+            ).perturbation_from_reference()
         )
 
         coeff.set_name("displacement_divergence Tpsa formulation")
@@ -4141,7 +4202,19 @@ class ShearDilation(pp.PorePyModel):
     """
 
     def shear_dilation_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Shear dilation [m].
+        r"""Shear dilation [m].
+
+        Shear dilation accumulates when the fracture sides move relative to each other
+        due to roughness in their surfaces. Only plastic deformations contribute to it.
+        By convention, at the reference simulation state, shear dilation is zero.
+
+        .. math::
+
+            g_{shear} = \tan(\theta) \| [u - u_0]^p_t \|,
+
+        where the subscript zero denotes the reference state, subscript t denotes the
+        tangential part of the vector (in the fracture plane), superscript p denotes
+        the plastic part of the displacement jump, and θ is the dilation angle.
 
         Parameters:
             subdomains: List of fracture subdomains.
@@ -4161,7 +4234,7 @@ class ShearDilation(pp.PorePyModel):
         f_tan = Function(pp.ad.functions.tan, "tan_function", domain_and_range)
         shear_dilation: pp.ad.Operator = f_tan(angle) * f_norm(
             self.tangential_component(subdomains)
-            @ self.plastic_displacement_jump(subdomains)
+            @ self.plastic_displacement_jump(subdomains).perturbation_from_reference()
         )
 
         shear_dilation.set_name("shear_dilation")
@@ -5165,7 +5238,9 @@ class PoroMechanicsPorosity(pp.PorePyModel):
         # (in the form of a double dot product) is already included in the
         # discretization of the displacement divergence. Therefore, no additional
         # scaling is needed here.
-        div_u_contribution = self.displacement_divergence(subdomains)
+        div_u_contribution = self.displacement_divergence(
+            subdomains
+        ).perturbation_from_reference()
         div_u_contribution.set_name("Porosity change from displacement")
         return div_u_contribution
 

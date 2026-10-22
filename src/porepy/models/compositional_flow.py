@@ -212,7 +212,7 @@ def log_cf_model_configuration(model: pp.PorePyModel) -> None:
     p_elim = model._is_reference_phase_eliminated()
     c_elim = model._is_reference_component_eliminated()
     is_ff = is_fractional_flow(model)
-    et = compositional.get_equilibrium_specifications(model)
+    et = compositional.get_local_equilibrium_condition(model)
     var_names = set([v.name for v in model.equation_system.variables])
     dofs = model.equation_system.num_dofs()
     dofs_loc = dofs / len(var_names)
@@ -321,43 +321,54 @@ class MassicPressureEquations(pp.fluid_mass_balance.FluidMassBalanceEquations):
     """See :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`."""
 
     def fluid_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        """The fluid flux is given solely by the :attr:`darcy_flux`, assuming the total
-        mobility is part of the (non-linear) diffuse tensor.
+        """In the fractional-flow formulation the total mobility sits in the diffuse
+        tensor, so the fluid flux is the :attr:`darcy_flux` itself. Otherwise the
+        mobility-weighted flux of the parent class is required.
 
         Parameters:
             domains: List of subdomains or boundary grids.
 
         Returns:
-            Whatever :attr:`darcy_flux` returns.
+            The massic fluid flux matching the active formulation.
 
         """
-        return self.darcy_flux(domains)
+        if is_fractional_flow(self):
+            return self.darcy_flux(domains)
+        else:
+            return super().fluid_flux(domains)
 
     def interface_fluid_flux(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-        """The interface fluid flux is given solely by the :attr:`interface_darcy_flux`,
-        assuming it is a massic flux.
+        """Interface counterpart of :meth:`fluid_flux`: the
+        :attr:`interface_darcy_flux` in the fractional-flow formulation, the
+        mobility-weighted parent flux otherwise.
 
         Parameters:
             interfaces: List of mortar grids.
 
         Returns:
-            Whatever :attr:`interface_darcy_flux` returns.
+            The massic interface fluid flux matching the active formulation.
 
         """
-        return self.interface_darcy_flux(interfaces)
+        if is_fractional_flow(self):
+            return self.interface_darcy_flux(interfaces)
+        else:
+            return super().interface_fluid_flux(interfaces)
 
     def well_fluid_flux(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-        """The well fluid flux is given solely by the :attr:`well_flux`,
-        assuming it is a massic flux.
+        """Well counterpart of :meth:`fluid_flux`: the :attr:`well_flux` in the
+        fractional-flow formulation, the mobility-weighted parent flux otherwise.
 
         Parameters:
             interfaces: List of mortar grids.
 
         Returns:
-            Whatever :attr:`well_flux` returns.
+            The massic well fluid flux matching the active formulation.
 
         """
-        return self.well_flux(interfaces)
+        if is_fractional_flow(self):
+            return self.well_flux(interfaces)
+        else:
+            return super().well_fluid_flux(interfaces)
 
 
 class EnthalpyBasedEnergyBalanceEquations(
@@ -439,7 +450,7 @@ class EnthalpyBasedEnergyBalanceEquations(
 
         """
 
-        op: pp.ad.Operator | pp.ad.TimeDependentDenseArray
+        op: pp.ad.Operator
 
         if len(domains) == 0:
             op = pp.wrap_as_dense_ad_array(
@@ -448,11 +459,8 @@ class EnthalpyBasedEnergyBalanceEquations(
         elif is_fractional_flow(self) and all(
             [isinstance(g, pp.BoundaryGrid) for g in domains]
         ):
-            # Keep the storage-key name. The values are seeded under the key
-            # ``bc_data_fractional_flow_energy_key`` by
-            # update_boundary_values_fractional_flow, and TimeDependentDenseArray.parse
-            # looks them up by the operator name; renaming it to "advected_enthalpy"
-            # below would desync the lookup from the stored data.
+            # The name of a boundary operator is the key of its stored values, hence it
+            # is not renamed.
             return self.create_boundary_operator(
                 self.bc_data_fractional_flow_energy_key,
                 cast(Sequence[pp.BoundaryGrid], domains),
@@ -467,13 +475,13 @@ class EnthalpyBasedEnergyBalanceEquations(
                     for phase in self.fluid.phases
                 ],
             )
+            op.set_name("advected_enthalpy")
         else:
             # If the fractional-flow framework is not used, the weight corresponds to
             # the advected enthalpy and a super call is performed (where the respective
             # term is implemented).
             op = super().advection_weight_energy_balance(domains)
 
-        op.set_name("advected_enthalpy")
         return op
 
     def enthalpy_flux(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
@@ -1600,7 +1608,7 @@ class InitialConditionsPhaseProperties(pp.InitialConditionMixin):
 
         """
         equilibrium_defined = (
-            compositional.has_equilibrium_specified(self)
+            compositional.get_local_equilibrium_condition(self) is not None
         )
 
         # Set the initial values on individual grids for the iterate indices.
@@ -1685,7 +1693,7 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
 
         subdomains = self.mdg.subdomains()
         equilibrium_defined = (
-            compositional.has_equilibrium_specified(self)
+            compositional.get_local_equilibrium_condition(self) is not None
         )
 
         for grid in subdomains:
@@ -1755,7 +1763,7 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
         ni = self.iterate_indices.size
         nt = self.time_step_indices.size
         equilibrium_defined = (
-            compositional.has_equilibrium_specified(self)
+            compositional.get_local_equilibrium_condition(self) is not None
         )
 
         for sd in self.mdg.subdomains():

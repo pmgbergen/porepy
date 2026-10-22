@@ -55,12 +55,12 @@ def test_euclidean_metric_basic():
     """Simple unit test of EuclideanMetric - independent of models."""
     m = pp.EuclideanMetric()
     arr = np.array([3.0, 4.0])
-    assert np.isclose(m(arr), 5.0 / np.sqrt(2))
-    assert m(np.array([])) == 0.0
-    assert m(np.array([1.0])) == 1.0
+    assert np.isclose(m(arr)["norm"], 5.0 / np.sqrt(2))
+    assert m(np.array([]))["norm"] == 0.0
+    assert m(np.array([1.0]))["norm"] == 1.0
     for i in range(1, 10):
         arr = np.ones(i)
-        assert np.isclose(m(arr), 1.0)
+        assert np.isclose(m(arr)["norm"], 1.0)
 
 
 @pytest.mark.parametrize(
@@ -75,7 +75,7 @@ def test_euclidean_metric_on_grids(orthogonal_2d_model, assignment, expected_val
     m = pp.EuclideanMetric()
     for g in orthogonal_2d_model.mdg.subdomains():
         arr = assignment(g.num_cells)
-        assert np.isclose(m(arr), expected_value(g.num_cells))
+        assert np.isclose(m(arr)["norm"], expected_value(g.num_cells))
 
 
 @pytest.mark.parametrize(

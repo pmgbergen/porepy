@@ -99,6 +99,26 @@ def test_hupwind_fixed_sparsity_under_sign_flip():
     np.testing.assert_array_equal(a.indices, b.indices)
 
 
+def test_single_point_upwind_cache_tracks_boundary_types():
+    """A cached structure is discarded when the boundary types change.
+
+    Let the cache be built with Neumann conditions on all boundary faces. With the same
+    flux and Dirichlet conditions, the result must equal an uncached build.
+    """
+    sd = _grid()
+    faces = sd.get_boundary_faces()
+    bc_neu = pp.BoundaryCondition(sd, faces, "neu")
+    bc_dir = pp.BoundaryCondition(sd, faces, "dir")
+    flux = np.linspace(-1.0, 1.0, sd.num_faces)
+
+    cache: dict = {}
+    _single_point_upwind_matrices(sd, flux, bc_neu, 1, cache=cache)
+    cached = _single_point_upwind_matrices(sd, flux, bc_dir, 1, cache=cache)
+    fresh = _single_point_upwind_matrices(sd, flux, bc_dir, 1)
+    for a, b in zip(cached, fresh):
+        assert abs(a - b).max() == 0.0
+
+
 def test_single_point_upwind_matrices_zero_dim():
     """The helper returns empty matrices on a 0d grid."""
     sd = pp.PointGrid(np.zeros(3))
@@ -165,6 +185,32 @@ def test_hupwind_coupling_builds_both_directions():
     np.testing.assert_allclose(g + d, np.ones(intf.num_cells))
 
 
+def test_coupling_geometry_cache_tracks_primary_grid():
+    """The coupling geometry is rebuilt when the primary cell-face map is replaced.
+
+    Let the cache be built for a primary grid. After a new ``cell_faces`` object is
+    assigned, the cached trace must not be reused.
+    """
+    from porepy.numerics.fv.upwind import _coupling_geometry_cache
+
+    mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+        "cartesian",
+        {"cell_size": 0.5},
+        fracture_indices=[1],
+    )
+    intf = mdg.interfaces(codim=1)[0]
+    sd_primary, _ = mdg.interface_to_subdomain_pair(intf)
+    data_intf: dict = {}
+
+    first = _coupling_geometry_cache(data_intf, "cache", "kw", sd_primary, intf)
+    assert _coupling_geometry_cache(data_intf, "cache", "kw", sd_primary, intf) is first
+
+    sd_primary.cell_faces = sd_primary.cell_faces.copy()
+    second = _coupling_geometry_cache(data_intf, "cache", "kw", sd_primary, intf)
+    assert second is not first
+    assert second["trace"] is not first["trace"]
+
+
 def test_hupwind_ad_wrappers_expose_directions():
     """The AD wrappers expose per-direction matrices as callable MergedOperators."""
     sd = _grid()
@@ -177,3 +223,28 @@ def test_hupwind_ad_wrappers_expose_directions():
     ):
         assert callable(getattr(discr, attr))
         assert isinstance(getattr(discr, attr)(), pp.ad.MergedOperator)
+
+
+def test_hupwind_coupling_ad_wrapper_methods():
+    """The coupling wrapper exposes the annotated methods, and both wrappers have a
+    representation."""
+    mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+        "cartesian",
+        {"cell_size": 0.5},
+        fracture_indices=[1],
+    )
+    discr = pp.ad.HUpwindCouplingAd("hybrid_upwind", mdg.interfaces(codim=1))
+    for attr in (
+        "upwind_primary_gamma",
+        "upwind_secondary_gamma",
+        "upwind_primary_delta",
+        "upwind_secondary_delta",
+        "flux_gamma",
+        "flux_delta",
+        "trace_primary",
+        "inv_trace_primary",
+        "mortar_discr",
+    ):
+        assert isinstance(getattr(discr, attr)(), pp.ad.MergedOperator)
+    assert "1 interfaces" in repr(discr)
+    assert "1 subdomains" in repr(pp.ad.HUpwindAd("hybrid_upwind", [_grid()]))

@@ -16,21 +16,55 @@ def _fixed_diag(vec: np.ndarray) -> sps.csr_matrix:
 
     Unlike ``sps.diags``, the sparsity pattern does not change when the flow
     direction flips, so downstream structure caches stay valid.
-
-    The diagonal CSR structure (``indices = arange(n)``, ``indptr = arange(n+1)``) is
-    known-valid, so the matrix is assembled directly and scipy's per-construction
-    validation (``get_index_dtype`` / ``check_format`` / ``prune``) is skipped. This
-    is a hot inner-loop constructor in the upwind discretization (called
-    ~n_grids x n_equations times per re-discretization).
     """
     n = int(vec.size)
-    m = sps.csr_matrix((n, n))
-    m.data = np.ascontiguousarray(vec, dtype=float)
-    m.indices = np.arange(n, dtype=np.int32)
-    m.indptr = np.arange(n + 1, dtype=np.int32)
-    m._has_sorted_indices = True
-    m._has_canonical_format = True
-    return m
+    return sps.csr_matrix(
+        (
+            np.array(vec, dtype=float),
+            np.arange(n, dtype=np.int32),
+            np.arange(n + 1, dtype=np.int32),
+        ),
+        shape=(n, n),
+    )
+
+
+def _coupling_geometry_cache(
+    data_intf: dict,
+    name: str,
+    keyword: str,
+    sd_primary: pp.Grid,
+    intf: pp.MortarGrid,
+) -> dict:
+    """Per-interface cache of the geometric coupling matrices.
+
+    The cache is valid for the ``cell_faces`` object of the primary grid and the
+    number of mortar cells it was built with. If either differs, all entries,
+    including cached diagonals, are discarded and the geometry is rebuilt.
+
+    Returns:
+        The cache, holding ``inv_trace``, ``trace`` and ``mortar_discr``.
+
+    """
+    caches = data_intf.setdefault(name, {})
+    cache = caches.get(keyword)
+    if (
+        cache is None
+        or cache["cell_faces"] is not sd_primary.cell_faces
+        or cache["num_mortar_cells"] != intf.num_cells
+    ):
+        # Mapping from primary cells to faces. The mortars point from primary to
+        # secondary, so no signs are flipped; faces not adjacent to the mortar are
+        # removed by the mortar projections.
+        inv_trace = np.abs(sd_primary.divergence(dim=1))
+        cache = {
+            "cell_faces": sd_primary.cell_faces,
+            "num_mortar_cells": intf.num_cells,
+            "inv_trace": inv_trace,
+            "trace": inv_trace.T,
+            "mortar_discr": sps.eye(intf.num_cells),
+        }
+        caches[keyword] = cache
+    return cache
 
 
 class Upwind(Discretization):
@@ -306,14 +340,10 @@ class Upwind(Discretization):
             # consistent handling of sinking phases.
             bc = pp.BoundaryCondition(sd, sd.get_boundary_faces(), "dir")
 
-        # Single-point upstream weighting via the shared, structure-caching helper (the
-        # same extraction used by HUpwind). The upwind sparsity pattern is
-        # flow-independent (the helper keeps both neighbour entries per face -- weight 1
-        # upstream, explicit 0 downstream -- so the product is unchanged), which lets
-        # re-discretization on a fixed mesh rewrite only the matrix data instead of
-        # rebuilding CSRs. This is the dominant cost when the upwind runs per subdomain
-        # on every nonlinear iteration. Bit-identical values to the explicit build; the
-        # pattern carries extra structural zeros.
+        # Single-point upstream weighting, shared with HUpwind. Each face keeps entries
+        # for both neighbour cells (weight 1 upstream, explicit 0 downstream), so the
+        # sparsity pattern is independent of the flow direction and the cached
+        # structure is reused on re-discretization.
         cache = data.setdefault("_upwind_fast_cache", {}).setdefault(self.keyword, {})
         upwind, bound_dir, bound_neu = _single_point_upwind_matrices(
             sd,
@@ -550,23 +580,12 @@ class UpwindCoupling(InterfaceDiscretization):
             data_intf[pp.PARAMETERS][self.keyword][self._flux_array_key]
         )
 
-        # Re-discretization on a fixed mesh only changes the upwind DATA (flow signs).
-        # The trace/inv-trace projections and mortar identity are pure geometry, and the
-        # diagonal sparsity is invariant (_fixed_diag). Cache the geometry per
-        # interface+keyword and rewrite the cached diagonals' .data in place on later
-        # calls, instead of allocating fresh CSRs -- the dominant re-discretization cost
-        # on many-interface problems. Bit-identical to the explicit build.
-        cache = data_intf.setdefault("_upwind_coupling_fast_cache", {}).setdefault(
-            self.keyword, {}
+        # The trace projections and the mortar identity depend only on the geometry;
+        # the upwind diagonals have a flow-independent pattern (_fixed_diag). Both are
+        # cached, and only the diagonal data is rewritten on later calls.
+        cache = _coupling_geometry_cache(
+            data_intf, "_upwind_coupling_fast_cache", self.keyword, sd_primary, intf
         )
-        if "inv_trace" not in cache:
-            # Mapping from upper dim cells to faces. The mortars always point from upper
-            # to lower, so no sign flips; faces not adjacent to the mortar grid are
-            # killed later by mortar projections.
-            inv_trace_h = np.abs(sd_primary.divergence(dim=1))
-            cache["inv_trace"] = inv_trace_h
-            cache["trace"] = inv_trace_h.T  # trace-like projection from cells to faces
-            cache["mortar_discr"] = sps.eye(intf.num_cells)
         matrix_dictionary[self.inv_trace_primary_matrix_key] = cache["inv_trace"]
         matrix_dictionary[self.trace_primary_matrix_key] = cache["trace"]
         matrix_dictionary[self.mortar_discr_matrix_key] = cache["mortar_discr"]
@@ -777,9 +796,10 @@ def _single_point_upwind_matrices(
     :class:`HUpwind`. Returns ``(upwind, bound_transport_dir, bound_transport_neu)``.
 
     The sparsity pattern is flow-independent, so with a caller-owned ``cache`` dict
-    re-discretization only rewrites the matrix data. The structure is rebuilt when a
-    Dirichlet face flips inflow/outflow. The fast path applies to
-    ``num_components == 1`` only and is bit-identical to the full build.
+    re-discretization only rewrites the matrix data. The cached structure is valid
+    for fixed boundary types (``bc.is_neu``, ``bc.is_dir``) and a fixed set of
+    Dirichlet inflow faces; it is rebuilt when either changes. The fast path applies
+    to ``num_components == 1`` only and gives the same values as the full build.
     """
     if sd.dim == 0:
         return (
@@ -792,7 +812,11 @@ def _single_point_upwind_matrices(
     neg_flux = np.logical_not(pos_flux)
 
     # Data-only fast path: cached structure, single component, unchanged drop-mask.
+    # The cache is invalid if the boundary types differ from those it was built with.
+    bc_types = (bc.is_neu.tobytes(), bc.is_dir.tobytes())
     st = cache.get("struct") if (cache is not None and num_components == 1) else None
+    if st is not None and st["bc_types"] != bc_types:
+        st = None
     if st is not None:
         if not st["has_dir"]:
             # No Dirichlet faces, so the drop-mask is fixed.
@@ -819,7 +843,8 @@ def _single_point_upwind_matrices(
             upwind.has_sorted_indices = True
             return upwind, bc_dir, st["bc_neu"]
 
-    # Full build: first call, changed structure, no cache, or num_components != 1.
+    # Full build: first call, changed structure or boundary types, no cache, or
+    # num_components != 1.
     cf_dense = sd.cell_faces_as_dense()
 
     neumann_ind = np.where(bc.is_neu)[0]
@@ -870,6 +895,7 @@ def _single_point_upwind_matrices(
                 "shape": upstream_mat.shape,
                 "data_src": perm.data.astype(np.intp),
                 "keep": keep,
+                "bc_types": bc_types,
                 "has_dir": bool(np.any(bc.is_dir)),
                 "col_ok": col_ok,
                 "row": row,
@@ -968,6 +994,14 @@ class HUpwindCoupling(UpwindCoupling):
     :meth:`discretize`; the geometric trace matrices are built once and shared.
     """
 
+    _DIRECTION_ENTITIES: dict[str, GridEntities] = {
+        f"{term}_{suffix}": GridEntities(cells=1)
+        for term in ("upwind_primary", "upwind_secondary", "flux")
+        for suffix in ("gamma", "delta")
+    }
+    """Row and column entities of the per-direction matrices. Each matches its base
+    counterpart in :class:`UpwindCoupling`."""
+
     def __init__(self, keyword: str) -> None:
         super().__init__(keyword)
         # Geometric / shared matrices keep the base keys.
@@ -989,30 +1023,14 @@ class HUpwindCoupling(UpwindCoupling):
 
     def get_col_entities(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
         """Domain entities: each gamma/delta matrix matches its base counterpart."""
-        extra = {
-            "upwind_primary_gamma": GridEntities(cells=1),
-            "upwind_secondary_gamma": GridEntities(cells=1),
-            "flux_gamma": GridEntities(cells=1),
-            "upwind_primary_delta": GridEntities(cells=1),
-            "upwind_secondary_delta": GridEntities(cells=1),
-            "flux_delta": GridEntities(cells=1),
-        }
-        if matrix_key in extra:
-            return extra[matrix_key]
+        if matrix_key in self._DIRECTION_ENTITIES:
+            return self._DIRECTION_ENTITIES[matrix_key]
         return super().get_col_entities(matrix_key, nd)
 
     def get_row_entities(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
         """Codomain entities: each gamma/delta matrix matches its base counterpart."""
-        extra = {
-            "upwind_primary_gamma": GridEntities(cells=1),
-            "upwind_secondary_gamma": GridEntities(cells=1),
-            "flux_gamma": GridEntities(cells=1),
-            "upwind_primary_delta": GridEntities(cells=1),
-            "upwind_secondary_delta": GridEntities(cells=1),
-            "flux_delta": GridEntities(cells=1),
-        }
-        if matrix_key in extra:
-            return extra[matrix_key]
+        if matrix_key in self._DIRECTION_ENTITIES:
+            return self._DIRECTION_ENTITIES[matrix_key]
         return super().get_row_entities(matrix_key, nd)
 
     def discretize(
@@ -1031,21 +1049,10 @@ class HUpwindCoupling(UpwindCoupling):
         matrix_dictionary = data_intf[pp.DISCRETIZATION_MATRICES][self.keyword]
         parameter_dictionary = data_intf[pp.PARAMETERS][self.keyword]
 
-        # Re-discretization on a fixed mesh only changes the upwind DATA (flow signs);
-        # the geometry (trace/inv_trace/mortar identity) and the diagonal sparsity
-        # pattern are invariant. Cache them per interface+keyword and, on later calls,
-        # rewrite the cached diagonals' .data in place instead of allocating fresh CSRs,
-        # the dominant cost of re-discretizing a many-interface (mixed-dimensional)
-        # problem. Bit-identical to the plain build below (same values, same fixed
-        # _fixed_diag structure).
-        cache = data_intf.setdefault("_hu_coupling_fast_cache", {}).setdefault(
-            self.keyword, {}
+        # Geometry and diagonal patterns are cached, see UpwindCoupling.discretize.
+        cache = _coupling_geometry_cache(
+            data_intf, "_hu_coupling_fast_cache", self.keyword, sd_primary, intf
         )
-        if "inv_trace" not in cache:
-            inv_trace_h = np.abs(sd_primary.divergence(dim=1))
-            cache["inv_trace"] = inv_trace_h
-            cache["trace"] = inv_trace_h.T
-            cache["mortar_discr"] = sps.eye(intf.num_cells)
         matrix_dictionary["inv_trace"] = cache["inv_trace"]
         matrix_dictionary["trace"] = cache["trace"]
         matrix_dictionary["mortar_discr"] = cache["mortar_discr"]

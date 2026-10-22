@@ -13,6 +13,16 @@ The lists are sorted on PR numbers.
 ## Unreleased
 
 ### Changes
+PR 1797: Changed model physics to respect the reference state. Affected: shear dilation,
+    porosity, stress. This change is non-breaking: by default the model should behave
+    exactly like before.
+PR 1795: Introduced EarlyStopCriterion in ModelRunner. Introduced
+    SteadyStateEarlyStopCriterion.
+PR 1794: Introduced typed interface pp.Metric for convergence metric instead of
+    duck-typed pp.ConvergenceMetricType.
+PR 1793: Fix bug related to wrong placement of enthalpy advection Ad operator naming.
+PR 1784: Make forward-mode Ad functions compatible with DiagonalAdArray. Update the function test suite.
+PR 1783: Introduce DiagonalAdArray class, with AdArrayBase as common parent of it and AdArray. Not yet used elsewhere in the code base.
 PR 1782: Rename module containing AdArray class.
 PR 1781: Add documentation for devcontainers to Readme.
 PR 1776: SPEED: Faster geometry computation on 3d simplex grids.
@@ -27,6 +37,10 @@ PR 1748: Refactor time-step control with interval-based scheduling and extensibl
     constraints, including nonlinear-iteration and Courant-number constraints.
 
 ### Breaking changes
+PR 1794: All metrics return a dict. Previously it was float | dict. If the metric
+    returned float before, use key "norm". Abstract class pp.LebesgueMetric is removed
+    with no replacement. pp.ConvergenceMetricType are removed, use pp.Metric interface
+    instead.
 PR 1747: DenseAdArray, SparseAdArray must be initialized with OperatorSpace objects.
 Other Ad Operators are by default treated as mapping from and to the same grid, with one
 degree of freedom per cell. To change this default, explicit OperatorSpaces must be

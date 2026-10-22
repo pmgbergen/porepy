@@ -39,7 +39,7 @@ from porepy.numerics.solvers.convergence_check import (
 # Reused custom metrics for convergence criteria tests.
 def single_physics_metric():
     """Immitate single physics metric like pp.EuclideanMetric."""
-    return lambda x: np.linalg.norm(x)
+    return lambda x: {"norm": np.linalg.norm(x)}
 
 
 def multiphysics_metric():
@@ -376,12 +376,12 @@ def test_absolute_convergence_criterion(
     crit = CriterionClass(tol=tol, metric=metric())
     status, info = crit.check(**{key: np.array(value)})
     assert status == expected_status
-    if isinstance(info, dict):
+    if "norm" in info:
+        # Check to single_physics_metric.
+        assert np.isclose(info["norm"], expected_info)
+    else:
         # Tailor check to multiphysics metric.
         assert multiphysics_check(info, expected_info)
-    else:
-        # Tailor check to single_physics_metric.
-        assert np.isclose(info, expected_info)
 
 
 @pytest.mark.parametrize(
@@ -460,7 +460,7 @@ def test_relative_convergence_criterion_single_physics(
     crit = CriterionClass(tol=tol, metric=single_physics_metric())
     status, info = crit.check(**{key: np.array(value), reference_key: reference_value})
     assert status == expected_status
-    assert np.isclose(info, expected_info)
+    assert np.isclose(info["norm"], expected_info)
 
 
 @pytest.mark.parametrize(
@@ -597,12 +597,12 @@ def test_combined_convergence_criterion(
     )
     status, info = crit.check(**{key: np.array(value), reference_key: reference_value})
     assert status == expected_status
-    if isinstance(info, dict):
+    if "norm" in info:
+        # Check to single_physics_metric.
+        assert np.isclose(info["norm"], expected_info)
+    else:
         # Tailor check to multiphysics metric.
         assert multiphysics_check(info, expected_info)
-    else:
-        # Tailor check to single_physics_metric.
-        assert np.isclose(info, expected_info)
 
 
 @pytest.mark.parametrize(
@@ -698,7 +698,7 @@ def test_convergence_criteria_collection(
         assert status.is_converged()
     else:
         assert status.is_iterating()
-    assert np.isclose(info["crit_single"], value)
+    assert np.isclose(info["crit_single"]["norm"], value)
     assert multiphysics_check(info["crit_multi"], value)
 
 

@@ -38,9 +38,9 @@ class EquationOnDomain:
     domain: pp.GridLike
 
     def __str__(self) -> str:
-        if isinstance(self.domain, pp.Domain):
+        if isinstance(self.domain, pp.Grid):
             return (
-                "Equation {self.name} on subdomain(id={self.domain.id}, "
+                f"Equation {self.name} on subdomain(id={self.domain.id}, "
                 f"dim={self.domain.dim})"
             )
         elif isinstance(self.domain, pp.MortarGrid):

@@ -327,8 +327,8 @@ class BoundaryConditions(pp.PorePyModel):
     """Closed (all-Neumann, no-flow) external boundary.
 
     A closed domain makes total mass and energy exact invariants, which is what the
-    conservation checks rely on. The resulting singular pressure mode is handled by
-    :class:`NullMeanPressureSolve`.
+    conservation checks rely on. The pressure is then determined up to a constant,
+    which :class:`NullMeanPressureSolve` fixes.
     """
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -356,13 +356,13 @@ class BoundaryConditions(pp.PorePyModel):
 
 
 class NullMeanPressureSolve(pp.PorePyModel):
-    """Gauge fixing for the closed (all-Neumann) problem.
+    """Pressure constraint for the closed (all-Neumann) problem.
 
-    The closed domain leaves pressure defined up to a constant. The gauge
-    ``Sum(dp_matrix) = 0`` is enforced by a bordered solve in
-    :class:`NullMeanPressureLinearSolver`; this mixin provides the DOFs that
-    span the kernel. A single matrix row suffices: the fracture pressures are
-    pinned to the matrix through the interface Darcy coupling.
+    The pressure is determined up to a constant. The constraint ``Σ δp = 0`` on the
+    matrix pressure DOFs is imposed for each Newton increment by
+    :class:`NullMeanPressureLinearSolver`; this mixin provides these DOFs. The
+    fracture pressures follow from the interface Darcy coupling, so one constraint
+    suffices.
     """
 
     def null_mean_pressure_dofs(self) -> np.ndarray:
@@ -418,8 +418,9 @@ class SchurEliminationDirectSolver(pp.solvers.LinearSolverBase):
         # equation block next to its own variable's dofs); each closure is
         # ``var - func = 0``, so paired ordering makes A_ss the identity, while
         # independent sorting would scramble it into a permutation.
+        rows_by_name = es.equation_indexer.group_by_name()
         sec_rows = np.concatenate(
-            [es.assembled_equation_indices[name] for name in eliminations]
+            [np.concatenate(list(rows_by_name[name].values())) for name in eliminations]
         )
         sec_cols = np.concatenate(
             [es.dofs_of([var]) for var, *_ in eliminations.values()]
@@ -457,9 +458,12 @@ class SchurEliminationDirectSolver(pp.solvers.LinearSolverBase):
 
 
 class NullMeanPressureLinearSolver(SchurEliminationDirectSolver):
-    """Schur-eliminating solver with the null-mean pressure gauge: the primary
-    system is solved in bordered form with one constraint row summing the matrix
-    pressure DOFs, and the Lagrange multiplier is discarded.
+    """Schur-eliminating solver with the constraint ``Σ δp = 0`` on the matrix
+    pressure DOFs.
+
+    The primary system is solved in bordered form,
+    ``[S C^T; C 0] [δx; μ] = [r; 0]``, with ``C`` the row of ones on the matrix
+    pressure DOFs and ``μ`` a Lagrange multiplier, which is discarded.
     """
 
     def _solve_primary(self, S, rhs: np.ndarray, prim_cols: np.ndarray) -> np.ndarray:
@@ -484,14 +488,13 @@ class NullMeanPressureLinearSolver(SchurEliminationDirectSolver):
 
 
 class NullSpaceCriterion(pp.solvers.ConvergenceCriterion):
-    """Converge the null-mean-pressure residual r_nm = |Σ_c r_c| · Δt / V.
+    """Converge the compatibility residual ``r_nm = |Σ_c r_c| Δt / V``.
 
-    r_c is the per-cell mass-balance residual (a rate) and Σ_c projects onto the
-    constant mode -- the pressure null space of the closed Neumann problem, which the
-    gauge-fixed solve cannot reduce. The Δt converts the rate into the per-step mass
-    change the conservation checks accumulate; V (total volume) normalizes. Once Newton
-    stagnates r_nm freezes, so the criterion stops objecting and defers to the test's
-    assertion.
+    ``r_c`` is the mass-balance residual of cell ``c`` and ``V`` the total volume. The
+    closed problem is solvable only if ``Σ_c r_c = 0``, since the constant vector spans
+    the left null space of its Jacobian; the constrained solve does not reduce this
+    component. ``Δt`` converts the rate into the mass change per time step. If ``r_nm``
+    stagnates, the criterion is satisfied and the test assertion decides.
     """
 
     #: Consecutive checks with relative residual change below this count as frozen.
@@ -511,7 +514,13 @@ class NullSpaceCriterion(pp.solvers.ConvergenceCriterion):
         self, residual: np.ndarray, **kwargs
     ) -> tuple[pp.solvers.ConvergenceStatus, float]:
         model = self._model
-        rows = model.equation_system.assembled_equation_indices["mass_balance_equation"]
+        rows = np.concatenate(
+            list(
+                model.equation_system.equation_indexer.group_by_name()[
+                    "mass_balance_equation"
+                ].values()
+            )
+        )
         if self._total_volume is None:
             # The geometry is fixed, so the normalization volume is computed once.
             self._total_volume = sum(
@@ -531,8 +540,7 @@ class NullSpaceCriterion(pp.solvers.ConvergenceCriterion):
         self._history.append(null_mean_res)
         if null_mean_res <= self.tol:
             return pp.solvers.ConvergenceStatus.CONVERGED, null_mean_res
-        # Stagnation escape: the null-mean-pressure residual has frozen (quadratic
-        # basin) and cannot improve.
+        # The compatibility residual has stagnated and cannot improve.
         recent = self._history[-self._stagnation_checks :]
         if len(recent) == self._stagnation_checks and all(
             abs(a - b) <= self._stagnation_rtol * max(abs(b), 1e-300)
@@ -702,7 +710,11 @@ class BaseFlowModel(FullIterateCacheMixin):
     ``BuoyancyFlowModel*`` classes (see :func:`buoyancy_flow_model`), one statically
     declared per ``fractional_flow`` template."""
 
-    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
+    def after_nonlinear_iteration(
+        self,
+        nonlinear_increment: np.ndarray,
+        updated_variables: Optional[list[pp.ad.Variable]] = None,
+    ) -> None:
         """Newton update with a projected iterate (a saturation chop).
 
         Projecting the overall fractions onto [0, 1] keeps saturations and mobilities
@@ -710,7 +722,10 @@ class BaseFlowModel(FullIterateCacheMixin):
         """
         self.equation_system.shift_iterate_values(max_index=len(self.iterate_indices))
         self.equation_system.set_variable_values(
-            values=nonlinear_increment, additive=True, iterate_index=0
+            values=nonlinear_increment,
+            variables=updated_variables,
+            additive=True,
+            iterate_index=0,
         )
         self._project_overall_fractions()
         self.update_derived_quantities()
@@ -821,13 +836,13 @@ class BaseFlowModel(FullIterateCacheMixin):
                 )
 
     def assert_initial_pressure_is_null_mean(self, tol: float = 1.0e-10) -> None:
-        """The initial matrix pressure must satisfy the null-mean gauge."""
+        """The initial matrix pressure must have zero arithmetic mean."""
         for sd in self.mdg.subdomains(dim=self.nd):
             mean = float(np.mean(self.ic_values_pressure(sd)))
             assert abs(mean) <= tol, (
-                f"initial matrix pressure is not null-mean (mean = {mean:.3e} > "
-                f"{tol:.0e}); it must "
-                f"match the Sum(p_matrix) = 0 gauge fixed by NullMeanPressureSolve"
+                f"initial matrix pressure has nonzero mean ({mean:.3e} > {tol:.0e}); "
+                "Σ p = 0 is preserved by NullMeanPressureLinearSolver only if it "
+                "holds initially"
             )
 
     def conservation_integrals(self) -> dict[str, tuple[float, float]]:
@@ -836,10 +851,8 @@ class BaseFlowModel(FullIterateCacheMixin):
         raise NotImplementedError
 
     def null_mean_pressure_residual(self) -> float:
-        """The dt-scaled, volume-normalized summed-mass residual -- the residual's
-        component along the pressure null space: what the conservation checks accumulate
-        per accepted step.
-        """
+        """The compatibility residual ``|Σ_c r_c| Δt / V`` of the mass balance, see
+        :class:`NullSpaceCriterion`."""
         eq = self.equation_system.equations["mass_balance_equation"]
         r = np.asarray(self.equation_system.evaluate(eq), dtype=float)
         total_volume = sum(
@@ -853,7 +866,7 @@ class BaseFlowModel(FullIterateCacheMixin):
         return float(abs(np.sum(r)) * self.time_manager.dt / total_volume)
 
     def assert_pressure_null_mean_converged(self) -> None:
-        """The converged matrix pressure must have a null mean (the gauge)."""
+        """The converged matrix pressure must have zero arithmetic mean."""
         matrix = self.mdg.subdomains(dim=self.nd)
         p = np.concatenate(
             [
@@ -864,15 +877,14 @@ class BaseFlowModel(FullIterateCacheMixin):
         mean = float(abs(np.mean(p)))
         tol = float(self.params["residual_tolerance"])
         assert mean <= tol, (
-            "converged matrix pressure is not null-mean: |mean(p_matrix)| = "
-            f"{mean:.6e} > "
-            f"tol = {tol:.1e}; the gauge constraint is not holding the pressure level"
+            f"converged matrix pressure has |mean(p_matrix)| = {mean:.6e} > "
+            f"tol = {tol:.1e}; the constraint Σ δp = 0 does not hold"
         )
 
     def assert_null_space_residual_converged(self) -> None:
-        """The null-mean-pressure residual of the converged state must be within the
-        per-step conservation budget; if not, the convergence criteria need
-        :class:`NullSpaceCriterion`.
+        """The compatibility residual of the converged state must be within the bound
+        per time step; otherwise :class:`NullSpaceCriterion` is missing from the
+        convergence criteria.
         """
         null_mean_res = self.null_mean_pressure_residual()
         # The per-step conservation budget (what the conservation assertions need of
@@ -883,7 +895,7 @@ class BaseFlowModel(FullIterateCacheMixin):
             )
         )
         assert null_mean_res <= tol, (
-            f"null-mean-pressure residual of the converged state: {null_mean_res:.6e} "
+            f"compatibility residual of the converged state: {null_mean_res:.6e} "
             f"> tol = {tol:.1e}; add NullSpaceCriterion to the convergence criteria."
         )
 
@@ -1110,7 +1122,7 @@ class InitialConditions2N(pp.PorePyModel):
         return (z_v * rho_w) / (z_v * rho_w + rho_g - z_v * rho_g)
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
-        """Null-mean initial pressure (identically zero), matching the gauge of
+        """Zero initial pressure, so that ``Σ p = 0`` on the matrix, see
         :class:`NullMeanPressureSolve`."""
         return np.zeros(sd.num_cells)
 
@@ -1140,7 +1152,7 @@ class FlowModel2N(
 ):
     def after_nonlinear_convergence(self) -> None:
         """Post-convergence diagnostics."""
-        # Measure the gauge and the null-mean-pressure residual before super() shifts
+        # Check the pressure mean and the compatibility residual before super() shifts
         # the time-step solutions; afterwards the accumulation term is zero.
         self.assert_pressure_null_mean_converged()
         self.assert_null_space_residual_converged()
@@ -1549,7 +1561,7 @@ class InitialConditions3N(pp.PorePyModel):
         return sg_val
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
-        """Null-mean initial pressure (identically zero), matching the gauge of
+        """Zero initial pressure, so that ``Σ p = 0`` on the matrix, see
         :class:`NullMeanPressureSolve`."""
         return np.zeros(sd.num_cells)
 
@@ -1581,7 +1593,7 @@ class FlowModel3N(
 ):
     def after_nonlinear_convergence(self) -> None:
         """Post-convergence diagnostics."""
-        # Measure the gauge and the null-mean-pressure residual before super() shifts
+        # Check the pressure mean and the compatibility residual before super() shifts
         # the time-step solutions; afterwards the accumulation term is zero.
         self.assert_pressure_null_mean_converged()
         self.assert_null_space_residual_converged()
@@ -1758,15 +1770,15 @@ class FlowModel3N(
 
 # Statically-declared buoyancy models: one concrete class per (phase count, template)
 # combination, so the MRO of each configuration is explicit and fixed at import time.
-# In every class the parts are ordered fluid -> IC -> BC -> gauge -> secondary ->
-# FlowModel*N -> template, so ``FlowModel*N`` -> ``BaseFlowModel`` (whose
+# In every class the parts are ordered fluid -> IC -> BC -> pressure constraint ->
+# secondary -> FlowModel*N -> template, so ``FlowModel*N`` -> ``BaseFlowModel`` (whose
 # ``set_equations`` registers the buoyancy discretization parameters) precedes the
 # template's equation setters in the MRO.
 #
 # NullMeanPressureSolve contributes null_mean_pressure_dofs, consumed by
-# NullMeanPressureLinearSolver (which must be passed to the NewtonSolver): the closed
-# all-Neumann domain leaves a singular constant-pressure mode that the default direct
-# solver cannot handle.
+# NullMeanPressureLinearSolver (which must be passed to the NewtonSolver): the
+# Jacobian of the closed all-Neumann problem is singular, with the constant matrix
+# pressure in its kernel.
 
 
 class BuoyancyFlowModelFF2N(

@@ -14,7 +14,7 @@ Examples:
 
     Note that while the argument to ``AdFunction`` is a
     :class:`~porepy.numerics.ad.operators.Operator, the wrapping in ``pp.ad.Function``
-    implies that upon parsing, the argument passed to ``f`` will be an AdArray.
+    implies that upon parsing, the argument passed to ``f`` will be an Ad array.
 
 """
 
@@ -26,9 +26,9 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.ad_array import AdArray
+from porepy.numerics.ad.ad_array import AdArray, AdArrayBase, DiagonalAdArray
 
-FloatType = TypeVar("FloatType", AdArray, np.ndarray, float)
+FloatType = TypeVar("FloatType", AdArrayBase, np.ndarray, float)
 
 __all__ = [
     "exp",
@@ -61,19 +61,17 @@ __all__ = [
 
 # Exponential and logarithmic functions
 def exp(var: FloatType) -> FloatType:
-    if isinstance(var, AdArray):
+    if isinstance(var, AdArrayBase):
         val = np.exp(var.val)
-        der = var._diagvec_mul_jac(val)
-        return AdArray(val, der)
+        return var.chain_rule(val, val)
     else:
         return np.exp(var)
 
 
 def log(var: FloatType) -> FloatType:
-    if isinstance(var, AdArray):
+    if isinstance(var, AdArrayBase):
         val = np.log(var.val)
-        der = var._diagvec_mul_jac(1 / var.val)
-        return AdArray(val, der)
+        return var.chain_rule(val, 1 / var.val)
     else:
         return np.log(var)
 
@@ -91,16 +89,14 @@ def clip(var: FloatType, min_val: float, max_val: float) -> FloatType:
         If input is AdArray, the Jacobian is preserved only for the unclipped region;
         for clipped values, the Jacobian is set to zero.
     """
-    if isinstance(var, AdArray):
+    if isinstance(var, AdArrayBase):
         val = np.clip(var.val, min_val, max_val)
         # For clipped values, the derivative is zero; for unclipped, keep original
         # jacobian.
         mask = (var.val > min_val) & (var.val < max_val)
         mask_diag = mask.astype(float)
 
-        mask_matrix = sps.diags(mask_diag)
-        jac = mask_matrix @ var.jac
-        return AdArray(val, jac)
+        return var.chain_rule(val, mask_diag)
     elif isinstance(var, np.ndarray):
         return np.clip(var, min_val, max_val)
     else:
@@ -112,15 +108,14 @@ def clip(var: FloatType, min_val: float, max_val: float) -> FloatType:
 
 
 def abs(var: FloatType) -> FloatType:
-    if isinstance(var, AdArray):
+    if isinstance(var, AdArrayBase):
         val = np.abs(var.val)
-        jac = var._diagvec_mul_jac(np.sign(var.val))
-        return AdArray(val, jac)
+        return var.chain_rule(val, np.sign(var.val))
     else:
         return np.abs(var)
 
 
-def l2_norm(dim: int, var: pp.ad.AdArray) -> pp.ad.AdArray:
+def l2_norm(dim: int, var: AdArrayBase) -> AdArrayBase:
     """L2 norm of a vector variable.
 
     For the example of dim=3 components and n vectors, the ordering is assumed
@@ -141,13 +136,16 @@ def l2_norm(dim: int, var: pp.ad.AdArray) -> pp.ad.AdArray:
         The norm of var with appropriate val and jac attributes.
 
     """
-    if not isinstance(var, AdArray):
+    if not isinstance(var, AdArrayBase):
         resh = np.reshape(var, (dim, -1), order="F")
         return np.linalg.norm(resh, axis=0)
     if dim == 1:
         # For scalar variables, the cell-wise L2 norm is equivalent to
         # taking the absolute value.
         return pp.ad.functions.abs(var)
+    # The norm mixes dim separate degrees of freedom into one output entry, which cannot
+    # be represented in the diagonal format.
+    var = var.to_full()
     resh = np.reshape(var.val, (dim, -1), order="F")
     vals = np.linalg.norm(resh, axis=0)
     # Avoid dividing by zero
@@ -175,12 +173,13 @@ def l2_norm(dim: int, var: pp.ad.AdArray) -> pp.ad.AdArray:
     return pp.ad.AdArray(vals, jac)
 
 
-def safe_power(power: float, zero_val: float, tol: float, var: AdArray) -> AdArray:
+def safe_power(
+    power: float, zero_val: float, tol: float, var: AdArrayBase
+) -> AdArrayBase:
     """Safe (negative) power of an AdArray.
 
-    The power is performed only for nonzeros in the variable, whereas zeros
-    are left as zeros. This is useful for avoiding division by zero in the
-    Jacobian.
+    The power is performed only for nonzeros in the variable, whereas zeros are left as
+    zeros. This is useful for avoiding division by zero in the Jacobian.
 
     Parameters:
         power: Power to raise the variable to.
@@ -202,118 +201,122 @@ def safe_power(power: float, zero_val: float, tol: float, var: AdArray) -> AdArr
     vals[nonzero_inds] = _val[nonzero_inds] ** power
     if isinstance(var, np.ndarray):
         return vals
-    new_jac = var._diagvec_mul_jac(power * vals ** (power - 1.0))
-    return AdArray(vals, new_jac)
+    # Assign a zero derivative by default. Then assign the correct derivative to
+    # non-zero entries.
+    der_factor = np.zeros_like(_val)
+    der_factor[nonzero_inds] = power * _val[nonzero_inds] ** (power - 1.0)
+    return var.chain_rule(vals, der_factor)
 
 
 # Trigonometric functions
 def sin(var: FloatType) -> FloatType:
-    if isinstance(var, AdArray):
+    if isinstance(var, AdArrayBase):
         val = np.sin(var.val)
-        jac = var._diagvec_mul_jac(np.cos(var.val))
-        return AdArray(val, jac)
+        der_factor = np.cos(var.val)
+        # Leave it to the AdArray implementation to handle the chain rule.
+        return var.chain_rule(val, der_factor)
     else:
         return np.sin(var)
 
 
 def cos(var: FloatType) -> FloatType:
-    if isinstance(var, AdArray):
+    if isinstance(var, AdArrayBase):
         val = np.cos(var.val)
-        jac = var._diagvec_mul_jac(-np.sin(var.val))
-        return AdArray(val, jac)
+        der_factor = -np.sin(var.val)
+        return var.chain_rule(val, der_factor)
     else:
         return np.cos(var)
 
 
 def tan(var: FloatType) -> FloatType:
-    if isinstance(var, AdArray):
+    if isinstance(var, AdArrayBase):
         val = np.tan(var.val)
-        jac = var._diagvec_mul_jac((np.cos(var.val) ** 2) ** (-1))
-        return AdArray(val, jac)
+        der_factor = (np.cos(var.val) ** 2) ** (-1)
+        return var.chain_rule(val, der_factor)
     else:
         return np.tan(var)
 
 
 def arcsin(var: FloatType) -> FloatType:
-    if isinstance(var, AdArray):
+    if isinstance(var, AdArrayBase):
         val = np.arcsin(var.val)
-        jac = var._diagvec_mul_jac((1 - var.val**2) ** (-0.5))
-        return AdArray(val, jac)
+        der_factor = (1 - var.val**2) ** (-0.5)
+        return var.chain_rule(val, der_factor)
     else:
         return np.arcsin(var)
 
 
 def arccos(var: FloatType) -> FloatType:
-    if isinstance(var, AdArray):
+    if isinstance(var, AdArrayBase):
         val = np.arccos(var.val)
-        jac = var._diagvec_mul_jac(-((1 - var.val**2) ** (-0.5)))
-        return AdArray(val, jac)
+        der_factor = -((1 - var.val**2) ** (-0.5))
+        return var.chain_rule(val, der_factor)
     else:
         return np.arccos(var)
 
 
 def arctan(var: FloatType) -> FloatType:
-    if isinstance(var, AdArray):
+    if isinstance(var, AdArrayBase):
         val = np.arctan(var.val)
-        jac = var._diagvec_mul_jac((var.val**2 + 1) ** (-1))
-        return AdArray(val, jac)
+        der_factor = (var.val**2 + 1) ** (-1)
+        return var.chain_rule(val, der_factor)
     else:
         return np.arctan(var)
 
 
 # Hyperbolic functions
 def sinh(var: FloatType) -> FloatType:
-    if isinstance(var, AdArray):
+    if isinstance(var, AdArrayBase):
         val = np.sinh(var.val)
-        jac = var._diagvec_mul_jac(np.cosh(var.val))
-        return AdArray(val, jac)
+        der_factor = np.cosh(var.val)
+        return var.chain_rule(val, der_factor)
     else:
         return np.sinh(var)
 
 
 def cosh(var: FloatType) -> FloatType:
-    if isinstance(var, AdArray):
+    if isinstance(var, AdArrayBase):
         val = np.cosh(var.val)
-        jac = var._diagvec_mul_jac(np.sinh(var.val))
-        return AdArray(val, jac)
+        der_factor = np.sinh(var.val)
+        return var.chain_rule(val, der_factor)
     else:
         return np.cosh(var)
 
 
 def tanh(var: FloatType) -> FloatType:
-    if isinstance(var, AdArray):
+    if isinstance(var, AdArrayBase):
         val = np.tanh(var.val)
-        jac = var._diagvec_mul_jac(np.cosh(var.val) ** (-2))
-        return AdArray(val, jac)
+        der_factor = np.cosh(var.val) ** (-2)
+        return var.chain_rule(val, der_factor)
     else:
         return np.tanh(var)
 
 
 def arcsinh(var: FloatType) -> FloatType:
-    if isinstance(var, AdArray):
+    if isinstance(var, AdArrayBase):
         val = np.arcsinh(var.val)
-        jac = var._diagvec_mul_jac((var.val**2 + 1) ** (-0.5))
-        return AdArray(val, jac)
+        der_factor = (var.val**2 + 1) ** (-0.5)
+        return var.chain_rule(val, der_factor)
     else:
         return np.arcsinh(var)
 
 
 def arccosh(var: FloatType) -> FloatType:
-    if isinstance(var, AdArray):
+    if isinstance(var, AdArrayBase):
         val = np.arccosh(var.val)
         den1 = (var.val - 1) ** (-0.5)
         den2 = (var.val + 1) ** (-0.5)
-        jac = var._diagvec_mul_jac(den1 * den2)
-        return AdArray(val, jac)
+        der_factor = den1 * den2
+        return var.chain_rule(val, der_factor)
     else:
         return np.arccosh(var)
 
 
 def arctanh(var: FloatType) -> FloatType:
-    if isinstance(var, AdArray):
+    if isinstance(var, AdArrayBase):
         val = np.arctanh(var.val)
-        jac = var._diagvec_mul_jac((1 - var.val**2) ** (-1))
-        return AdArray(val, jac)
+        der_factor = (1 - var.val**2) ** (-1)
+        return var.chain_rule(val, der_factor)
     else:
         return np.arctanh(var)
 
@@ -340,9 +343,14 @@ def heaviside(zerovalue: float, var: FloatType) -> FloatType:
         Heaviside function (and its Jacobian if applicable) in form of a AdArray
         or ndarray (depending on the input).
     """
-    if isinstance(var, pp.ad.AdArray):
-        zero_jac = sps.csr_matrix(var.jac.shape)
-        return pp.ad.AdArray(np.heaviside(var.val, zerovalue), zero_jac)
+    if isinstance(var, AdArrayBase):
+        val = np.heaviside(var.val, zerovalue)
+        if isinstance(var, DiagonalAdArray):
+            return var.copy(val, np.zeros_like(var.jac))
+        # An empty sparse matrix, rather than the chain rule with a zero derivative,
+        # which would store the zeros.
+        zero_jac = sps.csr_matrix(var.full_jac.shape)
+        return pp.ad.AdArray(val, zero_jac)
     else:
         return np.heaviside(var, zerovalue)
 
@@ -368,10 +376,10 @@ def heaviside_smooth(var, eps: float = 1e-3):
         AdArray or ndarray (depending on the input).
 
     """
-    if isinstance(var, AdArray):
+    if isinstance(var, AdArrayBase):
         val = 0.5 * (1 + 2 * np.pi ** (-1) * np.arctan(var.val * eps ** (-1)))
-        jac = var._diagvec_mul_jac(np.pi ** (-1) * eps * (eps**2 + var.val**2) ** (-1))
-        return AdArray(val, jac)
+        der_factor = np.pi ** (-1) * eps * (eps**2 + var.val**2) ** (-1)
+        return var.chain_rule(val, der_factor)
     else:
         return 0.5 * (1 + 2 * np.pi ** (-1) * np.arctan(var * eps ** (-1)))
 
@@ -381,28 +389,26 @@ class RegularizedHeaviside:
         self._regularization = regularization
 
     def __call__(self, var, zerovalue: float = 0.5):
-        if isinstance(var, AdArray):
+        if isinstance(var, AdArrayBase):
             val = np.heaviside(var.val, 0.0)
             regularization = self._regularization(var)
-            jac = regularization.jac
-            return AdArray(val, jac)
+            return regularization.copy(val)
         else:
-            return np.heaviside(var)  # type: ignore
+            return np.heaviside(var, zerovalue)
 
 
 def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
-    """Ad maximum function represented as an AdArray.
+    """Ad maximum function represented as an Ad array.
 
     The maximum function is defined as the element-wise maximum of two arrays.
     At equality, the Jacobian is taken from the first argument. The order of the
     arguments may be important, since it determines which Jacobian is used in
     the case of equality.
 
-    The arguments can be either AdArrays or ndarrays, this duality is needed to allow
-    for parsing of operators that can be taken at the current iteration (in which case
-    it will parse as an AdArray) or at the previous iteration or time step (in which
-    case it will parse as a numpy array).
-
+    The arguments can be either Ad arrays, ndarrays, or scalars, this duality is needed
+    to allow for parsing of operators that can be taken at the current iteration (in
+    which case it will parse as an AdArray) or at the previous iteration or time step
+    (in which case it will parse as a numpy array or scalar).
 
     Parameters:
         var_0: First argument to the maximum function.
@@ -410,85 +416,57 @@ def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
 
         If one of the input arguments is scalar, broadcasting will be used.
 
-
     Returns:
         The maximum of the two arguments, taken element-wise in the arrays. The return
         type is AdArray if at least one of the arguments is an AdArray, otherwise it
         is an ndarray. If an AdArray is returned, the Jacobian is computed according to
         the maximum values of the AdArrays (so if element ``i`` of the maximum is
         picked from ``var_0``, row ``i`` of the Jacobian is also picked from the
-        Jacobian of ``var_0``). If ``var_0`` is a ndarray, its Jacobian is set to zero.
+        Jacobian of ``var_0``). Arguments with no derivatives (ndarrays or scalars) are
+        treated as having a zero Jacobian.
 
     """
     # If neither var_0 or var_1 are AdArrays, return the numpy maximum function.
-    if not isinstance(var_0, AdArray) and not isinstance(var_1, AdArray):
-        # FIXME: According to the type hints, this should not be possible.
+    if not isinstance(var_0, AdArrayBase) and not isinstance(var_1, AdArrayBase):
         return np.maximum(var_0, var_1)
 
-    # Make a fall-back zero Jacobian for constant arguments.
-    # EK: It is not clear if this is relevant, or if we filter out these cases with the
-    # above parsing of numpy arrays. Keep it for now, but we should revisit once we
-    # know clearer how the Ad-machinery should be used.
-    zero_jac = 0
-    if isinstance(var_0, AdArray):
-        zero_jac = sps.csr_matrix(var_0.jac.shape)
-    elif isinstance(var_1, AdArray):
-        zero_jac = sps.csr_matrix(var_1.jac.shape)
+    # Diagonal AdArrays have a Jacobian shape the rest of this function does not
+    # understand. If both arguments are diagonal, the maximum can be computed directly
+    # in the diagonal representation; otherwise, convert any diagonal argument to full
+    # (non-diagonal) format.
+    if isinstance(var_0, DiagonalAdArray) and isinstance(var_1, DiagonalAdArray):
+        val = np.maximum(var_0.val, var_1.val)
+        pick_1 = var_1.val > var_0.val
+        jac = np.where(pick_1, var_1.jac, var_0.jac)
+        return var_0.copy(val, jac)
+    if isinstance(var_0, AdArrayBase):
+        var_0 = var_0.to_full()
+    if isinstance(var_1, AdArrayBase):
+        var_1 = var_1.to_full()
+
+    # At least one argument is now an AdArray. A constant argument (ndarray or scalar)
+    # gets a zero Jacobian of matching shape.
+    ad_var = var_0 if isinstance(var_0, AdArray) else var_1
+    zero_jac = sps.csr_matrix(ad_var.jac.shape)
 
     # Collect values and Jacobians.
-    vals = []
-    jacs = []
+    vals, jacs = [], []
     for var in [var_0, var_1]:
         if isinstance(var, AdArray):
-            v = var.val
-            j = var.jac
+            vals.append(var.val)
+            jacs.append(var.jac)
         else:
-            v = var
-            j = zero_jac
-        vals.append(v)
-        jacs.append(j)
+            vals.append(np.broadcast_to(var, ad_var.val.shape))
+            jacs.append(zero_jac)
 
-    # If both are scalar, return same. If one is scalar, broadcast explicitly
-    if isinstance(vals[0], (float, int)):
-        if isinstance(vals[1], (float, int)):
-            # Both var_0 and var_1 are scalars. Treat vals as a numpy array to return
-            # the maximum. The Jacobian of a scalar is 0.
-            val = np.max(vals)
-            return pp.ad.AdArray(val, 0)
-        else:
-            # var_0 is a scalar, but var_1 is not. Broadcast to shape of var_1.
-            vals[0] = np.ones_like(vals[1]) * vals[0]
-    if isinstance(vals[1], (float, int)):
-        # var_1 is a scalar, but var_0 is not (or else we would have hit the return
-        # statement in the above double-if). Broadcast var_1 to shape of var_0.
-        vals[1] = np.ones_like(vals[0]) * vals[1]
-
-    # By now, we know that both vals are numpy arrays. Try to convince mypy that this is
-    # the case.
-    assert isinstance(vals[0], np.ndarray) and isinstance(vals[1], np.ndarray)
-    # Maximum of the two arrays
+    # Element-wise maximum. At equality, var_0 is picked.
     inds = (vals[1] > vals[0]).nonzero()[0]
-
     max_val = vals[0].copy()
     max_val[inds] = vals[1][inds]
-    # If both arrays are constant, a 0 matrix has been assigned to jacs.
-    # Return here to avoid calling copy on a number (immutable, no copy method) below.
-    if isinstance(jacs[0], (float, int)):
-        assert np.isclose(jacs[0], 0)
-        assert np.isclose(jacs[1], 0)
-        return AdArray(max_val, 0)
-
-    # Start from var_0, then change entries corresponding to inds.
-    max_jac = jacs[0].copy()
-
-    if isinstance(max_jac, (sps.spmatrix, sps.sparray)):
-        # Enforce csr format, unless the matrix is csc, in which case we keep it.
-        if not max_jac.getformat() == "csc":
-            max_jac = max_jac.tocsr()
-        lines = pp.matrix_operations.slice_sparse_matrix(jacs[1].tocsr(), inds)
-        pp.matrix_operations.merge_matrices(max_jac, lines, inds, max_jac.getformat())
-    else:
-        max_jac[inds] = jacs[1][inds]
+    # Start from the Jacobian of var_0, then replace rows corresponding to inds.
+    max_jac = jacs[0].tocsr(copy=True)
+    lines = pp.matrix_operations.slice_sparse_matrix(jacs[1].tocsr(), inds)
+    pp.matrix_operations.merge_matrices(max_jac, lines, inds, "csr")
 
     return AdArray(max_val, max_jac)
 
@@ -511,12 +489,14 @@ def characteristic_function(tol: float, var: FloatType) -> FloatType:
         The characteristic function of var with appropriate val and jac attributes.
 
     """
-    if not isinstance(var, AdArray):
+    if not isinstance(var, AdArrayBase):
         return np.isclose(var, 0, atol=tol).astype(float)
     vals = np.zeros(var.val.size)
     zero_inds = np.isclose(var.val, 0, atol=tol)
     vals[zero_inds] = 1.0
-    jac = sps.csr_matrix(var.jac.shape)
+    if isinstance(var, DiagonalAdArray):
+        return var.copy(vals, np.zeros_like(var.jac))
+    jac = sps.csr_matrix(var.full_jac.shape)
     return AdArray(vals, jac)
 
 
@@ -546,9 +526,9 @@ def mask_by_threshold(tol: float, char_var: FloatType, var: FloatType) -> FloatT
 
     """
     # Determine characteristic indices, i.e. where char_var is greater than tol.
-    char_inds = (char_var.val if isinstance(char_var, AdArray) else char_var) > tol
+    char_inds = (char_var.val if isinstance(char_var, AdArrayBase) else char_var) > tol
     # Return var(.val) at characteristic indices, and zero otherwise.
-    if not isinstance(var, AdArray):
+    if not isinstance(var, AdArrayBase):
         if isinstance(var, np.ndarray):
             vals = var.copy()
             vals[np.logical_not(char_inds)] = 0.0
@@ -560,6 +540,10 @@ def mask_by_threshold(tol: float, char_var: FloatType, var: FloatType) -> FloatT
                 return float(char_inds) * var
     vals = var.val.copy()
     vals[np.logical_not(char_inds)] = 0.0
-    jac = var.jac.copy()
+    if isinstance(var, DiagonalAdArray):
+        return var.copy(vals, var.jac * char_inds.astype(float))
+    # zero_rows requires csr format; the Jacobian may be csc (or another sparse format).
+    full_jac = var.full_jac
+    jac = full_jac.tocsr(copy=True)
     pp.matrix_operations.zero_rows(jac, np.where(~char_inds)[0])
     return AdArray(vals, jac)
