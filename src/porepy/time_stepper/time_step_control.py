@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -23,8 +22,6 @@ __all__ = [
     "TimeInterval",
     "Schedule",
 ]
-
-logger = logging.getLogger(__name__)
 
 
 class TimeManager:
@@ -327,13 +324,24 @@ class TimeManager:
                 out_file,
             )
 
-    def load_time_information(self, path: Path) -> None:
+    def load_time_information(
+        self, path: Path, allow_missing_exported_files: bool = False
+    ) -> None:
         """Keep track of history of time and time step size and store.
 
         Mirrors :meth:`write_time_information`.
 
         Parameters:
             path: Specified path for retrieving time and dt.
+            allow_missing_exported_files: ``default=False``. If the file does not
+                contain the time indices (e.g., it was written by an older version) and
+                this is ``True``, a warning is issued, the time index of the time
+                manager is not updated by the restart, and the unknown indices of the
+                history are set to ``None``.
+
+        Raises:
+            ValueError: If the file does not contain the time indices and
+                ``allow_missing_exported_files`` is ``False``.
 
         """
         with path.open("r") as in_file:
@@ -344,12 +352,16 @@ class TimeManager:
                 "time_index", None
             )
             if exported_time_indices is None:
-                logger.warning(
-                    "The restart file does not contain exported_time_indices. Time "
-                    "index won't be updated. This can happen if you load an old "
-                    "version of the restart file. In this case, the behavior is "
-                    "backward-compatible."
+                message = (
+                    f"The restart file {path} does not contain exported_time_indices. "
+                    "This can happen if you load an old version of the restart file."
                 )
+                if not allow_missing_exported_files:
+                    raise ValueError(
+                        message + " Set the model parameter "
+                        "'allow_missing_exported_files' to True to restart anyway."
+                    )
+                warn(message + " Time index won't be updated.", stacklevel=2)
                 exported_time_indices = [None] * len(self.exported_times)
             self.exported_time_indices = exported_time_indices
 

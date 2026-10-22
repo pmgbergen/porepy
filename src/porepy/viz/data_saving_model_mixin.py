@@ -282,21 +282,33 @@ class DataSavingMixin(pp.PorePyModel):
         ).write_vtu(cell_data)  # type: ignore[arg-type]
         np.savez(folder / self._reference_state_file_name, **arrays)  # type: ignore[arg-type]
 
-    def _load_reference_state(self, folder: Path) -> None:
+    def _load_reference_state(
+        self, folder: Path, allow_missing_exported_files: bool = False
+    ) -> None:
         """Overwrite the reference values in the grid data by those saved to file.
-
-        If no reference files exist, a warning is issued and the reference state is not
-        modified.
 
         Parameters:
             folder: Folder containing the reference state sub-folder.
+            allow_missing_exported_files: ``default=False``. If the reference files do
+                not exist and this is ``True``, a warning is issued and the reference
+                state is not modified.
+
+        Raises:
+            ValueError: If no reference files exist and ``allow_missing_exported_files``
+                is ``False``.
 
         """
         folder = folder / self._reference_state_folder_name
         if not folder.exists():
+            message = f"No reference state found at {folder}."
+            if not allow_missing_exported_files:
+                raise ValueError(
+                    message + " Set the model parameter "
+                    "'allow_missing_exported_files' to True to restart anyway."
+                )
             warnings.warn(
-                f"No reference state found at {folder}. The reference state of the "
-                "model setup is kept, which may differ from the restarted simulation.",
+                message + " The reference state of the model setup is kept, which may "
+                "differ from the restarted simulation.",
                 stacklevel=2,
             )
             return
@@ -380,10 +392,11 @@ class DataSavingMixin(pp.PorePyModel):
         # Load states and read time index, connecting data and time history.
         self.exporter.import_state_from_vtu(vtu_files, keys, **kwargs)
         self._convert_imported_state_from_si()
-        self._load_reference_state(times_file.parent)
+        allow_missing = self.params.get("allow_missing_exported_files", False)
+        self._load_reference_state(times_file.parent, allow_missing)
 
         # Load time and time step size.
-        self.time_manager.load_time_information(times_file)
+        self.time_manager.load_time_information(times_file, allow_missing)
         self.time_manager.set_time_and_dt_from_exported_steps(time_index)
         self.exporter._time_step_counter = time_index
 
@@ -421,10 +434,11 @@ class DataSavingMixin(pp.PorePyModel):
         # Import data and determine time index corresponding to the pvd file.
         time_index: int = self.exporter.import_from_pvd(pvd_file, is_mdg_pvd, keys)
         self._convert_imported_state_from_si()
-        self._load_reference_state(times_file.parent)
+        allow_missing = self.params.get("allow_missing_exported_files", False)
+        self._load_reference_state(times_file.parent, allow_missing)
 
         # Load time and time step size.
-        self.time_manager.load_time_information(times_file)
+        self.time_manager.load_time_information(times_file, allow_missing)
         self.time_manager.set_time_and_dt_from_exported_steps(time_index)
         self.exporter._time_step_counter = time_index
 
