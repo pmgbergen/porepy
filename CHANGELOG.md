@@ -13,6 +13,11 @@ The lists are sorted on PR numbers.
 ## Unreleased
 
 ### Changes
+PR 1812: Fixed `DarcysLawAd` and `FouriersLawAd` with a TPFA base discretization
+    dropping the interface flux on fracture faces (issue 1811). With `FouriersLawAd`, conductive heat
+    exchange between matrix and fractures was missing from the matrix energy balance,
+    and in the fractional flow formulation the interface Darcy flux was missing from the
+    matrix mass balance.
 PR 1797: Changed model physics to respect the reference state. Affected: shear dilation,
     porosity, stress. This change is non-breaking: by default the model should behave
     exactly like before.
