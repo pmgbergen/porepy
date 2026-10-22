@@ -254,9 +254,17 @@ def test_restart_continues_as_if_uninterrupted(restart_runs):
     """A run restarted from its own output must continue exactly as the uninterrupted
     run does.
 
-    A failure of the time index means that it restarts from zero, which misplaces
-    everything indexed by it, such as the time step dependent boundary data of some
-    models.
+    The Newton residuals are not tested for the following reason. Conversion to SI and
+    back causes slight round-off errors which amplify in Newton residuals. Numerical
+    instability of solvers (possibly, PyPardiso in particular) in different environments
+    (NREC vs GitHub CI) lead to different Newton behavior, hindering a meaningful test
+    and causing false positive alerts.
+
+    This behavior is substential for coversion of the length units: pp.Units(m=10), and
+    insignificant for the mass units: pp.Units(kg=1e3). Investigation could not point to
+    any related error in exporter/importer, so the conclusion was that it is truly the
+    round-off errors that cause it, and changing the length unit has a larger effect on
+    the problem's condition number than the mass unit.
 
     """
     uninterrupted = restart_runs["uninterrupted"]
@@ -296,28 +304,8 @@ def test_restart_continues_as_if_uninterrupted(restart_runs):
                 f"the reference {name} of {key} differs after the restart"
             )
 
-    # Newton path. Only the number of iterations and norms after the first iteration are
-    # compared The unit conversion of the imported state is exact only up to round-off
-    # due to conversion to SI and back, which the later iterations of this sensitive
-    # problem amplify.
-    expected_path = uninterrupted.nonlinear_solver_statistics.convergence_info
-    restarted_path = restarted.nonlinear_solver_statistics.convergence_info
-    for norm in ("inc_abs", "res_abs"):
-        expected_norms = expected_path[norm]["norm"]
-        restarted_norms = restarted_path[norm]["norm"]
-        assert len(restarted_norms) == len(expected_norms), (
-            f"the number of iterations differs after the restart ({norm})"
-        )
-        # Rtol is loose here, because residual is sensetive to the. Error accumulates
-        # due to the unit conversion to SI and back in restarting. It is confirmed, that
-        # if we replace units to pp.Units(m=1, kg=1e3), this test passes with
-        # rtol=1e-10. It is also confirmed, that the data is loaded correctly up to
-        # the round-off tolerance.
-        assert np.isclose(restarted_norms[0], expected_norms[0], rtol=1e-5), (
-            f"the first iteration differs after the restart ({norm})"
-        )
-
-    # Final state of all variables, including vector-valued and interface ones.
+    # Final state of all variables is the same in the restarted and the uninterrupted
+    # runs.
     well_fluxes = 0.0
     largest_change = 0.0
     for variable, resumed_variable, initial_values in zip(
@@ -382,10 +370,12 @@ def test_restarted_pvd_file_labels_every_step_with_its_time(restart_runs):
         assert all(label == times[step] for label in labels)
 
 
-def test_restart_without_reference_state_warns(restart_runs, tmp_path):
-    """A history written without the reference state, e.g., by an older version, can be
-    restarted from. A warning is issued, and the reference state of the model setup is
-    kept.
+@pytest.mark.parametrize("allow_missing", [True, False])
+def test_restart_without_reference_state(restart_runs, tmp_path, allow_missing):
+    """A history written without the reference state, e.g., by an older version, can
+    only be restarted from if ``allow_missing_exported_files`` is True. Then, a warning
+    is issued, and the reference state of the model setup is kept. Otherwise, a
+    ValueError is raised.
 
     """
     folder = tmp_path / "first_part"
@@ -403,14 +393,20 @@ def test_restart_without_reference_state_warns(restart_runs, tmp_path):
             "times_file": folder / "times.json",
         },
     )
-    with pytest.warns(UserWarning, match="No reference state found"):
-        RestartModel(params).prepare_simulation()
+    params["allow_missing_exported_files"] = allow_missing
+    if allow_missing:
+        with pytest.warns(UserWarning, match="No reference state found"):
+            RestartModel(params).prepare_simulation()
+    else:
+        with pytest.raises(ValueError, match="No reference state found"):
+            RestartModel(params).prepare_simulation()
 
 
-def test_restart_without_time_indices_keeps_time_index(restart_runs, tmp_path, caplog):
-    """Restarting is backward-compatible in a sense that "times.json" may not contain
-    field "time_index". In this case, a warning should be printed, and the time
-    manager's time index should remain unchanged.
+@pytest.mark.parametrize("allow_missing", [True, False])
+def test_restart_without_time_indices(restart_runs, tmp_path, allow_missing):
+    """"times.json" may not contain field "time_index" (older versions). If
+    ``allow_missing_exported_files`` is False, a ValueError is raised. If it is True, a
+    warning is issued, and the time manager's time index should remain unchanged.
 
     """
     # Copy the restart folder and delete "time_index" from "times.json", to mimic the
@@ -423,7 +419,8 @@ def test_restart_without_time_indices_keeps_time_index(restart_runs, tmp_path, c
     del history["time_index"]
     times_file.write_text(json.dumps(history))
 
-    # Set up and prepare the model.
+    # Set up the model. The reference state is present, so only the missing time
+    # indices are under test.
     params = restart_model_params(
         tmp_path / "restarted",
         RESTART_END_TIME,
@@ -433,13 +430,17 @@ def test_restart_without_time_indices_keeps_time_index(restart_runs, tmp_path, c
             "times_file": times_file,
         },
     )
+    params["allow_missing_exported_files"] = allow_missing
     model = RestartModel(params)
 
-    # Check that the warning is logged.
-    with caplog.at_level("WARNING"):
+    if not allow_missing:
+        with pytest.raises(ValueError, match="does not contain exported_time_indices"):
+            model.prepare_simulation()
+        return
+
+    with pytest.warns(UserWarning, match="does not contain exported_time_indices"):
         model.prepare_simulation()
 
-    assert "does not contain exported_time_indices" in caplog.text
     time_manager = model.time_manager
     assert time_manager.time == pytest.approx(RESTART_FROM_TIME)
     # Time index remains as it was.
