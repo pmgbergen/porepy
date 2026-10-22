@@ -1317,8 +1317,10 @@ class AdTpfaFlux(pp.PorePyModel):
         # Sign of boundary faces.
         bnd_sgn = diff_discr.boundary_sign(domains)
         # Discretization of boundary conditions: On Neumann faces, we will simply add
-        # the flux, with a sign change if the normal vector is pointing inwards.
-        neu_bnd = external_neu_filter * bnd_sgn
+        # the flux, with a sign change if the normal vector is pointing inwards. This
+        # includes internal boundaries, where the flux is the interface flux projected
+        # onto the face. The flux on tip faces is zero, thus no term is needed there.
+        neu_bnd = (external_neu_filter + internal_boundary_filter) * bnd_sgn
         # On Dirichlet faces, an assigned Dirichlet value (assuming zero potential in
         # the cell adjacent to the face) will induce a flux proportional to t_f. (The
         # actual flux through the face is found by adding the contribution from the cell
