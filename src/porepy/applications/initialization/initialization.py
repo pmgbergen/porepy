@@ -414,7 +414,7 @@ def _validate_steady_state(
 
     """
     failed = check_and_log_tolerances(
-        metric=pp.EquationBasedEuclideanMetric(model),
+        metric=pp.EquationBasedLebesgueMetric(model),
         values=model.equation_system.assemble(evaluate_jacobian=False),
         tolerances=residual_tolerances,
         name="residual",
