@@ -17,6 +17,7 @@ PR 1812: Fixed `DarcysLawAd` and `FouriersLawAd` with a TPFA base discretization
 PR 1804: Fix RadialReturnTangentialContactMechanicsEquation for vanishing trial
     traction, which was treated as an open fracture instead of sticking. Elastoplastic
     momentum balance tests now also run with this formulation.
+PR 1801: prepare_simulation can be called multiple times to fully regenerate the model.
 PR 1797: Changed model physics to respect the reference state. Affected: shear dilation,
     porosity, stress. This change is non-breaking: by default the model should behave
     exactly like before.
