@@ -16,8 +16,8 @@ from porepy.examples.geothermal_reservoir import (
     GeothermalReservoirWellBCs,
     NeumannWellBCsFirstTimeInterval,
     WellBCType,
-    WellInterval,
     WellBoundaryConditions,
+    WellInterval,
     set_model_params,
     set_solver_params,
 )
