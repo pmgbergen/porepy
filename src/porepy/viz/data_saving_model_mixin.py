@@ -392,7 +392,7 @@ class DataSavingMixin(pp.PorePyModel):
         # Load states and read time index, connecting data and time history.
         self.exporter.import_state_from_vtu(vtu_files, keys, **kwargs)
         self._convert_imported_state_from_si()
-        allow_missing = self.params.get("allow_missing_exported_files", False)
+        allow_missing = self.restart_options.get("allow_missing_exported_files", False)
         self._load_reference_state(times_file.parent, allow_missing)
 
         # Load time and time step size.
@@ -434,7 +434,7 @@ class DataSavingMixin(pp.PorePyModel):
         # Import data and determine time index corresponding to the pvd file.
         time_index: int = self.exporter.import_from_pvd(pvd_file, is_mdg_pvd, keys)
         self._convert_imported_state_from_si()
-        allow_missing = self.params.get("allow_missing_exported_files", False)
+        allow_missing = self.restart_options.get("allow_missing_exported_files", False)
         self._load_reference_state(times_file.parent, allow_missing)
 
         # Load time and time step size.
