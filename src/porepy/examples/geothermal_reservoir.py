@@ -310,7 +310,7 @@ class WellBoundaryConditions(WellScheduleMixin):
 
 class NeumannWellBCsFirstTimeInterval(WellScheduleMixin):
     """Class defining Neumann BCs on well grids during the Neumann intervals of the well
-    schedule, see :class:`WellInterval`. In the example, this is the first time interval.
+    schedule, see :class:`WellInterval`. In the example, this is the first interval.
 
     Rediscretization happens when calling rediscretize_fluxes in the solution strategy
     class. By default, both diffusive fluxes in lower-dimensional subdomains are tagged
