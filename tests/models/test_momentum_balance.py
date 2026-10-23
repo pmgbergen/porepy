@@ -14,8 +14,12 @@ from porepy.applications.md_grids.model_geometries import (
 )
 from porepy.applications.test_utils.models import (
     MomentumBalance,
+    add_mixin,
     compare_scaled_model_quantities,
     compare_scaled_primary_variables,
+)
+from porepy.models.contact_mechanics import (
+    RadialReturnTangentialContactMechanicsEquation,
 )
 
 
@@ -410,6 +414,20 @@ def test_set_boundary_reference_values():
 """Tests for elastoplastic split of fracture deformation below."""
 
 
+# Formulations of the tangential contact condition to be tested in the elastoplastic
+# tests. None refers to the default formulation.
+tangential_contact_formulations = [None, RadialReturnTangentialContactMechanicsEquation]
+
+
+def with_tangential_formulation(
+    model_class: type[pp.MomentumBalance], formulation: type | None
+) -> type[pp.MomentumBalance]:
+    """Add a tangential contact formulation to a model class, if one is given."""
+    if formulation is None:
+        return model_class
+    return add_mixin(formulation, model_class)
+
+
 class ElastoplasticModel2d(
     SquareDomainOrthogonalFractures,
     pp.model_boundary_conditions.BoundaryConditionsMechanicsDirNorthSouth,
@@ -571,12 +589,14 @@ def verify_elastoplastic_deformation(
         ([1.0, 1.0], [0, 0], [1, 1], [1, 1], [0, 0]),
     ],
 )
+@pytest.mark.parametrize("formulation", tangential_contact_formulations)
 def test_elastoplastic_2d_single_fracture(
     u_north: list[pp.number],
     u_e_expected: list[pp.number],
     u_p_expected: list[pp.number],
     u_expected: list[pp.number],
     traction_expected: list[pp.number],
+    formulation: type | None,
 ):
     """Test that the solution is qualitatively sound.
 
@@ -589,6 +609,7 @@ def test_elastoplastic_2d_single_fracture(
         u_expected: Expected value of displacement of cells above the fracture.
         traction_expected: Expected value of traction on the fracture in global
             coordinates.
+        formulation: Tangential contact formulation mixin, or None for the default.
 
     """
     # Instantiate constants and store in params.
@@ -605,7 +626,7 @@ def test_elastoplastic_2d_single_fracture(
     }
 
     # Create model and run simulation.
-    model = ElastoplasticModel2d(model_params)
+    model = with_tangential_formulation(ElastoplasticModel2d, formulation)(model_params)
     pp.ModelRunner(model, solver_params).run()
     verify_elastoplastic_deformation(
         model,
@@ -651,12 +672,14 @@ cases_3d = [
     "u_north,u_e_expected,u_p_expected,u_expected,traction_expected",
     cases_3d,
 )
+@pytest.mark.parametrize("formulation", tangential_contact_formulations)
 def test_elastoplastic_3d_single_fracture(
     u_north: list[pp.number],
     u_e_expected: list[pp.number],
     u_p_expected: list[pp.number],
     u_expected: list[pp.number],
     traction_expected: list[pp.number],
+    formulation: type | None,
 ):
     """Test that the solution is qualitatively sound.
 
@@ -673,6 +696,7 @@ def test_elastoplastic_3d_single_fracture(
             above the fracture.
         traction_expected: Expected values of traction on the fracture in global
             coordinates.
+        formulation: Tangential contact formulation mixin, or None for the default.
 
     """
     # Instantiate constants and store in params.
@@ -688,7 +712,7 @@ def test_elastoplastic_3d_single_fracture(
     }
 
     # Create model and run simulation
-    model = ElastoplasticModel3d(model_params)
+    model = with_tangential_formulation(ElastoplasticModel3d, formulation)(model_params)
     pp.ModelRunner(model, solver_params).run()
     verify_elastoplastic_deformation(
         model,
@@ -748,7 +772,8 @@ class ElastoplasticModelTimeDependentBCs(
     pass
 
 
-def test_time_dependent_bc():
+@pytest.mark.parametrize("formulation", tangential_contact_formulations)
+def test_time_dependent_bc(formulation: type | None):
     # Note: The performance of the Newton solver is quite sensitive to the parameters
     # of this test.
     solid = pp.SolidConstants(
@@ -767,7 +792,9 @@ def test_time_dependent_bc():
     }
 
     # Create model and run simulation. The north displacement is [1, -0.5, 1].
-    model = ElastoplasticModelTimeDependentBCs(params)
+    model = with_tangential_formulation(
+        ElastoplasticModelTimeDependentBCs, formulation
+    )(params)
     pp.ModelRunner(model, params).run()
     tols = [5e-2, 1e-10, 1e-3, 5e-2]
 
