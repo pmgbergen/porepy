@@ -1009,9 +1009,8 @@ def test_flux_potential_trace_on_tips_and_internal_boundaries():
     external boundaries that are assigned a Neumann boundary condition, where the flux
     is given by the boundary condition alone. On internal boundaries, the flux should be
     the interface flux of the matching mortar cell, with the sign of the face normal,
-    and depend on nothing else. This relies on the mortar cells matching the fracture
-    faces one to one, which holds for the conforming grid used here. On tips we also
-    test that the potential trace is equal to the pressure in the adjacent cell.
+    and depend on nothing else. On tips we also test that the potential trace is equal
+    to the pressure in the adjacent cell.
 
     Note for posterity: The test is only performed with Tpfa as a base discretization,
     since the tested properties will not hold for Mpfa in general. Specifically:
@@ -1045,9 +1044,9 @@ def test_flux_potential_trace_on_tips_and_internal_boundaries():
         internal_boundary = sd.tags["fracture_faces"]
         interfaces = model.subdomains_to_interfaces([sd], [1])
         # Sign of the face normal relative to the adjacent cell.
-        internal_boundary_sign = np.asarray(
-            sd.cell_faces[internal_boundary].sum(axis=1)
-        ).ravel()
+        internal_boundary_sign = sd.signs_and_cells_of_boundary_faces(
+            np.flatnonzero(internal_boundary)
+        )[0]
         variable_values = model.equation_system.get_variable_values(iterate_index=0)
 
         for flux, interface_flux, keyword in [
