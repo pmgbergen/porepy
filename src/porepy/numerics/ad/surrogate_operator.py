@@ -128,7 +128,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.ad_array import AdArray, AdArrayBase
+from porepy.numerics.ad.ad_array import AdArray, AdArrayBase, DiagonalAdArray
 
 from ._operator_states import IterativeOperator, TimeDependentOperator
 from .functions import FloatType
@@ -264,7 +264,65 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         # Most likely they will not be operators anymore, but operator factories.
         # Hence there will be no blocking of arithmetic overloads and we can rework the
         # hierarchical structure between this class and AbstractFunction
+
+        # If all arguments are diagonal Ad arrays, so is the result. AbstractFunction
+        # only assembles Ad arrays in the full representation, hence this case is
+        # treated separately.
+        diagonal_args: list[DiagonalAdArray] = []
+        for arg in args:
+            if isinstance(arg, DiagonalAdArray):
+                diagonal_args.append(arg)
+        if len(diagonal_args) > 0 and len(diagonal_args) == len(args):
+            return self._diagonal_value_and_jacobian(*diagonal_args)
         return pp.ad.AbstractFunction.func(self, *args)  # type:ignore[arg-type]
+
+    def _diagonal_value_and_jacobian(self, *args: DiagonalAdArray) -> DiagonalAdArray:
+        """Assemble the value and Jacobian of this operator for diagonal arguments.
+
+        Parameters:
+            *args: The arguments of this operator. As in :meth:`get_jacobian`, these
+                are assumed to be variables. Moreover, they should have been initialized
+                jointly, see
+                :func:`~porepy.numerics.ad.ad_array.initialize_diagonal_ad_arrays`, so
+                that they share the same structure of Jacobian blocks.
+
+        Raises:
+            ValueError: If an argument is not represented by a block in the Jacobian
+                structure of the arguments.
+
+        Returns:
+            The value and derivatives of this operator as a diagonal Ad array.
+
+        """
+        values = self.get_values(*args)
+        derivatives = np.hstack([self._fetch_data(self, g, True) for g in self.domains])
+
+        # The diagonal Jacobian has one block per variable on the subdomains. There can
+        # also be variables defined on the subdomains that are not arguments of this
+        # operator (example: a density is a function of pressure and temperature, while
+        # the global set of variables also includes a component fraction). The
+        # derivatives with respect to such 'additional' variables are zero.
+        col_indices = args[0].col_indices
+        jac = np.zeros((len(col_indices), values.size))
+
+        for derivative, arg in zip(derivatives, args):
+            # The block of a variable is identified by the column indices of the block
+            # coinciding with the degrees of freedom of the variable.
+            blocks = [
+                i
+                for i, block_indices in enumerate(col_indices)
+                if np.array_equal(block_indices, arg.row_indices)
+            ]
+            if len(blocks) == 0:
+                raise ValueError(
+                    "Arguments of a surrogate operator must be variables in the"
+                    " Jacobian structure shared by all arguments."
+                )
+            jac[blocks[0]] = derivative
+
+        return DiagonalAdArray(
+            values, jac, np.arange(values.size), col_indices, args[0].num_derivatives
+        )
 
     def get_values(self, *args: float | np.ndarray | AdArrayBase) -> np.ndarray:
         """Fetches the values stored for this operator at its time or iterate index.
@@ -298,18 +356,22 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
 
         derivatives = np.hstack([self._fetch_data(self, g, True) for g in self.domains])
 
-        # NOTE: The Jacobians of individual args must be of same shape, with a
-        # diagonal (identity) in some column block per arg.
-        # Otherwise this operator has no way of knowing in which column to insert the
-        # derivative values.
-        # Also, the comlete Jacobian of this operator is created by summing the
-        # Jacobians of arguments, with the derivative data inserted in the diagonal
-        # of the block, per argument/dependency/provided derivative value.
+        # NOTE: The Jacobians of individual args must be of same shape, with a diagonal
+        # (identity) in some column block per arg. Otherwise this operator has no way of
+        # knowing in which column to insert the derivative values.
+        # Also, the complete Jacobian of this operator is created by summing the
+        # Jacobians of arguments, with the derivative data inserted in the diagonal of
+        # the block, per argument/dependency/provided derivative value.
 
-        # Checking Jacobian shapes to assert they are consistent
+        # Check that the Jacobian shapes are consistent. The shapes refer to the full
+        # representation, so that arguments in different representations can be
+        # compared. For a diagonal argument, the shape is known without assembling the
+        # full Jacobian.
         shapes = set()
         for arg in args:
-            if isinstance(arg, AdArray):
+            if isinstance(arg, DiagonalAdArray):
+                shapes.add((arg.val.size, arg.num_derivatives))
+            elif isinstance(arg, AdArray):
                 shapes.add(arg.jac.shape)
         assert len(shapes) <= 1, (
             "Inconsistent shapes of Jacobians of dependencies."
@@ -323,14 +385,32 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         # By assumption, there will be one argument per row per dependency.
         row_ptr = np.arange(0, num_args * num_rows + 1, num_args)
 
-        # Make sure all the Jacobians are CSR matrices before fetching the indices of
-        # the data.
-        csr_jacs = [arg.full_jac.tocsr() for arg in args if isinstance(arg, AdArray)]
-        # Stack the derivative values, then ravel them in Fortran order, so that the
+        # Find the column index of the single entry in each row of the arguments'
+        # Jacobians.
+        col_indices = []
+        for arg in args:
+            if isinstance(arg, DiagonalAdArray):
+                # For a diagonal argument, the column indices are stored in the argument
+                # itself.
+                col_indices.append(arg.row_indices)
+            elif isinstance(arg, AdArray):
+                # For an AdArray argument, the column indices are found in the Jacobian.
+                jac = arg.jac.tocsr()
+                # A violation here would indicate a misuse of the surrogate operator;
+                # the arguments should have a single derivative per row (see method
+                # docstring).
+                assert jac.nnz == num_rows and np.all(np.diff(jac.indptr) == 1), (
+                    "Arguments of surrogate operators must have one entry per row in"
+                    " their Jacobian."
+                )
+                col_indices.append(jac.indices)
+
+        # Stack the column indices, then ravel them in Fortran order, so that the
         # indices for the zeroth row comes in the first num_args places etc.
-        indices = np.vstack([jac.indices for jac in csr_jacs]).ravel("F")
-        # Do the same for the data, which is the derivative values.
-        data = np.vstack(list(derivatives)).ravel("F")
+        indices = np.vstack(col_indices).ravel("F")
+        # Do the same for the data, which is the derivative values. These are inserted
+        # as are, thus a derivative which is exactly zero is kept as an explicit entry.
+        data = derivatives.ravel("F")
         # Create the sparse matrix in CSR format and return it.
         return sps.csr_matrix((data, indices, row_ptr), shape=(num_rows, num_cols))
 
