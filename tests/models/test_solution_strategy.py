@@ -816,7 +816,7 @@ class ConstantPorosityTest(pp.PorePyModel):
 
 
 def test_prepare_simulation_twice_after_class_swap():
-    """Repeated calls of ``prepare_simulation`` must not keep stale operators.
+    """Repeated calls of ``prepare_simulation`` must not keep swapped operators.
 
     The test calls ``prepare_simulation`` so that the AD tree is assembled. Then it
     temporarily replaces a constitutive law (the matrix porosity) at runtime by swapping
@@ -859,9 +859,9 @@ def test_prepare_simulation_twice_after_class_swap():
     jac_original, res_original = assemble(original_model)
 
     # Sanity check: the swapped model's equations differ, so the test is meaningful.
-    jac_stale, res_stale = assemble(swapped)
-    assert not np.allclose(res_stale, res_original)
-    assert not abs(jac_stale - jac_original).max() < 1e-12 * max(
+    jac_swapped, res_swapped = assemble(swapped)
+    assert not np.allclose(res_swapped, res_original)
+    assert not abs(jac_swapped - jac_original).max() < 1e-12 * max(
         1.0, abs(jac_original).max()
     )
 
