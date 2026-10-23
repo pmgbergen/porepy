@@ -359,7 +359,7 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         # NOTE: The Jacobians of individual args must be of same shape, with a diagonal
         # (identity) in some column block per arg. Otherwise this operator has no way of
         # knowing in which column to insert the derivative values.
-        # Also, the comlete Jacobian of this operator is created by summing the
+        # Also, the complete Jacobian of this operator is created by summing the
         # Jacobians of arguments, with the derivative data inserted in the diagonal of
         # the block, per argument/dependency/provided derivative value.
 
@@ -409,7 +409,7 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         # indices for the zeroth row comes in the first num_args places etc.
         indices = np.vstack(col_indices).ravel("F")
         # Do the same for the data, which is the derivative values. These are inserted
-        # as is, thus a derivative which is exactly zero is kept as an explicit entry.
+        # as are, thus a derivative which is exactly zero is kept as an explicit entry.
         data = derivatives.ravel("F")
         # Create the sparse matrix in CSR format and return it.
         return sps.csr_matrix((data, indices, row_ptr), shape=(num_rows, num_cols))
