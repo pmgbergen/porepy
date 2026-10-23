@@ -391,9 +391,9 @@ def test_restart_without_reference_state(restart_runs, tmp_path, allow_missing):
             "restart": True,
             "pvd_file": folder / "data.pvd",
             "times_file": folder / "times.json",
+            "allow_missing_exported_files": allow_missing,
         },
     )
-    params["allow_missing_exported_files"] = allow_missing
     if allow_missing:
         with pytest.warns(UserWarning, match="No reference state found"):
             RestartModel(params).prepare_simulation()
@@ -404,7 +404,7 @@ def test_restart_without_reference_state(restart_runs, tmp_path, allow_missing):
 
 @pytest.mark.parametrize("allow_missing", [True, False])
 def test_restart_without_time_indices(restart_runs, tmp_path, allow_missing):
-    """"times.json" may not contain field "time_index" (older versions). If
+    """ "times.json" may not contain field "time_index" (older versions). If
     ``allow_missing_exported_files`` is False, a ValueError is raised. If it is True, a
     warning is issued, and the time manager's time index should remain unchanged.
 
@@ -428,9 +428,9 @@ def test_restart_without_time_indices(restart_runs, tmp_path, allow_missing):
             "restart": True,
             "pvd_file": folder / "data.pvd",
             "times_file": times_file,
+            "allow_missing_exported_files": allow_missing,
         },
     )
-    params["allow_missing_exported_files"] = allow_missing
     model = RestartModel(params)
 
     if not allow_missing:
