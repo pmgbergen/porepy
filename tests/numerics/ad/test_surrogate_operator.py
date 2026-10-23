@@ -436,9 +436,7 @@ def _surrogate_and_arguments(
         )
         for val, ind in zip(values, indices)
     ]
-    diagonal_array_array = pp.ad.initialize_diagonal_ad_arrays(
-        values, indices, num_dofs
-    )
+    diagonal_array_list = pp.ad.initialize_diagonal_ad_arrays(values, indices, num_dofs)
 
     # Each cell has the derivative with respect to a dependency in the column of the
     # degree of freedom of that dependency in the cell.
@@ -447,11 +445,15 @@ def _surrogate_and_arguments(
         dofs = equation_system.dofs_of([equation_system.md_variable(name, subdomains)])
         expected_jacobian[np.arange(nc), dofs] = derivative
 
-    return sop, sparse_array, diagonal_array_array, expected_jacobian
+    return sop, sparse_array, diagonal_array_list, expected_jacobian
 
 
+@pytest.mark.parametrize(
+    "first_sparse,second_sparse",
+    ([True, False], [True, True], [False, True]),
+)
 def test_jacobian_with_arguments_in_different_representations(
-    equation_system: pp.ad.EquationSystem,
+    equation_system: pp.ad.EquationSystem, first_sparse: bool, second_sparse: bool
 ):
     """The Jacobian of a surrogate operator does not depend on the representation of its
     arguments, which can be full, diagonal or a mix of the two.
@@ -464,19 +466,17 @@ def test_jacobian_with_arguments_in_different_representations(
         equation_system, [VAR1_NAME, VAR2_NAME], [2.0, 3.0]
     )
     num_cells = sparse_array[0].val.size
+    first_arg = sparse_array[0] if first_sparse else diagonal_array[0]
+    second_arg = sparse_array[1] if second_sparse else diagonal_array[1]
 
-    for args in [
-        (sparse_array[0], sparse_array[1]),
-        (diagonal_array[0], sparse_array[1]),
-        (sparse_array[0], diagonal_array[1]),
-    ]:
-        jac = sop.get_jacobian(*args)
-        # One entry per row and dependency, that is, the zero derivatives should be
-        # included in the Jacobian.
-        assert jac.nnz == 2 * num_cells
-        # The Jacobian of the surrogate operator should be the same, regardless of the
-        # representation of its arguments.
-        np.testing.assert_allclose(jac.toarray(), expected_jacobian)
+    args = [first_arg, second_arg]
+    jac = sop.get_jacobian(*args)
+    # One entry per row and dependency, that is, the zero derivatives should be
+    # included in the Jacobian.
+    assert jac.nnz == 2 * num_cells
+    # The Jacobian of the surrogate operator should be the same, regardless of the
+    # representation of its arguments.
+    np.testing.assert_allclose(jac.toarray(), expected_jacobian)
 
     result = sop.func(*diagonal_array)
     assert isinstance(result, pp.ad.DiagonalAdArray)
