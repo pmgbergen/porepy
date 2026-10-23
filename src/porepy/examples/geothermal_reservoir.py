@@ -14,12 +14,12 @@ needed for quicker test runs.
 """
 
 import logging
+from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Callable, cast
 
 import numpy as np
-from numpy.typing import NDArray
 
 import porepy as pp
 from porepy.applications.boundary_conditions.model_boundary_conditions import (
@@ -32,6 +32,7 @@ from porepy.applications.initial_conditions.model_initial_conditions import (
     InitialConditionHydrostaticPressureValues,
     InitialConditionThermalGradientTemperatureValues,
 )
+from porepy.applications.initialization.initialization import initialization_pipeline
 from porepy.applications.md_grids.model_geometries import (
     TwoEllipticFractures3d,
     TwoWells3d,
@@ -39,8 +40,6 @@ from porepy.applications.md_grids.model_geometries import (
 from porepy.viz.data_saving_model_mixin import FractureDeformationExporting
 
 logger = logging.getLogger(__name__)
-
-logging.basicConfig(level=logging.INFO)
 
 
 class WellBCType(Enum):
@@ -549,7 +548,7 @@ def set_solver_params():
         "nonlinear_solver": pp.solvers.ConstraintLineSearchNonlinearSolver,
         # Set to 1 to use turn on a residual-based line search. This involves some extra
         # residual evaluations and may be quite costly.
-        "global_line_search": 0,
+        "global_line_search": 1,
         # Set to 0 to use turn off the tailored line search, see the class
         # ConstraintLineSearchNonlinearSolver. This line search is cheap and has proven
         # effective for (some versions of) this particular simulation setup.
@@ -560,12 +559,23 @@ def set_solver_params():
 
 def run_example() -> list[pp.PorePyModel]:
     """Run the geothermal reservoir example and return the model."""
-    models: list[pp.PorePyModel] = []
     model = GeothermalReservoirWellBCs(set_model_params())
-    pp.ModelRunner(model, set_solver_params()).run()
-    models.append(model)
-    return models
+    initialization_pipeline(
+        model,
+        nonlinear_solver=pp.solvers.ConstraintLineSearchNonlinearSolver(
+            params=set_solver_params()
+        ),
+        # Sync the initialization acceptance tolerance with the nonlinear solver's.
+        residual_tolerances=defaultdict(lambda: 1e-7),
+    )
+    pp.ModelRunner(model, set_solver_params() | {"prepare_simulation": False}).run()
+    return [model]
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    # Silence the linear solver logger, which reports time.
+    logging.getLogger("porepy.numerics.solvers.linear_solvers.linear_solver").setLevel(
+        logging.WARNING
+    )
     run_example()
