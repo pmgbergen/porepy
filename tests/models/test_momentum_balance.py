@@ -19,7 +19,7 @@ from porepy.applications.test_utils.models import (
     compare_scaled_primary_variables,
 )
 from porepy.models.contact_mechanics import (
-    RadialReturnTangentialContactMechanicsEquation,
+    ScaledProjectionTangentialContactMechanicsEquation,
 )
 
 
@@ -416,7 +416,10 @@ def test_set_boundary_reference_values():
 
 # Formulations of the tangential contact condition to be tested in the elastoplastic
 # tests. None refers to the default formulation.
-tangential_contact_formulations = [None, RadialReturnTangentialContactMechanicsEquation]
+tangential_contact_formulations = [
+    None,
+    ScaledProjectionTangentialContactMechanicsEquation,
+]
 
 
 def with_tangential_formulation(
