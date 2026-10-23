@@ -289,10 +289,9 @@ def get_t_s_dt(data: dict) -> tuple[np.ndarray, np.ndarray]:
     return x_, y_, yr_
 
 
-# region Time steps and gas transients for isothermal cases.
-fig = plt.figure(figsize=(1.5 * WIDTH, 0.7 * WIDTH))
+# region Gas content for isothermal cases.
+fig = plt.figure(figsize=(WIDTH, 0.7 * WIDTH))
 ax = fig.add_subplot(111)
-axr = ax.twinx()
 imgs = []
 imgrs = []
 
@@ -301,7 +300,9 @@ ys = []
 yrs = []
 markers = [4, 5, 6, 7]
 markers_dt = ["1", "2", "3", "4"]
-colors = ["gray", "black", "blue", "cyan"]
+# colors = ["gray", "black", "blue", "cyan"]
+linestyles = ["solid", "solid", (0, (5, 5)), (0, (5, 5))]
+colors = ["y", "k", "c", "m"]
 labels = [
     rf"i-vT-{JUMP_MAX}",
     rf"i-vT(vT)-{JUMP_MAX}",
@@ -358,35 +359,10 @@ def xtrans(x):
 
 
 lo = 0
-for x, y, l, c, m in zip(xs, yrs, labels, colors, markers_dt):
+for x, y, l, ls, c, m in zip(xs, ys, labels, linestyles, colors, markers):
     kwargs = dict(
-        linestyle=(lo, (1, 4)),
-        linewidth=LW,
-    )
-
-    if x.size < 2:
-        x_ = np.linspace(min(xmin), max(xmax), 10)
-        y_ = np.ones_like(x_) * y[0]
-    else:
-        x_ = x
-        y_ = y
-        kwargs["marker"] = m
-        kwargs["markersize"] = 2 * MS
-        kwargs["markevery"] = 0.1
-
-    imgrs += axr.plot(
-        xtrans(x_ - JUMP_TIME),
-        y_,
-        color=c,
-        label=l,
-        **kwargs,
-    )
-    lo += 1
-
-lo = 0
-for x, y, l, c, m in zip(xs, ys, labels, colors, markers):
-    kwargs = dict(
-        linestyle=(lo, (5, 10)),
+        # linestyle=(lo, (5, 10)),
+        linestyle=ls,
         linewidth=LW,
     )
 
@@ -411,15 +387,7 @@ for x, y, l, c, m in zip(xs, ys, labels, colors, markers):
 
 ax.set_xlabel(r"$t - t_{\ast}$ [h]")
 ax.set_ylabel(r"$s_{\text{frac}}$")
-axr.set_ylabel(r"$\Delta t$")
 
-axr.set_yscale("log")
-axr.grid(axis="y", which="major", alpha=0.5)
-
-axr.set_yticks(
-    ticks=[10, 60, 3600, 24 * 3600],
-    labels=[r"$10$ s", r"$1$ min", r"$1$ h", r"$1$ d"],
-)
 ax.set_xticks(
     ticks=xtrans([T_BEFORE_JUMP - JUMP_TIME, 0, 3600, 3 * 3600]),
     labels=[-1, 0, 1, 3],
@@ -427,30 +395,84 @@ ax.set_xticks(
 
 ax.legend(
     handles=imgs,
-    loc="upper left",
-    bbox_to_anchor=(1.2, 1),
-    title=r"$s_{\text{frac}}$",
-)
-axr.legend(
-    handles=imgrs,
-    loc="upper left",
-    bbox_to_anchor=(1.2, 0.4),
-    title=r"$\Delta t$",
+    loc="upper right",
+    # bbox_to_anchor=(0.8, 1),
+    # title=r"$s_{\text{frac}}$",
 )
 
 fig.tight_layout(pad=PAD)
 fig.savefig(
-    f"{FOLDER}dt_tau_g_case_ab.png",
+    f"{FOLDER}sat_frac_case_ab.png",
     format="png",
     dpi=DPI,
     bbox_inches="tight",
     pad_inches=0.01,
 )
 # endregion
-# region Time steps and gas transients for thermal cases.
-fig = plt.figure(figsize=(1.5 * WIDTH, 0.7 * WIDTH))
+# region Time steps for isothermal cases.
+fig = plt.figure(figsize=(WIDTH, 0.7 * WIDTH))
 ax = fig.add_subplot(111)
-axr = ax.twinx()
+
+lo = 0
+for x, y, l, ls, c, m in zip(xs, yrs, labels, linestyles, colors, markers):
+    kwargs = dict(
+        # linestyle=(lo, (1, 4)),
+        linestyle=ls,
+        linewidth=LW,
+    )
+
+    if x.size < 2:
+        x_ = np.linspace(min(xmin), max(xmax), 10)
+        y_ = np.ones_like(x_) * y[0]
+    else:
+        x_ = x
+        y_ = y
+        kwargs["marker"] = m
+        kwargs["markersize"] = MS
+        kwargs["markevery"] = 0.1
+
+    imgrs += ax.plot(
+        xtrans(x_ - JUMP_TIME),
+        y_,
+        color=c,
+        label=l,
+        **kwargs,
+    )
+    lo += 1
+
+ax.set_xlabel(r"$t - t_{\ast}$ [h]")
+ax.set_ylabel(r"$\Delta t$")
+
+ax.set_yscale("log")
+ax.grid(axis="y", which="major", alpha=0.5)
+
+ax.set_yticks(
+    ticks=[10, 60, 3600, 24 * 3600],
+    labels=[r"$10$ s", r"$1$ min", r"$1$ h", r"$1$ d"],
+)
+ax.set_xticks(
+    ticks=xtrans([T_BEFORE_JUMP - JUMP_TIME, 0, 3600, 3 * 3600]),
+    labels=[-1, 0, 1, 3],
+)
+ax.legend(
+    handles=imgrs,
+    loc="lower right",
+    bbox_to_anchor=(1.1, 0),
+    # title=r"$\Delta t$",
+)
+
+fig.tight_layout(pad=PAD)
+fig.savefig(
+    f"{FOLDER}dt_trans_case_ab.png",
+    format="png",
+    dpi=DPI,
+    bbox_inches="tight",
+    pad_inches=0.01,
+)
+# endregion
+# region Gas content for thermal cases.
+fig = plt.figure(figsize=(WIDTH, 0.7 * WIDTH))
+ax = fig.add_subplot(111)
 imgs = []
 imgrs = []
 
@@ -459,7 +481,9 @@ ys = []
 yrs = []
 markers = [4, 5, 6, 7]
 markers_dt = ["1", "2", "3", "4"]
-colors = ["gray", "black", "blue", "cyan"]
+# colors = ["gray", "black", "blue", "cyan"]
+linestyles = ["solid", "solid", (0, (5, 5)), (0, (5, 5))]
+colors = ["y", "k", "c", "m"]
 labels = [
     rf"vT-{JUMP_MAX}",
     rf"vT(uv)-{JUMP_MAX}",
@@ -494,35 +518,10 @@ for x, y, c in zip(
         print(f"\t{c}: {y.min():.2f}")
 
 lo = 0
-for x, y, l, c, m in zip(xs, yrs, labels, colors, markers_dt):
+for x, y, l, ls, c, m in zip(xs, ys, labels, linestyles, colors, markers):
     kwargs = dict(
-        linestyle=(lo, (1, 4)),
-        linewidth=LW,
-    )
-
-    if x.size < 2:
-        x_ = np.linspace(min(xmin), max(xmax), 10)
-        y_ = np.ones_like(x_) * y[0]
-    else:
-        x_ = x
-        y_ = y
-        kwargs["marker"] = m
-        kwargs["markersize"] = 2 * MS
-        kwargs["markevery"] = 0.1
-
-    imgrs += axr.plot(
-        xtrans(x_ - JUMP_TIME),
-        y_,
-        color=c,
-        label=l,
-        **kwargs,
-    )
-    lo += 1
-
-lo = 0
-for x, y, l, c, m in zip(xs, ys, labels, colors, markers):
-    kwargs = dict(
-        linestyle=(lo, (5, 10)),
+        # linestyle=(lo, (5, 10)),
+        linestyle=ls,
         linewidth=LW,
     )
 
@@ -547,12 +546,66 @@ for x, y, l, c, m in zip(xs, ys, labels, colors, markers):
 
 ax.set_xlabel(r"$t - t_{\ast}$ [h]")
 ax.set_ylabel(r"$s_{\text{frac}}$")
-axr.set_ylabel(r"$\Delta t$")
 
-axr.set_yscale("log")
-axr.grid(axis="y", which="major", alpha=0.5)
+ax.set_xticks(
+    ticks=xtrans([T_BEFORE_JUMP - JUMP_TIME, 0, 3600, 3 * 3600]),
+    labels=[-1, 0, 1, 3],
+)
 
-axr.set_yticks(
+ax.legend(
+    handles=imgs,
+    loc="upper right",
+    # bbox_to_anchor=(1.2, 1),
+    # title=r"$s_{\text{frac}}$",
+)
+
+fig.tight_layout(pad=PAD)
+fig.savefig(
+    f"{FOLDER}sat_frac_case_cd.png",
+    format="png",
+    dpi=DPI,
+    bbox_inches="tight",
+    pad_inches=0.01,
+)
+# endregion
+# region Time steps for thermal cases.
+fig = plt.figure(figsize=(WIDTH, 0.7 * WIDTH))
+ax = fig.add_subplot(111)
+
+lo = 0
+for x, y, l, ls, c, m in zip(xs, yrs, labels, linestyles, colors, markers):
+    kwargs = dict(
+        # linestyle=(lo, (1, 4)),
+        linestyle=ls,
+        linewidth=LW,
+    )
+
+    if x.size < 2:
+        x_ = np.linspace(min(xmin), max(xmax), 10)
+        y_ = np.ones_like(x_) * y[0]
+    else:
+        x_ = x
+        y_ = y
+        kwargs["marker"] = m
+        kwargs["markersize"] = MS
+        kwargs["markevery"] = 0.1
+
+    imgrs += ax.plot(
+        xtrans(x_ - JUMP_TIME),
+        y_,
+        color=c,
+        label=l,
+        **kwargs,
+    )
+    lo += 1
+
+ax.set_xlabel(r"$t - t_{\ast}$ [h]")
+ax.set_ylabel(r"$\Delta t$")
+
+ax.set_yscale("log")
+ax.grid(axis="y", which="major", alpha=0.5)
+
+ax.set_yticks(
     ticks=[10, 60, 3600, 24 * 3600],
     labels=[r"$10$ s", r"$1$ min", r"$1$ h", r"$1$ d"],
 )
@@ -562,21 +615,15 @@ ax.set_xticks(
 )
 
 ax.legend(
-    handles=imgs,
-    loc="upper left",
-    bbox_to_anchor=(1.2, 1),
-    title=r"$s_{\text{frac}}$",
-)
-axr.legend(
     handles=imgrs,
-    loc="upper left",
-    bbox_to_anchor=(1.2, 0.4),
-    title=r"$\Delta t$",
+    loc="lower right",
+    bbox_to_anchor=(1.1, 0),
+    # title=r"$\Delta t$",
 )
 
 fig.tight_layout(pad=PAD)
 fig.savefig(
-    f"{FOLDER}dt_tau_g_case_cd.png",
+    f"{FOLDER}dt_trans_case_cd.png",
     format="png",
     dpi=DPI,
     bbox_inches="tight",
@@ -1559,10 +1606,140 @@ axr.legend(
 
 fig.tight_layout(pad=PAD)
 fig.savefig(
-    f"{FOLDER}iterations.png",
+    f"{FOLDER}iteration_metrics.png",
     format="png",
     dpi=DPI,
     bbox_inches="tight",
     pad_inches=0.01,
 )
+# endregion
+# region Iteration numbers
+fig = plt.figure(figsize=(1.5 * WIDTH, 0.7 * WIDTH))
+ax = fig.add_subplot(111)
+axr = ax.twinx()
+imgs = []
+imgsr = []
+
+for j, c in enumerate(centers):
+    x = c - group_width / 2 + (param_points + 0.5) * bar_width
+
+    ax.plot(
+        x,
+        total_gi[j],
+        linewidth=LW,
+        linestyle="solid",
+        color=colors["gi"],
+        label="total" if j == 0 else None,
+    )
+    ax.plot(
+        x,
+        wasted_gi[j],
+        linewidth=LW,
+        linestyle="dashed",
+        color=colors["gi"],
+        label="wasted" if j == 0 else None,
+    )
+
+    axr.plot(
+        x,
+        total_fi[j],
+        linewidth=LW,
+        linestyle="dashdot",
+        color=colors["fi"],
+        label="total" if j == 0 else None,
+    )
+    axr.plot(
+        x,
+        wasted_fi[j],
+        linewidth=LW,
+        linestyle="dotted",
+        color=colors["fi"],
+        label="wasted" if j == 0 else None,
+    )
+
+bar_positions = []
+bar_labels = []
+params = list(plot_data["case2b"]["ajump"].keys())
+
+for i in range(n_models):
+    for j in range(n_params):
+        x = centers[i] - group_width / 2 + (j + 0.5) * bar_width
+        bar_positions.append(x)
+        bar_labels.append(f"{params[j]}")
+
+ax.set_xticks(ticks=bar_positions, labels=bar_labels, fontsize=22)
+for x, model in zip(centers, models):
+    ax.text(
+        x,
+        -0.08,
+        model,
+        ha="center",
+        va="top",
+        transform=ax.get_xaxis_transform(),
+        # fontsize=plt.rcParams['font.size'],
+    )
+
+ax.set_ylabel(r"Global iterations")
+axr.set_ylabel(r"Local iterations")
+
+axr.grid(axis="y", ls="dashed", alpha=0.5, color="grey")
+ax.grid(axis="x", ls="solid", color="grey", alpha=0.5)
+# axr.set_yscale("log")
+
+ax.legend(loc="upper left", bbox_to_anchor=(1.2, 1), title="Global")
+axr.legend(
+    loc="upper left",
+    bbox_to_anchor=(1.2, 0.5),
+    title="Local",
+)
+
+fig.tight_layout(pad=PAD)
+fig.savefig(
+    f"{FOLDER}iteration_numbers.png",
+    format="png",
+    dpi=DPI,
+    bbox_inches="tight",
+    pad_inches=0.01,
+)
+# endregion
+# region Iteration numbers without time schedule
+
+total_ts = np.array([
+    plot_data["case2b"]["npc"]["total_time_steps"],
+    plot_data["case2c"]["npc"]["total_time_steps"],
+    plot_data["case2d"]["npc"]["total_time_steps"],
+])
+wasted_ts = np.array([
+    plot_data["case2b"]["npc"]["wasted_time_steps"],
+    plot_data["case2c"]["npc"]["wasted_time_steps"],
+    plot_data["case2d"]["npc"]["wasted_time_steps"],
+])
+total_gi = np.array([
+    plot_data["case2b"]["npc"]["total_global_iter"],
+    plot_data["case2c"]["npc"]["total_global_iter"],
+    plot_data["case2d"]["npc"]["total_global_iter"],
+])
+wasted_gi = np.array([
+    plot_data["case2b"]["npc"]["wasted_global_iter"],
+    plot_data["case2c"]["npc"]["wasted_global_iter"],
+    plot_data["case2d"]["npc"]["wasted_global_iter"],
+])
+total_fi = np.array([
+    plot_data["case2b"]["npc"]["total_flash_iter"],
+    plot_data["case2c"]["npc"]["total_flash_iter"],
+    plot_data["case2d"]["npc"]["total_flash_iter"],
+])
+wasted_fi = np.array([
+    plot_data["case2b"]["npc"]["wasted_flash_iter"],
+    plot_data["case2c"]["npc"]["wasted_flash_iter"],
+    plot_data["case2d"]["npc"]["wasted_flash_iter"],
+])
+
+from prettytable import PrettyTable
+
+tab = PrettyTable(["", "TS", "wTS", "GI", "wGI", "FI", "wFI"])
+tab.add_row(["i-vT(vT)"] + [total_ts[0], wasted_ts[0], total_gi[0], wasted_gi[0], total_fi[0], wasted_fi[0]])
+tab.add_row(["vT(uv)"] + [total_ts[1], wasted_ts[1], total_gi[1], wasted_gi[1], total_fi[1], wasted_fi[1]])
+tab.add_row(["ph(uv)"] + [total_ts[2], wasted_ts[2], total_gi[2], wasted_gi[2], total_fi[2], wasted_fi[2]])
+print(tab)
 # endregion
