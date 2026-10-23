@@ -606,21 +606,15 @@ def test_solver_statistics_save():
         (None, False),
     ],
 )
-def test_solver_statistics_save_in_model(path, exists):
+def test_solver_statistics_save_in_model(path, exists, tmp_path):
     """Check whether solver statistics are correctly saved to file
     when integrated in model workflow."""
-
-    # Make sure the exporting folder is empty.
-    folder = Path("visualization")
-    if folder.exists():
-        for f in folder.glob("*"):
-            f.unlink()
 
     # Create the model with the specified parameters.
     params = {
         "time_dependent": True,  # Needed to trigger saving during prepare_simulation.
         "nonlinear_problem": False,
-        "folder_name": "visualization",
+        "folder_name": str(tmp_path),
         "solver_statistics_file_name": path,
     }
     model = DummyModel(params)
@@ -635,10 +629,6 @@ def test_solver_statistics_save_in_model(path, exists):
         assert model.nonlinear_solver_statistics.path.suffix == ".json"
     else:
         assert model.nonlinear_solver_statistics.path is None
-
-    # Clean up.
-    for f in folder.glob("*"):
-        f.unlink()
 
 
 # ! ---- NonlinearSolverStatistics tests ---- !

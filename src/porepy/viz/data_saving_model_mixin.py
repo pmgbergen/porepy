@@ -9,6 +9,7 @@ or to a file format other than vtu.
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence, Union, cast
 
@@ -99,8 +100,22 @@ class DataSavingMixin(pp.PorePyModel):
         self.time_manager.write_time_information(
             Path(self.params["folder_name"]) / "times.json"
         )
+
+        # self.exporter.exported_time_steps is empty only before the first time step was
+        # written, so saving the reference state only once.
+        if not self.exporter.exported_time_steps and not self.restart_options.get(
+            "restart", False
+        ):
+            self._save_reference_state(Path(self.params["folder_name"]))
+
         self.exporter.write_vtu(self.data_to_export(), time_dependent=True)
-        times = np.array(self.time_manager.exported_times)
+        # Both the time history and the exporter's time steps count the exports, so the
+        # time of each written time step is found at its own index in the history. After
+        # a restart, the exporter has written only the time steps since the restart,
+        # while the history reaches back to the start.
+        times = np.array(self.time_manager.exported_times)[
+            self.exporter.exported_time_steps
+        ]
         if self.restart_options.get("restart", False):
             # For a pvd file addressing all time steps (before and after restart
             # time), resume based on restart input pvd file through append.
@@ -209,6 +224,132 @@ class DataSavingMixin(pp.PorePyModel):
                 / self.params["solver_statistics_file_name"]
             )
 
+    _reference_state_folder_name: str = "reference"
+    """Name of the sub-folder holding the reference state."""
+
+    _reference_state_file_name: str = "reference_state.npz"
+    """Name of the file, in the reference state folder, holding the reference values
+    that are not cell data."""
+
+    def _reference_state_data(self) -> dict[str, tuple[pp.GridLike, dict]]:
+        """Grids and their data dictionaries, keyed by position in the md-grid."""
+        mdg = self.mdg
+        groups: dict[str, Sequence[tuple[pp.GridLike, dict]]] = {
+            "sd": mdg.subdomains(return_data=True),
+            "intf": mdg.interfaces(return_data=True),
+            "bg": mdg.boundaries(return_data=True),
+        }
+        return {
+            f"{group}{i}": item
+            for group, items in groups.items()
+            for i, item in enumerate(items)
+        }
+
+    def _save_reference_state(self, folder: Path) -> None:
+        """Write the reference values (variables, stress and boundary data) stored in
+        the grid data to file.
+
+        The reference values of the primary variables are cell data, and are written to
+        vtu files. The remaining values (e.g., stress and boundary values) are written
+        to a npz file. Both are placed in a sub-folder of ``folder``.
+
+        Parameters:
+            folder: Folder to write the reference state sub-folder to.
+
+        """
+        folder = folder / self._reference_state_folder_name
+        variable_names = {var.name for var in self.equation_system.variables}
+        cell_data = []
+        arrays = {}
+        for key, (grid, data) in self._reference_state_data().items():
+            for name, values in data.get(pp.REFERENCE_SOLUTIONS, {}).items():
+                if name in variable_names and isinstance(
+                    grid, (pp.Grid, pp.MortarGrid)
+                ):
+                    # Cell-based data is saved in vtu.
+                    cell_data.append((grid, name, values))
+                else:
+                    # The rest of the data (boundary grids data and stress) is saved in
+                    # npz.
+                    arrays[f"{key}::{name}"] = np.asarray(values)
+
+        folder.mkdir(parents=True, exist_ok=True)
+        pp.Exporter(
+            self.mdg,
+            Path(self._reference_state_folder_name),
+            folder_name=folder,
+            length_scale=self.units.m,
+        ).write_vtu(cell_data)  # type: ignore[arg-type]
+        np.savez(folder / self._reference_state_file_name, **arrays)  # type: ignore[arg-type]
+
+    def _load_reference_state(
+        self, folder: Path, allow_missing_exported_files: bool = False
+    ) -> None:
+        """Overwrite the reference values in the grid data by those saved to file.
+
+        Parameters:
+            folder: Folder containing the reference state sub-folder.
+            allow_missing_exported_files: ``default=False``. If the reference files do
+                not exist and this is ``True``, a warning is issued and the reference
+                state is not modified.
+
+        Raises:
+            ValueError: If no reference files exist and ``allow_missing_exported_files``
+                is ``False``.
+
+        """
+        folder = folder / self._reference_state_folder_name
+        if not folder.exists():
+            message = f"No reference state found at {folder}."
+            if not allow_missing_exported_files:
+                raise ValueError(
+                    message + " Set the model parameter "
+                    "'allow_missing_exported_files' to True to restart anyway."
+                )
+            warnings.warn(
+                message + " The reference state of the model setup is kept, which may "
+                "differ from the restarted simulation.",
+                stacklevel=2,
+            )
+            return
+
+        # Cell-based data is saved in vtu.
+        self.exporter.import_state_from_vtu(
+            sorted(folder.glob("*.vtu")),
+            keys=[var.name for var in self.equation_system.variables],
+            reference=True,
+        )
+        # The rest of the data (boundary grids data and stress) is saved in npz.
+        data_of = self._reference_state_data()
+        with np.load(folder / self._reference_state_file_name) as saved:
+            for entry in saved.files:
+                key, name = entry.split("::", 1)
+                data_of[key][1].setdefault(pp.REFERENCE_SOLUTIONS, {})[name] = saved[
+                    entry
+                ]
+
+    def _convert_imported_state_from_si(self) -> None:
+        """Undo the conversion to SI units that :meth:`data_to_export` applied.
+
+        Exported values are written in SI units so that the files are meaningful on
+        their own. The model, however, works in the scaled units given by
+        :attr:`units`, so a state read back from those files has to be converted the
+        other way before it can be used - otherwise a restart of a model with a
+        non-trivial unit system silently resumes from the wrong numbers.
+
+        """
+        for variable in self.equation_system.variables:
+            values_si = self.equation_system.get_variable_values(
+                variables=[variable], time_step_index=0
+            )
+            self.equation_system.set_variable_values(
+                self.units.convert_units(
+                    values_si, variable.tags["si_units"], to_si=False
+                ),
+                variables=[variable],
+                time_step_index=0,
+            )
+
     def load_data_from_vtu(
         self,
         vtu_files: Union[Path, list[Path]],
@@ -218,6 +359,9 @@ class DataSavingMixin(pp.PorePyModel):
         **kwargs,
     ) -> None:
         """Initialize data in the model by reading from a pvd file.
+
+        The model is assumed to be identical to the one that wrote the file: same grids
+        in the same order, same equations and same units. This is not validated.
 
         Parameters:
             vtu_files: Path(s) to vtu file(s).
@@ -247,9 +391,12 @@ class DataSavingMixin(pp.PorePyModel):
 
         # Load states and read time index, connecting data and time history.
         self.exporter.import_state_from_vtu(vtu_files, keys, **kwargs)
+        self._convert_imported_state_from_si()
+        allow_missing = self.restart_options.get("allow_missing_exported_files", False)
+        self._load_reference_state(times_file.parent, allow_missing)
 
         # Load time and time step size.
-        self.time_manager.load_time_information(times_file)
+        self.time_manager.load_time_information(times_file, allow_missing)
         self.time_manager.set_time_and_dt_from_exported_steps(time_index)
         self.exporter._time_step_counter = time_index
 
@@ -286,9 +433,12 @@ class DataSavingMixin(pp.PorePyModel):
 
         # Import data and determine time index corresponding to the pvd file.
         time_index: int = self.exporter.import_from_pvd(pvd_file, is_mdg_pvd, keys)
+        self._convert_imported_state_from_si()
+        allow_missing = self.restart_options.get("allow_missing_exported_files", False)
+        self._load_reference_state(times_file.parent, allow_missing)
 
         # Load time and time step size.
-        self.time_manager.load_time_information(times_file)
+        self.time_manager.load_time_information(times_file, allow_missing)
         self.time_manager.set_time_and_dt_from_exported_steps(time_index)
         self.exporter._time_step_counter = time_index
 

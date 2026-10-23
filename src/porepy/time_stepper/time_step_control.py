@@ -171,7 +171,7 @@ class TimeManager:
         simulation loop, corresponds to the implicit trial time, where the unknown
         solution is defined. E.g., in the very first time step with dt = 0.5, time =
         0.5.
-        
+
         """
         self.dt = float(self.dt_init)
         """Current time step size, seconds."""
@@ -180,7 +180,7 @@ class TimeManager:
         """Counter of successful time steps. E.g., the simulation attempted to make the
         very first time step 3 times: failed, failed and succeeded. Then,
         time_index = 1.
-        
+
         """
 
         # Bookkeeping of saved time steps for restarting purposes.
@@ -197,6 +197,14 @@ class TimeManager:
         """A list of time points for the simulation states that were saved on disk with
         `write_time_information` for restarting purposes. Completeness and lack of
         duplication are NOT guaranteed.
+
+        """
+        # NOTE: This property cannot be inferred from the position in `exported_times`,
+        # consider the case when not every time step is saved.
+        self.exported_time_indices: list[Optional[int]] = []
+        """The :attr:`time_index` of each state in :attr:`exported_times`, so that a
+        restart resumes the count of time steps where it stopped. ``None`` for states
+        read from a history that did not record it.
 
         """
 
@@ -304,26 +312,65 @@ class TimeManager:
         self.exported_dt.append(
             int(self.dt) if isinstance(self.dt, np.integer) else float(self.dt)
         )
+        self.exported_time_indices.append(int(self.time_index))
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as out_file:
-            json.dump({"time": self.exported_times, "dt": self.exported_dt}, out_file)
+            json.dump(
+                {
+                    "time": self.exported_times,
+                    "dt": self.exported_dt,
+                    "time_index": self.exported_time_indices,
+                },
+                out_file,
+            )
 
-    def load_time_information(self, path: Path) -> None:
+    def load_time_information(
+        self, path: Path, allow_missing_exported_files: bool = False
+    ) -> None:
         """Keep track of history of time and time step size and store.
 
         Mirrors :meth:`write_time_information`.
 
         Parameters:
             path: Specified path for retrieving time and dt.
+            allow_missing_exported_files: ``default=False``. If the file does not
+                contain the time indices (e.g., it was written by an older version) and
+                this is ``True``, a warning is issued, the time index of the time
+                manager is not updated by the restart, and the unknown indices of the
+                history are set to ``None``.
+
+        Raises:
+            ValueError: If the file does not contain the time indices and
+                ``allow_missing_exported_files`` is ``False``.
 
         """
         with path.open("r") as in_file:
             data = json.load(in_file)
             self.exported_times = data["time"]
             self.exported_dt = data["dt"]
+            exported_time_indices: list[Optional[int]] | None = data.get(
+                "time_index", None
+            )
+            if exported_time_indices is None:
+                message = (
+                    f"The restart file {path} does not contain exported_time_indices. "
+                    "This can happen if you load an old version of the restart file."
+                )
+                if not allow_missing_exported_files:
+                    raise ValueError(
+                        message + " Set the model parameter "
+                        "'allow_missing_exported_files' to True to restart anyway."
+                    )
+                warn(message + " Time index won't be updated.", stacklevel=2)
+                exported_time_indices = [None] * len(self.exported_times)
+            self.exported_time_indices = exported_time_indices
 
     def set_time_and_dt_from_exported_steps(self, time_index: int = -1) -> None:
-        """Load time and dt (time step) and cut off all later times and time steps.
+        """Load time, dt (time step) and time index, and cut off all later times and
+        time steps.
+
+        If the history does not contain the time index, the time manager's current value
+        is left unchanged.
 
         NOTE: This method by itself does NOT update the simulation state arrays.
 
@@ -346,9 +393,13 @@ class TimeManager:
 
         self.time = self.exported_times[time_index]
         self.dt = self.exported_dt[time_index]
+        exported_time_index = self.exported_time_indices[time_index]
+        if exported_time_index is not None:
+            self.time_index = exported_time_index
 
         self.exported_times = self.exported_times[:time_index]
         self.exported_dt = self.exported_dt[:time_index]
+        self.exported_time_indices = self.exported_time_indices[:time_index]
 
 
 @dataclass
