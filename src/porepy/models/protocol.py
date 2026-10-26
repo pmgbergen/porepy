@@ -1126,23 +1126,31 @@ else:
         def load_data_from_vtu(
             self,
             vtu_files: Path | list[Path],
-            time_index: int,
+            export_index: int,
             times_file: Optional[Path] = None,
             keys: Optional[str | list[str]] = None,
             **kwargs,
         ) -> None:
             """Initialize data in the model by reading from a pvd file.
 
+            The model is assumed to be identical to the one that wrote the file: same
+            grids in the same order, same equations and same units. This is not
+            validated.
+
             Parameters:
-                vtu_files: path(s) to vtu file(s).
-                keys: keywords addressing cell data to be transferred. If 'None', the
+                vtu_files: Path(s) to vtu file(s).
+                export_index: Index of the time step to be loaded.
+                times_file: Path to json file storing history of time and time step
+                    size. If ``None``, the same default path as in
+                    :meth:`write_pvd_and_vtu` is used.
+                keys: Keywords addressing cell data to be transferred. If ``None``, the
                     mixed-dimensional grid is checked for keywords corresponding to
-                    primary variables identified through pp.TIME_STEP_SOLUTIONS.
-                keyword arguments: see documentation of
+                    primary variables identified through ``pp.TIME_STEP_SOLUTIONS``.
+                **kwargs: See documentation of
                     :meth:`porepy.viz.exporter.Exporter.import_state_from_vtu`
 
             Raises:
-                ValueError: if incompatible file type provided.
+                ValueError: If incompatible file types are provided.
 
             """
 

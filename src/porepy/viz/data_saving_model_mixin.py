@@ -231,7 +231,7 @@ class DataSavingMixin(pp.PorePyModel):
     """Name of the file, in the reference state folder, holding the reference values
     that are not cell data."""
 
-    def _reference_state_data(self) -> dict[str, tuple[pp.GridLike, dict]]:
+    def _get_grids_and_data_from_md_grid(self) -> dict[str, tuple[pp.GridLike, dict]]:
         """Grids and their data dictionaries, keyed by position in the md-grid."""
         mdg = self.mdg
         groups: dict[str, Sequence[tuple[pp.GridLike, dict]]] = {
@@ -268,7 +268,7 @@ class DataSavingMixin(pp.PorePyModel):
         variable_names = {var.name for var in self.equation_system.variables}
         cell_data = []
         arrays = {}
-        for key, (grid, data) in self._reference_state_data().items():
+        for key, (grid, data) in self._get_grids_and_data_from_md_grid().items():
             for name, values in data.get(pp.REFERENCE_SOLUTIONS, {}).items():
                 if name in variable_names and isinstance(
                     grid, (pp.Grid, pp.MortarGrid)
@@ -331,7 +331,7 @@ class DataSavingMixin(pp.PorePyModel):
             reference=True,
         )
         # The rest of the data (boundary grids data and stress) is saved in npz.
-        data_of = self._reference_state_data()
+        data_of = self._get_grids_and_data_from_md_grid()
         with np.load(folder / self._reference_state_file_name) as saved:
             for entry in saved.files:
                 key, name = entry.split("::", 1)
@@ -364,7 +364,7 @@ class DataSavingMixin(pp.PorePyModel):
     def load_data_from_vtu(
         self,
         vtu_files: Union[Path, list[Path]],
-        time_index: int,
+        export_index: int,
         times_file: Optional[Path] = None,
         keys: Optional[Union[str, list[str]]] = None,
         **kwargs,
@@ -376,7 +376,7 @@ class DataSavingMixin(pp.PorePyModel):
 
         Parameters:
             vtu_files: Path(s) to vtu file(s).
-            time_index: Index of the time step to be loaded.
+            export_index: Index of the time step to be loaded.
             times_file: Path to json file storing history of time and time step size. If
                 ``None``, the same default path as in :meth:`write_pvd_and_vtu` is used.
             keys: Keywords addressing cell data to be transferred. If ``None``, the
@@ -408,8 +408,8 @@ class DataSavingMixin(pp.PorePyModel):
 
         # Load time and time step size.
         self.time_manager.load_time_information(times_file, allow_missing)
-        self.time_manager.set_time_and_dt_from_exported_steps(time_index)
-        self.exporter._time_step_counter = time_index
+        self.time_manager.set_time_and_dt_from_exported_steps(export_index)
+        self.exporter._time_step_counter = export_index
 
     def load_data_from_pvd(
         self,

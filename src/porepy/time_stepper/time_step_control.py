@@ -365,7 +365,7 @@ class TimeManager:
                 exported_time_indices = [None] * len(self.exported_times)
             self.exported_time_indices = exported_time_indices
 
-    def set_time_and_dt_from_exported_steps(self, time_index: int = -1) -> None:
+    def set_time_and_dt_from_exported_steps(self, export_index: int = -1) -> None:
         """Load time, dt (time step) and time index, and cut off all later times and
         time steps.
 
@@ -375,10 +375,11 @@ class TimeManager:
         NOTE: This method by itself does NOT update the simulation state arrays.
 
         NOTE: It is implicitly assumed that the first entry of the history corresponds
-        to the initial solution.
+        to the initial solution, so that setting export_index=0 effectively restores the
+        initial condition.
 
         Parameters:
-            time_index: reference index addressing the currently stored history. By
+            export_index: reference index addressing the currently stored history. By
                 default, the latest accessible time and dt is retrieved.
 
         Raises:
@@ -391,15 +392,15 @@ class TimeManager:
                 and dt."""
             )
 
-        self.time = self.exported_times[time_index]
-        self.dt = self.exported_dt[time_index]
-        exported_time_index = self.exported_time_indices[time_index]
+        self.time = self.exported_times[export_index]
+        self.dt = self.exported_dt[export_index]
+        exported_time_index = self.exported_time_indices[export_index]
         if exported_time_index is not None:
             self.time_index = exported_time_index
 
-        self.exported_times = self.exported_times[:time_index]
-        self.exported_dt = self.exported_dt[:time_index]
-        self.exported_time_indices = self.exported_time_indices[:time_index]
+        self.exported_times = self.exported_times[:export_index]
+        self.exported_dt = self.exported_dt[:export_index]
+        self.exported_time_indices = self.exported_time_indices[:export_index]
 
 
 @dataclass
