@@ -183,7 +183,6 @@ def test_arithmetic_operations_on_ad_objects(
             ad_base = equation_system._ad_parser._initialize_variables(
                 [expression],
                 state,
-                equation_system,
                 equation_system.variable_indexer,
                 derivative=True,
             )
