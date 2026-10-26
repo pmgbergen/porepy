@@ -12,8 +12,6 @@ and plotting should live outside this file.
 """
 
 from __future__ import annotations
-import tracemalloc
-
 from typing import Literal, Tuple
 
 import numpy as np
@@ -736,8 +734,7 @@ class BenchmarkThreePhaseFlowModelCFF(
     CompositionalFractionalFlowTemplate,
     VTKSamplerMixin,
 ):
-    
-    """Complete benchmark model for the 1D CSMP--PorePy comparison with fractional compositional 
+    """Complete benchmark model for the 1D CSMP--PorePy comparison with fractional compositional
     flow formulation.
 
     """
@@ -755,7 +752,7 @@ class BenchmarkThreePhaseFlowModelCF(
     CompositionalFlowTemplate,
     VTKSamplerMixin,
 ):
-    """Complete benchmark model for the 1D CSMP--PorePy comparison with standard compositional 
+    """Complete benchmark model for the 1D CSMP--PorePy comparison with standard compositional
     flow formulation.
-    
+
     """
