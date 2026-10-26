@@ -287,8 +287,8 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
                 that they share the same structure of Jacobian blocks.
 
         Raises:
-            ValueError: If an argument is not represented by a block in the Jacobian
-                structure of the arguments.
+            ValueError: If an argument is not a variable, see
+                :func:`_diagonal_variable_block`.
 
         Returns:
             The value and derivatives of this operator as a diagonal Ad array.
@@ -306,19 +306,9 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         jac = np.zeros((len(col_indices), values.size))
 
         for derivative, arg in zip(derivatives, args):
-            # The block of a variable is identified by the column indices of the block
-            # coinciding with the degrees of freedom of the variable.
-            blocks = [
-                i
-                for i, block_indices in enumerate(col_indices)
-                if np.array_equal(block_indices, arg.row_indices)
-            ]
-            if len(blocks) == 0:
-                raise ValueError(
-                    "Arguments of a surrogate operator must be variables in the"
-                    " Jacobian structure shared by all arguments."
-                )
-            jac[blocks[0]] = derivative
+            # Since the arguments share the same structure of Jacobian blocks, the
+            # block of the argument is also the block of the derivative in the result.
+            jac[_diagonal_variable_block(arg)] = derivative
 
         return DiagonalAdArray(
             values, jac, np.arange(values.size), col_indices, args[0].num_derivatives
@@ -351,6 +341,10 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
             their Jacobians, the number of provided derivative values and required
             values can mismatch. Hence there is no clear way to insert the provided
             derivative values in the Jacobian.
+
+        Raises:
+            ValueError: If an argument has more than one entry per row in its
+                Jacobian, that is, if it is not a variable.
 
         """
 
@@ -390,19 +384,21 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         col_indices = []
         for arg in args:
             if isinstance(arg, DiagonalAdArray):
-                # For a diagonal argument, the column indices are stored in the argument
-                # itself.
-                col_indices.append(arg.row_indices)
+                # For a diagonal argument, the column indices are those of the block of
+                # the variable.
+                block = _diagonal_variable_block(arg)
+                col_indices.append(arg.col_indices[block])
             elif isinstance(arg, AdArray):
                 # For an AdArray argument, the column indices are found in the Jacobian.
                 jac = arg.jac.tocsr()
                 # A violation here would indicate a misuse of the surrogate operator;
-                # the arguments should have a single derivative per row (see method
+                # the arguments should have a singlfe derivative per row (see method
                 # docstring).
-                assert jac.nnz == num_rows and np.all(np.diff(jac.indptr) == 1), (
-                    "Arguments of surrogate operators must have one entry per row in"
-                    " their Jacobian."
-                )
+                if jac.nnz != num_rows or np.any(np.diff(jac.indptr) != 1):
+                    raise ValueError(
+                        "Arguments of surrogate operators must have one entry per row"
+                        " in their Jacobian."
+                    )
                 col_indices.append(jac.indices)
 
         # Stack the column indices, then ravel them in Fortran order, so that the
@@ -413,6 +409,45 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         data = derivatives.ravel("F")
         # Create the sparse matrix in CSR format and return it.
         return sps.csr_matrix((data, indices, row_ptr), shape=(num_rows, num_cols))
+
+
+def _diagonal_variable_block(arg: DiagonalAdArray) -> int:
+    """Find the block of a variable in the Jacobian structure of a diagonal Ad array.
+
+    Arguments of surrogate operators are assumed to be variables. The row indices of a
+    variable are its degrees of freedom, which coincide with the column indices of the
+    variable's own block in the Jacobian. All other blocks of the Jacobian are zero.
+
+    Parameters:
+        arg: An argument of a surrogate operator.
+
+    Raises:
+        ValueError: If the row indices of ``arg`` do not coincide with the column
+            indices of any block, or if ``arg`` has non-zero derivatives outside of
+            this block. In both cases, ``arg`` is not a variable.
+
+    Returns:
+        The index of the block of the variable among the blocks of ``arg.jac``.
+
+    """
+    blocks = [
+        i
+        for i, block_indices in enumerate(arg.col_indices)
+        if np.array_equal(block_indices, arg.row_indices)
+    ]
+    if len(blocks) == 0:
+        raise ValueError(
+            "Arguments of a surrogate operator must be variables, but the row indices"
+            " of an argument do not coincide with the column indices of any block in"
+            " its Jacobian."
+        )
+    nonzero_blocks = np.flatnonzero(np.any(arg.jac != 0, axis=1))
+    if np.any(nonzero_blocks != blocks[0]):
+        raise ValueError(
+            "Arguments of a surrogate operator must be variables, but an argument has"
+            " non-zero derivatives with respect to other variables than itself."
+        )
+    return blocks[0]
 
 
 def _check_expected_values(
