@@ -26,10 +26,6 @@ from porepy.applications.initialization.initialization import (
     default_residual_tolerances,
     initialization_pipeline,
 )
-from porepy.applications.initialization.model_state_storage import (
-    LoadedStateMismatch,
-    ModelStateStorage,
-)
 from porepy.applications.test_utils import models
 
 
@@ -85,8 +81,6 @@ TpsaPoromechanics = models.add_mixin(
     pp.poromechanics.TpsaPoromechanicsMixin, models.Poromechanics
 )
 
-INFINITE = defaultdict(lambda: np.inf)
-"""Tolerances which are always satisfied."""
 ZERO = defaultdict(lambda: 0.0)
 """Tolerances which are never satisfied."""
 
@@ -233,14 +227,14 @@ def assert_restored(model, original_class, original_time_manager, folder: Path):
     ],
 )
 def test_pipeline(tmp_path, caplog, saved_state, logged, not_logged):
-    """This test instanciates a PorePy model and runs it through the initialization
+    """This test instantiates a PorePy model and runs it through the initialization
     pipeline in various conditions (see parametrization), which all ultimately lead to
     a successfully initialized model.
 
     The test checks that:
     - the pipeline reported certain steps through logging;
     - the original model is restored;
-    - the steady state is acheived.
+    - the steady state is achieved.
 
     """
     caplog.set_level(logging.INFO)
@@ -271,7 +265,7 @@ def test_pipeline(tmp_path, caplog, saved_state, logged, not_logged):
     original_class, original_time_manager = model.__class__, model.time_manager
     initialize(model)
 
-    # Check that the pipeline logged and not logger certain messages.
+    # Check that the pipeline logged and not logged certain messages.
     for message in logged:
         assert message in caplog.text
     for message in not_logged:
@@ -325,6 +319,7 @@ def test_data_time_frozen(tmp_path):
 
     # The boundary values, also as reference values, are those of the first time step.
     expected_time = pp.DAY  # First dt = pp.DAY, as defined in the time manager.
+    checked = 0
     for _, data in model.mdg.boundaries(return_data=True):
         if model.pressure_variable in data.get(pp.ITERATE_SOLUTIONS, {}):
             for kwargs in [{"reference": True}, {"iterate_index": 0}]:
@@ -332,6 +327,9 @@ def test_data_time_frozen(tmp_path):
                     model.pressure_variable, data, **kwargs
                 )
                 np.testing.assert_allclose(pressure, 1e3 * (1 + expected_time / pp.DAY))
+                checked += 1
+    # Without this the test passes if no boundary grid carries the pressure.
+    assert checked > 0, "no boundary values of the pressure were checked"
 
 
 @pytest.mark.parametrize(

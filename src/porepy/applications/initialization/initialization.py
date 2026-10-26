@@ -19,12 +19,14 @@ following:
    stepping are written to ``<folder_name>_initialization``.
 
 2. Prepares the simplified model, and either
+
    - loads a previously saved state from ``<folder_name>/steady_state.npz``, if it
      exists. If the saved state is incompatible, it is discarded.
    - or time steps the simplified model until both the rate of change of the variables
      and the residual of the equations are below the tolerances
      (:class:`~.steady_state_early_stop.SteadyStateEarlyStopCriterion`). The time
      stepping starts from the initial condition of the model. The state is saved.
+
    The found state is made the reference state of the simplified model: the variables
    and the boundary values are set as reference values, and the total stress becomes the
    reference stress.
@@ -342,7 +344,7 @@ def _run_to_steady_state(
     storage: ModelStateStorage,
     nonlinear_solver: pp.solvers.NonlinearSolverBase | None,
     rate_tolerances: dict[str, float],
-    residual_tolerance: dict[str, float],
+    residual_tolerances: dict[str, float],
     earliest_stop_time: float,
 ) -> None:
     """Time step the prepared initialization model to a steady state, and save it.
@@ -372,7 +374,7 @@ def _run_to_steady_state(
         early_stop_criteria=[
             SteadyStateEarlyStopCriterion(
                 rate_tolerances=rate_tolerances,
-                residual_tolerances=residual_tolerance,
+                residual_tolerances=residual_tolerances,
                 earliest_stop_time=earliest_stop_time,
             )
         ],
@@ -534,7 +536,7 @@ def initialization_pipeline(
                 storage=storage,
                 nonlinear_solver=nonlinear_solver,
                 rate_tolerances=rate_tolerances,
-                residual_tolerance=residual_tolerances,
+                residual_tolerances=residual_tolerances,
                 earliest_stop_time=earliest_stop_time,
             )
 
