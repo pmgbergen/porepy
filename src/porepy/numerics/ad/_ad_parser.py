@@ -59,6 +59,10 @@ class AdParser:
         cache is at the moment used sparingly. This will be revisited in the future.
         """
         self._num_subdomains = len(mdg.subdomains())
+        """Number of subdomains in the mixed-dimensional grid."""
+
+        self._num_subdomain_cells = mdg.num_subdomain_cells()
+        """Total number of cells in all subdomains of the mixed-dimensional grid."""
 
     def clear_cache(self) -> None:
         """Clear the cache of parsed operators."""
@@ -158,7 +162,6 @@ class AdParser:
         ad_base = self._initialize_variables(
             op if isinstance(op, list) else [op],
             state,
-            equation_system,
             variable_indexer,
             derivative,
         )
@@ -219,22 +222,20 @@ class AdParser:
         self,
         op_list: list[pp.ad.Operator],
         state: np.ndarray,
-        equation_system: pp.EquationSystem,
         variable_indexer: pp.ad.VariableIndexer,
         derivative: bool = True,
     ) -> Mapping[pp.ad.Variable, np.ndarray | pp.ad.AdArrayBase]:
         """Represent the active variables appearing in op_list in a mixed form.
 
         Variables that are suited for a diagonal representation (see
-        :func:`pp.ad.initialize_diagonal_ad_arrays`) receive this, more efficient,
-        representation. The remaining variables share a single, standard SparseAdArray
-        covering the variables described by variable_indexer.
+        :func:`pp.ad.initialize_diagonal_ad_arrays`) receive this more efficient
+        representation. The remaining variables share a single SparseAdArray in the
+        sparse representation, covering the variables described by variable_indexer.
 
         Parameters:
             op_list: List of operators whose variables should be represented.
             state: State vector, ordered according to variable_indexer, used to look up
                 variable values.
-            equation_system: The EquationSystem wherein the system state is defined.
             variable_indexer: The indexer that defines the arrangement in state, and
                 thereby also the columns of the Jacobians of the returned
                 SparseAdArrays.
@@ -249,160 +250,249 @@ class AdParser:
             True.
 
         """
-
-        def _indices_of(variable: pp.ad.Variable) -> np.ndarray | None:
-            """Indices of a variable in vectors ordered by variable_indexer, or None if
-            the variable is not covered by the indexer.
-
-            """
-            if isinstance(variable, pp.ad.MixedDimensionalVariable):
-                if any(
-                    sub_var not in variable_indexer.indices
-                    for sub_var in variable.sub_vars
-                ):
-                    return None
-                sub_indices = [
-                    variable_indexer.indices[sub_var] for sub_var in variable.sub_vars
-                ]
-                if len(sub_indices) == 0:
-                    return np.zeros(0, dtype=int)
-                return np.concatenate(sub_indices)
-            return variable_indexer.indices.get(variable)
-
-        def _indexed_variables_in_operator_tree() -> dict[pp.ad.Variable, np.ndarray]:
-            """Map the variables appearing anywhere in op_list to their indices.
-
-            Variables outside variable_indexer are left out: they are not unknowns of
-            this evaluation, and their values are fetched from the mixed-dimensional
-            grid when the operator tree is traversed.
-
-            """
-            all_operators = set(self._flatten_operator_tree(op_list))
-            indexed_variables = {}
-            for op in all_operators:
-                if not isinstance(op, pp.ad.Variable):
-                    continue
-                indices = _indices_of(op)
-                if indices is not None:
-                    indexed_variables[op] = indices
-            return indexed_variables
-
-        def _is_diagonal_representable(variable: pp.ad.Variable) -> bool:
-            """Check whether a variable is suited for a diagonal representation.
-
-            By assumption of this implementation, this requires the variable to 1) be
-            defined at the current iterate (not a previous iteration or time step, since
-            these have no derivative), 2) be defined on subdomains (not on interfaces or
-            boundary grids), 3) be defined on all subdomains, and 4) have a single
-            degree of freedom per cell.
-
-            """
-            if variable.is_previous_iterate or variable.is_previous_time:
-                return False
-            source = variable.source
-            if source.domain_type in [
-                DomainType.interfaces,
-                DomainType.boundary_grids,
-            ]:
-                # For now, we only support diagonal representations of variables defined
-                # on subdomains.
-                return False
-            domains = source.grids
-            if len(domains) < self._num_subdomains:
-                # This variable is not defined on all subdomains, so we cannot readily
-                # use a diagonal representation. This can be improved, but does not seem
-                # worth the effort at the moment.
-                return False
-            if variable.size != np.sum([sd.num_cells for sd in domains]):
-                # The variable has more than one dof per cell, so we cannot use a
-                # diagonal representation.
-                return False
-            return True
-
-        def _classify_variables() -> tuple[
-            dict[pp.ad.Variable, np.ndarray], dict[pp.ad.Variable, np.ndarray]
-        ]:
-            """Split the indexed variables into those suited for a diagonal
-            representation, and the rest."""
-            diagonal_variables = {}
-            other_variables = {}
-            for variable, indices in _indexed_variables_in_operator_tree().items():
-                if _is_diagonal_representable(variable):
-                    diagonal_variables[variable] = indices
-                else:
-                    other_variables[variable] = indices
-            return diagonal_variables, other_variables
-
-        def _variable_value_map(
-            variables: dict[pp.ad.Variable, np.ndarray],
-        ) -> dict[pp.ad.Variable, np.ndarray]:
-            """Map each variable to its value in state, without tracking derivatives.
-            This is a cheap alternative to the SparseAdArray-based representations
-            below, used when only the value (not the Jacobian) of an operator is needed.
-
-            """
-            return {variable: state[indices] for variable, indices in variables.items()}
-
-        def _diagonal_array_map(
-            variables: dict[pp.ad.Variable, np.ndarray],
-        ) -> dict[pp.ad.Variable, pp.ad.DiagonalAdArray]:
-            """Build a DiagonalAdArray for each variable suited for this
-            representation."""
-            diagonal_states = [state[indices] for indices in variables.values()]
-            diagonal_indices = list(variables.values())
-
-            diagonal_arrays = pp.ad.initialize_diagonal_ad_arrays(
-                diagonal_states, diagonal_indices, variable_indexer.size
-            )
-            return dict(zip(variables, diagonal_arrays))
-
-        def _ordinary_array_map(
-            variables: dict[pp.ad.Variable, np.ndarray],
-        ) -> dict[pp.ad.Variable, pp.ad.SparseAdArray]:
-            """Build a single, shared SparseAdArray covering the variables not suited
-            for a diagonal representation.
-
-            """
-            # Stack the per-variable indices to construct the shared array below. The
-            # per-variable indices are kept to split the array again afterwards.
-            variable_indices = list(variables.values())
-            if len(variable_indices) == 0:
-                all_indices = np.array([], dtype=int)
-            else:
-                all_indices = np.hstack(variable_indices)
-
-            # Only the entries belonging to these variables are populated; the rest
-            # (covered elsewhere by the diagonal representation) are left at zero.
-            ordinary_state = np.zeros_like(state)
-            ordinary_state[all_indices] = state[all_indices]
-            ordinary_array = pp.ad.initialize_partial_ad_array(
-                ordinary_state, all_indices
-            )
-
-            # NOTE: In principle, the entries of ordinary_array belonging to the
-            # diagonally represented variables should be zero. This is not verified
-            # here, since a variable can be present both in a diagonal form (covering
-            # all subdomains) and as an atomic, single-subdomain instance that does not
-            # qualify for the diagonal representation; the latter would then show up
-            # here despite overlapping with the former.
-
-            return {
-                variable: ordinary_array[indices]
-                for variable, indices in variables.items()
-            }
-
-        diagonal_variables, other_variables = _classify_variables()
+        diagonal_variables, sparse_variables = self._classify_variables(
+            op_list, variable_indexer
+        )
 
         if not derivative:
-            # We don't need Ad arrays at all here. This avoids the cost of
-            # constructing SparseAdArrays or DiagonalAdArrays for all variables in the
-            # system.
-            return _variable_value_map({**diagonal_variables, **other_variables})
+            # We don't need Ad arrays at all here. This avoids the cost of constructing
+            # SparseAdArrays or DiagonalAdArrays for all variables in the system.
+            return self._values_without_derivatives(
+                {**diagonal_variables, **sparse_variables}, state
+            )
 
         array_map: dict[pp.ad.Variable, pp.ad.AdArrayBase] = {}
-        array_map.update(_diagonal_array_map(diagonal_variables))
-        array_map.update(_ordinary_array_map(other_variables))
+        array_map.update(
+            self._diagonal_representation_map(
+                diagonal_variables, state, variable_indexer.size
+            )
+        )
+        array_map.update(self._sparse_representation_map(sparse_variables, state))
         return array_map
+
+    def _classify_variables(
+        self,
+        op_list: list[pp.ad.Operator],
+        variable_indexer: pp.ad.VariableIndexer,
+    ) -> tuple[dict[pp.ad.Variable, np.ndarray], dict[pp.ad.Variable, np.ndarray]]:
+        """Find the active variables in op_list, and split them into those suited for a
+        diagonal representation and the rest.
+
+        Parameters:
+            op_list: List of operators whose variables should be classified.
+            variable_indexer: The indexer that defines which variables are active, and
+                their arrangement in vectors of active variables.
+
+        Returns:
+            Two dictionaries, for the variables suited for the diagonal and the sparse
+            representation, respectively. Each maps a variable to its indices in vectors
+            ordered by variable_indexer.
+
+        """
+        diagonal_variables = {}
+        sparse_variables = {}
+        indexed_variables = self._indexed_variables_in_operator_tree(
+            op_list, variable_indexer
+        )
+        for variable, indices in indexed_variables.items():
+            if self._is_diagonal_representable(variable):
+                diagonal_variables[variable] = indices
+            else:
+                sparse_variables[variable] = indices
+        return diagonal_variables, sparse_variables
+
+    def _indexed_variables_in_operator_tree(
+        self,
+        op_list: list[pp.ad.Operator],
+        variable_indexer: pp.ad.VariableIndexer,
+    ) -> dict[pp.ad.Variable, np.ndarray]:
+        """Map the variables appearing anywhere in op_list to their indices in vectors
+        ordered by variable_indexer.
+
+        Only variables at the current time and iterate are included. Variables at a
+        previous iterate or time step, or at the reference state, have no derivatives
+        and are evaluated by their stored values when the operator tree is traversed.
+        The same holds for variables outside variable_indexer.
+
+        Parameters:
+            op_list: List of operators whose variables should be found.
+            variable_indexer: The indexer that defines the arrangement in a vector of
+                active variables.
+
+        Returns:
+            A mapping from each active variable at the current time and iterate to its
+            indices in vectors ordered by variable_indexer.
+
+        """
+        indexed_variables: dict[pp.ad.Variable, np.ndarray] = {}
+        for op in self._flatten_operator_tree(op_list):
+            if not isinstance(op, pp.ad.Variable) or op in indexed_variables:
+                continue
+            # Variables compare equal regardless of their time step, iterate and
+            # reference status. Since only variables at the current time and iterate are
+            # added, the above shortcut cannot hide such a variable behind its
+            # counterpart at, e.g., the previous time step.
+            if op.is_previous_iterate or op.is_previous_time or op.is_reference:
+                continue
+            indices = self._indices_of(op, variable_indexer)
+            if indices is not None:
+                indexed_variables[op] = indices
+        return indexed_variables
+
+    @staticmethod
+    def _indices_of(
+        variable: pp.ad.Variable, variable_indexer: pp.ad.VariableIndexer
+    ) -> np.ndarray | None:
+        """Find the indices of a variable in vectors ordered by variable_indexer.
+
+        Parameters:
+            variable: The variable, atomic or mixed-dimensional.
+            variable_indexer: The indexer that defines the arrangement in a vector of
+                active variables.
+
+        Returns:
+            The indices of the variable, or None if the variable is not covered by the
+            indexer. A mixed-dimensional variable is only considered covered if all its
+            sub-variables are.
+
+        """
+        if isinstance(variable, pp.ad.MixedDimensionalVariable):
+            if any(
+                sub_var not in variable_indexer.indices for sub_var in variable.sub_vars
+            ):
+                return None
+            sub_indices = [
+                variable_indexer.indices[sub_var] for sub_var in variable.sub_vars
+            ]
+            if len(sub_indices) == 0:
+                return np.zeros(0, dtype=int)
+            return np.concatenate(sub_indices)
+        return variable_indexer.indices.get(variable)
+
+    def _is_diagonal_representable(self, variable: pp.ad.Variable) -> bool:
+        """Check whether a variable at the current time and iterate is suited for a
+        diagonal representation.
+
+        By assumption of this implementation, this requires the variable to 1) be
+        defined on subdomains (not on interfaces or boundary grids), 2) be defined on
+        all subdomains, and 3) have a single degree of freedom per cell.
+
+        Parameters:
+            variable: The variable to check.
+
+        Returns:
+            True if the variable is suited for a diagonal representation.
+
+        """
+        source = variable.source
+        if source.domain_type in [
+            DomainType.interfaces,
+            DomainType.boundary_grids,
+        ]:
+            # For now, we only support diagonal representations of variables defined on
+            # subdomains.
+            return False
+        if len(source.grids) < self._num_subdomains:
+            # This variable is not defined on all subdomains, so we cannot readily use a
+            # diagonal representation. This can be improved, but does not seem worth the
+            # effort at the moment.
+            return False
+        if variable.size != self._num_subdomain_cells:
+            # The variable has more than one dof per cell, so we cannot use a diagonal
+            # representation.
+            return False
+        return True
+
+    @staticmethod
+    def _values_without_derivatives(
+        variables: dict[pp.ad.Variable, np.ndarray], state: np.ndarray
+    ) -> dict[pp.ad.Variable, np.ndarray]:
+        """Represent variables by their values only, without tracking derivatives.
+
+        This is a cheap alternative to the Ad array representations, used when only the
+        value (not the Jacobian) of an operator is needed.
+
+        Parameters:
+            variables: Mapping from each variable to its indices in state.
+            state: State vector, ordered according to the variable indexer.
+
+        Returns:
+            A mapping from each variable to its values in state.
+
+        """
+        return {variable: state[indices] for variable, indices in variables.items()}
+
+    @staticmethod
+    def _diagonal_representation_map(
+        variables: dict[pp.ad.Variable, np.ndarray],
+        state: np.ndarray,
+        num_derivatives: int,
+    ) -> dict[pp.ad.Variable, pp.ad.DiagonalAdArray]:
+        """Represent variables suited for the diagonal representation by
+        DiagonalAdArrays.
+
+        Parameters:
+            variables: Mapping from each variable to its indices in state. All variables
+                must be suited for the diagonal representation (see
+                :meth:`_is_diagonal_representable`), and thus have the same size.
+            state: State vector, ordered according to the variable indexer.
+            num_derivatives: Number of columns in the Jacobians, that is, the size of
+                the variable indexer.
+
+        Returns:
+            A mapping from each variable to a DiagonalAdArray with a unit derivative
+            with respect to the variable's own indices.
+
+        """
+        indices = list(variables.values())
+        diagonal_arrays = pp.ad.initialize_diagonal_ad_arrays(
+            [state[ind] for ind in indices], indices, num_derivatives
+        )
+        return dict(zip(variables, diagonal_arrays))
+
+    @staticmethod
+    def _sparse_representation_map(
+        variables: dict[pp.ad.Variable, np.ndarray], state: np.ndarray
+    ) -> dict[pp.ad.Variable, pp.ad.SparseAdArray]:
+        """Represent variables not suited for the diagonal representation by slices of
+        a single, shared SparseAdArray in the sparse representation.
+
+        Parameters:
+            variables: Mapping from each variable to its indices in state.
+            state: State vector, ordered according to the variable indexer.
+
+        Returns:
+            A mapping from each variable to a SparseAdArray with a unit derivative with
+            respect to the variable's own indices.
+
+        """
+        # Stack the per-variable indices to construct the shared array below. The
+        # per-variable indices are kept to split the array again afterwards.
+        variable_indices = list(variables.values())
+        if len(variable_indices) == 0:
+            all_indices = np.array([], dtype=int)
+        else:
+            all_indices = np.hstack(variable_indices)
+
+        # Only the entries belonging to these variables are populated; the rest (covered
+        # by the diagonal representation) are left at zero.
+        sparse_state = np.zeros_like(state)
+        sparse_state[all_indices] = state[all_indices]
+        sparse_array = pp.ad.initialize_partial_ad_array(sparse_state, all_indices)
+
+        # NOTE: In principle, the entries of sparse_array belonging to the diagonally
+        # represented variables should be zero. This is not verified here, since a
+        # variable can be present both in the diagonal form (covering all subdomains)
+        # and in a form restricted to some subdomains, which does not qualify for the
+        # diagonal representation; the latter then shows up here despite overlapping
+        # with the former. As an example, consider poromechanics with fractures: The
+        # mass balance uses the pressure on all subdomains, which receives the diagonal
+        # representation, while the momentum balance uses the pressure in the matrix
+        # only (through its gradient), which receives the sparse representation.
+
+        return {
+            variable: sparse_array[indices] for variable, indices in variables.items()
+        }
 
     def _flatten_operator_tree(
         self, op_list: Sequence[pp.ad.Operator]
