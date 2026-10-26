@@ -436,7 +436,9 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
             # implementation of differentiable TPFA should equal the flux computed
             # using the standard TPFA discretization.
             vector_source_flux = base_vector_source[fi] * vector_source_array
-            assert np.isclose(projected_vs * trm, vector_source_flux)
+            np.testing.assert_allclose(
+                projected_vs * trm, vector_source_flux, atol=1e-10
+            )
 
             # Sanity check on the direction of the vector source term: A vector source
             # pointing in the same direction as the vector from cell center to face
@@ -448,7 +450,7 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
                 assert flux > flux_without_vs
             elif sgn_vs < 0:
                 assert flux < flux_without_vs
-            assert np.isclose(flux, computed_flux.val[fi])
+            np.testing.assert_allclose(flux, computed_flux.val[fi], atol=1e-10)
 
         # Fetch the transmissibility from the base discretization.
         diff = base_flux[fi].toarray().ravel()
@@ -463,7 +465,9 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
 
         diff[ci] += projected_vs * trm_diff
 
-        assert np.allclose(diff, computed_flux.jac[fi].toarray().ravel())
+        np.testing.assert_allclose(
+            diff, computed_flux.jac[fi].toarray().ravel(), atol=1e-10
+        )
 
     # On Neumann faces, the computed flux should equal the boundary condition. The
     # derivative should be zero.
@@ -471,7 +475,9 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
         computed_flux.val[model._neumann_face]
         == model._neumann_flux * div[1, model._neumann_face]
     )
-    assert np.allclose(computed_flux.jac[model._neumann_face].toarray(), 0)
+    np.testing.assert_allclose(
+        computed_flux.jac[model._neumann_face].toarray(), 0, atol=1e-10
+    )
 
     # Test flux calculation on internal face. This is a bit more involved, as we need to
     # compute the harmonic mean of the two transmissibilities and its derivative.
@@ -517,7 +523,7 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
         # the mpfa one.
         flux = trm_full.dot([p0, p1]) + base_vector_source[fi] * vector_source_array
 
-        assert np.isclose(flux, computed_flux.val[fi])
+        np.testing.assert_allclose(flux, computed_flux.val[fi], atol=1e-10)
 
     trm_diff = np.array(
         [trm_full[0] + trm_diff_p0 * p_diff, trm_full[1] - trm_diff_p1 * p_diff]
@@ -525,7 +531,11 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
     vector_source_diff = np.array(
         [trm_diff_p0 * vs_diff, -trm_diff_p1 * vs_diff]
     ).ravel()
-    assert np.allclose(trm_diff + vector_source_diff, computed_flux.jac[fi].toarray())
+    np.testing.assert_allclose(
+        trm_diff + vector_source_diff,
+        computed_flux.jac[fi].toarray().ravel(),
+        atol=1e-10,
+    )
 
     ####
     # Test the potential trace calculation
@@ -567,11 +577,12 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
         # pressure in the adjacent cell, 2) a pressure difference between the cell and
         # the face which drives the given flux, and 3) a contribution from the vector
         # source term.
-        assert np.isclose(
+        np.testing.assert_allclose(
             potential_trace.val[model._neumann_face],
             p1
             + dp * model._neumann_flux
             + (base_vector_source_bound[model._neumann_face] * vector_source_array)[0],
+            atol=1e-10,
         )
 
     # Check the derivative of the potential trace reconstruction: Fetch the cell
@@ -581,17 +592,21 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
     # derivative of the transmissibility.
     cell_contribution[ci] += dp_diff * model._neumann_flux
 
-    assert np.allclose(
-        potential_trace.jac[model._neumann_face].toarray(), cell_contribution
+    np.testing.assert_allclose(
+        potential_trace.jac[model._neumann_face].toarray().ravel(),
+        cell_contribution,
+        atol=1e-10,
     )
 
     # On a Dirichlet face, the potential trace should be equal to the Dirichlet value.
-    assert np.isclose(
-        potential_trace.val[model._nonzero_dirichlet_face], model._dirichlet_pressure
+    np.testing.assert_allclose(
+        potential_trace.val[model._nonzero_dirichlet_face],
+        model._dirichlet_pressure,
+        atol=1e-10,
     )
     # The derivative of the potential trace with respect to the pressure should be zero,
     # as the potential trace is constant.
-    assert np.allclose(
+    np.testing.assert_allclose(
         potential_trace.jac[model._nonzero_dirichlet_face].toarray(), 0, atol=1e-15
     )
 
@@ -703,8 +718,8 @@ def test_diff_tpfa_on_grid_with_all_dimensions(base_discr: str, grid_type: str):
 
 class WithoutDiffTpfa(
     FluxDiscretization,
-    # pp.MassAndEnergyBalance,
-    pp.SinglePhaseFlow,
+    model_geometries.SquareDomainOrthogonalFractures,
+    pp.MassAndEnergyBalance,
 ):
     """Helper class to test that the methods for differentiating diffusive fluxes and
     potential reconstructions work on grids of all dimensions.
@@ -751,22 +766,32 @@ class WithDiffTpfa(
         )
 
 
+@pytest.mark.parametrize("fracture_indices", [[], [0, 1]])
 @pytest.mark.parametrize("base_discr", ["tpfa", "mpfa"])
-def test_diff_tpfa_and_standard_tpfa_give_same_linear_system(base_discr: str):
+def test_diff_tpfa_and_standard_tpfa_give_same_linear_system(
+    base_discr: str, fracture_indices: list[int]
+):
     """Discretize the same problem with a standard TPFA discretization and a
     differentiable TPFA discretization, where the latter also has a constant
     permeability, but given on 'differentiable form'. The Jacobian matrix and the
-    residual vectors should be the same.
+    residual vectors should be the same, and so should the Darcy and Fourier fluxes on
+    all faces.
+
+    With fractures, the interface fluxes enter the fluxes on the internal boundaries.
+    The Fourier flux enters the energy balance directly, hence an error there also
+    shows up in the linear system, while the Darcy flux on internal boundaries is only
+    checked through the flux values.
     """
     params = {
         "darcy_flux_discretization": base_discr,
         "fourier_flux_discretization": base_discr,
+        "fracture_indices": fracture_indices,
         "times_to_export": [],
     }
-    model_without_diff = WithoutDiffTpfa(params.copy())
+    model_without_diff = WithoutDiffTpfa(deepcopy(params))
     model_with_diff = WithDiffTpfa(params)
 
-    matrix, vector = [], []
+    matrix, vector, darcy_flux, fourier_flux = [], [], [], []
 
     for mod in [model_without_diff, model_with_diff]:
         mod.prepare_simulation()
@@ -776,8 +801,14 @@ def test_diff_tpfa_and_standard_tpfa_give_same_linear_system(base_discr: str):
         matrix.append(linear_system.matrix)
         vector.append(linear_system.rhs)
 
-    assert np.allclose(matrix[0].toarray(), matrix[1].toarray())
-    assert np.allclose(vector[0], vector[1])
+        subdomains = mod.mdg.subdomains()
+        darcy_flux.append(mod.equation_system.evaluate(mod.darcy_flux(subdomains)))
+        fourier_flux.append(mod.equation_system.evaluate(mod.fourier_flux(subdomains)))
+
+    np.testing.assert_allclose(matrix[0].toarray(), matrix[1].toarray(), atol=1e-10)
+    np.testing.assert_allclose(vector[0], vector[1], atol=1e-10)
+    np.testing.assert_allclose(darcy_flux[0], darcy_flux[1], atol=1e-10)
+    np.testing.assert_allclose(fourier_flux[0], fourier_flux[1], atol=1e-10)
 
 
 class DiffTpfaNewtonPerformanceGeometry(
@@ -918,9 +949,14 @@ def test_diff_tpfa_newton_performance(
         assert num_iters[0] == num_iters[1]
     else:
         assert num_iters[0] <= num_iters[1]
-    assert np.allclose(pressures[0], pressures[1])
+    # The two runs may take different Newton paths, so the solutions agree only up to
+    # the convergence tolerance.
+    atol = solver_params["nl_convergence_inc_atol"]
+    np.testing.assert_allclose(pressures[0], pressures[1], atol=atol)
     if include_fracture:
-        assert np.allclose(interface_darcy_fluxes[0], interface_darcy_fluxes[1])
+        np.testing.assert_allclose(
+            interface_darcy_fluxes[0], interface_darcy_fluxes[1], atol=atol
+        )
 
 
 class DiffTpfaFractureTipsInternalBoundaries(
@@ -989,10 +1025,12 @@ def test_flux_potential_trace_on_tips_and_internal_boundaries():
 
     Both Darcy and Fourier fluxes are tested.
 
-    For the fluxes, we test that the Jacobian matrix is zero on the Neumann faces (which
-    include fracture tips, internal boundaries, and any external boundaries that are
-    assigned a Neumann boundary condition). On tips we also test that the potential
-    trace is equal to the pressure in the adjacent cell.
+    For the fluxes, we test that the Jacobian matrix is zero on fracture tips and on
+    external boundaries that are assigned a Neumann boundary condition, where the flux
+    is given by the boundary condition alone. On internal boundaries, the flux should be
+    the interface flux of the matching mortar cell, with the sign of the face normal,
+    and depend on nothing else. On tips we also test that the potential trace is equal
+    to the pressure in the adjacent cell.
 
     Note for posterity: The test is only performed with Tpfa as a base discretization,
     since the tested properties will not hold for Mpfa in general. Specifically:
@@ -1023,18 +1061,41 @@ def test_flux_potential_trace_on_tips_and_internal_boundaries():
     for sd in mdg.subdomains():
         data = mdg.subdomain_data(sd)
 
-        # For both Darcy and Fourier flux, check that the Jacobian matrix is zero on
-        # Neumann faces.
-        bc_darcy = data[pp.PARAMETERS][model.darcy_keyword]["bc"]
-        darcy_flux = model.equation_system.evaluate(
-            model.darcy_flux([sd]), derivative=True
-        )
-        assert np.allclose(darcy_flux.jac[bc_darcy.is_neu].data, 0)
-        bc_fourier = data[pp.PARAMETERS][model.fourier_keyword]["bc"]
-        fourier_flux = model.equation_system.evaluate(
-            model.fourier_flux([sd]), derivative=True
-        )
-        assert np.allclose(fourier_flux.jac[bc_fourier.is_neu].data, 0)
+        internal_boundary = sd.tags["fracture_faces"]
+        interfaces = model.subdomains_to_interfaces([sd], [1])
+        # Sign of the face normal relative to the adjacent cell.
+        internal_boundary_sign = sd.signs_and_cells_of_boundary_faces(
+            np.flatnonzero(internal_boundary)
+        )[0]
+        variable_values = model.equation_system.get_variable_values(iterate_index=0)
+
+        for flux, interface_flux, keyword in [
+            (model.darcy_flux, model.interface_darcy_flux, model.darcy_keyword),
+            (model.fourier_flux, model.interface_fourier_flux, model.fourier_keyword),
+        ]:
+            computed = model.equation_system.evaluate(flux([sd]), derivative=True)
+
+            # The Jacobian matrix is zero on Neumann faces other than internal
+            # boundaries.
+            bc = data[pp.PARAMETERS][keyword]["bc"]
+            other_neumann = np.logical_and(bc.is_neu, np.logical_not(internal_boundary))
+            np.testing.assert_allclose(computed.jac[other_neumann].data, 0, atol=1e-10)
+
+            # On internal boundaries, the flux is the interface flux of the matching
+            # mortar cell, with the sign of the face normal. Thus each row of the
+            # Jacobian matrix has a single entry, in an interface flux column, equal to
+            # that sign, and the flux depends on nothing else.
+            jac_internal = computed.jac[internal_boundary].tocsr()
+            jac_internal.eliminate_zeros()
+            interface_dofs = model.equation_system.dofs_of([interface_flux(interfaces)])
+            np.testing.assert_array_equal(np.diff(jac_internal.indptr), 1)
+            assert np.all(np.isin(jac_internal.indices, interface_dofs))
+            np.testing.assert_allclose(jac_internal.data, internal_boundary_sign)
+            np.testing.assert_allclose(
+                computed.val[internal_boundary],
+                jac_internal @ variable_values,
+                atol=1e-10,
+            )
 
         # On immersed fracture tips, we know that the flux is zero (homogeneous Neumann
         # condition). For TPFA, we can thus verify that the reconstructed potential
@@ -1062,7 +1123,7 @@ def test_flux_potential_trace_on_tips_and_internal_boundaries():
             )
         )
         p = model.equation_system.evaluate(model.pressure([sd]))
-        assert np.allclose(pressure_trace[tip_faces], p[tip_cells])
+        np.testing.assert_allclose(pressure_trace[tip_faces], p[tip_cells], atol=1e-10)
         # Check that the temperature trace is equal to the temperature in the
         # adjacent cell.
         temperature_trace = model.equation_system.evaluate(
@@ -1075,4 +1136,6 @@ def test_flux_potential_trace_on_tips_and_internal_boundaries():
             )
         )
         T = model.equation_system.evaluate(model.temperature([sd]))
-        assert np.allclose(temperature_trace[tip_faces], T[tip_cells])
+        np.testing.assert_allclose(
+            temperature_trace[tip_faces], T[tip_cells], atol=1e-10
+        )

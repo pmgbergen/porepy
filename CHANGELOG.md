@@ -16,8 +16,8 @@ Breaking changes (what users must do when upgrading).
 ## Unreleased
 
 ### Changes
-PR 1805: The tangential contact mechanics equation now defaults to the projection-based
-    formulation of Alart and Curnier, replacing the scaled projection of Berge et al.
+PR 1812: Fixed `DarcysLawAd` and `FouriersLawAd` with a TPFA base discretization dropping the interface flux on fracture faces (issue 1811).
+PR 1805: The tangential contact mechanics equation now defaults to the projection-based formulation of Alart and Curnier, replacing the scaled projection of Berge et al.
 PR 1804: Fix RadialReturnTangentialContactMechanicsEquation for vanishing trial
     traction, which was treated as an open fracture instead of sticking. Elastoplastic
     momentum balance tests now also run with this formulation.
