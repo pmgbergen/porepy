@@ -16,6 +16,7 @@ Breaking changes (what users must do when upgrading).
 ## Unreleased
 
 ### Changes
+PR 1816: SPEED: Faster manufactured-solution functional tests by compiling each sympy expression once (issue 1814).
 PR 1812: Fixed `DarcysLawAd` and `FouriersLawAd` with a TPFA base discretization dropping the interface flux on fracture faces (issue 1811).
 PR 1805: The tangential contact mechanics equation now defaults to the projection-based formulation of Alart and Curnier, replacing the scaled projection of Berge et al.
 PR 1804: Fix RadialReturnTangentialContactMechanicsEquation for vanishing trial

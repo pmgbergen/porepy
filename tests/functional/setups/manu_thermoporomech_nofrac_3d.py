@@ -49,6 +49,7 @@ from tests.functional.setups.manu_thermoporomech_nofrac_2d import (
     ManuThermoPoroMechDataSaving,
     SourceTerms,
 )
+from tests.functional.setups.sympy_utils import lambdify
 
 
 class ManuThermoPoroMechExactSolution3d:
@@ -479,7 +480,7 @@ class ManuThermoPoroMechExactSolution3d:
         cc = sd.cell_centers
 
         # Lambdify expression
-        p_fun: Callable = sym.lambdify((x, y, z, t), self.p, "numpy")
+        p_fun: Callable = lambdify((x, y, z, t), self.p)
 
         # Cell-centered pressures
         p_cc: np.ndarray = p_fun(cc[0], cc[1], cc[2], time)
@@ -509,9 +510,9 @@ class ManuThermoPoroMechExactSolution3d:
 
         # Lambdify expression
         u_fun: list[Callable] = [
-            sym.lambdify((x, y, z, t), self.u[0], "numpy"),
-            sym.lambdify((x, y, z, t), self.u[1], "numpy"),
-            sym.lambdify((x, y, z, t), self.u[2], "numpy"),
+            lambdify((x, y, z, t), self.u[0]),
+            lambdify((x, y, z, t), self.u[1]),
+            lambdify((x, y, z, t), self.u[2]),
         ]
 
         # Cell-centered displacements
@@ -545,7 +546,7 @@ class ManuThermoPoroMechExactSolution3d:
         cc = sd.cell_centers
 
         # Lambdify expression
-        p_fun: Callable = sym.lambdify((x, y, z, t), self.T, "numpy")
+        p_fun: Callable = lambdify((x, y, z, t), self.T)
 
         # Cell-centered temperatures
         p_cc: np.ndarray = p_fun(cc[0], cc[1], cc[2], time)
@@ -577,9 +578,9 @@ class ManuThermoPoroMechExactSolution3d:
         # Lambdify expression
 
         q_fun: list[Callable] = [
-            sym.lambdify((x, y, z, t), self.q_darcy[0], "numpy"),
-            sym.lambdify((x, y, z, t), self.q_darcy[1], "numpy"),
-            sym.lambdify((x, y, z, t), self.q_darcy[2], "numpy"),
+            lambdify((x, y, z, t), self.q_darcy[0]),
+            lambdify((x, y, z, t), self.q_darcy[1]),
+            lambdify((x, y, z, t), self.q_darcy[2]),
         ]
 
         # Face-centered Darcy fluxes
@@ -616,9 +617,9 @@ class ManuThermoPoroMechExactSolution3d:
         # Lambdify expression
 
         q_fun: list[Callable] = [
-            sym.lambdify((x, y, z, t), self.q_energy[0], "numpy"),
-            sym.lambdify((x, y, z, t), self.q_energy[1], "numpy"),
-            sym.lambdify((x, y, z, t), self.q_energy[2], "numpy"),
+            lambdify((x, y, z, t), self.q_energy[0]),
+            lambdify((x, y, z, t), self.q_energy[1]),
+            lambdify((x, y, z, t), self.q_energy[2]),
         ]
 
         # Face-centered Darcy fluxes
@@ -657,19 +658,19 @@ class ManuThermoPoroMechExactSolution3d:
         # Lambdify expression
         sigma_total_fun: list[list[Callable]] = [
             [
-                sym.lambdify((x, y, z, t), self.sigma_total[0][0], "numpy"),
-                sym.lambdify((x, y, z, t), self.sigma_total[0][1], "numpy"),
-                sym.lambdify((x, y, z, t), self.sigma_total[0][2], "numpy"),
+                lambdify((x, y, z, t), self.sigma_total[0][0]),
+                lambdify((x, y, z, t), self.sigma_total[0][1]),
+                lambdify((x, y, z, t), self.sigma_total[0][2]),
             ],
             [
-                sym.lambdify((x, y, z, t), self.sigma_total[1][0], "numpy"),
-                sym.lambdify((x, y, z, t), self.sigma_total[1][1], "numpy"),
-                sym.lambdify((x, y, z, t), self.sigma_total[1][2], "numpy"),
+                lambdify((x, y, z, t), self.sigma_total[1][0]),
+                lambdify((x, y, z, t), self.sigma_total[1][1]),
+                lambdify((x, y, z, t), self.sigma_total[1][2]),
             ],
             [
-                sym.lambdify((x, y, z, t), self.sigma_total[2][0], "numpy"),
-                sym.lambdify((x, y, z, t), self.sigma_total[2][1], "numpy"),
-                sym.lambdify((x, y, z, t), self.sigma_total[2][2], "numpy"),
+                lambdify((x, y, z, t), self.sigma_total[2][0]),
+                lambdify((x, y, z, t), self.sigma_total[2][1]),
+                lambdify((x, y, z, t), self.sigma_total[2][2]),
             ],
         ]
 
@@ -719,9 +720,9 @@ class ManuThermoPoroMechExactSolution3d:
 
         # Lambdify expression
         source_mech_fun: list[Callable] = [
-            sym.lambdify((x, y, z, t), self.source_mech[0], "numpy"),
-            sym.lambdify((x, y, z, t), self.source_mech[1], "numpy"),
-            sym.lambdify((x, y, z, t), self.source_mech[2], "numpy"),
+            lambdify((x, y, z, t), self.source_mech[0]),
+            lambdify((x, y, z, t), self.source_mech[1]),
+            lambdify((x, y, z, t), self.source_mech[2]),
         ]
 
         # Evaluate and integrate source
@@ -757,9 +758,7 @@ class ManuThermoPoroMechExactSolution3d:
         vol = sd.cell_volumes
 
         # Lambdify expression
-        source_flow_fun: Callable = sym.lambdify(
-            (x, y, z, t), self.source_flow, "numpy"
-        )
+        source_flow_fun: Callable = lambdify((x, y, z, t), self.source_flow)
 
         # Evaluate and integrate source
         source_flow: np.ndarray = source_flow_fun(cc[0], cc[1], cc[2], time) * vol
@@ -783,7 +782,7 @@ class ManuThermoPoroMechExactSolution3d:
         cc = sd.cell_centers
         vol = sd.cell_volumes
 
-        source_energy_fun = sym.lambdify((x, y, z, t), self.source_energy, "numpy")
+        source_energy_fun = lambdify((x, y, z, t), self.source_energy)
 
         source_energy = source_energy_fun(cc[0], cc[1], cc[2], time) * vol
         return source_energy
@@ -926,12 +925,10 @@ class ManuThermoPoroMechSolutionStrategy3d(
 
         for sd, data in self.mdg.subdomains(dim=self.nd, return_data=True):
             xc = sd.cell_centers
-            lame_lmbda = sym.lambdify((x, y, z), self.exact_sol.lame_lmbda, "numpy")(
+            lame_lmbda = lambdify((x, y, z), self.exact_sol.lame_lmbda)(
                 xc[0], xc[1], xc[2]
             )
-            lame_mu = sym.lambdify((x, y, z), self.exact_sol.lame_mu, "numpy")(
-                xc[0], xc[1], xc[2]
-            )
+            lame_mu = lambdify((x, y, z), self.exact_sol.lame_mu)(xc[0], xc[1], xc[2])
 
             bulk = lame_lmbda + (2 / 3) * lame_mu
             # Special case: If the bulk modulus is constant (no spatial variation), the
@@ -956,9 +953,7 @@ class ManuThermoPoroMechSolutionStrategy3d(
             xc = sd.cell_centers
 
             # Set permeability
-            k_xx = sym.lambdify((x, y, z), self.exact_sol.k, "numpy")(
-                xc[0], xc[1], xc[2]
-            )
+            k_xx = lambdify((x, y, z), self.exact_sol.k)(xc[0], xc[1], xc[2])
             if isinstance(k_xx, (float, int)):
                 k_xx = k_xx * np.ones(sd.num_cells)
 
@@ -966,12 +961,10 @@ class ManuThermoPoroMechSolutionStrategy3d(
             data[pp.PARAMETERS][self.darcy_keyword]["second_order_tensor"] = perm
 
             # Set stiffness matrix
-            lame_lmbda = sym.lambdify((x, y, z), self.exact_sol.lame_lmbda, "numpy")(
+            lame_lmbda = lambdify((x, y, z), self.exact_sol.lame_lmbda)(
                 xc[0], xc[1], xc[2]
             )
-            lame_mu = sym.lambdify((x, y, z), self.exact_sol.lame_mu, "numpy")(
-                xc[0], xc[1], xc[2]
-            )
+            lame_mu = lambdify((x, y, z), self.exact_sol.lame_mu)(xc[0], xc[1], xc[2])
             if isinstance(lame_lmbda, (float, int)):
                 lame_lmbda = lame_lmbda * np.ones(sd.num_cells)
             if isinstance(lame_mu, (float, int)):
@@ -980,13 +973,13 @@ class ManuThermoPoroMechSolutionStrategy3d(
             data[pp.PARAMETERS][self.stress_keyword]["fourth_order_tensor"] = stiffness
 
             # Set the Biot tensor
-            a_xx = sym.lambdify((x, y, z), self.exact_sol.biot_tensor[0][0], "numpy")(
+            a_xx = lambdify((x, y, z), self.exact_sol.biot_tensor[0][0])(
                 xc[0], xc[1], xc[2]
             )
-            a_xy = sym.lambdify((x, y, z), self.exact_sol.biot_tensor[0][1], "numpy")(
+            a_xy = lambdify((x, y, z), self.exact_sol.biot_tensor[0][1])(
                 xc[0], xc[1], xc[2]
             )
-            a_yy = sym.lambdify((x, y, z), self.exact_sol.biot_tensor[1][1], "numpy")(
+            a_yy = lambdify((x, y, z), self.exact_sol.biot_tensor[1][1])(
                 xc[0], xc[1], xc[2]
             )
             # Special case: If the Biot tensor is constant (no spatial variation), the
@@ -1001,15 +994,15 @@ class ManuThermoPoroMechSolutionStrategy3d(
             biot_alpha = pp.SecondOrderTensor(kxx=a_xx, kyy=a_yy, kxy=a_xy)
 
             # Set the thermal stress tensor
-            b_xx = sym.lambdify(
-                (x, y, z), self.exact_sol.thermal_stress_tensor[0][0], "numpy"
-            )(xc[0], xc[1], xc[2])
-            b_xy = sym.lambdify(
-                (x, y, z), self.exact_sol.thermal_stress_tensor[0][1], "numpy"
-            )(xc[0], xc[1], xc[2])
-            b_yy = sym.lambdify(
-                (x, y, z), self.exact_sol.thermal_stress_tensor[1][1], "numpy"
-            )(xc[0], xc[1], xc[2])
+            b_xx = lambdify((x, y, z), self.exact_sol.thermal_stress_tensor[0][0])(
+                xc[0], xc[1], xc[2]
+            )
+            b_xy = lambdify((x, y, z), self.exact_sol.thermal_stress_tensor[0][1])(
+                xc[0], xc[1], xc[2]
+            )
+            b_yy = lambdify((x, y, z), self.exact_sol.thermal_stress_tensor[1][1])(
+                xc[0], xc[1], xc[2]
+            )
             # Special case: If the thermal stress tensor is constant (no spatial
             # variation), the lambdify function returns a float or int. In this case, we
             # need to broadcast the value to all cells.
