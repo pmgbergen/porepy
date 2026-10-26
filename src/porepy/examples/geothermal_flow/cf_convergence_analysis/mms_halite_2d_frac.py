@@ -130,56 +130,6 @@ def closure_in_saturation(
     return expr.subs({_p: p_e, _h: h_e, _s: s_e}, simultaneous=True)
 
 
-@lru_cache(maxsize=None)
-def _cached_operation_count(expression) -> int:
-    """Operation count of a hashable expression, cached.
-
-    Parameters:
-        expression: Sympy expression.
-
-    Returns:
-        The number of operations.
-
-    """
-    return sp.count_ops(expression)
-
-
-def _operation_count(expression) -> int:
-    """Operation count, cached where the expression is hashable.
-
-    Parameters:
-        expression: Sympy expression or matrix.
-
-    Returns:
-        The number of operations.
-
-    """
-    try:
-        return _cached_operation_count(expression)
-    except TypeError:
-        return sp.count_ops(expression)
-
-
-def _summarise(instance) -> str:
-    """One-line summary of a solution container by expression size.
-
-    Parameters:
-        instance: Dataclass instance whose fields are sympy expressions.
-
-    Returns:
-        The field names with their operation counts.
-
-    """
-    parts = []
-    for field in fields(instance):
-        value = getattr(instance, field.name)
-        if isinstance(value, (sp.Basic, sp.MatrixBase)):
-            parts.append(f"{field.name}=<{_operation_count(value)} ops>")
-        else:
-            parts.append(f"{field.name}={value!r}")
-    return f"{type(instance).__name__}({', '.join(parts)})"
-
-
 @dataclass(frozen=True)
 class Region:
     """One matrix region with its own smooth distance function ``delta``."""
@@ -238,8 +188,6 @@ class MatrixSolution:
     source_energy: sp.Expr
 
     two_phase_margin: sp.Expr
-
-    __repr__ = _summarise
 
 
 def build_matrix(region: Region) -> MatrixSolution:
@@ -407,8 +355,6 @@ class FractureSolution:
     source_H2O: sp.Expr
     source_energy: sp.Expr
 
-    __repr__ = _summarise
-
 
 @dataclass(frozen=True, repr=False)
 class InterfaceSolution:
@@ -422,8 +368,6 @@ class InterfaceSolution:
     conductive_energy_flux: sp.Expr
     energy_flux: sp.Expr
     specific_volume: sp.Expr
-
-    __repr__ = _summarise
 
 
 def build_fracture_and_interface() -> tuple[FractureSolution, InterfaceSolution]:
@@ -565,101 +509,6 @@ def build_fracture_and_interface() -> tuple[FractureSolution, InterfaceSolution]
 
 FRACTURE, INTERFACE = build_fracture_and_interface()
 """FractureSolution, InterfaceSolution: The exact lower-dimensional solution."""
-
-
-def _trace_at_interface(
-    expr: sp.Expr, region: Region, constants: HaliteMMSConstants
-) -> sp.Expr:
-    """Trace of a matrix expression on the adjacent interface, by substitution at ``delta = 0``.
-
-    Parameters:
-        expr: Matrix expression in ``(x, y, t)``.
-        region: Region touching an interface.
-        constants: Constants substituted before the coordinate.
-
-    Returns:
-        The trace, a function of ``(y, t)``.
-
-    Raises:
-        ValueError: If the region does not touch an interface.
-
-    """
-    if region.interface_normal_x is None:
-        raise ValueError(f"Region {region.name} does not touch an interface.")
-    return expr.xreplace(constants.as_sympy_dict(SYMBOLS)).subs(x, constants.x_frac)
-
-
-def delta_scaling_report(
-    constants: HaliteMMSConstants = MMS_HALITE,
-    time_value: float = 1.0,
-    angles: Sequence[float] = (0.25, 0.5, 0.75),
-) -> dict[str, dict[str, float]]:
-    """Estimate the leading power of ``delta`` in each source near the fracture.
-
-    Parameters:
-        constants: Constants to substitute.
-        time_value: Time level of the evaluation.
-        angles: Approach directions in the radial regions, as fractions of ``pi``.
-
-    Returns:
-        The exponent per region and source, non-negative meaning bounded, and the
-        largest magnitude under ``"max_abs"``.
-
-    """
-    subs = constants.as_sympy_dict(SYMBOLS)
-    deltas = np.geomspace(1e-2, 1e-8, 13)
-    report: dict[str, dict[str, float]] = {}
-
-    for region in REGIONS:
-        matrix = MATRIX[region.name]
-        entry: dict[str, float] = {}
-        sources = {
-            "mass": matrix.source_mass,
-            "NaCl": matrix.source_NaCl,
-            "energy": matrix.source_energy,
-        }
-        for name, expr in sources.items():
-            func = sp.lambdify(COORD, expr.xreplace(subs), "numpy")
-            magnitudes: list[float] = []
-            for d in deltas:
-                samples: list[float] = []
-                if region.interface_normal_x is not None:
-                    # The middle band: delta is exactly the distance in x, and
-                    # the approach direction is fixed.
-                    x_v = float(constants.x_frac) + (
-                        -d if region.interface_normal_x > 0 else d
-                    )
-                    y_v = 0.5 * (constants.y_tip_lo + constants.y_tip_hi)
-                    samples.append(abs(float(func(x_v, y_v, time_value))))
-                else:
-                    # A radial region: approach the tip from several directions.
-                    tip = (
-                        constants.y_tip_lo
-                        if region.name == "below"
-                        else constants.y_tip_hi
-                    )
-                    sign = -1.0 if region.name == "below" else 1.0
-                    for a in angles:
-                        angle = float(a) * np.pi
-                        x_v = float(constants.x_frac) + d * np.cos(angle)
-                        y_v = float(tip) + sign * d * abs(np.sin(angle))
-                        samples.append(abs(float(func(x_v, y_v, time_value))))
-                magnitudes.append(max(samples))
-
-            values = np.array(magnitudes)
-            entry[f"max_abs_{name}"] = float(values.max())
-            # Slope of log|f| against log(delta) over the last decade, where the
-            # asymptotic behaviour has set in.
-            finite = values > 0
-            if finite.sum() >= 2:
-                slope = np.polyfit(
-                    np.log(deltas[finite][-5:]), np.log(values[finite][-5:]), 1
-                )[0]
-            else:
-                slope = np.inf
-            entry[f"exponent_{name}"] = float(slope)
-        report[region.name] = entry
-    return report
 
 
 def _region_masks(
