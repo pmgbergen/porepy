@@ -449,11 +449,13 @@ class SolutionStrategy(pp.PorePyModel):
                 )
             else:
                 vtu_files = self.restart_options["vtu_files"]
-                time_index = self.restart_options.get("time_index", -1)
+                export_index = self.restart_options.get("export_index", -1)
+                if "time_index" in self.restart_options:
+                    raise KeyError("Rename time_index into export_index")
                 times_file = self.restart_options.get("times_file", None)
                 self.load_data_from_vtu(
                     vtu_files,
-                    time_index,
+                    export_index,
                     times_file,
                 )
             vals = self.equation_system.get_variable_values(time_step_index=0)

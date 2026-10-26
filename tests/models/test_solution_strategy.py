@@ -299,8 +299,11 @@ def test_restart_continues_as_if_uninterrupted(restart_runs):
             uninterrupted.reference_stress_key, data, reference=True
         )
         assert np.any(reference_stress != 0), "the reference stress is zero"
-    restarted_reference = restarted._reference_state_data()
-    for key, (_, expected_data) in uninterrupted._reference_state_data().items():
+    restarted_reference = restarted._get_grids_and_data_from_md_grid()
+    for key, (
+        _,
+        expected_data,
+    ) in uninterrupted._get_grids_and_data_from_md_grid().items():
         expected_values = expected_data[pp.REFERENCE_SOLUTIONS]
         restarted_values = restarted_reference[key][1][pp.REFERENCE_SOLUTIONS]
         assert restarted_values.keys() == expected_values.keys(), key
@@ -355,7 +358,9 @@ def test_restart_continues_as_if_uninterrupted(restart_runs):
         sd = model.mdg.subdomains(dim=model.nd)[0]
         return model.equation_system.evaluate(model.stress([sd]))
 
-    np.testing.assert_allclose(stress(restarted), stress(uninterrupted))
+    np.testing.assert_allclose(
+        stress(restarted), stress(uninterrupted), atol=1e-8, rtol=1e-8
+    )
 
 
 def test_restarted_pvd_file_labels_every_step_with_its_time(restart_runs):
