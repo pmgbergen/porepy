@@ -707,10 +707,8 @@ def test_variable_combinations(grids, variables):
                     name=var.name, data=data, time_step_index=0
                 )
                 assert np.allclose(expr.val, values)
-                # Check that the Jacobian matrix has the right number of columns
-                sz = expr.sparse_jac.shape[1]
-
-                assert sz == equation_system.num_dofs()
+                # Check that the Jacobian matrix has the right number of columns.
+                assert expr.sparse_jac.shape[1] == equation_system.num_dofs()
 
     # Next, check that mixed-dimensional variables are handled correctly.
     for var in merged_vars:
@@ -724,9 +722,8 @@ def test_variable_combinations(grids, variables):
             vals.append(values)
 
         assert np.allclose(expr.val, np.hstack([v for v in vals]))
-        # Check that the Jacobian matrix size is correct
-        sz = expr.sparse_jac.shape[1]
-        assert sz == equation_system.num_dofs()
+        # Check that the Jacobian matrix size is correct.
+        assert expr.sparse_jac.shape[1] == equation_system.num_dofs()
 
     # Finally, check that the size of the Jacobian matrix is correct when combining
     # variables (this will cover both variables and mixed-dimensional variable with the
