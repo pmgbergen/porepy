@@ -253,6 +253,13 @@ class DataSavingMixin(pp.PorePyModel):
         vtu files. The remaining values (e.g., stress and boundary values) are written
         to a npz file. Both are placed in a sub-folder of ``folder``.
 
+        The values are saved in the units of the model, without conversion to SI. Data
+        of boundary grids and the stress are stored under arbitrary names, without any
+        record of their units (unlike variables, which have the tag ``si_units``), so
+        they cannot be converted automatically. For consistency, the same holds for the
+        variables. A restart therefore requires the same :attr:`units` as the run that
+        wrote the files.
+
         Parameters:
             folder: Folder to write the reference state sub-folder to.
 
@@ -286,6 +293,10 @@ class DataSavingMixin(pp.PorePyModel):
         self, folder: Path, allow_missing_exported_files: bool = False
     ) -> None:
         """Overwrite the reference values in the grid data by those saved to file.
+
+        The values are read as they are, in the units of the model, since
+        :meth:`_save_reference_state` does not convert them to SI. Hence, this must not
+        be followed by :meth:`_convert_imported_state_from_si`.
 
         Parameters:
             folder: Folder containing the reference state sub-folder.
