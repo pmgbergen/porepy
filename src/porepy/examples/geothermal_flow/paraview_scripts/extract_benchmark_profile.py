@@ -54,14 +54,6 @@ def closest_dataset(
     if not candidates:
         raise RuntimeError(f"No PVD datasets matched block_filter={block_filter!r}.")
 
-    # if time_years is not None:
-    #     target = time_years * SECONDS_PER_YEAR
-    #     return min(candidates, key=lambda entry: abs(entry["time"] - target))
-
-    # if time_days is not None:
-    #     target = time_days * SECONDS_PER_DAY
-    #     return min(candidates, key=lambda entry: abs(entry["time"] - target))
-
     target = convert_requested_time_to_pvd_units(
         time_years=time_years,
         time_days=time_days,
