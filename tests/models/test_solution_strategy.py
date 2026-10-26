@@ -237,7 +237,7 @@ def test_restart(restart_runs):
             expected_times = json.loads(stored.read_text())
             assert times.keys() == expected_times.keys()
             for key in times:
-                assert np.allclose(times[key], expected_times[key]), key
+                np.testing.assert_allclose(times[key], expected_times[key], err_msg=key)
     # The stored states are those of the last time step, written after the restart.
     assert compared > 0
 
@@ -254,7 +254,7 @@ def test_restart(restart_runs):
             with np.load(file) as saved, np.load(stored) as expected:
                 assert saved.files == expected.files
                 for key in saved.files:
-                    assert np.allclose(saved[key], expected[key]), key
+                    np.testing.assert_allclose(saved[key], expected[key], err_msg=key)
 
 
 def test_restart_continues_as_if_uninterrupted(restart_runs):
@@ -330,8 +330,12 @@ def test_restart_continues_as_if_uninterrupted(restart_runs):
             variables=[resumed_variable], time_step_index=0
         )
         scale = max(float(np.max(np.abs(expected))), 1e-300)
-        assert np.allclose(restarted_val, expected, rtol=0, atol=1e-10 * scale), (
-            f"{variable.name} differs after the restart"
+        np.testing.assert_allclose(
+            restarted_val,
+            expected,
+            rtol=0,
+            atol=1e-10 * scale,
+            err_msg=f"{variable.name} differs after the restart",
         )
         largest_change = max(
             largest_change, float(np.max(np.abs(expected - initial_values)))
@@ -351,7 +355,7 @@ def test_restart_continues_as_if_uninterrupted(restart_runs):
         sd = model.mdg.subdomains(dim=model.nd)[0]
         return model.equation_system.evaluate(model.stress([sd]))
 
-    assert np.allclose(stress(restarted), stress(uninterrupted))
+    np.testing.assert_allclose(stress(restarted), stress(uninterrupted))
 
 
 def test_restarted_pvd_file_labels_every_step_with_its_time(restart_runs):
@@ -596,8 +600,8 @@ def test_targeted_rediscretization(model_class):
         # Convert to dense array to ensure the matrices are identical.
         assert A_full is not None
         assert A_targeted is not None
-        assert np.allclose(A_full.toarray(), A_targeted.toarray())
-        assert np.allclose(b_full, b_targeted)
+        np.testing.assert_allclose(A_full.toarray(), A_targeted.toarray())
+        np.testing.assert_allclose(b_full, b_targeted)
 
     # Check that the discretization matrix changes between iterations. Without this
     # check, missing rediscretization may go unnoticed.
