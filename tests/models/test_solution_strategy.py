@@ -21,8 +21,10 @@ We test:
 from __future__ import annotations
 
 import copy
+import gc
 import json
 import shutil
+import weakref
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any, Optional
@@ -813,6 +815,59 @@ class ConstantPorosityTest(pp.PorePyModel):
             np.ones(sum(sd.num_cells for sd in subdomains)), source=space, target=space
         )
         return self.reference_porosity(subdomains) * ones
+
+
+def test_prepare_simulation_twice_invalidates_cache():
+    """Test that the model does not hold references to its old grids and equations
+    after prepare_simulation was called twice.
+
+    """
+    params = {
+        "fracture_indices": [1],
+        "cartesian": True,
+        "material_constants": {"fluid": pp.FluidComponent(compressibility=1.0)},
+        "times_to_export": [],
+    }
+    model = models.Poromechanics(params)
+    model.prepare_simulation()
+
+    # Create weak references to important objects within the model that must be
+    # reconstructed after the 2nd call to prepare_simulation.
+    old_mdg = weakref.ref(model.mdg)
+    old_equation_system = weakref.ref(model.equation_system)
+    old_subdomains = [weakref.ref(sd) for sd in model.mdg.subdomains()]
+    old_interfaces = [weakref.ref(intf) for intf in model.mdg.interfaces()]
+    old_boundary_grids = [weakref.ref(bg) for bg in model.mdg.boundaries()]
+    old_equations = [weakref.ref(eq) for eq in model.equation_system.equations.values()]
+    old_variables = [weakref.ref(var) for var in model.equation_system.variables]
+
+    # Call a method that is known to mess with caches (regression test).
+    model.subdomain_projections(1)
+
+    # Repeated prepare simulation invalidates caches here.
+    model.prepare_simulation()
+
+    # Check that the weak references we took from the original model are invalidated
+    # after repeated prepare_simulation calls. Failure here indicates that some cache is
+    # not invalidated properly.
+    gc.collect()
+    assert old_mdg() is None, "Old model's property should be invalidated."
+    assert old_equation_system() is None, "Old model's property should be invalidated."
+    assert all(sd() is None for sd in old_subdomains), (
+        "Old model's property should be invalidated."
+    )
+    assert all(x() is None for x in old_interfaces), (
+        "Old model's property should be invalidated."
+    )
+    assert all(x() is None for x in old_boundary_grids), (
+        "Old model's property should be invalidated."
+    )
+    assert all(x() is None for x in old_equations), (
+        "Old model's property should be invalidated."
+    )
+    assert all(x() is None for x in old_variables), (
+        "Old model's property should be invalidated."
+    )
 
 
 def test_prepare_simulation_twice_after_class_swap():
