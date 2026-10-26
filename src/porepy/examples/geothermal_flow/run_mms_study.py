@@ -1,6 +1,6 @@
 """Run the manufactured-solution study of Appendix A from a YAML configuration.
 
-The study itself is :func:`geothermal_halite_verification_driver.main`. This
+The study itself is :func:`mms_halite_convergence.main`. This
 module only builds its parameters from a configuration file, so that the mesh
 sequence, the manufactured-solution constants and the output folder of each
 paper result are recorded next to the other paper configurations, rather than
