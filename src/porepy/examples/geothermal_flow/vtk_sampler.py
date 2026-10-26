@@ -6,9 +6,25 @@ from typing import Tuple
 
 
 class VTKSampler:
+    """Interpolation of a structured VTK property table at query points.
+
+    Query points are scaled by :attr:`conversion_factors` and shifted by
+    :attr:`translation_factors` into table coordinates. With ``extend_q``, points
+    outside the table take the values at their clipped positions on its surface.
+
+    """
+
     def __init__(
         self, file_name: str, extend_q: bool = True, first_order_expansion: bool = False
     ) -> None:
+        """Create the sampler and load the table.
+
+        Parameters:
+            file_name: Path to the VTK table.
+            extend_q: Clip points outside the table to its surface instead of returning zeros.
+            first_order_expansion: Add a first-order Taylor correction to the clipped values.
+
+        """
         self.file_name = file_name
         self._extend_q = extend_q
         self._conversion_factors = (1.0, 1.0, 1.0)  # Default values
@@ -19,6 +35,7 @@ class VTKSampler:
 
     @property
     def conversion_factors(self) -> Tuple[float, float, float]:
+        """Scaling applied to the query coordinates and to the ``grad_*`` fields."""
         return self._conversion_factors
 
     @conversion_factors.setter
@@ -30,6 +47,7 @@ class VTKSampler:
 
     @property
     def translation_factors(self) -> Tuple[float, float, float]:
+        """Offset added to the query coordinates after scaling."""
         return self._translation_factors
 
     @translation_factors.setter
@@ -41,6 +59,7 @@ class VTKSampler:
 
     @property
     def file_name(self) -> str:
+        """Path to the VTK table; setting it reloads the table."""
         return self._file_name
 
     @file_name.setter
@@ -50,18 +69,22 @@ class VTKSampler:
 
     @cached_property
     def search_space(self):
+        """The table, read from :attr:`file_name`."""
         return pyvista.read(self.file_name)
 
     @cached_property
     def bc_surface(self):
+        """Outer surface of the table."""
         return self.search_space.extract_surface()
 
     @cached_property
     def bc_surface_bounds(self):  # -> pyvista.BoundsLike:
+        """Bounds ``(x_min, x_max, y_min, y_max, z_min, z_max)`` of the table surface."""
         return self.bc_surface.bounds
 
     @property
     def sampled_cloud(self):
+        """Point cloud holding the values interpolated by the last :meth:`sample_at` call."""
         return self._sampled_cloud
 
     @sampled_cloud.setter
@@ -73,7 +96,7 @@ class VTKSampler:
         )
 
     def _load_search_space(self):
-        """Pre-load the search space from the file to initialize cached properties."""
+        """Load the table and its surface bounds into the cache, and print the load time."""
         tb = time.time()
         _ = self.search_space  # This will trigger the cached_property to load the data
         _ = (
@@ -83,6 +106,12 @@ class VTKSampler:
         print("VTKSampler:: Time for loading interpolation space: ", te - tb)
 
     def sample_at(self, points: np.ndarray):  # points: z,T,p // z,h,p
+        """Interpolate the table at query points; the result is stored in :attr:`sampled_cloud`.
+
+        Parameters:
+            points: Array of shape ``(n, 3)`` in the solver's coordinates.
+
+        """
         points = self._apply_conversions(points)
         # points = self._apply_translation_factor(points)
 
@@ -99,23 +128,27 @@ class VTKSampler:
 
         self._apply_conversion_factor_on_gradients()
 
-    def _apply_conversions_old(self, points):
-        """Applies scaling and translation to point coordinates."""
-        points = points.copy()  # Avoid modifying input array
-        return points * self._conversion_factors + self._translation_factors
-
     def _apply_conversions(self, points):
-        """Applies scaling and translation to point coordinates."""
+        """Scale and shift query points into table coordinates.
+
+        Parameters:
+            points: Array of shape ``(n, 3)``.
+
+        Returns:
+            The converted points.
+
+        """
         return points * self._conversion_factors + self._translation_factors
 
     def _refresh(self) -> None:
+        """Clear the cached table and reload it from :attr:`file_name`."""
         for attr in ["search_space", "bc_surface", "bc_surface_bounds"]:
             if attr in self.__dict__:
                 del self.__dict__[attr]
         self._load_search_space()
 
     def _apply_conversion_factor_on_gradients(self):
-        """Efficiently applies conversion factors to all gradient fields in the point cloud."""
+        """Scale the ``grad_*`` fields of the sampled cloud by the conversion factors."""
         if self._sampled_cloud is None:
             return
 
@@ -129,14 +162,14 @@ class VTKSampler:
             )  # Element-wise multiply each component (uses broadcasting)
 
     def _capture_points_outside_bounds(self, points: np.ndarray) -> np.ndarray:
-        """
-        Function to capture points lying outside the specified bounds.
-        Args:
-            points (numpy.ndarray): Nx3 array of points (x, y, z)
-            bounds (tuple): A 6-tuple representing the bounds
-                (x_min, x_max, y_min, y_max, z_min, z_max)
+        """Flag points outside the bounds of the table surface.
+
+        Parameters:
+            points: Array of shape ``(n, 3)`` in table coordinates.
+
         Returns:
-            numpy.ndarray: An array of points that lie outside the bounds
+            Boolean mask, True for points outside the bounds.
+
         """
         x_min, x_max, y_min, y_max, z_min, z_max = self.bc_surface_bounds
         # Create a mask for points that are within the bounds
@@ -153,6 +186,12 @@ class VTKSampler:
         return ~within_bounds
 
     def _map_external_points_to_surface(self, points: np.ndarray) -> None:
+        """Clip points, in place, to just inside the table bounds.
+
+        Parameters:
+            points: Array of shape ``(n, 3)`` in table coordinates, modified in place.
+
+        """
         # Get the bounds of the search space
         xmin, xmax, ymin, ymax, zmin, zmax = self.search_space.bounds
 
@@ -174,6 +213,16 @@ class VTKSampler:
         points[:, 2] = np.clip(points[:, 2], zmin, zmax)  # Clip z-coordinates
 
     def _extrapolate(self, points: list[np.ndarray], external_idx: np.ndarray) -> None:
+        """Fill the values at points outside the table from their clipped positions on its surface.
+
+        With ``first_order_expansion``, a first-order Taylor correction from the stored
+        gradients is added.
+
+        Parameters:
+            points: Array of shape ``(n, 3)`` in table coordinates.
+            external_idx: Boolean mask of the points outside the table.
+
+        """
         glob_idx = np.nonzero(external_idx)[0]
         # xv = points[external_idx].copy()
         xv = points[external_idx]
