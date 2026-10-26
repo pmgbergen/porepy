@@ -833,15 +833,21 @@ def test_prepare_simulation_twice_invalidates_cache():
 
     # Create weak references to important objects within the model that must be
     # reconstructed after the 2nd call to prepare_simulation.
-    old_mdg = weakref.ref(model.mdg)
-    old_equation_system = weakref.ref(model.equation_system)
-    old_subdomains = [weakref.ref(sd) for sd in model.mdg.subdomains()]
-    old_interfaces = [weakref.ref(intf) for intf in model.mdg.interfaces()]
-    old_boundary_grids = [weakref.ref(bg) for bg in model.mdg.boundaries()]
-    old_equations = [weakref.ref(eq) for eq in model.equation_system.equations.values()]
-    old_variables = [weakref.ref(var) for var in model.equation_system.variables]
+    equation_system = model.equation_system
+    old_refs: dict[str, list[weakref.ref]] = {
+        "mdg": [weakref.ref(model.mdg)],
+        "equation system": [weakref.ref(equation_system)],
+        "subdomains": [weakref.ref(sd) for sd in model.mdg.subdomains()],
+        "interfaces": [weakref.ref(intf) for intf in model.mdg.interfaces()],
+        "boundary grids": [weakref.ref(bg) for bg in model.mdg.boundaries()],
+        "equations": [weakref.ref(eq) for eq in equation_system.equations.values()],
+        "variables": [weakref.ref(var) for var in equation_system.variables],
+    }
+    # Drop the local reference, otherwise it keeps the old equation system alive.
+    del equation_system
 
-    # Call a method that is known to mess with caches (regression test).
+    # Call a method that is known to mess with caches (regression test): the
+    # projections used to be stored on the model and survived repeated calls.
     model.subdomain_projections(1)
 
     # Repeated prepare simulation invalidates caches here.
@@ -851,23 +857,10 @@ def test_prepare_simulation_twice_invalidates_cache():
     # after repeated prepare_simulation calls. Failure here indicates that some cache is
     # not invalidated properly.
     gc.collect()
-    assert old_mdg() is None, "Old model's property should be invalidated."
-    assert old_equation_system() is None, "Old model's property should be invalidated."
-    assert all(sd() is None for sd in old_subdomains), (
-        "Old model's property should be invalidated."
-    )
-    assert all(x() is None for x in old_interfaces), (
-        "Old model's property should be invalidated."
-    )
-    assert all(x() is None for x in old_boundary_grids), (
-        "Old model's property should be invalidated."
-    )
-    assert all(x() is None for x in old_equations), (
-        "Old model's property should be invalidated."
-    )
-    assert all(x() is None for x in old_variables), (
-        "Old model's property should be invalidated."
-    )
+    for name, refs in old_refs.items():
+        assert all(ref() is None for ref in refs), (
+            f"The old {name} of the model are still alive after prepare_simulation."
+        )
 
 
 def test_prepare_simulation_twice_after_class_swap():
