@@ -712,10 +712,8 @@ def test_variable_combinations(grids, variables):
                     name=var.name, data=data, time_step_index=0
                 )
                 assert np.allclose(expr.val, values)
-                # Check that the Jacobian matrix has the right number of columns
-                sz = expr.sparse_jac.shape[1]
-
-                assert sz == equation_system.num_dofs()
+                # Check that the Jacobian matrix has the right number of columns.
+                assert expr.sparse_jac.shape[1] == equation_system.num_dofs()
 
     # Next, check that mixed-dimensional variables are handled correctly.
     for var in merged_vars:
@@ -729,9 +727,8 @@ def test_variable_combinations(grids, variables):
             vals.append(values)
 
         assert np.allclose(expr.val, np.hstack([v for v in vals]))
-        # Check that the Jacobian matrix size is correct
-        sz = expr.sparse_jac.shape[1]
-        assert sz == equation_system.num_dofs()
+        # Check that the Jacobian matrix size is correct.
+        assert expr.sparse_jac.shape[1] == equation_system.num_dofs()
 
     # Finally, check that the size of the Jacobian matrix is correct when combining
     # variables (this will cover both variables and mixed-dimensional variable with the
@@ -1223,28 +1220,28 @@ def _expected_value(
             # reasonable example is found.
             return False
         if op == "+":
-            # Array + 2.0
+            # Array + 2.0.
             val = np.array([8, 17, 26])
             if isinstance(var_1, pp.ad.DiagonalAdArray):
                 jac = np.array([6, 7.5, 8])
             else:
                 jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
         elif op == "-":
-            # Array - 2.0
+            # Array - 2.0.
             val = np.array([4, 13, 22])
             if isinstance(var_1, pp.ad.DiagonalAdArray):
                 jac = np.array([6, 7.5, 8])
             else:
                 jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
         elif op == "*":
-            # Array * 2.0
+            # Array * 2.0.
             val = np.array([12, 30, 48])
             if isinstance(var_1, pp.ad.DiagonalAdArray):
                 jac = np.array([12, 15, 16])
             else:
                 jac = sps.csr_matrix(np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]]))
         elif op == "/":
-            # Array / 2.0
+            # Array / 2.0.
             val = np.array([6 / 2, 15 / 2, 24 / 2])
             if isinstance(var_1, pp.ad.DiagonalAdArray):
                 jac = np.array([6 / 2, 7.5 / 2, 8 / 2])
@@ -1259,7 +1256,7 @@ def _expected_value(
                     )
                 )
         elif op == "**":
-            # Array ** 2.0
+            # Array ** 2.0.
             val = np.array([6**2, 15**2, 24**2])
             if isinstance(var_1, pp.ad.DiagonalAdArray):
                 jac = 2 * var_1.val * var_1.jac
@@ -1337,9 +1334,9 @@ def _expected_value(
         return create_adarray(val, jac)
 
     elif isinstance(var_1, pp.ad.AdArrayBase) and isinstance(var_2, np.ndarray):
-        # Recall that the numpy array has values np.array([1, 2, 3])
+        # Recall that the numpy array has values np.array([1, 2, 3]).
         if op == "@":
-            # The operation is not allowed
+            # The operation is not allowed.
             return False
 
         if op == "+":
@@ -1517,18 +1514,17 @@ def _expected_value(
         elif op == "*":
             # This evaluates to 2 * Array**2 (since var_2 = 2 * var_1)
             val = np.array([6 * 12, 15 * 30, 24 * 48])
-            # Product rule
+            # Product rule.
             jac = var_1.val * var_2.jac + var_2.val * var_1.jac
         elif op == "/":
-            # This evaluates to Array / (2 * Array)
-            # The derivative is computed from the product and chain rules
+            # This evaluates to Array / (2 * Array). The derivative is computed from the
+            # product and chain rules.
             val = np.array([1 / 2, 1 / 2, 1 / 2])
             jac = np.atleast_2d(np.zeros(3))
         elif op == "**":
-            # This is Array ** (2 * Array)
-            # The derivative is
+            # This is Array ** (2 * Array). The derivative is
             #    Array**(2 * Array - 1) * (2 * Array) * dArray
-            #  + Array**(2 * Array) * log(Array) * dArray
+            #  + Array**(2 * Array) * log(Array) * dArray.
             val = np.array([6**12, 15**30, 24**48], dtype=float)
             j1 = var_1.jac[0] if isinstance(var_1, pp.ad.DiagonalAdArray) else var_1.jac
             j2 = var_2.jac[0] if isinstance(var_2, pp.ad.DiagonalAdArray) else var_2.jac
@@ -1561,7 +1557,7 @@ def _expected_value(
         )
         if op == "+":
             if is_v2_doubled:
-                # This evaluates to 3 * Array (since var_2 = 2 * var_1)
+                # This evaluates to 3 * Array (since var_2 = 2 * var_1).
                 val = np.array([18, 45, 72])
                 jac = sps.csr_matrix(np.array([[3, 6, 9], [12, 15, 18], [21, 24, 27]]))
             else:
@@ -1576,7 +1572,7 @@ def _expected_value(
                     )
         elif op == "-":
             if is_v2_doubled:
-                # This evaluates to -Array (since var_2 = 2 * var_1)
+                # This evaluates to -Array (since var_2 = 2 * var_1).
                 val = np.array([-6, -15, -24])
                 jac = sps.csr_matrix(
                     np.array([[-1, -2, -3], [-4, -5, -6], [-7, -8, -9]])
@@ -1605,10 +1601,10 @@ def _expected_value(
                     )
         elif op == "*":
             if is_v2_doubled:
-                # This evaluates to 2 * Array**2 (since var_2 = 2 * var_1)
+                # This evaluates to 2 * Array**2 (since var_2 = 2 * var_1).
                 val = np.array([6 * 12, 15 * 30, 24 * 48])
             else:
-                # Array * Array
+                # Array * Array.
                 val = np.array([36, 225, 576])
 
             if isinstance(var_1, pp.ad.DiagonalAdArray):
@@ -1619,9 +1615,6 @@ def _expected_value(
                 j2 = sps.diags(var_2.jac.ravel()).toarray()
             else:
                 j2 = var_2.jac.toarray()
-                # if is_v2_doubled:
-                #     var_2.val = 2 * var_2.val
-                # j2 = 2 * j2
             jac = sps.csr_matrix(
                 np.vstack(
                     (
@@ -1632,8 +1625,8 @@ def _expected_value(
                 )
             )
         elif op == "/":
-            # This evaluates to Array / (2 * Array)
-            # The derivative is computed from the product and chain rules
+            # This evaluates to Array / (2 * Array). The derivative is computed from the
+            # product and chain rules.
             if is_v2_doubled:
                 val = np.array([1 / 2, 1 / 2, 1 / 2])
             else:
@@ -1649,7 +1642,7 @@ def _expected_value(
                 j2 = var_2.jac.toarray()
 
             jac = sps.csr_matrix(
-                np.vstack(  # NBNB
+                np.vstack(
                     (
                         j1[0] / var_2.val[0] - var_1.val[0] * j2[0] / var_2.val[0] ** 2,
                         j1[1] / var_2.val[1] - var_1.val[1] * j2[1] / var_2.val[1] ** 2,
@@ -1658,10 +1651,9 @@ def _expected_value(
                 )
             )
         elif op == "**":
-            # This is Array ** (2 * Array)
-            # The derivative is
+            # This is Array ** (2 * Array). The derivative is
             #    Array**(2 * Array - 1) * (2 * Array) * dArray
-            #  + Array**(2 * Array) * log(Array) * dArray
+            #  + Array**(2 * Array) * log(Array) * dArray.
             if is_v2_doubled:
                 val = np.array([6**12, 15**30, 24**48])
             else:
@@ -1674,11 +1666,8 @@ def _expected_value(
                 j2 = sps.diags(var_2.jac.ravel()).toarray()
             else:
                 j2 = var_2.jac.toarray()
-                # if is_v2_doubled:
-                #     var_2.val = 2 * var_2.val
-                #     j2 = 2 * j2
             jac = sps.csr_matrix(
-                np.vstack(  #
+                np.vstack(
                     (
                         var_2.val[0] * var_1.val[0] ** (var_2.val[0] - 1.0) * j1[0]
                         + np.log(var_1.val[0]) * (var_1.val[0] ** var_2.val[0]) * j2[0],
@@ -1832,15 +1821,6 @@ def test_arithmetic_operations_on_ad_objects(
     # but the logic is the same: Try to evaluate. If this breaks, check that this was
     # not a surprize (variable expected is False).
     if wrapped:
-        # TODO BEFORE PR: Delete lines below, down to 'try':
-        # expression = eval(f"v1 {op} v2")
-        # state = equation_system.get_variable_values(time_step_index=0)
-        # ad_base = equation_system._ad_parser._initialize_variables(
-        #     [expression], state, equation_system, derivative=True
-        # )
-        # val = equation_system._ad_parser._evaluate_single(
-        #     expression, ad_base, equation_system
-        # )
         try:
             # The idea here is to test evaluation on the deepest level, i.e., the method
             # _evaluate_single in the AdParser. This is the method that actually
@@ -1853,7 +1833,6 @@ def test_arithmetic_operations_on_ad_objects(
             ad_base = equation_system._ad_parser._initialize_variables(
                 [expression],
                 state,
-                equation_system,
                 equation_system.variable_indexer,
                 derivative=True,
             )
