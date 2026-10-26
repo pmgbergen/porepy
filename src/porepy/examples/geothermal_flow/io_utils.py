@@ -70,53 +70,6 @@ def load_config(
     return config
 
 
-def validate_config_old(config: Mapping[str, Any]) -> None:
-    required = [
-        "case_name",
-        "geometry",
-        "material",
-        "well",
-        "physics",
-        "vtk",
-        "time",
-        "solver",
-        "visualization",
-    ]
-    missing = [key for key in required if key not in config]
-    if missing:
-        raise ConfigurationError(f"Missing required config keys: {missing}")
-
-    if config["geometry"] not in {"disconnected", "connected"}:
-        raise ConfigurationError(
-            "geometry must be either 'disconnected' or 'connected'"
-        )
-
-    for key in ["clogging_exponent", "reference_aperture", "injection_fraction"]:
-        if key not in config["physics"]:
-            raise ConfigurationError(
-                f"physics.{key} must be specified by the example YAML"
-            )
-
-    for key in ["end", "dt_init", "dt_min", "dt_max", "iter_optimal", "iter_relax"]:
-        if key not in config["time"]:
-            raise ConfigurationError(
-                f"time.{key} must be specified by the example YAML"
-            )
-
-    for key in ["end", "dt_init", "dt_min", "dt_max"]:
-        if as_float(config["time"][key]) <= 0:
-            raise ConfigurationError(f"time.{key} must be positive")
-
-    if as_float(config["physics"]["reference_aperture"]) <= 0:
-        raise ConfigurationError("physics.reference_aperture must be positive")
-    if as_float(config["physics"]["injection_fraction"]) <= 0:
-        raise ConfigurationError("physics.injection_fraction must be positive")
-
-    for key in ["phz_file", "ptz_file", "directory"]:
-        if not config["vtk"].get(key):
-            raise ConfigurationError(f"vtk.{key} must be provided")
-
-
 def is_benchmark_config(config: dict) -> bool:
     """Return True if the YAML config describes the 1D benchmark case."""
     return config.get("model", {}).get("kind") == "benchmark_1d"

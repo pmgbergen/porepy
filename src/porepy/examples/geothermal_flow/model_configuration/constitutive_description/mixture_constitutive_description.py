@@ -596,6 +596,7 @@ class SecondaryEquations(LocalElimination):
         subdomains = self.mdg.subdomains()
 
         matrix = self.mdg.subdomains(dim=self.mdg.dim_max())[0]
+
         matrix_boundary = cast(
             pp.BoundaryGrid, self.mdg.subdomain_to_boundary_grid(matrix)
         )

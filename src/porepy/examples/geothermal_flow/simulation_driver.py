@@ -41,7 +41,6 @@ import numpy as np
 import porepy as pp
 from porepy import compositional_flow as cf
 
-# from porepy.applications.test_utils.models import add_mixin
 from porepy.examples.geothermal_flow.solver_configuration.line_search_armijo import (
     NewtonAndersonArmijoSolver,
 )
@@ -52,10 +51,6 @@ from .benchmark.flow_model import (
 )
 
 from .vtk_sampler import VTKSampler
-
-### This requires PETSC
-# import pp_solvers
-# from pp_solvers.preconditioners import cf_factory_well_inj, cf_factory_no_well
 
 from .reservoir_domain import ConnectedFracturedDomain2D, DisconnectedFracturedDomain2D
 from .io_utils import as_float, load_config, is_benchmark_config
@@ -73,12 +68,6 @@ from .model import (
 GEOMETRIES = {
     "disconnected": DisconnectedFracturedDomain2D,
     "connected": ConnectedFracturedDomain2D,
-}
-
-VARIABLE_BLOCK_ALIASES = {
-    "overall_fraction": ["z_NaCl"],
-    "fraction_in_phase": ["x_NaCl_liq", "x_NaCl_halite", "x_NaCl_gas"],
-    "saturation": ["s_gas", "s_halite"],
 }
 
 
@@ -191,12 +180,6 @@ def create_model_class(config: dict[str, Any]) -> type[pp.PorePyModel]:
             # Physical simulation times, in seconds, corresponding to exported VTU files.
             self.pvd_times_seconds: list[float] = []
             super().prepare_simulation()
-            # Locally eliminated variables (saturations, partial fractions, temperature) receive
-            # only iterate values during set-up, so their previous-time values would start at zero
-            # (temperature at its raw initial value). Store the initial state as the previous time
-            # step too, so the first step is measured against it.
-            # es = self.equation_system
-            # es.set_variable_values(es.get_variable_values(iterate_index=0), time_step_index=0)
 
         def save_data_time_step(self) -> None:
             """Save one VTU time step and store its cumulative physical time."""
@@ -211,36 +194,6 @@ def create_model_class(config: dict[str, Any]) -> type[pp.PorePyModel]:
             super().after_simulation()
             if config.get("visualization", {}).get("write_pvd", True):
                 self.exporter.write_pvd(self.pvd_times_seconds)
-
-        # def get_variable_block_indices(self, var_name: str | list[str]) -> np.ndarray:
-        #     if not isinstance(var_name, list):
-        #         var_name = [var_name]
-        #     if len(var_name) == 1 and var_name[0] in VARIABLE_BLOCK_ALIASES:
-        #         var_name = VARIABLE_BLOCK_ALIASES[var_name[0]]
-        #     return self.equation_system.dofs_of(var_name)
-        # def solve_linear_system(self):
-        #     if solver_cfg.get("print_residual_blocks", True):
-        #         if not solver_cfg.get("use_schur_complement", False):
-        #             _, residual = self.linear_system
-        #         else:
-        #             _, residual = self.equation_system.assemble()
-
-        #         print("Overall residual norm at x_k:", np.linalg.norm(residual))
-        #         for name in [
-        #             "pressure",
-        #             "enthalpy",
-        #             "overall_fraction",
-        #             "temperature",
-        #             "fraction_in_phase",
-        #             "saturation",
-        #             "well_flux",
-        #             "well_enthalpy_flux",
-        #         ]:
-        #             block = self.get_variable_block_indices(name)
-        #             if block.size:
-        #                 print(f"Residual norm for {name} equation: {np.linalg.norm(residual[block]):.3e}")
-        #         print(" ")
-        #     return super().solve_linear_system()
 
     return GeothermalSimulationModel
 
@@ -280,7 +233,7 @@ def build_solver_params(config: dict[str, Any]) -> dict[str, Any]:
         "use_appleyard_chop": bool(s.get("use_appleyard_chop", False)),
         "appleyard_chop_value": as_float(s.get("appleyard_chop_value", 0.2)),
         "use_preconditioner": False,
-        "linear_solver": "pypardiso",  # preconditioner_options if use_preconditioner else s.get("linear_solver", "pypardiso"),
+        "linear_solver": "pypardiso",
     }
 
 
