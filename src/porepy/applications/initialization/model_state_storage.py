@@ -24,7 +24,7 @@ code.
 import logging
 import re
 from pathlib import Path
-from typing import Sequence
+from typing import NoReturn, Sequence
 
 import numpy as np
 
@@ -217,7 +217,7 @@ class ModelStateStorage:
 
         """
 
-        def fail(message: str) -> None:
+        def fail(message: str) -> NoReturn:
             """Raise the error of an inconsistent state."""
             raise LoadedStateMismatch(f"Saved state is inconsistent: {message}")
 
