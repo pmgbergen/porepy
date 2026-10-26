@@ -10,12 +10,17 @@ Depending on the figure entry, the workflow may:
 2. render ParaView time-series panels,
 3. extract CSV data from a saved ParaView state,
 4. extract benchmark or production time-series data from PVD files,
-5. assemble comparison panels with Matplotlib, or
-6. generate final publication figures from extracted CSV files.
+5. assemble comparison panels with Matplotlib,
+6. generate final publication figures from extracted CSV files or
+7. run a verification-study module (interpolation study, manufactured
+   solution) and collect the figures it writes.
 
 The simulation outputs are assumed to have been generated beforehand by
-``geothermal_flow.simulation_driver``. This module does not run the simulations;
-it only performs extraction, rendering, and plotting.
+``geothermal_flow.simulation_driver``(benchmark and examples),
+``geothermal_flow.run_interpolation_study`` (interpolation study) and
+``geothermal_flow.run_mms_study`` (manufactured solution).
+This module does not run the simulations; it only performs extraction, rendering, 
+and plotting.
 
 Typical usage from ``src/porepy/examples`` is
 
@@ -35,7 +40,7 @@ To generate selected figures only, use
 
     python -m geothermal_flow.make_figures \\
         --config geothermal_flow/configs/figures.yaml \\
-        --figures figure8 figure9
+        --figures figure10 figure11
 
 To inspect the commands without executing them, use
 
@@ -51,12 +56,12 @@ written under ``csv/`` and ``output/`` when required.
 from __future__ import annotations
 
 import argparse
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
-# import yaml
 from .io_utils import load_yaml
 
 
@@ -70,7 +75,6 @@ def run_command(command: list[str], *, dry_run: bool = False) -> None:
     if dry_run:
         return
 
-    # subprocess.run(command, check=True)
     result = subprocess.run(
         command,
         check=False,
@@ -516,7 +520,8 @@ def run_matplotlib_plot(plot_cfg: dict[str, Any], *, dry_run: bool = False) -> N
         )
     elif script_name == "assemble_column_phz.py":
         run_assemble_column_phz(plot_cfg, dry_run=dry_run)
-
+    elif script_name == "assemble_vertical_panels.py":
+        run_assemble_vertical_panels(plot_cfg, dry_run=dry_run)
     else:
         raise RuntimeError(f"No Matplotlib dispatcher implemented for {script_name}")
 
@@ -554,6 +559,54 @@ def run_well_timeseries_extraction(
             command.append("--force-reextract")
 
         run_command(command, dry_run=dry_run)
+
+
+def run_python_module(step_cfg: dict[str, Any], *, dry_run: bool = False) -> None:
+    """Run ``python -m <module> <args>`` for one step of a verification figure."""
+    command = [sys.executable, "-m", step_cfg["module"]]
+    command.extend(str(arg) for arg in step_cfg.get("args", []))
+
+    run_command(command, dry_run=dry_run)
+
+
+def collect_outputs(collect_cfg: dict[str, str], *, dry_run: bool = False) -> None:
+    """Copy figures written by a study module to their paths under ``figures/``."""
+    for source, target in collect_cfg.items():
+        print(f"\nCopying {source} -> {target}")
+        if dry_run:
+            continue
+
+        source_path = Path(source)
+        if not source_path.exists():
+            raise FileNotFoundError(f"Study output not found: {source_path}")
+
+        target_path = Path(target)
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source_path, target_path)
+
+
+def run_assemble_vertical_panels(
+    plot_cfg: dict[str, Any],
+    *,
+    dry_run: bool = False,
+) -> None:
+    """Run the PIL script that stacks two images into one figure."""
+    command = [
+        sys.executable,
+        plot_cfg["script"],
+        "--top",
+        plot_cfg["top"],
+        "--bottom",
+        plot_cfg["bottom"],
+        "--out",
+        plot_cfg["output"],
+    ]
+
+    append_if_present(command, "--gap", plot_cfg, "gap")
+    append_if_present(command, "--pad", plot_cfg, "pad")
+    append_if_present(command, "--background", plot_cfg, "background")
+
+    run_command(command, dry_run=dry_run)
 
 
 def generate_figure(
@@ -598,7 +651,13 @@ def generate_figure(
     elif fig_type == "benchmark_reference_then_matplotlib":
         run_benchmark_profile_extract(fig_cfg["porepy_extract"], dry_run=dry_run)
         run_benchmark_comparison_plot(fig_cfg["matplotlib_plot"], dry_run=dry_run)
-
+    elif fig_type == "python_module_then_collect":
+        for step_cfg in fig_cfg["steps"]:
+            run_python_module(step_cfg, dry_run=dry_run)
+        if "collect" in fig_cfg:
+            collect_outputs(fig_cfg["collect"], dry_run=dry_run)
+        if "matplotlib_plot" in fig_cfg:
+            run_matplotlib_plot(fig_cfg["matplotlib_plot"], dry_run=dry_run)
     else:
         raise RuntimeError(f"Unknown figure type: {fig_type}")
 
