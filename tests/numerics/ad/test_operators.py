@@ -730,9 +730,11 @@ def test_variable_combinations(grids, variables):
         # Check that the Jacobian matrix size is correct.
         assert expr.sparse_jac.shape[1] == equation_system.num_dofs()
 
-    # Finally, check that the size of the Jacobian matrix is correct when combining
-    # variables (this will cover both variables and mixed-dimensional variable with the
-    # same name, and with different name).
+    # Finally, check the value and Jacobian matrix when combining variables (this will
+    # cover both variables and mixed-dimensional variable with the same name, and with
+    # different name).
+    state = equation_system.get_variable_values(iterate_index=0)
+    num_dofs = equation_system.num_dofs()
     target = pp.ad.OperatorSpace.from_domains(grids, dof_info={GridEntity.cells: 1})
     for sd in grids:
         for var in ad_vars:
@@ -760,9 +762,94 @@ def test_variable_combinations(grids, variables):
 
                 eq = mv + P @ var
                 expr = eq.value_and_jacobian(equation_system)
-                # Jacobian matrix size is set according to the dof manager,
-                sz = expr.sparse_jac.shape[1]
-                assert sz == equation_system.num_dofs()
+                # Jacobian matrix size is set according to the dof manager.
+                assert expr.sparse_jac.shape[1] == num_dofs
+
+                mv_dofs = equation_system.dofs_of([mv])
+                var_dofs = equation_system.dofs_of([var])
+                expected_val = state[mv_dofs]
+                expected_val[rows] += state[var_dofs]
+                assert np.allclose(expr.val, expected_val)
+
+                expected_jac = sps.csr_matrix(
+                    (np.ones(nr), (np.arange(nr), mv_dofs)), shape=(nr, num_dofs)
+                ) + sps.csr_matrix((data, (rows, var_dofs)), shape=(nr, num_dofs))
+                assert np.allclose(expr.sparse_jac.toarray(), expected_jac.toarray())
+
+
+def _equation_system_with_cell_variable(
+    grids: list[pp.Grid],
+) -> tuple[pp.ad.EquationSystem, pp.ad.MixedDimensionalVariable]:
+    """Set up an equation system with a single cell variable, defined on all grids.
+
+    Parameters:
+        grids: The grids of the mixed-dimensional grid.
+
+    Returns:
+        The equation system, and the variable as a mixed-dimensional variable.
+
+    """
+    mdg = pp.MixedDimensionalGrid()
+    mdg.add_subdomains(grids)
+    equation_system = pp.ad.EquationSystem(mdg)
+    equation_system.create_variables("foo", {GridEntity.cells: 1}, mdg.subdomains())
+    equation_system.set_variable_values(
+        np.random.rand(mdg.num_subdomain_cells()),
+        ["foo"],
+        time_step_index=0,
+        iterate_index=0,
+    )
+    return equation_system, equation_system.md_variable("foo")
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        lambda var: var - var.previous_timestep(),
+        lambda var: var.previous_timestep() - var,
+        lambda var: var.previous_iteration() * var,
+        lambda var: var.reference() + var,
+    ],
+    ids=["current_first", "previous_time_first", "previous_iterate", "reference"],
+)
+def test_variable_representation_ignores_time_shifted_copies(expression):
+    """The representation of a variable at the current time and iterate should not
+    depend on the presence of the same variable at a previous time step or iterate, or
+    at the reference state.
+    """
+    equation_system, var = _equation_system_with_cell_variable(
+        [pp.CartGrid(np.array([4, 1]))]
+    )
+    ad_base = equation_system._ad_parser._initialize_variables(
+        [expression(var)],
+        equation_system.get_variable_values(iterate_index=0),
+        equation_system.variable_indexer,
+        derivative=True,
+    )
+
+    assert len(ad_base) == 1
+    key, representation = next(iter(ad_base.items()))
+    assert not (key.is_previous_time or key.is_previous_iterate or key.is_reference)
+    # The variable is defined on all subdomains, with one degree of freedom per cell,
+    # and should thus receive the diagonal representation.
+    assert isinstance(representation, pp.ad.DiagonalAdArray)
+
+
+@pytest.mark.parametrize("derivative", [True, False])
+def test_partially_active_md_variable_not_supported(derivative: bool):
+    """Evaluating a mixed-dimensional variable of which only some sub-variables are
+    active is not supported, and should raise an error.
+    """
+    equation_system, var = _equation_system_with_cell_variable(
+        [pp.CartGrid(np.array([4, 1])), pp.CartGrid(np.array([2, 2]))]
+    )
+    restricted_indexer = equation_system.variable_indexer.construct_restricted_indexer(
+        var.sub_vars[:1]
+    )
+    with pytest.raises(NotImplementedError):
+        equation_system.evaluate(
+            var, derivative=derivative, variable_indexer=restricted_indexer
+        )
 
 
 def test_time_differentiation():
