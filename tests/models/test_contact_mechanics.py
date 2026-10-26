@@ -13,16 +13,16 @@ from porepy.applications.md_grids.model_geometries import (
 )
 from porepy.applications.test_utils.models import ContactMechanicsTester, add_mixin
 from porepy.models.contact_mechanics import (
-    RadialReturnTangentialContactMechanicsEquation,
+    ScaledProjectionTangentialContactMechanicsEquation,
 )
 
 grid_classes = {2: SquareDomainOrthogonalFractures, 3: CubeDomainOrthogonalFractures}
 
 # Define the two formulation variants
 tester_classes = {
-    "standard": ContactMechanicsTester,
-    "radial_return": add_mixin(
-        RadialReturnTangentialContactMechanicsEquation, ContactMechanicsTester
+    "projection": ContactMechanicsTester,
+    "scaled_projection": add_mixin(
+        ScaledProjectionTangentialContactMechanicsEquation, ContactMechanicsTester
     ),
 }
 

@@ -10,10 +10,14 @@ author.
 
 The lists are sorted on PR numbers.
 
+A PR with breaking changes has an entry under both Changes (what changed) and
+Breaking changes (what users must do when upgrading).
+
 ## Unreleased
 
 ### Changes
 PR 1812: Fixed `DarcysLawAd` and `FouriersLawAd` with a TPFA base discretization dropping the interface flux on fracture faces (issue 1811).
+PR 1805: The tangential contact mechanics equation now defaults to the projection-based formulation of Alart and Curnier, replacing the scaled projection of Berge et al.
 PR 1804: Fix RadialReturnTangentialContactMechanicsEquation for vanishing trial
     traction, which was treated as an open fracture instead of sticking. Elastoplastic
     momentum balance tests now also run with this formulation.
@@ -41,6 +45,9 @@ PR 1748: Refactor time-step control with interval-based scheduling and extensibl
     constraints, including nonlinear-iteration and Courant-number constraints.
 
 ### Breaking changes
+PR 1805: Fractured models now use a different default tangential contact formulation,
+    which may slightly change results. Preserve the old behavior by mixing in
+    ScaledProjectionTangentialContactMechanicsEquation.
 PR 1794: All metrics return a dict. Previously it was float | dict. If the metric
     returned float before, use key "norm". Abstract class pp.LebesgueMetric is removed
     with no replacement. pp.ConvergenceMetricType are removed, use pp.Metric interface
