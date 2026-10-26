@@ -9,8 +9,8 @@ import sympy as sym
 
 
 @functools.lru_cache(maxsize=None, typed=True)
-def lambdify(args: Any, expr: Any, modules: str) -> Callable:
-    """Cached version of :func:`sympy.lambdify`.
+def lambdify(args: Any, expr: Any) -> Callable:
+    """Cached version of :func:`sympy.lambdify`, always with the numpy module.
 
     The manufactured-solution setups evaluate the same fixed expressions in every time
     step, and some of them in every Newton iteration. Compiling an expression takes a
@@ -22,14 +22,16 @@ def lambdify(args: Any, expr: Any, modules: str) -> Callable:
     cached separately, since the compiled functions of constant expressions return
     values of different types.
 
+    Unlike :func:`sympy.lambdify`, which by default also uses scipy if installed, the
+    module is fixed to numpy.
+
     Parameters:
         args: Symbol or tuple of symbols, as for :func:`sympy.lambdify`. Must be
             hashable, i.e., a tuple rather than a list.
         expr: Sympy expression or number to compile.
-        modules: Module passed on to :func:`sympy.lambdify`.
 
     Returns:
         The compiled function.
 
     """
-    return sym.lambdify(args, expr, modules)
+    return sym.lambdify(args, expr, "numpy")
