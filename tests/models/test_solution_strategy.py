@@ -607,8 +607,8 @@ def test_targeted_rediscretization(model_class):
         # Convert to dense array to ensure the matrices are identical.
         assert A_full is not None
         assert A_targeted is not None
-        np.testing.assert_allclose(A_full.toarray(), A_targeted.toarray())
-        np.testing.assert_allclose(b_full, b_targeted)
+        assert np.allclose(A_full.toarray(), A_targeted.toarray())
+        assert np.allclose(b_full, b_targeted)
 
     # Check that the discretization matrix changes between iterations. Without this
     # check, missing rediscretization may go unnoticed.
