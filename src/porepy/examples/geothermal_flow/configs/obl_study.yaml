@@ -1,0 +1,56 @@
+# Section 4.2: accuracy and cost of the interpolated thermodynamics
+# (data behind Figures 7 and 8).
+#
+# The study keeps its settings in obl_convergence_analysis/convergence_config.py
+# (table sequence, fill, fields) and cost_config.py (benchmark overrides,
+# repeats). This manifest runs its stages in order and first checks that those
+# settings still have the values used for the paper.
+#
+# Experiment C also reads configs/benchmark.yaml merged with configs/defaults.yaml,
+# so editing either of them changes Figure 8.
+#
+# Run from src/porepy/examples:
+#   python -m geothermal_flow.run_interpolation_study --config geothermal_flow/configs/obl_study.yaml
+
+study_name: obl_study
+
+expected_settings:
+  porepy.examples.geothermal_flow.obl_convergence_analysis.convergence_config:
+    SEQUENCE:
+      initial_spacing: [0.08, 80.0, 80.0]   # (z, h [kJ/kg], p [bar]) of L0; halved per level
+      num_levels: 4                         # L0--L3; L3 = (0.01, 10, 10)
+      z_range: [1.0e-4, 0.9601]
+      h_range: [120.0, 3000.0]
+      p_range: [10.0, 490.0]
+    EXTEND_ABSENT_PHASES: false
+    CLI: ./sweos_cli/swEOS                  # relative to obl_convergence_analysis/
+  porepy.examples.geothermal_flow.obl_convergence_analysis.cost_config:
+    END_TIME_YEARS: 500.0
+    TIME_OVERRIDES:
+      dt_min: 864000.0                      # 10 days
+    MODEL_OVERRIDES:
+      fractional_flow: false
+    SIMULATION_REPEATS: 3                   # runtimes reported as median of three
+    EVALUATION_BATCH_SIZES: [128, 512, 2048]
+    EVALUATION_REPEATS: 3
+    ERROR_FIELDS: [Temperature, S_l, S_v, S_h, Rho, H]
+
+steps:
+  check_cli:          # compares batch and single-point swEOS output; seconds
+    module: porepy.examples.geothermal_flow.obl_convergence_analysis.run_experiment_a
+    args: [--stage, check]
+  generate_tables:    # tables_experiment_a/XHP_level_{0..3}.vtk; about 5 min, 880 MB
+    module: porepy.examples.geothermal_flow.obl_convergence_analysis.run_experiment_a
+    args: [--stage, generate]
+  cost_evaluate:      # per-evaluation cost, direct swEOS against table lookup
+    module: porepy.examples.geothermal_flow.obl_convergence_analysis.run_experiment_c
+    args: [--stage, evaluate]
+  cost_tables:        # generation time and size; reuses experiment_c/table_generation_cost.json
+    module: porepy.examples.geothermal_flow.obl_convergence_analysis.run_experiment_c
+    args: [--stage, tables]
+  cost_simulate:      # benchmark to 500 years, 3 runs per level; about 2 h
+    module: porepy.examples.geothermal_flow.obl_convergence_analysis.run_experiment_c
+    args: [--stage, simulate]
+  cost_errors:        # phase-boundary errors for the error axis of Figure 8
+    module: porepy.examples.geothermal_flow.obl_convergence_analysis.run_experiment_c
+    args: [--stage, errors]

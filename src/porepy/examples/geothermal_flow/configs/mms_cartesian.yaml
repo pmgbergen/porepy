@@ -1,0 +1,31 @@
+# Appendix A: manufactured solution on Cartesian meshes (Figure 22, top row).
+# Paper case: 3 levels, h0 = 0.125, dt0 = 0.5, h/2 and dt/4 per level, t_end = 1.
+#
+# Run from src/porepy/examples:
+#   python -m porepy.examples.geothermal_flow.run_mms_study \
+#     --config geothermal_flow/configs/mms_cartesian.yaml
+
+study_name: mms_cartesian
+
+study:
+  grid_type: cartesian
+  ensemble: false          # one mesh per level
+  levels: 3
+  base_cell_size: 0.125    # 0.25/k, so that the fracture and its tips lie on grid lines
+  dt: 0.5
+  final_time: 1.0
+
+solver:
+  nonlinear_tolerance: 1.0e-8   # increment and residual
+  global_line_search: false
+
+# Entries of HaliteMMSConstants (cf_convergence_analysis/mms_halite_constants.py)
+# replaced for this study. All other constants keep their defaults there.
+mms_constants:
+  a0: 1.0e-3       # reference aperture a^0
+  theta: 0.2       # clogging exponent varphi in Eq. (18)
+  S0: 0.1
+  S1: 0.2
+
+output:
+  directory: cf_convergence_analysis/mms_halite_output   # relative to geothermal_flow/

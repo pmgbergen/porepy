@@ -1,0 +1,33 @@
+# Appendix A: manufactured solution on a simplex mesh ensemble
+# (Figure 21, and Figure 22, bottom row).
+# Paper case: 3 levels, h0 = 0.125, dt0 = 0.5, h/2 and dt/4 per level, t_end = 1.
+# The ensemble jitters (25, 25 and 9 perturbed cell sizes; 10, 21 and 9 distinct
+# meshes) are fixed in geothermal_halite_verification_driver.main().
+#
+# Run from src/porepy/examples:
+#   python -m porepy.examples.geothermal_flow.run_mms_study \
+#     --config geothermal_flow/configs/mms_simplex_ensemble.yaml
+
+study_name: mms_simplex_ensemble
+
+study:
+  grid_type: simplex
+  ensemble: true           # errors averaged over perturbed meshes per level
+  levels: 3
+  base_cell_size: 0.125
+  dt: 0.5
+  final_time: 1.0
+
+solver:
+  nonlinear_tolerance: 1.0e-8   # increment and residual
+  global_line_search: false
+
+# Must equal mms_cartesian.yaml: both rows of Figure 22 are the same problem.
+mms_constants:
+  a0: 1.0e-3       # reference aperture a^0
+  theta: 0.2       # clogging exponent varphi in Eq. (18)
+  S0: 0.1
+  S1: 0.2
+
+output:
+  directory: cf_convergence_analysis/mms_halite_output   # relative to geothermal_flow/

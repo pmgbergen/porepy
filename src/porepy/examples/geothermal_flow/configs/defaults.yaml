@@ -34,9 +34,6 @@ physics:
 vtk:
   directory: model_configuration/constitutive_description/driesner_vtk_files
   ptz_file: XTP_l2_original_salt_new.vtk
-  phz_conversion_factors: [1.0, 1.0e-3, 1.0e-5]
-  ptz_conversion_factors: [1.0, 1.0, 1.0e-5]
-  ptz_translation_factors: [0.0, -273.15, 0.0]
 
 time:
   max_iterations: 100
@@ -51,7 +48,6 @@ solver:
   use_schur_complement: false
   use_preconditioner: false
   linear_solver: pypardiso
-  solver_statistics_file_name: solver_statistics.json
   print_nonlinear_statistics: true
   print_residual_blocks: true
   flag_failure_as_diverged: true
