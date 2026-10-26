@@ -525,3 +525,38 @@ def test_diagonal_jacobian_with_variables_not_arguments(
     # The same Jacobian is obtained from ``var1`` in the full representation.
     jac = sop.get_jacobian(sparse_array[0])
     np.testing.assert_allclose(jac.toarray(), expected_jacobian)
+
+
+@pytest.mark.parametrize("argument", ["full_sum", "diagonal_sum", "diagonal_indices"])
+def test_arguments_must_be_variables(
+    equation_system: pp.ad.EquationSystem, argument: str
+):
+    """A surrogate operator raises an error if an argument is not a variable, that is,
+    if its full Jacobian has more than a single identity block.
+
+    The sum of ``var1`` and ``var2`` is not a variable, in either representation. A
+    diagonal Ad array with row indices that do not coincide with the column indices of
+    any block in its Jacobian is not a variable either.
+
+    """
+    sop, sparse_array, diagonal_array, _ = _surrogate_and_arguments(
+        equation_system, [VAR1_NAME], [2.0]
+    )
+    if argument == "full_sum":
+        arg = sparse_array[0] + sparse_array[1]
+    elif argument == "diagonal_sum":
+        arg = diagonal_array[0] + diagonal_array[1]
+    else:
+        var1 = diagonal_array[0]
+        arg = pp.ad.DiagonalAdArray(
+            var1.val,
+            var1.jac,
+            var1.row_indices[::-1],
+            var1.col_indices,
+            var1.num_derivatives,
+        )
+
+    with pytest.raises(ValueError):
+        sop.get_jacobian(arg)
+    with pytest.raises(ValueError):
+        sop.func(arg)
