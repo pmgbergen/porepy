@@ -53,6 +53,9 @@ PR 1748: Refactor time-step control with interval-based scheduling and extensibl
 PR 1805: Fractured models now use a different default tangential contact formulation,
     which may slightly change results. Preserve the old behavior by mixing in
     ScaledProjectionTangentialContactMechanicsEquation.
+PR 1801: set_equation_system_manager always creates a new EquationSystem, instead of    keeping an existing one. An equation system assigned to the model before
+    keeping the old one. subdomain_projections is cached with pp.ad.cached_method, so
+    the private attribute model._subdomain_proj_of_dimension_{dim} no longer exists.
 PR 1798:  Restart histories written by older versions raise a ValueError, unless the
     restart option `allow_missing_exported_files` is True.
 PR 1794: All metrics return a dict. Previously it was float | dict. If the metric
