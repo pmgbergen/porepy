@@ -670,6 +670,7 @@ class ModelGeometry(pp.PorePyModel):
         )
         return pp.ad.SparseArray(local_coord_proj, source=space, target=space)
 
+    @pp.ad.cached_method
     def subdomain_projections(self, dim: int) -> pp.ad.SubdomainProjections:
         """Return the projection operators for all subdomains in md-grid.
 
@@ -687,13 +688,7 @@ class ModelGeometry(pp.PorePyModel):
             proj: Projection operator.
 
         """
-        name = f"_subdomain_proj_of_dimension_{dim}"
-        if hasattr(self, name):
-            proj = getattr(self, name)
-        else:
-            proj = pp.ad.SubdomainProjections(self.mdg.subdomains(), dim)
-            setattr(self, name, proj)
-        return proj
+        return pp.ad.SubdomainProjections(self.mdg.subdomains(), dim)
 
     def domain_boundary_sides(
         self, domain: pp.Grid | pp.BoundaryGrid, tol: Optional[float] = 1e-10
