@@ -490,10 +490,15 @@ def test_diagonal_jacobian_with_variables_not_arguments(
     """The diagonal Jacobian of a surrogate operator, when the Jacobian structure of its
     arguments also contains variables which are not arguments.
 
+    Setup: The surrogate operator depends on ``var1`` only. The argument ``var1`` is a
+    variable, that is, its full Jacobian has a single identity block. However, since
+    ``var1`` is initialized jointly with ``var2``, its diagonal Jacobian has two blocks:
+    The identity block of ``var1`` and an all-zero block for ``var2``.
+
     Test: Evaluation of the surrogate operator gives a diagonal Ad array with the same
-    structure as its argument. The block of ``var1`` contains the derivatives of the
-    surrogate operator, while the block of ``var2`` is zero. The full representation
-    equals the expected Jacobian.
+    two-block structure as its argument. The block of ``var1`` contains the derivatives
+    of the surrogate operator, while the block of ``var2`` is zero. The full
+    representation equals the expected Jacobian.
 
     """
     known_derivative_value = 2.0
