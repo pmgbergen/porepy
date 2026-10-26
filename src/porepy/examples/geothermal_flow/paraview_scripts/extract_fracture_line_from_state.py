@@ -198,26 +198,6 @@ def main():
             f"Saved {out_file} using PVD time {selected_time:g} seconds "
             f"with FieldAssociation={args.field_association!r}"
         )
-    # for time_days in args.times_days:
-    #     requested_seconds = time_days * 24.0 * 3600.0
-    #     selected_time = closest_time(requested_seconds, available_times)
-
-    #     animation_scene.AnimationTime = selected_time
-    #     reader.UpdatePipeline(time=selected_time)
-    #     export_source.UpdatePipeline(time=selected_time)
-
-    #     out_file = out_dir / f"fracture_profile_t_{time_days:g}_days.csv"
-
-    #     SaveData(
-    #         str(out_file),
-    #         proxy=export_source,
-    #         FieldAssociation="Point Data",
-    #     )
-
-    #     print(
-    #         f"Saved {out_file} "
-    #         f"(requested {time_days:g} days, used {selected_time:g} seconds)"
-    #     )
 
 
 if __name__ == "__main__":
