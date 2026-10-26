@@ -68,7 +68,14 @@ class RestartModelWithReference(RestartModel):
     """
 
     def initialize_operator_reference_values_from_initial_state(self) -> None:
-        """TODO"""
+        """Shift the reference values of the pressure, the interface displacement, the
+        interface Darcy flux and the well flux by small random numbers, and set a
+        constant nonzero reference stress.
+
+        The shift makes the reference state nonzero, such that a restart that fails to
+        recover it from file gives a different stress.
+
+        """
         super().initialize_operator_reference_values_from_initial_state()
         es = self.equation_system
         # Shifting all variables, e.g., the contact traction, hinders convergence.
@@ -260,7 +267,7 @@ def test_restart_continues_as_if_uninterrupted(restart_runs):
     (NREC vs GitHub CI) lead to different Newton behavior, hindering a meaningful test
     and causing false positive alerts.
 
-    This behavior is substential for coversion of the length units: pp.Units(m=10), and
+    This behavior is substantial for conversion of the length units: pp.Units(m=10), and
     insignificant for the mass units: pp.Units(kg=1e3). Investigation could not point to
     any related error in exporter/importer, so the conclusion was that it is truly the
     round-off errors that cause it, and changing the length unit has a larger effect on
