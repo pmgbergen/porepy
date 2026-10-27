@@ -28,12 +28,17 @@ from porepy.applications.initialization.initialization import (
 )
 from porepy.applications.test_utils import models
 
+PRESSURE_OFFSET = 1e3
+"""Number used for the pressure term magnitude in the tests."""
+SOURCE_TERM_OFFSET = 1e-3
+"""Number used for the source term magnitude in the tests."""
+
 
 class RampedBoundary(pp.PorePyModel):
     """Nonzero boundary values which grow linearly with time.
 
-    At time t, pressure and temperature on the boundary are (1 + t / day) * 1e3 and 1,
-    respectively.
+    At time t, pressure and temperature on the boundary are
+    (1 + t / day) * PRESSURE_OFFSET and 1, respectively.
 
     """
 
@@ -43,7 +48,7 @@ class RampedBoundary(pp.PorePyModel):
 
     def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Pressure on the boundary, growing with time."""
-        return np.full(bg.num_cells, 1e3 * self.ramp())
+        return np.full(bg.num_cells, PRESSURE_OFFSET * self.ramp())
 
     def bc_values_temperature(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Temperature on the boundary, growing with time."""
@@ -57,7 +62,7 @@ class RampedBoundary(pp.PorePyModel):
 
 
 class RampedSource(pp.PorePyModel):
-    """Fluid source of 1e-3 * (1 + t / day) in each cell.
+    """Fluid source of PRESSURE_OFFSET * (1 + t / day) in each cell.
 
     The source is updated with the time dependent data of the model.
 
@@ -73,7 +78,9 @@ class RampedSource(pp.PorePyModel):
         """Update the ramped source with the current time."""
         super().update_time_dependent_ad_arrays()
         for sd, data in self.mdg.subdomains(return_data=True):
-            values = np.full(sd.num_cells, 1e-3 * (1 + self.time_manager.time / pp.DAY))
+            values = np.full(
+                sd.num_cells, PRESSURE_OFFSET * (1 + self.time_manager.time / pp.DAY)
+            )
             pp.set_solution_values("ramped_source", values, data, iterate_index=0)
 
 
@@ -257,7 +264,9 @@ def test_pipeline(tmp_path, caplog, saved_state, logged, not_logged):
             for key in arrays:
                 if "::pressure::" in key and "reference_solutions" not in key:
                     rng = np.random.default_rng(0)
-                    arrays[key] = arrays[key] + 1e3 * rng.random(arrays[key].shape)
+                    arrays[key] = arrays[key] + PRESSURE_OFFSET * rng.random(
+                        arrays[key].shape
+                    )
             np.savez(path, **arrays)
         caplog.clear()
 
@@ -326,7 +335,9 @@ def test_data_time_frozen(tmp_path):
                 pressure = pp.get_solution_values(
                     model.pressure_variable, data, **kwargs
                 )
-                np.testing.assert_allclose(pressure, 1e3 * (1 + expected_time / pp.DAY))
+                np.testing.assert_allclose(
+                    pressure, PRESSURE_OFFSET * (1 + expected_time / pp.DAY)
+                )
                 checked += 1
     # Without this the test passes if no boundary grid carries the pressure.
     assert checked > 0, "no boundary values of the pressure were checked"
@@ -366,8 +377,8 @@ def test_time_dependent_data_in_initialization_context(tmp_path, hook):
         model.prepare_simulation()
         clock_in_step, source, pressure = values_of_time_step()
         assert clock_in_step == pp.DAY * (expected_ramp - 1)
-        np.testing.assert_allclose(source, 1e-3 * expected_ramp)
-        np.testing.assert_allclose(pressure, 1e3 * expected_ramp)
+        np.testing.assert_allclose(source, PRESSURE_OFFSET * expected_ramp)
+        np.testing.assert_allclose(pressure, PRESSURE_OFFSET * expected_ramp)
         # Call either after_nonlinear_convergence or *_failure, each should restore time
         getattr(model, hook)()
         assert model.time_manager.time == clock
@@ -375,8 +386,8 @@ def test_time_dependent_data_in_initialization_context(tmp_path, hook):
     # Without the freeze, the values are those of the clock.
     clock_in_step, source, pressure = values_of_time_step()
     assert clock_in_step == clock
-    np.testing.assert_allclose(source, 1e-3 * ramp(clock))
-    np.testing.assert_allclose(pressure, 1e3 * ramp(clock))
+    np.testing.assert_allclose(source, PRESSURE_OFFSET * ramp(clock))
+    np.testing.assert_allclose(pressure, PRESSURE_OFFSET * ramp(clock))
 
 
 @pytest.mark.parametrize(
