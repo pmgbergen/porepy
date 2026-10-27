@@ -68,7 +68,8 @@ __all__ = [
 def default_initialization_time_manager() -> pp.TimeManager:
     """Create the default time manager of the time stepping to the steady state.
 
-    The time steps grow from a second to a year, within 100 years.
+    The time steps grow from a second to a year, within 100 years. This schedule should
+    hopefully be sufficient for most cases.
 
     Returns:
         The time manager.
@@ -135,9 +136,13 @@ def default_rate_tolerances(model: pp.PorePyModel) -> dict[str, float]:
     return defaultdict(
         lambda: 1e-3,
         {
-            "pressure": model.units.convert_units(100, "Pa") / pp.YEAR,
+            pp.SinglePhaseFlow.pressure_variable: model.units.convert_units(100, "Pa")
+            / pp.YEAR,
             "temperature": model.units.convert_units(1, "K") / pp.YEAR,
-            "u": model.units.convert_units(1e-2, "m") / pp.YEAR,
+            pp.MomentumBalance.displacement_variable: model.units.convert_units(
+                1e-2, "m"
+            )
+            / pp.YEAR,
         },
     )
 
@@ -283,22 +288,6 @@ class _InitializationContext:
         if hasattr(self.model, "exporter"):
             self.model.initialize_data_saving()
 
-    def update_time_dependent_data(self) -> None:
-        """Update the time dependent data of the original model to the data time.
-
-        A prepared model has the data of the start time. A steady state is found for
-        the data of the data time, so the model must have this data to be in it. The
-        clock is restored afterwards.
-
-        """
-        clock_time = self.model.time_manager.time
-        self.model.time_manager.time = self.data_time
-        # If the model hook fails for any reason, time is guaranteed to be restored.
-        try:
-            self.model.update_time_dependent_ad_arrays()
-        finally:
-            self.model.time_manager.time = clock_time
-
 
 def _set_state_as_reference(model: pp.PorePyModel) -> None:
     """Make the current state of the model its reference state.
@@ -311,16 +300,24 @@ def _set_state_as_reference(model: pp.PorePyModel) -> None:
         model: A prepared model with mechanics.
 
     """
-    es = model.equation_system
-    # The total stress depends on the reference state, hence it is evaluated first.
+    equation_system = model.equation_system
+
+    # Compute the reference stress.
     matrix = model.mdg.subdomains(dim=model.nd, return_data=True)
     reference_stress: dict[pp.Grid, np.ndarray] = {}
     for sd, _ in matrix:
         stress = model.stress([sd])  # type: ignore[attr-defined]
-        reference_stress[sd] = np.asarray(es.evaluate(stress))
+        reference_stress[sd] = np.asarray(equation_system.evaluate(stress))
 
-    es.set_variable_values(es.get_variable_values(iterate_index=0), reference=True)
+    # Apply the primary variables to the reference state.
+    equation_system.set_variable_values(
+        equation_system.get_variable_values(iterate_index=0), reference=True
+    )
+
+    # Set the reference boundary data.
     model.set_boundary_reference_values()
+
+    # Set the reference stress.
     for sd, data in matrix:
         pp.set_solution_values(
             name=model.reference_stress_key,  # type: ignore[attr-defined]
@@ -447,10 +444,11 @@ def initialization_pipeline(
         model: A model with mechanics that has not been prepared. It is prepared by the
             pipeline, and is ready to be run when this function returns.
         rate_tolerances: Tolerances of the rate of change of variables, per variable
-            name and in model units per second. Defaults to
+            name and in model units per second. Defaults to the values provided by
             :func:`default_rate_tolerances`.
         residual_tolerances: Tolerances of the residual of equations, per equation name
-            and in model units. Defaults to :func:`default_residual_tolerances`.
+            and in model units. Defaults to the values provided by
+            :func:`default_residual_tolerances`.
         nonlinear_solver: Solver for the time steps to the steady state. A default
             solver of the model runner is used if it is None.
         storage: Where to save the steady state. Defaults to a file in the simulation
