@@ -136,13 +136,9 @@ def default_rate_tolerances(model: pp.PorePyModel) -> dict[str, float]:
     return defaultdict(
         lambda: 1e-3,
         {
-            pp.SinglePhaseFlow.pressure_variable: model.units.convert_units(100, "Pa")
-            / pp.YEAR,
+            "pressure": model.units.convert_units(100, "Pa") / pp.YEAR,
             "temperature": model.units.convert_units(1, "K") / pp.YEAR,
-            pp.MomentumBalance.displacement_variable: model.units.convert_units(
-                1e-2, "m"
-            )
-            / pp.YEAR,
+            "u": model.units.convert_units(1e-2, "m") / pp.YEAR,
         },
     )
 
