@@ -62,7 +62,7 @@ class RampedBoundary(pp.PorePyModel):
 
 
 class RampedSource(pp.PorePyModel):
-    """Fluid source of PRESSURE_OFFSET * (1 + t / day) in each cell.
+    """Fluid source of SOURCE_TERM_OFFSET * (1 + t / day) in each cell.
 
     The source is updated with the time dependent data of the model.
 
@@ -79,7 +79,7 @@ class RampedSource(pp.PorePyModel):
         super().update_time_dependent_ad_arrays()
         for sd, data in self.mdg.subdomains(return_data=True):
             values = np.full(
-                sd.num_cells, PRESSURE_OFFSET * (1 + self.time_manager.time / pp.DAY)
+                sd.num_cells, SOURCE_TERM_OFFSET * (1 + self.time_manager.time / pp.DAY)
             )
             pp.set_solution_values("ramped_source", values, data, iterate_index=0)
 
@@ -377,7 +377,7 @@ def test_time_dependent_data_in_initialization_context(tmp_path, hook):
         model.prepare_simulation()
         clock_in_step, source, pressure = values_of_time_step()
         assert clock_in_step == pp.DAY * (expected_ramp - 1)
-        np.testing.assert_allclose(source, PRESSURE_OFFSET * expected_ramp)
+        np.testing.assert_allclose(source, SOURCE_TERM_OFFSET * expected_ramp)
         np.testing.assert_allclose(pressure, PRESSURE_OFFSET * expected_ramp)
         # Call either after_nonlinear_convergence or *_failure, each should restore time
         getattr(model, hook)()
@@ -386,7 +386,7 @@ def test_time_dependent_data_in_initialization_context(tmp_path, hook):
     # Without the freeze, the values are those of the clock.
     clock_in_step, source, pressure = values_of_time_step()
     assert clock_in_step == clock
-    np.testing.assert_allclose(source, PRESSURE_OFFSET * ramp(clock))
+    np.testing.assert_allclose(source, SOURCE_TERM_OFFSET * ramp(clock))
     np.testing.assert_allclose(pressure, PRESSURE_OFFSET * ramp(clock))
 
 

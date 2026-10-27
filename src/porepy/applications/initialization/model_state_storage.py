@@ -1,23 +1,26 @@
 """Saving and loading of the state of a model as numpy arrays. The state of a model is
 everything that is stored in the data dictionaries of its grids.
 
-The functionality partly overlaps with saving and restarting through
-:class:`~porepy.viz.exporter.Exporter` and the DataSavingMixin.
 
-We cannot reuse DataSavingMixin, because it is deeply coupled with the model lifecycle
-hooks (before_* and after_*). The initialization procedure uses model beyond the
-originally-intended lifecycle, which makes depending on DataSavingMixin error-prone.
+Implementation detail:
+    The functionality partly overlaps with saving and restarting through
+    :class:`~porepy.viz.exporter.Exporter` and the DataSavingMixin.
 
-We cannot use the Exporter, because it does not support boundary grids and the reference
-stress (since it is defined not on the cell centers).
+    We cannot reuse DataSavingMixin, because it is deeply coupled with the model
+    lifecycle hooks (before_* and after_*). The initialization procedure uses model
+    beyond the originally-intended lifecycle, which makes depending on DataSavingMixin
+    error-prone.
 
-These arguments suggest that it is easier to repeat yourself and write a tailored
-exporter/importer for initialization than to extend the existing Exporter. This tailored
-class is not intended for ParaView exporting.
+    We cannot use the Exporter, because it does not support boundary grids and the
+    reference stress (since it is defined not on the cell centers).
 
-The storage is meant to be used in the initialization sub-package only. The file layout
-is not a stable format. Talk to the maintainers if you intend to use it in your own
-code.
+    These arguments suggest that it is easier to repeat yourself and write a tailored
+    exporter/importer for initialization than to extend the existing Exporter. This
+    tailored class is not intended for ParaView exporting.
+
+    The storage is meant to be used in the initialization sub-package only. The file
+    layout is not a stable format. Talk to the maintainers if you intend to use it in
+    your own code.
 
 """
 
@@ -285,8 +288,9 @@ class ModelStateStorage:
 
         current_state = self.capture_state(model)
 
-        # Reference values may be absent in the model, they are created by
-        # apply_state. Everything else must match.
+        # Reference values may not be present in the model, because they are allocated
+        # on demand. That is why we do not check that the reference keys match.
+        # Everything else must match.
         reference = f"::{pp.REFERENCE_SOLUTIONS}::"
         current_keys = {key for key in current_state if reference not in key}
         suggested_keys = {key for key in suggested_state if reference not in key}
