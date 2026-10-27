@@ -40,6 +40,7 @@ following:
 
 import logging
 from collections import defaultdict
+from copy import deepcopy
 from pathlib import Path
 from typing import Optional, cast
 
@@ -151,10 +152,6 @@ def default_residual_tolerances() -> dict[str, float]:
     return defaultdict(lambda: 1e-9)
 
 
-_MISSING = object()
-"""Marks a model parameter that did not exist before it was replaced."""
-
-
 class InitializationError(RuntimeError):
     """Raised if the initialization did not end in a verified steady state."""
 
@@ -203,11 +200,10 @@ class _InitializationContext:
         self.original_class = model.__class__
         """Class of the model outside the context."""
         self.original_time_manager = model.time_manager
+        original_folder_path = Path(model.params["folder_name"])
         """Time manager of the model outside the context."""
-        self.original_folder_name = model.params["folder_name"]
-        """Output folder of the model outside the context."""
-        self.folder_name = Path(self.original_folder_name).with_name(
-            Path(self.original_folder_name).name + "_initialization"
+        self.folder_name = original_folder_path.with_name(
+            original_folder_path.name + "_initialization"
         )
         """Output folder of the model in the context."""
         data_time = (
@@ -267,10 +263,8 @@ class _InitializationContext:
         """Replace the class, time manager, folder and parameters of the model."""
         self.model.__class__ = self.initialized_class
         self.model.time_manager = self.time_manager
+        self._original_params = deepcopy(self.model.params)
         self.model.params["folder_name"] = self.folder_name
-        self._original_params = {
-            key: self.model.params.get(key, _MISSING) for key in self.params
-        }
         self.model.params.update(self.params)
 
     def __exit__(self, *args: object) -> None:
@@ -282,12 +276,7 @@ class _InitializationContext:
         """
         self.model.__class__ = self.original_class
         self.model.time_manager = self.original_time_manager
-        self.model.params["folder_name"] = self.original_folder_name
-        for key, value in self._original_params.items():
-            if value is _MISSING:
-                self.model.params.pop(key, None)
-            else:
-                self.model.params[key] = value
+        self.model.params = self._original_params
         # The exporter and statistics path were created in the initialization folder.
         # Recreate them in the original one, also if the initialization failed and the
         # model is not prepared again.
@@ -304,6 +293,7 @@ class _InitializationContext:
         """
         clock_time = self.model.time_manager.time
         self.model.time_manager.time = self.data_time
+        # If the model hook fails for any reason, time is guaranteed to be restored.
         try:
             self.model.update_time_dependent_ad_arrays()
         finally:
