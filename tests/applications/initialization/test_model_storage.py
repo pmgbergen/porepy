@@ -31,12 +31,18 @@ def test_state_storage(tmp_path, corruption):
     """
     model = make_model(tmp_path / "simulation")
     model.prepare_simulation()
-    system = model.equation_system
+    equation_system = model.equation_system
     # A state in which the current, previous and reference values all differ.
     rng = np.random.default_rng(0)
-    system.set_variable_values(rng.random(system.num_dofs()), reference=True)
-    system.set_variable_values(rng.random(system.num_dofs()), time_step_index=0)
-    system.set_variable_values(rng.random(system.num_dofs()), iterate_index=0)
+    equation_system.set_variable_values(
+        rng.random(equation_system.num_dofs()), reference=True
+    )
+    equation_system.set_variable_values(
+        rng.random(equation_system.num_dofs()), time_step_index=0
+    )
+    equation_system.set_variable_values(
+        rng.random(equation_system.num_dofs()), iterate_index=0
+    )
     storage = ModelStateStorage(tmp_path / "state.npz")
     storage.save_state(model)
     saved = storage.capture_state(model)
@@ -59,7 +65,9 @@ def test_state_storage(tmp_path, corruption):
 
     # Change the state of the model, to see that it is loaded or not changed.
     for kwargs in [{"reference": True}, {"time_step_index": 0}, {"iterate_index": 0}]:
-        system.set_variable_values(rng.random(system.num_dofs()), **kwargs)
+        equation_system.set_variable_values(
+            rng.random(equation_system.num_dofs()), **kwargs
+        )
     changed = storage.capture_state(model)
     if corruption == "none":
         storage.load_state(model)

@@ -14,14 +14,15 @@ following:
 
 1. Replaces temporarily the model class, the time manager and the output folder (see
    :class:`_InitializationContext`). The simplified model has zero shear dilation and
-   constant porosity, which makes the nonlinear problem easier. Its time dependent data
-   (boundary values, sources) is evaluated at the initial time. The results of the time
-   stepping are written to ``<folder_name>_initialization``.
+   constant porosity, because they are assumed known. Its time dependent data (boundary
+   values, sources) is evaluated at the initial time. The results of the time stepping
+   are written to ``<folder_name>_initialization``.
 
 2. Prepares the simplified model, and either
 
    - loads a previously saved state from ``<folder_name>/steady_state.npz``, if it
-     exists. If the saved state is incompatible, it is discarded.
+     exists. If the saved state is incompatible (e.g., the model has changed), it is
+     discarded.
    - or time steps the simplified model until both the rate of change of the variables
      and the residual of the equations are below the tolerances
      (:class:`~.steady_state_early_stop.SteadyStateEarlyStopCriterion`). The time
