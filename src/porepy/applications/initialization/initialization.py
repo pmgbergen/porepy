@@ -36,6 +36,12 @@ following:
    original model, with original shear dilation and porosity, is below the tolerances.
    If not, the saved state is discarded and :class:`InitializationError` is raised.
 
+The following contract is assumed for the model after `initialization_pipeline`:
+
+The data imposed at the first time step defines the steady state. The main simulation
+will start by stepping up to that state, and then the "dynamic" part of the simulation
+proceeds.
+
 """
 
 import logging
@@ -69,7 +75,7 @@ __all__ = [
 def default_initialization_time_manager() -> pp.TimeManager:
     """Create the default time manager of the time stepping to the steady state.
 
-    The time steps grow from a second to a year, within 100 years. This schedule should
+    The time steps grow from a second to a year, within 1000 years. This schedule should
     hopefully be sufficient for most cases.
 
     Returns:
@@ -113,10 +119,10 @@ def default_initialization_time_manager() -> pp.TimeManager:
                     t_start=8 * pp.WEEK,
                     dt_start=pp.YEAR,
                     constraints=[pp.time_stepper.TargetNonlinearIterations()],
-                    name="100 years",
+                    name="1000 years",
                 ),
             ],
-            t_end=100 * pp.YEAR,
+            t_end=1000 * pp.YEAR,
         )
     )
 
@@ -539,8 +545,12 @@ def initialization_pipeline(
         state_arrays = storage.capture_state(model)
 
     # Prepare that the full model (enable nonlinearities) and check that it is in a
-    # steady state.
+    # steady state. Disabling the data saving during the call to prepare_simulation,
+    # which would otherwise write the incorrect initial state (before initialization).
+    times_to_export_param = model.params.get("times_to_export", None)
+    model.params["times_to_export"] = []
     model.prepare_simulation()
+    model.params["times_to_export"] = times_to_export_param
 
     storage.apply_state(model, arrays=state_arrays)
     if not _validate_steady_state(model, residual_tolerances):
@@ -548,6 +558,9 @@ def initialization_pipeline(
         raise InitializationError(
             "The model is not in a steady state at the found state."
         )
+
+    # Save the initialized initial state.
+    model.save_data_time_step()
 
     logger.info(
         "Initialization is complete. The simulation initial and reference states are "
