@@ -56,6 +56,7 @@ from porepy.applications.initialization.steady_state_early_stop import (
     SteadyStateModelRunnerSuccess,
     check_and_log_tolerances,
 )
+from porepy.applications.test_utils.models import add_mixin
 
 logger = logging.getLogger(__name__)
 
@@ -217,8 +218,8 @@ class _InitializationContext:
         self.data_time: float = data_time
         """Time at which time dependent data is evaluated during the initialization."""
 
-        class InitializedModel(self.original_class):  # type: ignore[name-defined]
-            """The model with the simplifications of the initialization."""
+        class InitializedModelPhysics:  # type: ignore[name-defined]
+            """The default simplified constitutive laws for initialization."""
 
             def shear_dilation_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
                 """No dilation of the fractures during the initialization."""
@@ -232,7 +233,13 @@ class _InitializationContext:
                     source=space,
                     target=space,
                 )
-                return self.reference_porosity(subdomains) * ones
+                return self.reference_porosity(subdomains) * ones  # type: ignore[attr-defined]
+
+        class InitializedModelNumerics(self.original_class):  # type: ignore[name-defined]
+            """Overrides in model hooks for freezing the simulation time during the
+            update of boundary conditions and source terms.
+
+            """
 
             def before_time_step(self) -> None:
                 """Freeze the clock at the data time during the nonlinear loop.
@@ -257,7 +264,9 @@ class _InitializationContext:
                 super().after_nonlinear_failure()
                 self.time_manager.time = self.__clock_time
 
-        self.initialized_class = InitializedModel
+        self.initialized_class = add_mixin(
+            InitializedModelPhysics, InitializedModelNumerics
+        )
         """The subclass of the original model class used in the context."""
 
     def __enter__(self) -> None:

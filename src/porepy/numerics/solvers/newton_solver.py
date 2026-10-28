@@ -580,7 +580,7 @@ class NewtonSolver(NonlinearSolverBase):
                 updated_variables=self.get_active_variables(model),
             )
         except (ValueError, np.linalg.LinAlgError, SystemError):
-            # model.after_nonlinear_iteration tends to raise this error if
+            # model.after_nonlinear_iteration raises a ValueError error if
             # discretization encounter nans:
             # "Tensor is not positive definite because of components in x-direction"
             # The numba-compiled block inversion used by the MPFA/Biot discretizations

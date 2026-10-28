@@ -12,7 +12,7 @@ Implementation detail:
     error-prone.
 
     We cannot use the Exporter, because it does not support boundary grids and the
-    reference stress (since it is defined not on the cell centers).
+    reference stress (since it is defined on face centers, not cell centers).
 
     These arguments suggest that it is easier to repeat yourself and write a tailored
     exporter/importer for initialization than to extend the existing Exporter. This
