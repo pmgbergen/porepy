@@ -3376,7 +3376,35 @@ class ReactionRatesKineticFromExperimentReleaseFraction:
         Sample: DFU_01
         Unit: [-]
         """
-        return 0.0159
+        # return 0.0159
+
+
+        default_release_fraction = {
+            "LiX_dissolution": 0.0159,
+            "LiY_dissolution": 0.0055,
+        }
+        # set a fake rate constant
+        constants = self.params.get(
+            "mineral_release_fractions",
+            default_release_fraction,
+        )
+
+        try:
+            return constants[reaction.name]
+        except KeyError:
+            raise ValueError(
+                f"No release fraction configured for reaction {reaction.name!r}"
+            ) from None
+
+
+
+
+
+
+
+
+
+
 
 
 
