@@ -741,24 +741,28 @@ class MassWeightedPermeability(ConstantPermeability):
 
     @pp.ad.cached_method
     def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-        """A constitutive law returning the normal permeability as
-        :meth:`mass_mobility_weighted_permeability` on the lower-dimensional subdomain.
+        """Normal permeability on the interfaces.
+
+        Branches on the formulation like :meth:`permeability`. In the fractional-flow
+        formulation it is the mass-mobility-weighted permeability of the
+        lower-dimensional subdomain, projected to the mortar. Otherwise the mobility
+        enters as an upwinded advective weight, and the normal permeability is
+        obtained via super-call, so the mobility is not counted twice.
 
         Parameters:
             interfaces: A list of mortar grids.
 
         Returns:
-            The product of total mobility and permeability of the lower-dimensional.
+            The normal permeability on the interfaces.
 
         """
+        if not pp.compositional_flow.is_fractional_flow(self):
+            return super().normal_permeability(interfaces)
 
         subdomains = self.interfaces_to_subdomains(interfaces)
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-
-        normal_permeability = (
-            projection.secondary_to_mortar_avg()
-            @ self.mass_mobility_weighted_permeability(subdomains)
-        )
+        permeability = self.mass_mobility_weighted_permeability(subdomains)
+        normal_permeability = projection.secondary_to_mortar_avg() @ permeability
         normal_permeability.set_name("normal_permeability")
         return normal_permeability
 
