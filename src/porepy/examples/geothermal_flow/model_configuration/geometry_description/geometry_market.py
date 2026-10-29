@@ -24,13 +24,17 @@ class SimpleGeometryHorizontal(Geometry):
     The start of domain serve as inlet and end of domain serves as the outlet
     """
 
-    _dist_from_ref_point: float = 15.0 #endret fra 5 til 15 for å se hvordan det oppfører seg i 2D
-    _inlet_centre: np.ndarray = np.array([0.0, 15.0, 0.0]) #endret fra 5 til 15 
-    _outlet_centre: np.ndarray = np.array([2000.0, 15.0, 0.0])
+    # Domenestørrelsen endres kun her, alt annet regnes ut fra disse to
+    _x_length: float = 100.0  # [m]
+    _y_length: float = 30.0  # [m]
+
+    _dist_from_ref_point: float = _y_length / 2
+    _inlet_centre: np.ndarray = np.array([0.0, _y_length / 2, 0.0])
+    _outlet_centre: np.ndarray = np.array([_x_length, _y_length / 2, 0.0])
 
     def set_domain(self) -> None:
-        x_length = self.units.convert_units(2000.0, "m")
-        y_length = self.units.convert_units(30.0, "m") #endret til 30 m for å se hvordan det oppfører seg i 2D
+        x_length = self.units.convert_units(self._x_length, "m")
+        y_length = self.units.convert_units(self._y_length, "m")
         box: dict[str, pp.number] = {"xmax": x_length, "ymax": y_length}
         self._domain = pp.Domain(box)
 
@@ -38,8 +42,8 @@ class SimpleGeometryHorizontal(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(5.0, "m") #modifisert sørrelse til 5
-        mesh_args: dict[str, float] = {"cell_size": cell_size}
+        cell_size = self.units.convert_units(1.0, "m") #modifisert sørrelse til 5
+        mesh_args: dict[str, float] ={"cell_size": cell_size}
         return mesh_args
 
     def get_inlet_outlet_sides(

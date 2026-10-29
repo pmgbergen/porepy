@@ -32,7 +32,11 @@ def enthaply_from_pressure(
     """
     # constant temperature
     n_cell = len(p)
-    T = 673.15 * np.ones(n_cell)  # 400°C in Kelvin, changed from 423,15K in the original code
+
+    T = 573.15 * np.ones(n_cell)  # 150°C in Kelvin, changed from 423,15K in the original code
+
+#    T = 673.15 * np.ones(n_cell)  # 400°C in Kelvin, changed from 423,15K in the original code
+
     if z is None:
         z_NaCl = np.zeros_like(p)
     else:
@@ -513,6 +517,21 @@ class SecondaryEquations(LocalElimination):
         dX_w = np.vstack(dX_w)
         return X_w, dX_w
 
+    def NaCl_liq_func(
+        self,
+        *thermodynamic_dependencies: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        X_w, dX_w = self.H2O_liq_func(*thermodynamic_dependencies)
+        return 1.0 - X_w, -dX_w
+
+    def NaCl_gas_func(
+        self,
+        *thermodynamic_dependencies: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        xw, dxw = self.H2O_gas_func(*thermodynamic_dependencies)
+        return 1.0 - xw, -dxw
+            
+
     def set_equations(self) -> None:
         super().set_equations()
         subdomains = self.mdg.subdomains()
@@ -531,7 +550,7 @@ class SecondaryEquations(LocalElimination):
         if any(comp.name == "NaCl" for comp in self.fluid.components):
             chi_functions_map["NaCl_liq"] = self.NaCl_liq_func
             chi_functions_map["NaCl_gas"] = self.NaCl_gas_func
-            chi_functions_map["NaCl_halite"] = self.NaCl_halite_func
+        #   chi_functions_map["NaCl_halite"] = self.NaCl_halite_func
         
         # Saturation: only eliminate for two-phase
         # In  Saturation is 1.0, if a single liquid, gas, or supercritical fluid is present!

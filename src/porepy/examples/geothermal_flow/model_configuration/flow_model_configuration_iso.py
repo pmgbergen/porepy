@@ -32,12 +32,12 @@ class VTKSamplerMixin:
 
 
 class LiquidSecondaryEquation(SecondaryEquations):
-    component_system = ComponentSystem.WATER
+    component_system = ComponentSystem.WATER_SALT
     phase_mode = pp.compositional.PhysicalState.liquid
 
 
 class TwoPhaseSecondaryEquation(SecondaryEquations):
-    component_system = ComponentSystem.WATER
+    component_system = ComponentSystem.WATER_SALT
     phase_mode = PhaseMode.TWO_PHASE
 
 

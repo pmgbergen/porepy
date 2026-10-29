@@ -60,6 +60,7 @@ class BoundaryConditions(pp.PorePyModel):
         h = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-6
         return h
 
+#det er her du ville stille spørmål Ane :
     def bc_values_overall_fraction(
         self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:

@@ -55,8 +55,10 @@ SIMULATION_CASES = {
         "BC": BCSinglePhaseHighPressure,
         "IC": ICSinglePhaseHighPressure,
         "FlowModel": TwoPhasePhaseModel,
-        "tf": 200 * 365 * 86400,
-        "dt": 365 * 86400
+        "tf": 2 * 365 * 86400,  # 2 years in seconds
+        "dt": 5 * 86400,  # 5 days in seconds
+
+
     }
 }
 
