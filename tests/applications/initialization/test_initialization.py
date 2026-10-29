@@ -5,6 +5,9 @@ We test:
       the model is restored after initialization, also if it fails.
     - That time dependent boundary values are frozen at the time of the first time step,
       and unfrozen after initialization.
+    - That time dependent boundary displacement is shifted from the iterate to the
+      previous time step, such that it is constant (and the problem is steady) after
+      the first step.
     - That the reference state is consistent with the model after initialization.
 
 """
@@ -30,6 +33,8 @@ from porepy.applications.test_utils import models
 
 PRESSURE_OFFSET = 1e3
 """Number used for the pressure term magnitude in the tests."""
+DISPLACEMENT_OFFSET = 1e-4
+"""Number used for the displacement term magnitude in the tests."""
 SOURCE_TERM_OFFSET = 1e-3
 """Number used for the source term magnitude in the tests."""
 
@@ -57,7 +62,7 @@ class RampedBoundary(pp.PorePyModel):
     def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Displacement on the boundary, growing with time."""
         values = np.zeros((self.nd, bg.num_cells))
-        values[0] = 1e-4 * self.ramp()
+        values[0] = DISPLACEMENT_OFFSET * self.ramp()
         return values.ravel("F")
 
 
@@ -388,6 +393,60 @@ def test_time_dependent_data_in_initialization_context(tmp_path, hook):
     assert clock_in_step == clock
     np.testing.assert_allclose(source, SOURCE_TERM_OFFSET * ramp(clock))
     np.testing.assert_allclose(pressure, PRESSURE_OFFSET * ramp(clock))
+
+
+def test_time_dependent_data_shifted_to_previous_time_step(tmp_path, caplog):
+    """Time dependent boundary displacement is shifted from the iterate to the previous
+    time step.
+
+    The initialization freezes the time dependent data at the time of the first time
+    step. The first step is solved with a jump of the data from t_0 to the frozen
+    value, so it is not a steady problem. In the later steps, the previous time step
+    value must equal the iterate, the frozen value. Otherwise, every step would be
+    solved with the same jump and the found state would be a response to it, not a
+    steady state.
+
+    The pipeline runs four time steps, and the values in the returned model are checked.
+
+    """
+    caplog.set_level(logging.INFO)
+    model = make_model(tmp_path / "simulation")
+    frozen = 1 + 1  # Ramp of the boundary values at the first time step: 1 + dt / day.
+
+    # The tolerances are loose, such that the time stepping stops at the earliest time.
+    model = initialize(
+        model,
+        rate_tolerances=defaultdict(lambda: 1e30),
+        residual_tolerances=defaultdict(lambda: 1e30),
+        time_manager=time_manager(constant_dt=True),
+        earliest_stop_time=4 * pp.DAY,
+    )
+    assert "Time step #4" in caplog.text
+    assert "Time step #5" not in caplog.text
+
+    # Current model time is zero. Moving time forward, same as the TimeStepper would do.
+    model.time_manager.time += model.time_manager.dt
+    model.time_manager.time_index += 1
+    # Call the model's "before_*" hooks to reproduce the state of the first time step of
+    # the post-initialization model.
+    model.before_time_step()
+    model.before_nonlinear_loop()
+    model.before_nonlinear_iteration()
+
+    name = model.displacement_variable
+    checked = 0
+    for _, data in model.mdg.boundaries(return_data=True):
+        if name in data.get(pp.ITERATE_SOLUTIONS, {}):
+            for kwargs in [{"iterate_index": 0}, {"time_step_index": 0}]:
+                values = pp.get_solution_values(name, data, **kwargs)
+                np.testing.assert_allclose(
+                    values.reshape((-1, model.nd))[:, 0],
+                    DISPLACEMENT_OFFSET * frozen,
+                    err_msg=str(kwargs),
+                )
+                checked += 1
+    # Without this the test passes if no boundary grid carries the displacement.
+    assert checked > 0, "no boundary values of the displacement were checked"
 
 
 @pytest.mark.parametrize(
