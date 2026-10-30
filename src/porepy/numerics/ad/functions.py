@@ -26,7 +26,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.ad_array import AdArray, AdArrayBase, DiagonalAdArray
+from porepy.numerics.ad.ad_array import AdArrayBase, DiagonalAdArray, SparseAdArray
 
 FloatType = TypeVar("FloatType", AdArrayBase, np.ndarray, float)
 
@@ -77,17 +77,17 @@ def log(var: FloatType) -> FloatType:
 
 
 def clip(var: FloatType, min_val: float, max_val: float) -> FloatType:
-    """Clip (limit) the values in an array or AdArray between min_val and max_val.
+    """Clip (limit) the values in an array or SparseAdArray between min_val and max_val.
 
     Parameters:
-        var: Input variable (AdArray, ndarray, or float).
+        var: Input variable (SparseAdArray, ndarray, or float).
         min_val: Minimum allowed value.
         max_val: Maximum allowed value.
 
     Returns:
         Clipped variable, with values restricted to [min_val, max_val].
-        If input is AdArray, the Jacobian is preserved only for the unclipped region;
-        for clipped values, the Jacobian is set to zero.
+        If input is SparseAdArray, the Jacobian is preserved only for the unclipped
+        region; for clipped values, the Jacobian is set to zero.
     """
     if isinstance(var, AdArrayBase):
         val = np.clip(var.val, min_val, max_val)
@@ -170,13 +170,13 @@ def l2_norm(dim: int, var: AdArrayBase) -> AdArrayBase:
         shape=(size, dim_size),
     )
     jac = norm_jac * var.jac
-    return pp.ad.AdArray(vals, jac)
+    return pp.ad.SparseAdArray(vals, jac)
 
 
 def safe_power(
     power: float, zero_val: float, tol: float, var: AdArrayBase
 ) -> AdArrayBase:
-    """Safe (negative) power of an AdArray.
+    """Safe (negative) power of a SparseAdArray.
 
     The power is performed only for nonzeros in the variable, whereas zeros are left as
     zeros. This is useful for avoiding division by zero in the Jacobian.
@@ -185,10 +185,10 @@ def safe_power(
         power: Power to raise the variable to.
         zero_val: Value to assign to zero entries in the variable.
         tol: Tolerance for comparison with zero.
-        var: AdArray representing the numerator.
+        var: SparseAdArray representing the numerator.
 
     Returns:
-        AdArray representing the safe power.
+        SparseAdArray representing the safe power.
 
     """
     if isinstance(var, np.ndarray):
@@ -213,7 +213,7 @@ def sin(var: FloatType) -> FloatType:
     if isinstance(var, AdArrayBase):
         val = np.sin(var.val)
         der_factor = np.cos(var.val)
-        # Leave it to the AdArray implementation to handle the chain rule.
+        # Leave it to the SparseAdArray implementation to handle the chain rule.
         return var.chain_rule(val, der_factor)
     else:
         return np.sin(var)
@@ -340,7 +340,7 @@ def heaviside(zerovalue: float, var: FloatType) -> FloatType:
         var: Input array.
 
     Returns:
-        Heaviside function (and its Jacobian if applicable) in form of a AdArray
+        Heaviside function (and its Jacobian if applicable) in form of a SparseAdArray
         or ndarray (depending on the input).
     """
     if isinstance(var, AdArrayBase):
@@ -350,7 +350,7 @@ def heaviside(zerovalue: float, var: FloatType) -> FloatType:
         # An empty sparse matrix, rather than the chain rule with a zero derivative,
         # which would store the zeros.
         zero_jac = sps.csr_matrix(var.full_jac.shape)
-        return pp.ad.AdArray(val, zero_jac)
+        return pp.ad.SparseAdArray(val, zero_jac)
     else:
         return np.heaviside(var, zerovalue)
 
@@ -373,7 +373,7 @@ def heaviside_smooth(var, eps: float = 1e-3):
 
     Returns:
         Regularized heaviside function (and its Jacobian if applicable) in form of a
-        AdArray or ndarray (depending on the input).
+        SparseAdArray or ndarray (depending on the input).
 
     """
     if isinstance(var, AdArrayBase):
@@ -407,8 +407,8 @@ def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
 
     The arguments can be either Ad arrays, ndarrays, or scalars, this duality is needed
     to allow for parsing of operators that can be taken at the current iteration (in
-    which case it will parse as an AdArray) or at the previous iteration or time step
-    (in which case it will parse as a numpy array or scalar).
+    which case it will parse as a SparseAdArray) or at the previous iteration or time
+    step (in which case it will parse as a numpy array or scalar).
 
     Parameters:
         var_0: First argument to the maximum function.
@@ -418,19 +418,19 @@ def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
 
     Returns:
         The maximum of the two arguments, taken element-wise in the arrays. The return
-        type is AdArray if at least one of the arguments is an AdArray, otherwise it
-        is an ndarray. If an AdArray is returned, the Jacobian is computed according to
-        the maximum values of the AdArrays (so if element ``i`` of the maximum is
-        picked from ``var_0``, row ``i`` of the Jacobian is also picked from the
-        Jacobian of ``var_0``). Arguments with no derivatives (ndarrays or scalars) are
-        treated as having a zero Jacobian.
+        type is SparseAdArray if at least one of the arguments is a SparseAdArray,
+        otherwise it is an ndarray. If a SparseAdArray is returned, the Jacobian is
+        computed according to the maximum values of the SparseAdArrays (so if element
+        ``i`` of the maximum is picked from ``var_0``, row ``i`` of the Jacobian is also
+        picked from the Jacobian of ``var_0``). Arguments with no derivatives (ndarrays
+        or scalars) are treated as having a zero Jacobian.
 
     """
-    # If neither var_0 or var_1 are AdArrays, return the numpy maximum function.
+    # If neither var_0 or var_1 are SparseAdArrays, return the numpy maximum function.
     if not isinstance(var_0, AdArrayBase) and not isinstance(var_1, AdArrayBase):
         return np.maximum(var_0, var_1)
 
-    # Diagonal AdArrays have a Jacobian shape the rest of this function does not
+    # Diagonal SparseAdArrays have a Jacobian shape the rest of this function does not
     # understand. If both arguments are diagonal, the maximum can be computed directly
     # in the diagonal representation; otherwise, convert any diagonal argument to full
     # (non-diagonal) format.
@@ -444,15 +444,15 @@ def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
     if isinstance(var_1, AdArrayBase):
         var_1 = var_1.to_full()
 
-    # At least one argument is now an AdArray. A constant argument (ndarray or scalar)
-    # gets a zero Jacobian of matching shape.
-    ad_var = var_0 if isinstance(var_0, AdArray) else var_1
+    # At least one argument is now a SparseAdArray. A constant argument (ndarray or
+    # scalar) gets a zero Jacobian of matching shape.
+    ad_var = var_0 if isinstance(var_0, SparseAdArray) else var_1
     zero_jac = sps.csr_matrix(ad_var.jac.shape)
 
     # Collect values and Jacobians.
     vals, jacs = [], []
     for var in [var_0, var_1]:
-        if isinstance(var, AdArray):
+        if isinstance(var, SparseAdArray):
             vals.append(var.val)
             jacs.append(var.jac)
         else:
@@ -468,7 +468,7 @@ def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
     lines = pp.matrix_operations.slice_sparse_matrix(jacs[1].tocsr(), inds)
     pp.matrix_operations.merge_matrices(max_jac, lines, inds, "csr")
 
-    return AdArray(max_val, max_jac)
+    return SparseAdArray(max_val, max_jac)
 
 
 def characteristic_function(tol: float, var: FloatType) -> FloatType:
@@ -497,7 +497,7 @@ def characteristic_function(tol: float, var: FloatType) -> FloatType:
     if isinstance(var, DiagonalAdArray):
         return var.copy(vals, np.zeros_like(var.jac))
     jac = sps.csr_matrix(var.full_jac.shape)
-    return AdArray(vals, jac)
+    return SparseAdArray(vals, jac)
 
 
 def mask_by_threshold(tol: float, char_var: FloatType, var: FloatType) -> FloatType:
@@ -522,7 +522,8 @@ def mask_by_threshold(tol: float, char_var: FloatType, var: FloatType) -> FloatT
             Kept where ``char_var > tol``, zeroed elsewhere.
 
     Returns:
-        Masked version of `var` as an AdArray (if `var` is AdArray) or ndarray.
+        Masked version of `var` as a SparseAdArray (if `var` is SparseAdArray) or
+        ndarray.
 
     """
     # Determine characteristic indices, i.e. where char_var is greater than tol.
@@ -546,4 +547,4 @@ def mask_by_threshold(tol: float, char_var: FloatType, var: FloatType) -> FloatT
     full_jac = var.full_jac
     jac = full_jac.tocsr(copy=True)
     pp.matrix_operations.zero_rows(jac, np.where(~char_inds)[0])
-    return AdArray(vals, jac)
+    return SparseAdArray(vals, jac)

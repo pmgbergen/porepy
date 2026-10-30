@@ -39,7 +39,7 @@ from ._operator_states import (
     _get_previous_time_or_iterate,
     _get_reference,
 )
-from .ad_array import AdArray, AdArrayBase
+from .ad_array import AdArrayBase, SparseAdArray
 from .grid_entity import GridEntities, GridEntity
 from .operator_space import DomainType, OperatorSpace
 
@@ -441,7 +441,7 @@ class Operator:
 
     def value_and_jacobian(
         self, equation_system: pp.ad.EquationSystem, state: Optional[np.ndarray] = None
-    ) -> AdArray:
+    ) -> SparseAdArray:
         """Evaluate the residual and Jacobian matrix for a given solution.
 
         DEPRECATED: This method is deprecated. Use the `evaluate` method of
@@ -465,15 +465,15 @@ class Operator:
         warn(msg, DeprecationWarning)
         ad = self._evaluate(equation_system, state=state, evaluate_jacobian=True)
 
-        # Casting the result to AdArray or raising an error.
+        # Casting the result to SparseAdArray or raising an error.
         # It's better to set pp.number here, but isinstance requires a tuple, not Union.
         # This should be reconsidered when pp.number is replaced with numbers.Real
         if isinstance(ad, (int, float)):
-            # AdArray requires 1D numpy array as value, not a scalar.
+            # SparseAdArray requires 1D numpy array as value, not a scalar.
             ad = np.array([ad])
 
         if isinstance(ad, np.ndarray) and len(ad.shape) == 1:
-            return AdArray(
+            return SparseAdArray(
                 ad, sps.csr_matrix((ad.shape[0], equation_system.num_dofs()))
             )
         elif isinstance(ad, (sps.spmatrix, sps.sparray, np.ndarray)):
@@ -500,7 +500,7 @@ class Operator:
         equation_system: pp.ad.EquationSystem,
         state: Optional[np.ndarray] = None,
         evaluate_jacobian: bool = True,
-    ) -> pp.number | np.ndarray | sps.spmatrix | AdArray:
+    ) -> pp.number | np.ndarray | sps.spmatrix | SparseAdArray:
         """Evaluate the residual and Jacobian matrix for a given solution.
 
         Parameters:
@@ -875,7 +875,7 @@ class Operator:
         if isinstance(other, float) or isinstance(other, int):
             return [self, Scalar(other)]
 
-        elif isinstance(other, AdArray):
+        elif isinstance(other, SparseAdArray):
             # This may happen when using nested pp.ad.Function.
             return [self, other]
         elif isinstance(other, pp.ad.AbstractFunction):
