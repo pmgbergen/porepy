@@ -1030,6 +1030,30 @@ def initialize_diagonal_ad_arrays(
     return diagonal_variables
 
 
+def _same_block_columns(
+    col_indices: list[np.ndarray], other_col_indices: list[np.ndarray]
+) -> bool:
+    """Check whether two diagonal Jacobian structures have the same column indices.
+
+    Parameters:
+        col_indices: Column indices of the Jacobian blocks of a diagonal Ad array, see
+            :attr:`DiagonalAdArray.col_indices`.
+        other_col_indices: Column indices of the Jacobian blocks of another diagonal Ad
+            array.
+
+    Returns:
+        True if both have the same number of blocks, with the same column indices.
+
+    """
+    # Arrays derived from the same initialization share the list of column indices, in
+    # which case the comparison of the indices is not needed.
+    if col_indices is other_col_indices:
+        return True
+    return len(col_indices) == len(other_col_indices) and all(
+        np.array_equal(a, b) for a, b in zip(col_indices, other_col_indices)
+    )
+
+
 class DiagonalAdArray(AdArrayBase):
     """An Ad array for Jacobian matrices that are block diagonal.
 
@@ -1048,6 +1072,14 @@ class DiagonalAdArray(AdArrayBase):
     structural information in :attr:`row_indices`, :attr:`col_indices` and
     :attr:`num_derivatives`, this suffices to construct the full Jacobian, see
     :meth:`to_full`.
+
+    Arithmetic operations between two DiagonalAdArrays combine their Jacobians block by
+    block. This requires the arrays to share a Jacobian structure, that is, the blocks
+    must refer to the same columns of the full Jacobian. This is the case for arrays
+    initialized jointly by :func:`initialize_diagonal_ad_arrays`, and for arrays
+    derived from them by arithmetic operations. For arrays which do not share a
+    structure, operations are performed in the full representation, and the result is
+    an :class:`AdArray`.
 
     Parameters:
         val: The value of the Ad array, as a 1d numpy array. jac: The diagonals of the
@@ -1241,11 +1273,14 @@ class DiagonalAdArray(AdArrayBase):
         Parameters:
             key: Slice or index array selecting the entries to set.
             new_value: New values. A number or numpy array only replaces the values; the
-                derivatives are left unchanged. A DiagonalAdArray replaces both. It is
-                assumed to share the structure of this array, that is, to have the same
-                number of Jacobian blocks and matching row and column indices.
+                derivatives are left unchanged. A DiagonalAdArray replaces both. It must
+                share the structure of this array at ``key``, that is, have the same
+                number of Jacobian blocks, with the column indices of this array at
+                ``key``.
 
         Raises:
+            ValueError: If ``new_value`` is a DiagonalAdArray which does not share the
+                structure of this array at ``key``.
             NotImplementedError: If ``new_value`` is an Ad array in the full
                 representation, which cannot be inserted into a diagonal one, or of any
                 other unsupported type.
@@ -1254,6 +1289,16 @@ class DiagonalAdArray(AdArrayBase):
         if isinstance(new_value, np.ndarray | pp.number):
             self.val[key] = new_value
         elif isinstance(new_value, DiagonalAdArray):
+            if new_value.num_derivatives != self._num_derivatives or not (
+                _same_block_columns(
+                    [col_ind[key] for col_ind in self._col_indices],
+                    new_value.col_indices,
+                )
+            ):
+                raise ValueError(
+                    "Cannot insert a DiagonalAdArray which does not share the Jacobian "
+                    "structure of the target."
+                )
             # Set the derivatives first: If the shapes are incompatible, this fails
             # before anything has been modified.
             self.jac[:, key] = new_value.jac
@@ -1266,10 +1311,28 @@ class DiagonalAdArray(AdArrayBase):
         else:
             raise NotImplementedError("Setting")
 
+    def _shares_structure(self, other: DiagonalAdArray) -> bool:
+        """Check whether this array and ``other`` share a Jacobian structure.
+
+        See the class documentation for why arithmetic operations between diagonal Ad
+        arrays require this.
+
+        Parameters:
+            other: Another diagonal Ad array.
+
+        Returns:
+            True if both arrays have the same number of derivatives, and the same
+            column indices of their Jacobian blocks.
+
+        """
+        return self._num_derivatives == other.num_derivatives and _same_block_columns(
+            self._col_indices, other.col_indices
+        )
+
     def __add__(self, other: AdType) -> AdArrayBase:
         if isinstance(other, (float, int, np.ndarray)):
             return self.copy(self.val + other, self.jac)
-        elif isinstance(other, DiagonalAdArray):
+        elif isinstance(other, DiagonalAdArray) and self._shares_structure(other):
             val = self.val + other.val
             jac = self.jac + other.jac
             return self.copy(val, jac)
@@ -1279,7 +1342,7 @@ class DiagonalAdArray(AdArrayBase):
     def __mul__(self, other: AdType) -> AdArrayBase:
         if isinstance(other, (float, int, np.ndarray)):
             return self.copy(self.val * other, self.jac * other)
-        elif isinstance(other, DiagonalAdArray):
+        elif isinstance(other, DiagonalAdArray) and self._shares_structure(other):
             val = self.val * other.val
             # Row-broadcast against self.jac/other.jac (shape (num_blocks, n)).
             jac = (
@@ -1296,7 +1359,7 @@ class DiagonalAdArray(AdArrayBase):
             val = self.val**other
             jac = other * self.val ** (other - 1) * self.jac
             return self.copy(val, jac)
-        elif isinstance(other, DiagonalAdArray):
+        elif isinstance(other, DiagonalAdArray) and self._shares_structure(other):
             val = self.val**other.val
             jac = (
                 other.val * self.val ** (other.val - 1) * self.jac
@@ -1322,7 +1385,7 @@ class DiagonalAdArray(AdArrayBase):
             val = self.val / other
             jac = self.jac / other
             return self.copy(val, jac)
-        elif isinstance(other, DiagonalAdArray):
+        elif isinstance(other, DiagonalAdArray) and self._shares_structure(other):
             val = self.val / other.val
             jac = (self.jac * other.val - self.val * other.jac) / (other.val**2)
             return self.copy(val, jac)
