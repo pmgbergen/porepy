@@ -103,7 +103,7 @@ def test_diagonal_jacobian_function_accepts_both_representations():
     function = Sum([2.0, 3.0], "sum", source=domain)
 
     # The arguments are two variables, each with two degrees of freedom, in a system
-    # with four degrees of freedom in total. The first variable, x, is in the full
+    # with four degrees of freedom in total. The first variable, x, is in the sparse
     # representation and has degrees of freedom 0 and 1, thus its Jacobian is the
     # identity in the first two columns. The second variable, y, is in the diagonal
     # representation and has degrees of freedom 2 and 3.

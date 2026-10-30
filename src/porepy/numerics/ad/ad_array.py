@@ -172,7 +172,7 @@ class AdArrayBase(abc.ABC):
 
     @abc.abstractmethod
     def to_sparse(self) -> SparseAdArray:
-        """Return this Ad array in the full representation.
+        """Return this Ad array in the sparse representation.
 
         Returns:
             A :class:`SparseAdArray` with the same value and Jacobian as this array.
@@ -183,7 +183,7 @@ class AdArrayBase(abc.ABC):
     def sparse_jac(self) -> sps.spmatrix | sps.sparray:
         """The Jacobian, as a sparse matrix.
 
-        Available for all representations; arrays that are not stored in the full
+        Available for all representations; arrays that are not stored in the sparse
         representation are converted on access.
 
         """
@@ -516,7 +516,7 @@ class SparseAdArray(AdArrayBase):
         """The Jacobian matrix of the SparseAdArray, stored as a sparse matrix."""
 
     def to_sparse(self) -> SparseAdArray:
-        """Return this SparseAdArray, which is already in the full representation.
+        """Return this SparseAdArray, which is already in the sparse representation.
 
         Returns:
             This SparseAdArray.
@@ -643,7 +643,7 @@ class SparseAdArray(AdArrayBase):
             key: A row-index (integer) or slice object to set the rows in value and
                 Jacobian
             new_value: New values for :attr:`val` and rows of :attr:`jac`.
-                If ``new_value`` is an Ad array, its Jacobian, in the full
+                If ``new_value`` is an Ad array, its Jacobian, in the sparse
                 representation, is inserted into the defined rows.
 
         Raises:
@@ -661,7 +661,7 @@ class SparseAdArray(AdArrayBase):
             raise NotImplementedError("Setting")
 
     def _prepare_other_ad(self, other: AdArrayBase, op_name: str) -> SparseAdArray:
-        """Convert ``other`` to the full representation and validate that its size and
+        """Convert ``other`` to the sparse representation and validate that its size and
         Jacobian shape are compatible with this array, ahead of a binary operation
         between two Ad arrays.
 
@@ -674,7 +674,7 @@ class SparseAdArray(AdArrayBase):
             ValueError: If the sizes of the two arrays are incompatible.
 
         Returns:
-            ``other``, in the full representation.
+            ``other``, in the sparse representation.
 
         """
         other = other.to_sparse()
@@ -1090,7 +1090,7 @@ class DiagonalAdArray(AdArrayBase):
     must refer to the same columns of the full Jacobian. This is the case for arrays
     initialized jointly by :func:`initialize_diagonal_ad_arrays`, and for arrays
     derived from them by arithmetic operations. For arrays which do not share a
-    structure, operations are performed in the full representation, and the result is
+    structure, operations are performed in the sparse representation, and the result is
     a :class:`SparseAdArray`.
 
     Parameters:
@@ -1286,7 +1286,7 @@ class DiagonalAdArray(AdArrayBase):
         Raises:
             ValueError: If ``new_value`` is a DiagonalAdArray which does not share the
                 structure of this array at ``key``.
-            NotImplementedError: If ``new_value`` is an Ad array in the full
+            NotImplementedError: If ``new_value`` is an Ad array in the sparse
                 representation, which cannot be inserted into a diagonal one, or of any
                 other unsupported type.
 
@@ -1310,7 +1310,7 @@ class DiagonalAdArray(AdArrayBase):
             self.val[key] = new_value.val
         elif isinstance(new_value, AdArrayBase):
             raise NotImplementedError(
-                "Cannot insert an Ad array in the full representation into a "
+                "Cannot insert an Ad array in the sparse representation into a "
                 "DiagonalAdArray. Convert the target with to_sparse() first."
             )
         else:

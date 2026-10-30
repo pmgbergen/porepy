@@ -26,7 +26,7 @@ from porepy.numerics.ad import functions as af
 
 warnings.simplefilter("ignore", sps.SparseEfficiencyWarning)
 
-AdRepresentation = Literal["full_ad", "diagonal_ad"]
+AdRepresentation = Literal["sparse_ad", "diagonal_ad"]
 
 
 # --- Shared scaffolding for elementwise functions, across representations ---
@@ -134,13 +134,13 @@ ZERO_DERIVATIVE_FUNCTIONS = {
 # Jacobians other than the identity checks that this product is formed. The full
 # Jacobian has off-diagonal entries, the diagonal one has only diagonal entries.
 ARG_JAC: dict[AdRepresentation, np.ndarray] = {
-    "full_ad": np.array([[3.0, 2.0, 1.0], [5.0, 6.0, 1.0], [2.0, 3.0, 5.0]]),
+    "sparse_ad": np.array([[3.0, 2.0, 1.0], [5.0, 6.0, 1.0], [2.0, 3.0, 5.0]]),
     "diagonal_ad": np.diag([2.0, -1.0, 0.5]),
 }
 # Functions taking two Ad arrays (e.g. maximum) need an unrelated Jacobian for the
 # second argument, since equal Jacobians for both arguments could hide bugs.
 SECOND_ARG_JAC: dict[AdRepresentation, np.ndarray] = {
-    "full_ad": np.array([[9.0, 9.0, 9.0], [8.0, 8.0, 8.0], [7.0, 7.0, 7.0]]),
+    "sparse_ad": np.array([[9.0, 9.0, 9.0], [8.0, 8.0, 8.0], [7.0, 7.0, 7.0]]),
     "diagonal_ad": np.diag([4.0, 3.0, -2.0]),
 }
 
@@ -154,7 +154,7 @@ def _make_ad(
 
     Parameters:
         val: Values of the Ad array.
-        representation: Build a SparseAdArray (``"full_ad"``) or a DiagonalAdArray
+        representation: Build a SparseAdArray (``"sparse_ad"``) or a DiagonalAdArray
             (``"diagonal_ad"``).
         jacobians: Jacobian of the Ad array for each representation, as a dense matrix.
             For ``"diagonal_ad"``, only the diagonal is used.
@@ -164,7 +164,7 @@ def _make_ad(
 
     """
     jac = jacobians[representation]
-    if representation == "full_ad":
+    if representation == "sparse_ad":
         return SparseAdArray(val, sps.csc_matrix(jac))
     return DiagonalAdArray(
         val,
@@ -180,7 +180,7 @@ def _dense_jac(result: AdArrayBase) -> np.ndarray:
 
 
 @pytest.mark.parametrize("func_name", list(ELEMENTWISE_FUNCTIONS))
-@pytest.mark.parametrize("representation", ["ndarray", "full_ad", "diagonal_ad"])
+@pytest.mark.parametrize("representation", ["ndarray", "sparse_ad", "diagonal_ad"])
 def test_elementwise_function(
     func_name: str, representation: AdRepresentation | Literal["ndarray"]
 ):
@@ -209,7 +209,7 @@ def test_elementwise_function(
 
 
 @pytest.mark.parametrize("func_name", list(ZERO_DERIVATIVE_FUNCTIONS))
-@pytest.mark.parametrize("representation", ["ndarray", "full_ad", "diagonal_ad"])
+@pytest.mark.parametrize("representation", ["ndarray", "sparse_ad", "diagonal_ad"])
 def test_zero_derivative_function(
     func_name: str, representation: AdRepresentation | Literal["ndarray"]
 ):
@@ -240,7 +240,7 @@ class TestRegularizedHeaviside:
         val = np.linspace(-1.0, 1.0, 3)
         np.testing.assert_allclose(reg(val, zerovalue=0.5), np.heaviside(val, 0.5))
 
-    @pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
+    @pytest.mark.parametrize("representation", ["sparse_ad", "diagonal_ad"])
     def test_ad_representations(self, representation: AdRepresentation):
         """Value and Jacobian of RegularizedHeaviside (using heaviside_smooth as the
         regularization).
@@ -271,7 +271,7 @@ class TestMaximum:
         b = np.array([3.0, 2.0, 2.0])
         np.testing.assert_allclose(af.maximum(a, b), np.array([3.0, 5.0, 2.0]))
 
-    @pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
+    @pytest.mark.parametrize("representation", ["sparse_ad", "diagonal_ad"])
     @pytest.mark.parametrize(
         "constant",
         [np.array([3.0, 2.0, 2.0]), 2.0, np.int64(2)],
@@ -284,7 +284,7 @@ class TestMaximum:
         constant: np.ndarray | float | np.int64,
         ad_first: bool,
     ):
-        """One argument is a SparseAdArray (full or diagonal), the other a constant
+        """One argument is a SparseAdArray (sparse or diagonal), the other a constant
         (ndarray or scalar) with an implicit zero Jacobian, in either argument order. A
         scalar is broadcast to the shape of the SparseAdArray. All constants tie with
         the SparseAdArray at index 2, where the first argument wins."""
@@ -305,22 +305,22 @@ class TestMaximum:
 
         np.testing.assert_allclose(result.val, expected_val)
         np.testing.assert_allclose(_dense_jac(result), expected_jac)
-        # A mixed call is computed in the full representation.
+        # A mixed call is computed in the sparse representation.
         assert isinstance(result, SparseAdArray)
 
     @pytest.mark.parametrize(
         "representation_0,representation_1",
         [
-            ("full_ad", "full_ad"),
+            ("sparse_ad", "sparse_ad"),
             ("diagonal_ad", "diagonal_ad"),
-            ("diagonal_ad", "full_ad"),
-            ("full_ad", "diagonal_ad"),
+            ("diagonal_ad", "sparse_ad"),
+            ("sparse_ad", "diagonal_ad"),
         ],
     )
     def test_ad_representations(
         self, representation_0: AdRepresentation, representation_1: AdRepresentation
     ):
-        """maximum with var_0 and var_1 independently full or diagonal SparseAdArrays,
+        """maximum with var_0 and var_1 independently sparse or diagonal SparseAdArrays,
         including the two mixed combinations. Index 2 is a tie (equal values), where the
         documented convention is that var_0's Jacobian is used."""
         val_0 = np.array([1.0, 5.0, 2.0])
@@ -351,7 +351,7 @@ class TestL2Norm:
     # Jacobians of the argument, as ARG_JAC at module level, but with four degrees of
     # freedom to match two vectors of dimension two.
     LOC_ARG_JAC: dict[AdRepresentation, np.ndarray] = {
-        "full_ad": np.array(
+        "sparse_ad": np.array(
             [
                 [2.0, 0.0, 1.0, 0.0],
                 [0.0, 3.0, 0.0, 1.0],
@@ -368,7 +368,7 @@ class TestL2Norm:
         var = np.array([3.0, 4.0, 0.0, 0.0])
         np.testing.assert_allclose(af.l2_norm(2, var), np.array([5.0, 0.0]))
 
-    @pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
+    @pytest.mark.parametrize("representation", ["sparse_ad", "diagonal_ad"])
     def test_dim_one(self, representation: AdRepresentation):
         """For dim=1, l2_norm is the absolute value, and a DiagonalAdArray argument
         gives a DiagonalAdArray."""
@@ -383,7 +383,7 @@ class TestL2Norm:
         if representation == "diagonal_ad":
             assert isinstance(result, DiagonalAdArray)
 
-    @pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
+    @pytest.mark.parametrize("representation", ["sparse_ad", "diagonal_ad"])
     def test_dim_two(self, representation: AdRepresentation):
         """L2 norm reduces dim=2 components per output entry, so a DiagonalAdArray input
         must be converted to a SparseAdArray rather than stay diagonal."""
@@ -456,10 +456,10 @@ class TestMaskByThreshold:
     @pytest.mark.parametrize(
         "char_representation,var_representation",
         [
-            ("full_ad", "full_ad"),
+            ("sparse_ad", "sparse_ad"),
             ("diagonal_ad", "diagonal_ad"),
-            ("diagonal_ad", "full_ad"),
-            ("full_ad", "diagonal_ad"),
+            ("diagonal_ad", "sparse_ad"),
+            ("sparse_ad", "diagonal_ad"),
         ],
     )
     def test_ad(
@@ -470,7 +470,7 @@ class TestMaskByThreshold:
         char_representation: AdRepresentation,
         var_representation: AdRepresentation,
     ):
-        """mask_by_threshold with char_var and var independently full or diagonal
+        """mask_by_threshold with char_var and var independently sparse or diagonal
         SparseAdArrays. The Jacobian of the result is that of var in kept rows, and zero
         in masked rows; the Jacobian of char_var does not enter."""
         var_val = np.array([10.0, 20.0, 30.0])
@@ -523,7 +523,7 @@ class TestClip:
             ),
         ],
     )
-    @pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
+    @pytest.mark.parametrize("representation", ["sparse_ad", "diagonal_ad"])
     def test_ad(
         self,
         val: list[float],
@@ -531,7 +531,7 @@ class TestClip:
         kept: list[float],
         representation: AdRepresentation,
     ):
-        """clip of a full or diagonal SparseAdArray. Rows of the Jacobian are kept for
+        """clip of a sparse or diagonal SparseAdArray. Rows of the Jacobian are kept for
         values strictly between the bounds, and zeroed for values at or outside the
         bounds."""
         var = _make_ad(np.array(val), representation)
@@ -544,7 +544,7 @@ class TestClip:
         if representation == "diagonal_ad":
             assert isinstance(result, DiagonalAdArray)
 
-    @pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
+    @pytest.mark.parametrize("representation", ["sparse_ad", "diagonal_ad"])
     def test_does_not_mutate_input(self, representation: AdRepresentation):
         # Clip values both below and above the bounds, and check that the argument is
         # unchanged.

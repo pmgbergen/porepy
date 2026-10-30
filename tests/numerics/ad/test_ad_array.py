@@ -639,10 +639,10 @@ def test_ad_array_deepcopy(create_csr):
 # DiagonalAdArray.
 
 
-def _full_and_diagonal_pair() -> tuple[SparseAdArray, DiagonalAdArray]:
+def _sparse_and_diagonal_pair() -> tuple[SparseAdArray, DiagonalAdArray]:
     """A SparseAdArray and a DiagonalAdArray of the same size, in a system of four
     degrees of freedom, where the diagonal array represents the first two."""
-    full = SparseAdArray(
+    sparse = SparseAdArray(
         np.array([2.0, 3.0]),
         sps.csr_matrix(np.array([[0.0, 1.0, 2.0, 0.0], [0.0, 0.0, 3.0, 4.0]])),
     )
@@ -652,18 +652,18 @@ def _full_and_diagonal_pair() -> tuple[SparseAdArray, DiagonalAdArray]:
         4,
         derivatives=[np.array([7.0, 8.0])],
     )[0]
-    return full, diag
+    return sparse, diag
 
 
 def test_representations_share_base_but_not_type():
     """SparseAdArray and DiagonalAdArray are siblings: Both are Ad arrays, but neither
     is an instance of the other, since the meaning of their Jacobians differ."""
-    full, diag = _full_and_diagonal_pair()
+    sparse, diag = _sparse_and_diagonal_pair()
 
-    assert isinstance(full, AdArrayBase)
+    assert isinstance(sparse, AdArrayBase)
     assert isinstance(diag, AdArrayBase)
     assert not isinstance(diag, SparseAdArray)
-    assert not isinstance(full, DiagonalAdArray)
+    assert not isinstance(sparse, DiagonalAdArray)
 
     with pytest.raises(TypeError):
         AdArrayBase(np.array([1.0]))  # type: ignore[abstract]
@@ -703,9 +703,9 @@ def test_diagonal_ad_array_rejects_inconsistent_jacobian(
 
 def test_sparse_jac():
     """sparse_jac gives the sparse Jacobian for both representations."""
-    full, diag = _full_and_diagonal_pair()
+    sparse, diag = _sparse_and_diagonal_pair()
 
-    assert full.sparse_jac is full.jac
+    assert sparse.sparse_jac is sparse.jac
     assert np.allclose(
         diag.sparse_jac.toarray(),
         np.array([[7.0, 0.0, 0.0, 0.0], [0.0, 8.0, 0.0, 0.0]]),
@@ -716,9 +716,9 @@ def test_sparse_jac():
 @pytest.mark.parametrize("diagonal_first", [True, False])
 def test_operations_between_representations(op: str, diagonal_first: bool):
     """An operation between the two representations gives a SparseAdArray, with the same
-    value and Jacobian as the operation between the full representations."""
-    full, diag = _full_and_diagonal_pair()
-    left, right = (diag, full) if diagonal_first else (full, diag)
+    value and Jacobian as the operation between the sparse representations."""
+    sparse, diag = _sparse_and_diagonal_pair()
+    left, right = (diag, sparse) if diagonal_first else (sparse, diag)
 
     result = eval(f"left {op} right")
     reference = eval(f"left.to_sparse() {op} right.to_sparse()")
@@ -731,7 +731,7 @@ def test_operations_between_representations(op: str, diagonal_first: bool):
 @pytest.mark.parametrize("op", ["+", "*", "/", "**"])
 def test_diagonal_ad_array_with_sparse_operand_raises(op: str):
     """The rules for sparse operands are the same for both representations."""
-    _, diag = _full_and_diagonal_pair()
+    _, diag = _sparse_and_diagonal_pair()
     matrix = sps.csr_matrix(np.eye(2))
     with pytest.raises(ValueError):
         eval(f"diag {op} matrix")
@@ -739,7 +739,7 @@ def test_diagonal_ad_array_with_sparse_operand_raises(op: str):
 
 def test_diagonal_ad_array_left_multiplied_by_matrix():
     """Left multiplication with a sparse matrix gives a SparseAdArray."""
-    _, diag = _full_and_diagonal_pair()
+    _, diag = _sparse_and_diagonal_pair()
     matrix = sps.csr_matrix(np.array([[1.0, 1.0], [0.0, 2.0]]))
 
     result = matrix @ diag
@@ -750,27 +750,27 @@ def test_diagonal_ad_array_left_multiplied_by_matrix():
 
 
 def test_setitem_full_into_diagonal_raises_without_modification():
-    """A full Ad array cannot be inserted into a diagonal one. The failed insertion
+    """A sparse Ad array cannot be inserted into a diagonal one. The failed insertion
     must leave the target untouched."""
-    full, diag = _full_and_diagonal_pair()
+    sparse, diag = _sparse_and_diagonal_pair()
     val, jac = diag.val.copy(), diag.jac.copy()
 
     with pytest.raises(NotImplementedError):
-        diag[0:1] = full[0:1]
+        diag[0:1] = sparse[0:1]
 
     assert np.array_equal(diag.val, val)
     assert np.array_equal(diag.jac, jac)
 
 
 def test_setitem_diagonal_into_full():
-    """A diagonal Ad array is converted to the full representation when inserted into
-    a full one."""
-    full, diag = _full_and_diagonal_pair()
+    """A diagonal Ad array is converted to the sparse representation when inserted into
+    a sparse one."""
+    sparse, diag = _sparse_and_diagonal_pair()
 
-    full[0:2] = diag
+    sparse[0:2] = diag
 
-    assert np.allclose(full.val, diag.val)
-    assert np.allclose(full.jac.toarray(), diag.sparse_jac.toarray())
+    assert np.allclose(sparse.val, diag.val)
+    assert np.allclose(sparse.jac.toarray(), diag.sparse_jac.toarray())
 
 
 @pytest.mark.parametrize("expression", ["2.0 + a", "a - b", "2.0 - a", "2.0 * a", "-a"])
@@ -778,16 +778,16 @@ def test_shared_operations_on_ad_array_return_ad_array(expression: str):
     """The operations implemented in AdArrayBase return a SparseAdArray when called on a
     SparseAdArray, also when the other operand is diagonal. The type hints of
     SparseAdArray rely on this."""
-    a, b = _full_and_diagonal_pair()
+    a, b = _sparse_and_diagonal_pair()
     assert isinstance(eval(expression), SparseAdArray)
 
 
-@pytest.mark.parametrize("representation", ["full", "diagonal"])
+@pytest.mark.parametrize("representation", ["sparse", "diagonal"])
 def test_chain_rule(representation: str):
     """chain_rule gives f(x) in the representation of x, with the Jacobian
     diag(f'(x)) @ J."""
-    full, diag = _full_and_diagonal_pair()
-    x = full if representation == "full" else diag
+    sparse, diag = _sparse_and_diagonal_pair()
+    x = sparse if representation == "sparse" else diag
 
     # f = exp, whose derivative equals its value.
     val = np.exp(x.val)
@@ -827,7 +827,7 @@ def _diagonal_arrays_with_structures(
 def test_operations_between_diagonal_structures(op: str, joint: bool):
     """An operation between diagonal Ad arrays gives a DiagonalAdArray if they share a
     Jacobian structure, and a SparseAdArray otherwise. In both cases, the value and
-    Jacobian equal those of the operation between the full representations."""
+    Jacobian equal those of the operation between the sparse representations."""
     a, b = _diagonal_arrays_with_structures(joint)
 
     result = eval(f"a {op} b")

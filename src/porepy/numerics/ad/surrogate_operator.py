@@ -365,7 +365,7 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
     def get_jacobian(
         self, *args: float | np.ndarray | AdArrayBase
     ) -> sps.spmatrix | sps.sparray:
-        """Assemble the Jacobian of this operator in the full representation.
+        """Assemble the Jacobian of this operator in the sparse representation.
 
         Parameters:
             *args: The children of this operator in evaluated form. At least one of them
