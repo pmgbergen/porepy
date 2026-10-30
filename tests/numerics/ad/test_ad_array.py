@@ -511,6 +511,32 @@ def test_initialize_diagonal_ad_arrays_two_variables():
     assert np.allclose(diag_vars[1].jac, np.array([[0.0, 0.0], [1.0, 1.0]]))
 
 
+def test_initialize_diagonal_ad_arrays_unordered_indices():
+    """The global indices need not be increasing, neither within a variable nor between
+    variables. The full Jacobian should place each derivative at its global index."""
+    val_0 = np.array([1.0, 2.0, 3.0])
+    val_1 = np.array([4.0, 5.0, 6.0])
+    indices = [np.array([5, 1, 3]), np.array([4, 0, 2])]
+    num_derivatives = 6
+
+    diag_vars = initialize_diagonal_ad_arrays(
+        [val_0.copy(), val_1.copy()], indices, num_derivatives
+    )
+
+    for var, val, ind in zip(diag_vars, [val_0, val_1], indices):
+        assert np.allclose(var.val, val)
+        expected_jac = np.zeros((3, num_derivatives))
+        expected_jac[np.arange(3), ind] = 1.0
+        assert np.allclose(var.to_sparse().jac.toarray(), expected_jac)
+
+    # Operations combining the two arrays should respect the same placement.
+    product = diag_vars[0] * diag_vars[1]
+    expected_jac = np.zeros((3, num_derivatives))
+    expected_jac[np.arange(3), indices[0]] = val_1
+    expected_jac[np.arange(3), indices[1]] = val_0
+    assert np.allclose(product.sparse_jac.toarray(), expected_jac)
+
+
 def test_initialize_diagonal_ad_arrays_custom_derivatives():
     val = np.array([2.0, 4.0])
     indices = [np.array([0, 1])]

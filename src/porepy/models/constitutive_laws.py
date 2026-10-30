@@ -32,7 +32,7 @@ Function = pp.ad.Function
 
 if TYPE_CHECKING:
     number = pp.number
-    ArrayType = TypeVar("ArrayType", pp.ad.SparseAdArray, np.ndarray)
+    ArrayType = TypeVar("ArrayType", pp.ad.AdArrayBase, np.ndarray)
 
 
 class DisplacementJump(pp.PorePyModel):
@@ -1732,20 +1732,25 @@ class AdTpfaFlux(pp.PorePyModel):
         base_bound_flux = base_discr.bound_flux().parse(self.mdg)
         # If the function has been called using .value, p is a numpy array and we pass
         # only the value.
-        if not isinstance(p, pp.ad.SparseAdArray):
+        if not isinstance(p, pp.ad.AdArrayBase):
             return base_flux @ p + base_bound_flux @ bv
-        # Otherwise, at the time of evaluation, p will be a SparseAdArray, thus we can
-        # access its val and jac attributes.
+        # Otherwise, at the time of evaluation, p will be an Ad array, thus we can
+        # access its val and sparse_jac attributes. The Jacobian must be taken in the
+        # sparse representation, since the discretization matrices mix degrees of
+        # freedom from different cells.
         val = base_flux @ p.val + base_bound_flux @ bv.val
-        jac = base_flux @ p.jac + base_bound_flux @ bv.jac
+        jac = base_flux @ p.sparse_jac + base_bound_flux @ bv.sparse_jac
 
-        if hasattr(T_f, "jac"):
+        if isinstance(T_f, pp.ad.AdArrayBase):
             # Add the contribution to the Jacobian matrix from the derivative of the
             # transmissibility matrix times the pressure difference, and similarly for
             # boundary face transmissibilities and the boundary values. To see why this
             # is correct, it may be useful to consider the flux over a single face
             # (corresponding to one row in the Jacobian matrix).
-            jac += sps.diags(p_diff.val) @ T_f.jac + sps.diags(bv.val) @ T_bnd.jac
+            jac += (
+                sps.diags(p_diff.val) @ T_f.sparse_jac
+                + sps.diags(bv.val) @ T_bnd.sparse_jac
+            )
 
         return pp.ad.SparseAdArray(val, jac)
 
@@ -1821,11 +1826,11 @@ class AdTpfaFlux(pp.PorePyModel):
             num_cols = self.equation_system.num_dofs()
             vs_jac = sps.csr_matrix((num_rows, num_cols))
         else:
-            # The value is a SparseAdArray, and we can access its val and jac
+            # The value is an Ad array, and we can access its val and sparse_jac
             # attributes.
             vs_val = vs.val
             vs_diff_val = vs_diff.val
-            vs_jac = vs.jac
+            vs_jac = vs.sparse_jac
 
         # The value is a SparseAdArray, and we need to compute the Jacobian as well as
         # the value.
@@ -1834,10 +1839,10 @@ class AdTpfaFlux(pp.PorePyModel):
         # of the flux.
         jac = base_discr.vector_source().parse(self.mdg) @ vs_jac
 
-        if hasattr(T_f, "jac"):
+        if isinstance(T_f, pp.ad.AdArrayBase):
             # Add the contribution to the Jacobian matrix from the derivative of the
             # transmissibility matrix times the vector source difference.
-            jac += sps.diags(vs_diff_val) @ T_f.jac
+            jac += sps.diags(vs_diff_val) @ T_f.sparse_jac
 
         return pp.ad.SparseAdArray(val, jac)
 
@@ -1885,16 +1890,16 @@ class AdTpfaFlux(pp.PorePyModel):
 
         # If the function has been called using .value, p is a numpy array and we pass
         # only the value.
-        if not isinstance(internal_flux, pp.ad.SparseAdArray):
+        if not isinstance(internal_flux, pp.ad.AdArrayBase):
             return base_term @ (internal_flux + external_bc)
 
-        # Otherwise, at the time of evaluation, internal_flux will be a SparseAdArray,
-        # thus we can access its val and jac attributes.
+        # Otherwise, at the time of evaluation, internal_flux will be an Ad array, thus
+        # we can access its val and sparse_jac attributes.
 
         # EK: Testing revealed a case where the external_bc was a SparseAdArray. The
         # precise reason for this is not clear (it could be a straightforward result of
         # the rules of parsing), but to cover all cases, we do a if-else here.
-        if isinstance(external_bc, pp.ad.SparseAdArray):
+        if isinstance(external_bc, pp.ad.AdArrayBase):
             external_bc_val = external_bc.val
         else:
             external_bc_val = external_bc
@@ -1905,9 +1910,9 @@ class AdTpfaFlux(pp.PorePyModel):
         # The Jacobian matrix has one term corresponding to the standard (e.g.,
         # non-differentiable FV) discretization. No need to add the external boundary
         # values, as they should not be differentiated.
-        jac = base_term @ internal_flux.jac
+        jac = base_term @ internal_flux.sparse_jac
 
-        if hasattr(bound_pressure_face, "jac"):
+        if isinstance(bound_pressure_face, pp.ad.AdArrayBase):
             # If the permeability, thus the pressure reconstruction operator, has a
             # Jacobian, add its contribution. For external Dirichlet boundaries, the
             # Jacobian is zero (the element is constant 1), thus these faces give no
@@ -1915,7 +1920,8 @@ class AdTpfaFlux(pp.PorePyModel):
             # boundaries, as well as from internal boundaries (which are always
             # Neumann).
             jac += (
-                sps.diags(internal_flux.val + external_bc_val) @ bound_pressure_face.jac
+                sps.diags(internal_flux.val + external_bc_val)
+                @ bound_pressure_face.sparse_jac
             )
 
         return pp.ad.SparseAdArray(val, jac)
