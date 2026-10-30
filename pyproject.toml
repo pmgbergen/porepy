@@ -53,6 +53,10 @@ testing = [
     "pytest-runner",
     "tqdm"
 ]
+docs = [
+    "sphinx",
+    "sphinx-rtd-theme",
+]
 
 # Information for the build system.
 [tool.setuptools.packages.find]

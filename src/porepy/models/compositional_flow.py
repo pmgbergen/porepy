@@ -679,7 +679,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
 
         .. math::
 
-            \Phi \rho \z_{\eta},
+            \Phi \rho z_{\eta},
 
         in AD operator form on the given ``subdomains``.
 

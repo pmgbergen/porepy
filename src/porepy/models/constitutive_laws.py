@@ -3188,11 +3188,12 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
         r"""Stress in the reference state [Pa * m^(nd-1)].
 
         The total stress in the THM model is given by
-        σ = σ₀ + ℂ : ε(u − u₀) − α (p − p₀) I − β (T − T₀) I,
+        :math:`\sigma = \sigma_0 + \mathbb{C} : \varepsilon(u - u_0)
+        - \alpha (p - p_0) I - \beta (T - T_0) I`,
 
-        where the subscript zero denotes the reference state. The reference stress σ₀ is
-        the model developer's choice, corresponding to the in-situ stress data. By
-        default, PorePy assumes that it is zero.
+        where the subscript zero denotes the reference state. The reference stress
+        :math:`\sigma_0` is the model developer's choice, corresponding to the in-situ
+        stress data. By default, PorePy assumes that it is zero.
 
         To assign a reference stress, e.g. one found by an initialization procedure,
         store it in the subdomain data dictionaries:
@@ -4212,7 +4213,8 @@ class ShearDilation(pp.PorePyModel):
 
         where the subscript zero denotes the reference state, subscript t denotes the
         tangential part of the vector (in the fracture plane), superscript p denotes
-        the plastic part of the displacement jump, and θ is the dilation angle.
+        the plastic part of the displacement jump, and :math:`\theta` is the dilation
+        angle.
 
         Parameters:
             subdomains: List of fracture subdomains.
@@ -4867,7 +4869,7 @@ class DilationDamage(pp.PorePyModel):
     (2014) https://doi.org/10.1002/nag.2247, as
 
     .. math::
-        d = d_0 + (1 - d_0)  \exp⁡(-\Lambda)
+        d = d_0 + (1 - d_0) \exp(-\Lambda)
 
     where :math:`d_0` is the initial dilation  damage.
 
