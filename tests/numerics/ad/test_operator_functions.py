@@ -107,7 +107,7 @@ def test_diagonal_jacobian_function_accepts_both_representations():
     # representation and has degrees of freedom 0 and 1, thus its Jacobian is the
     # identity in the first two columns. The second variable, y, is in the diagonal
     # representation and has degrees of freedom 2 and 3.
-    x = pp.ad.AdArray(np.array([1.0, 2.0]), sps.csr_matrix(np.eye(2, 4)))
+    x = pp.ad.SparseAdArray(np.array([1.0, 2.0]), sps.csr_matrix(np.eye(2, 4)))
     y = pp.ad.initialize_diagonal_ad_arrays(
         [np.array([3.0, 4.0])],  # Variable values.
         [np.array([2, 3])],  # Dof indices of the variable in the global system.

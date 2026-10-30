@@ -427,7 +427,7 @@ def _surrogate_and_arguments(
     derivatives: list[float],
 ) -> tuple[
     pp.ad.SurrogateOperator,
-    list[pp.ad.AdArray],
+    list[pp.ad.SparseAdArray],
     list[pp.ad.DiagonalAdArray],
     np.ndarray,
 ]:
@@ -472,7 +472,7 @@ def _surrogate_and_arguments(
     indices = [equation_system.dofs_of([v]) for v in variables]
     values = [np.arange(ind.size, dtype=float) for ind in indices]
     sparse_array = [
-        pp.ad.AdArray(
+        pp.ad.SparseAdArray(
             val,
             sps.csr_matrix(
                 (np.ones(ind.size), (np.arange(ind.size), ind)),
@@ -496,7 +496,7 @@ def _surrogate_and_arguments(
 
 def _argument_in_representation(
     representation: str,
-    sparse_array: pp.ad.AdArray,
+    sparse_array: pp.ad.SparseAdArray,
     diagonal_array: pp.ad.DiagonalAdArray,
 ) -> pp.ad.AdArrayBase:
     """Pick an argument of a surrogate operator in a given representation.
@@ -551,7 +551,7 @@ def test_jacobian_with_arguments_in_different_representations(
 
     result = sop.func(*args)
     expected_type = (
-        pp.ad.DiagonalAdArray if first == second == "diagonal" else pp.ad.AdArray
+        pp.ad.DiagonalAdArray if first == second == "diagonal" else pp.ad.SparseAdArray
     )
     assert isinstance(result, expected_type)
     np.testing.assert_allclose(result.val, np.ones(num_cells))
@@ -707,5 +707,5 @@ def test_separately_initialized_diagonal_arguments(
         for arg, name in zip(diagonal_array, [VAR1_NAME, VAR2_NAME])
     ]
     result = sop.func(*args)
-    assert isinstance(result, pp.ad.AdArray)
+    assert isinstance(result, pp.ad.SparseAdArray)
     np.testing.assert_allclose(result.full_jac.toarray(), expected_jacobian)
