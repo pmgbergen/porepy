@@ -701,8 +701,10 @@ def test_separately_initialized_diagonal_arguments(
     )
     num_dofs = equation_system.num_dofs()
     args = [
-        pp.ad.initialize_diagonal_ad_arrays([arg.val], [arg.row_indices], num_dofs)[0]
-        for arg in diagonal_array
+        pp.ad.initialize_diagonal_ad_arrays(
+            [arg.val], [equation_system.dofs_of([name])], num_dofs
+        )[0]
+        for arg, name in zip(diagonal_array, [VAR1_NAME, VAR2_NAME])
     ]
     result = sop.func(*args)
     assert isinstance(result, pp.ad.AdArray)

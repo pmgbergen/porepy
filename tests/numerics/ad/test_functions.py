@@ -169,7 +169,6 @@ def _make_ad(
     return DiagonalAdArray(
         val,
         np.atleast_2d(np.diag(jac)),
-        np.arange(val.size),
         [np.arange(val.size)],
         val.size,
     )
