@@ -133,7 +133,6 @@ def _get_diag_array(
     return pp.ad.DiagonalAdArray(
         jac * variable_val,
         jac,
-        row_indices=np.arange(variable_val.size),
         col_indices=[np.arange(variable_val.size)],
         num_derivatives=3,
     )
