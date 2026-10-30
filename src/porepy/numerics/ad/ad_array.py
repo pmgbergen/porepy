@@ -375,7 +375,8 @@ class AdArrayBase(abc.ABC):
             )
         else:
             raise ValueError(
-                f"Unknown type {type(other)} for SparseAdArray elementwise multiplication."
+                f"Unknown type {type(other)} for SparseAdArray elementwise "
+                "multiplication."
             )
 
     def __matmul__(self, other: AdType) -> AdArrayBase:
@@ -506,7 +507,8 @@ class SparseAdArray(AdArrayBase):
             # A dense Jacobian is most likely the diagonal representation used by
             # DiagonalAdArray, which this class cannot interpret.
             raise TypeError(
-                f"The Jacobian of a SparseAdArray must be a sparse matrix, not {type(jac)}"
+                "The Jacobian of a SparseAdArray must be a sparse matrix, not "
+                f"{type(jac)}"
             )
         if jac.shape[0] != self.val.size:
             raise ValueError(
@@ -746,7 +748,8 @@ class SparseAdArray(AdArrayBase):
 
         elif isinstance(other, _SPARSE_TYPES):
             raise ValueError(
-                """Sparse matrices cannot be multiplied with  SparseAdArrays elementwise.
+                "Sparse matrices cannot be multiplied with  SparseAdArrays "
+                """elementwise.
                 Did you mean to use the @ operator?
                 """
             )
@@ -768,7 +771,8 @@ class SparseAdArray(AdArrayBase):
 
         else:
             raise ValueError(
-                f"Unknown type {type(other)} for SparseAdArray elementwise multiplication."
+                f"Unknown type {type(other)} for SparseAdArray elementwise "
+                "multiplication."
             )
 
     def __pow__(self, other: AdType) -> SparseAdArray:
