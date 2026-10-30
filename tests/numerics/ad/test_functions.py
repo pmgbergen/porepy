@@ -176,7 +176,7 @@ def _make_ad(
 
 def _dense_jac(result: AdArrayBase) -> np.ndarray:
     """Return Jacobian of a SparseAdArray or DiagonalAdArray, as a dense array."""
-    return result.full_jac.toarray()
+    return result.sparse_jac.toarray()
 
 
 @pytest.mark.parametrize("func_name", list(ELEMENTWISE_FUNCTIONS))

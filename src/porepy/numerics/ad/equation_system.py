@@ -1351,12 +1351,12 @@ class EquationSystem:
                 # slicing based on information we have obtained from parsing.
                 rhs.append(rhs_value[row])
                 if evaluate_jacobian:
-                    mat.append(value.to_full().jac[row])
+                    mat.append(value.to_sparse().jac[row])
             else:
                 # If no grid-related row restriction was made, append the whole thing.
                 rhs.append(rhs_value)
                 if evaluate_jacobian:
-                    mat.append(value.to_full().jac)
+                    mat.append(value.to_sparse().jac)
 
         # Concatenate results equation-wise.
         if len(rhs) > 0:
