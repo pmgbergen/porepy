@@ -229,8 +229,8 @@ class AdParser:
 
         Variables that are suited for a diagonal representation (see
         :func:`pp.ad.initialize_diagonal_ad_arrays`) receive this more efficient
-        representation. The remaining variables share a single SparseAdArray in the
-        sparse representation, covering the variables described by variable_indexer.
+        representation. The remaining variables share a single SparseAdArray, covering
+        the variables described by variable_indexer.
 
         Parameters:
             op_list: List of operators whose variables should be represented.
@@ -455,7 +455,7 @@ class AdParser:
         variables: dict[pp.ad.Variable, np.ndarray], state: np.ndarray
     ) -> dict[pp.ad.Variable, pp.ad.SparseAdArray]:
         """Represent variables not suited for the diagonal representation by slices of
-        a single, shared SparseAdArray in the sparse representation.
+        a single, shared SparseAdArray.
 
         Parameters:
             variables: Mapping from each variable to its indices in state.
