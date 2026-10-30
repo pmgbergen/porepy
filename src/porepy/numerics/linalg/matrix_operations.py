@@ -444,11 +444,12 @@ class ArraySlicer:
     can give significant speedups for large matrices.
 
     Example:
-        Let y be a numpy array, scipy sparse matrix, or an AdArray, with size, say, 4.
-        That is, if y is a 1d numpy array, it has shape (4,), if it is an AdArray, it's
-        value attribute has shape (4,), and if it is a sparse matrix (or a numpy array
-        of more than one dimension, though that case is not a primary motivation for the
-        slicer), it has 4 rows, while the number of columns is arbitrary. The slicer
+        Let y be a numpy array, scipy sparse matrix, or a SparseAdArray, with size, say,
+        4. That is, if y is a 1d numpy array, it has shape (4,), if it is a
+        SparseAdArray, it's value attribute has shape (4,), and if it is a sparse matrix
+        (or a numpy array of more than one dimension, though that case is not a primary
+        motivation for the slicer), it has 4 rows, while the number of columns is
+        arbitrary. The slicer
         then permits the following classes of operations:
 
         1. Restrict y to elements 0 and 2:
@@ -621,9 +622,9 @@ class ArraySlicer:
         A transposed ArraySlicer will slice the matrix along columns instead of rows.
         The domain and range indices will refer to columns instead of rows. The range
         size will be the number of columns in the resulting matrix. The transpose
-        operation has no effect on the slicing of vectors, while, if applied to an
-        AdArray, an error will be raised, since the Jacobian of an AdArray should be
-        treated in a row-wise manner.
+        operation has no effect on the slicing of vectors, while, if applied to a
+        SparseAdArray, an error will be raised, since the Jacobian of a SparseAdArray
+        should be treated in a row-wise manner.
 
         Returns:
             A transposed ArraySlicer.
@@ -681,7 +682,7 @@ class ArraySlicer:
     @overload
     def __matmul__(self, x: np.ndarray) -> np.ndarray: ...
     @overload
-    def __matmul__(self, x: pp.ad.AdArrayBase) -> pp.ad.AdArray: ...
+    def __matmul__(self, x: pp.ad.AdArrayBase) -> pp.ad.SparseAdArray: ...
     @overload
     def __matmul__(self, x: ArraySlicer) -> ArraySlicer: ...
     @overload
@@ -689,7 +690,7 @@ class ArraySlicer:
 
     def __matmul__(
         self, x: np.ndarray | sps.spmatrix | pp.ad.AdArrayBase | ArraySlicer
-    ) -> np.ndarray | sps.spmatrix | pp.ad.AdArray | ArraySlicer:
+    ) -> np.ndarray | sps.spmatrix | pp.ad.SparseAdArray | ArraySlicer:
         # Separate handling for different types of input.
         if isinstance(x, ArraySlicer):
             # This is a case of S_0 @ S_1 @ y, where S_0 (self) and S_1 are
@@ -700,9 +701,9 @@ class ArraySlicer:
             x._pending_operation = "@"
             return x
 
-        sliced: np.ndarray | sps.spmatrix | pp.ad.AdArray | float | int
+        sliced: np.ndarray | sps.spmatrix | pp.ad.SparseAdArray | float | int
 
-        # Slice matrix, vector, or AdArray by calling relevant helper methods.
+        # Slice matrix, vector, or SparseAdArray by calling relevant helper methods.
         if isinstance(x, np.ndarray):
             sliced = self._slice_vector(x)
         elif isinstance(x, (sps.spmatrix, sps.sparray)):
@@ -712,7 +713,7 @@ class ArraySlicer:
             x = x.to_full()
             val = self._slice_vector(x.val)
             jac = self._slice_matrix(x.jac)
-            sliced = pp.ad.AdArray(val, jac)
+            sliced = pp.ad.SparseAdArray(val, jac)
         elif isinstance(x, (float, int)):
             # If the input is a scalar, we need to create a vector of the same size as
             # the range size.
@@ -723,7 +724,7 @@ class ArraySlicer:
 
         if self._pending_operand is not None:
             # If there is a pending operand, we need to apply it to the sliced
-            # vector/matrix/AdArray.
+            # vector/matrix/SparseAdArray.
             product = eval(f"self._pending_operand {self._pending_operation} sliced")
             return product
         else:
