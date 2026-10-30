@@ -326,6 +326,14 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
                 f"Surrogate operator {self.name} has derivatives with respect to"
                 f" {derivatives.shape[0]} dependencies, but {len(args)} arguments."
             )
+        # Row k of derivatives holds the derivative of this operator with respect to
+        # argument k, one value per element. Multiplying an Ad array by a numpy array
+        # scales the rows of its Jacobian elementwise, thus arg * derivative is the term
+        # diag(df/da_k) * da_k/dx of the chain rule. Arguments which are not Ad arrays
+        # have no Jacobian and are skipped. Summing the terms with the arithmetic of
+        # Ad arrays lets the representation of the result follow that of the
+        # arguments. The caller ensures that at least one argument is an Ad array, so
+        # the list is not empty.
         result = reduce(
             operator.add,
             [
