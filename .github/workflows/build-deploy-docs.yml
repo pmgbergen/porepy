@@ -1,0 +1,104 @@
+name: Build and deploy documentation
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - develop
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/develop'
+    steps:
+      - name: Check out revision
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y latexmk texlive-latex-recommended \
+            texlive-latex-extra texlive-fonts-recommended
+
+      - name: Install PorePy and documentation dependencies
+        run: |
+          python -m pip install -e ".[docs]"
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v6
+
+      - name: Build HTML and PDF documentation
+        # Do not pass Sphinx -W: incomplete API docstring warnings are non-fatal.
+        # Sphinx errors and missing PDF output still fail make full.
+        run: make full SPHINXOPTS= O=
+        working-directory: docs
+
+      - name: Save HTML output for the upload job
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/develop'
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs-html-${{ github.sha }}
+          path: docs/_build/html
+          retention-days: 1
+          include-hidden-files: true
+  # Above is a temporary upload of the HTML output.
+  # To be retained for 1 day only, to not clutter the memory.
+  # Successful PRs or manual workflow_dispatch will download the temporary file and
+  # upload it to the GitHub Pages artifact for deployment, with a retention of 30 days.
+  # Once hosted on Github Pages, the HTML output will be retained indefinitely, until the next successful deploy.
+  upload_artifact:
+    if: success() && github.event_name != 'pull_request' && github.ref == 'refs/heads/develop'
+    name: Upload GitHub Pages artifact
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download built HTML
+        uses: actions/download-artifact@v8
+        with:
+          name: docs-html-${{ github.sha }}
+          path: docs-html
+
+      - name: Upload HTML site to GitHub Pages
+        uses: actions/upload-pages-artifact@v5
+        with:
+          name: GH-PAGES-${{ github.sha }}
+          path: docs-html
+          retention-days: 30
+          include-hidden-files: true
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/develop'
+    name: Deploy documentation to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: upload_artifact
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy the commit's HTML artifact
+        id: deployment
+        uses: actions/deploy-pages@v5
+        with:
+          artifact_name: GH-PAGES-${{ github.sha }}

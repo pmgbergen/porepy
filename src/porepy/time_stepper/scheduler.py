@@ -282,7 +282,7 @@ class _IntervalMap:
     O(log n) time complexity for n intervals.
 
     Parameters:
-        intervals: List of intervals. The last interval is `[t_last, ∞)`.
+        intervals: List of intervals. The last interval is `[t_last, np.inf)`.
         atol: Snapping time. Time differences below it are treated as zero.
 
     """

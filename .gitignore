@@ -114,11 +114,13 @@ reference_state.npz
 *.raw
 *.webp
 *.png
+!docs/logo.png
 *.apng
 *.mng
 *.tiff
 *.tif
 *.svg
+!docs/logo.svg
 *.svgz
 *.xbm
 *.bmp
@@ -126,6 +128,9 @@ reference_state.npz
 *.ico
 *.3dm
 *.max
+
+# Sphinx-generated API sources and build artifacts
+/docs/_build/
 
 # LaTeX
 *.aux
