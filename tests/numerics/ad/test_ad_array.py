@@ -517,10 +517,10 @@ def test_initialize_diagonal_ad_arrays_single_variable():
     assert isinstance(var, DiagonalAdArray)
     np.testing.assert_allclose(var.val, val)
 
-    full_jac = var.to_full().jac.toarray()
+    sparse_jac = var.to_sparse().jac.toarray()
     expected_jac = np.zeros((3, num_derivatives))
     expected_jac[np.arange(3), global_indices[0]] = 1.0
-    np.testing.assert_allclose(full_jac, expected_jac)
+    np.testing.assert_allclose(sparse_jac, expected_jac)
 
 
 def test_initialize_diagonal_ad_arrays_two_variables():
@@ -557,9 +557,9 @@ def test_initialize_diagonal_ad_arrays_custom_derivatives():
         [val.copy()], indices, num_derivatives, derivatives=derivatives
     )
 
-    full_jac = diag_vars[0].to_full().jac.toarray()
+    sparse_jac = diag_vars[0].to_sparse().jac.toarray()
     expected_jac = np.diag([5.0, 6.0])
-    np.testing.assert_allclose(full_jac, expected_jac)
+    np.testing.assert_allclose(sparse_jac, expected_jac)
 
 
 @pytest.mark.parametrize(
@@ -736,13 +736,14 @@ def test_diagonal_ad_array_rejects_inconsistent_jacobian(
         )
 
 
-def test_full_jac():
-    """full_jac gives the sparse Jacobian for both representations."""
+def test_sparse_jac():
+    """sparse_jac gives the sparse Jacobian for both representations."""
     full, diag = _full_and_diagonal_pair()
 
-    assert full.full_jac is full.jac
+    assert full.sparse_jac is full.jac
     np.testing.assert_allclose(
-        diag.full_jac.toarray(), np.array([[7.0, 0.0, 0.0, 0.0], [0.0, 8.0, 0.0, 0.0]])
+        diag.sparse_jac.toarray(),
+        np.array([[7.0, 0.0, 0.0, 0.0], [0.0, 8.0, 0.0, 0.0]]),
     )
 
 
@@ -756,7 +757,7 @@ def test_operations_between_representations(op: str, diagonal_first: bool):
 
     operation = _ARITHMETIC_OPERATORS[op]
     result = operation(left, right)
-    reference = operation(left.to_full(), right.to_full())
+    reference = operation(left.to_sparse(), right.to_sparse())
 
     assert isinstance(result, SparseAdArray)
     np.testing.assert_allclose(result.val, reference.val)
@@ -781,7 +782,9 @@ def test_diagonal_ad_array_left_multiplied_by_matrix():
 
     assert isinstance(result, SparseAdArray)
     np.testing.assert_allclose(result.val, matrix @ diag.val)
-    np.testing.assert_allclose(result.jac.toarray(), (matrix @ diag.full_jac).toarray())
+    np.testing.assert_allclose(
+        result.jac.toarray(), (matrix @ diag.sparse_jac).toarray()
+    )
 
 
 def test_setitem_full_into_diagonal_raises_without_modification():
@@ -805,7 +808,7 @@ def test_setitem_diagonal_into_full():
     full[0:2] = diag
 
     np.testing.assert_allclose(full.val, diag.val)
-    np.testing.assert_allclose(full.jac.toarray(), diag.full_jac.toarray())
+    np.testing.assert_allclose(full.jac.toarray(), diag.sparse_jac.toarray())
 
 
 @pytest.mark.parametrize(
@@ -842,7 +845,7 @@ def test_chain_rule(representation: str):
     assert type(result) is type(x)
     np.testing.assert_allclose(result.val, np.exp(x.val))
     np.testing.assert_allclose(
-        result.full_jac.toarray(), (sps.diags(val) @ x.full_jac).toarray()
+        result.sparse_jac.toarray(), (sps.diags(val) @ x.sparse_jac).toarray()
     )
 
 
@@ -878,11 +881,11 @@ def test_operations_between_diagonal_structures(op: str, joint: bool):
 
     operation = _ARITHMETIC_OPERATORS[op]
     result = operation(a, b)
-    reference = operation(a.to_full(), b.to_full())
+    reference = operation(a.to_sparse(), b.to_sparse())
 
     assert isinstance(result, DiagonalAdArray if joint else SparseAdArray)
     np.testing.assert_allclose(result.val, reference.val)
-    np.testing.assert_allclose(result.full_jac.toarray(), reference.jac.toarray())
+    np.testing.assert_allclose(result.sparse_jac.toarray(), reference.jac.toarray())
 
 
 @pytest.mark.parametrize("same_entries", [True, False])
@@ -894,10 +897,10 @@ def test_operations_between_sliced_diagonal_arrays(same_entries: bool):
     key_b = np.array([0]) if same_entries else np.array([1])
 
     result = a[key_a] + b[key_b]
-    reference = a[key_a].to_full() + b[key_b].to_full()
+    reference = a[key_a].to_sparse() + b[key_b].to_sparse()
 
     assert isinstance(result, DiagonalAdArray if same_entries else SparseAdArray)
-    np.testing.assert_allclose(result.full_jac.toarray(), reference.jac.toarray())
+    np.testing.assert_allclose(result.sparse_jac.toarray(), reference.jac.toarray())
 
 
 def test_setitem_diagonal_with_other_structure_raises_without_modification():
@@ -925,4 +928,4 @@ def test_setitem_diagonal_with_same_structure_succeeds():
     # An array with the structure of the target at the key can be inserted.
     c, _ = _diagonal_arrays_with_structures(joint=False)
     a[0:1] = 2.0 * c[0:1]
-    np.testing.assert_allclose(a.full_jac.toarray()[0], [2.0, 0.0, 0.0, 0.0])
+    np.testing.assert_allclose(a.sparse_jac.toarray()[0], [2.0, 0.0, 0.0, 0.0])
