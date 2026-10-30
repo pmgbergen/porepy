@@ -809,23 +809,9 @@ class FractureNetwork2d(FractureNetwork):
              be numpy arrays. 1d and 3d data is supported. Fracture numbers are
              always exported.
 
-            **kwargs: The following arguments can be given:
-
-                - ``'binary'`` (:obj:`bool`): ``default=True``
-
-                    Whether to use binary export format.
-
-                - ``'fracture_offset'`` (:obj:`int`): ``default=1``
-
-                    Used to define the offset for a fracture id.
-
-                - ``'folder_name'`` (:obj:`Path`): ``default=Path("")``
-
-                    Path to save the file.
-
-                - ``'extension'`` (:obj:`str`): ``default=".vtu"``
-
-                    File extension.
+            **kwargs: Meshio export options: ``binary`` (bool, default ``True``),
+                ``fracture_offset`` (int, default ``1``), ``folder_name`` (Path,
+                default ``Path("")``), and ``extension`` (str, default ``".vtu"``).
 
         """
         if data is None:

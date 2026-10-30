@@ -468,9 +468,7 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
 
         .. math::
 
-            L_d = \max(0, m \cdot u_t_{n}) - \max(0, m \cdot u_t_{n-1})
-
-
+            L_d = \max(0, m \cdot u_{t_{n}}) - \max(0, m \cdot u_{t_{n-1}})
 
         Parameters:
             subdomains: List of subdomains where the damage is defined.
