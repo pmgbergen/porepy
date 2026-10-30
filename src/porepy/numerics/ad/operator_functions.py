@@ -23,7 +23,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.ad_array import AdArray, AdArrayBase
+from porepy.numerics.ad.ad_array import AdArrayBase, SparseAdArray
 
 from .functions import FloatType
 from .operator_space import OperatorSpace
@@ -200,7 +200,7 @@ class AbstractFunction(Operator):
             if isinstance(values, float):
                 assert jac.shape[0] == 1, "Inconsistent Jacobian of scalar function."
                 values = np.array([values])
-            return AdArray(values, jac)
+            return SparseAdArray(values, jac)
         else:
             return values
 
@@ -209,7 +209,7 @@ class AbstractFunction(Operator):
         """Abstract method for evaluating the callable passed at instantiation.
 
         The returned numpy array will be set as
-        :attr:`~porepy.numerics.ad.ad_array.AdArray.val` in for cases when any
+        :attr:`~porepy.numerics.ad.ad_array.SparseAdArray.val` in for cases when any
         child is parsed as an Ad array.
         Otherwise the value returned here will be returned directly as the numerical
         representation of this instance.
@@ -233,7 +233,7 @@ class AbstractFunction(Operator):
         by this instance.
 
         The returned matrix will be set as
-        :attr:`~porepy.numerics.ad.ad_array.AdArray.jac` in for cases when any
+        :attr:`~porepy.numerics.ad.ad_array.SparseAdArray.jac` in for cases when any
         child is parsed as an Ad array.
 
         This method is called in :meth:`func` if any argument is an Ad array.
