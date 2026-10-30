@@ -710,7 +710,7 @@ class ArraySlicer:
             sliced = self._slice_matrix(x)
         elif isinstance(x, pp.ad.AdArrayBase):
             # Slicing mixes the rows, which the diagonal representation cannot express.
-            x = x.to_full()
+            x = x.to_sparse()
             val = self._slice_vector(x.val)
             jac = self._slice_matrix(x.jac)
             sliced = pp.ad.SparseAdArray(val, jac)

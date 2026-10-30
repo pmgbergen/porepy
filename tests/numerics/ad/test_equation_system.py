@@ -69,7 +69,7 @@ def test_evaluate_variables():
         ad_array = var.value_and_jacobian(equation_system)
         assert isinstance(ad_array, pp.ad.AdArrayBase)
         assert np.allclose(ad_array.val, 2)
-        assert np.allclose(ad_array.full_jac.toarray(), known_jac)
+        assert np.allclose(ad_array.sparse_jac.toarray(), known_jac)
 
         # Now create the variable at the previous iterate. This should also give the
         # most recent value in pp.ITERATE_SOLUTIONS, but it should not yield a
@@ -99,7 +99,7 @@ def test_evaluate_variables():
         assert np.allclose(
             ad_array_increment.val, ad_array.val - ad_array_prev_timestep.val
         )
-        assert np.allclose(ad_array_increment.full_jac.toarray(), known_jac)
+        assert np.allclose(ad_array_increment.sparse_jac.toarray(), known_jac)
 
 
 def test_variable_creation():

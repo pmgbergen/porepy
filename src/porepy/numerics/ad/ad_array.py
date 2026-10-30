@@ -126,7 +126,7 @@ class AdArrayBase(abc.ABC):
     The storage of the derivatives is deliberately not part of this interface: Each
     concrete class has its own attribute ``jac``, and its type and meaning differ
     between the representations. Code that needs the Jacobian should either use
-    :attr:`full_jac`, which is available for all Ad arrays, or narrow the type with
+    :attr:`sparse_jac`, which is available for all Ad arrays, or narrow the type with
     ``isinstance`` before accessing ``jac``.
 
     Ad arrays implement arithmetic operations with floats, numpy arrays, scipy sparse
@@ -171,7 +171,7 @@ class AdArrayBase(abc.ABC):
         """The value of the Ad array, stored as a 1d numpy array."""
 
     @abc.abstractmethod
-    def to_full(self) -> SparseAdArray:
+    def to_sparse(self) -> SparseAdArray:
         """Return this Ad array in the full representation.
 
         Returns:
@@ -180,14 +180,14 @@ class AdArrayBase(abc.ABC):
         """
 
     @property
-    def full_jac(self) -> sps.spmatrix | sps.sparray:
+    def sparse_jac(self) -> sps.spmatrix | sps.sparray:
         """The Jacobian, as a sparse matrix.
 
         Available for all representations; arrays that are not stored in the full
         representation are converted on access.
 
         """
-        return self.to_full().jac
+        return self.to_sparse().jac
 
     @abc.abstractmethod
     def copy(self, val: Optional[np.ndarray] = None) -> AdArrayBase:
@@ -515,7 +515,7 @@ class SparseAdArray(AdArrayBase):
         self.jac: sps.spmatrix | sps.sparray = _as_float(jac)
         """The Jacobian matrix of the SparseAdArray, stored as a sparse matrix."""
 
-    def to_full(self) -> SparseAdArray:
+    def to_sparse(self) -> SparseAdArray:
         """Return this SparseAdArray, which is already in the full representation.
 
         Returns:
@@ -654,7 +654,7 @@ class SparseAdArray(AdArrayBase):
         if isinstance(new_value, np.ndarray | pp.number):
             self.val[key] = new_value
         elif isinstance(new_value, AdArrayBase):
-            new_value = new_value.to_full()
+            new_value = new_value.to_sparse()
             self.val[key] = new_value.val
             self.jac[key] = new_value.jac
         else:
@@ -677,7 +677,7 @@ class SparseAdArray(AdArrayBase):
             ``other``, in the full representation.
 
         """
-        other = other.to_full()
+        other = other.to_sparse()
         if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
             raise ValueError(f"Incompatible sizes for SparseAdArray {op_name}.")
         return other
@@ -1081,7 +1081,7 @@ class DiagonalAdArray(AdArrayBase):
     The derivatives are stored as a 2d numpy array, :attr:`jac`, with one row per block
     of the Jacobian and one column per entry in :attr:`val`. Together with the
     structural information in :attr:`col_indices` and :attr:`num_derivatives`, this
-    suffices to construct the full Jacobian, see :meth:`to_full`. As for
+    suffices to construct the full Jacobian, see :meth:`to_sparse`. As for
     :class:`SparseAdArray`, the rows of the Jacobian are those of :attr:`val`, in the
     same order.
 
@@ -1150,7 +1150,7 @@ class DiagonalAdArray(AdArrayBase):
         """Total number of derivatives in the system."""
         return self._num_derivatives
 
-    def to_full(self) -> SparseAdArray:
+    def to_sparse(self) -> SparseAdArray:
         """Convert this DiagonalAdArray to a SparseAdArray, where the Jacobian is stored
         as a sparse matrix.
 
@@ -1311,7 +1311,7 @@ class DiagonalAdArray(AdArrayBase):
         elif isinstance(new_value, AdArrayBase):
             raise NotImplementedError(
                 "Cannot insert an Ad array in the full representation into a "
-                "DiagonalAdArray. Convert the target with to_full() first."
+                "DiagonalAdArray. Convert the target with to_sparse() first."
             )
         else:
             raise NotImplementedError("Setting")
@@ -1342,7 +1342,7 @@ class DiagonalAdArray(AdArrayBase):
             jac = self.jac + other.jac
             return self.copy(val, jac)
         else:
-            return self.to_full().__add__(other)
+            return self.to_sparse().__add__(other)
 
     def __mul__(self, other: AdType) -> AdArrayBase:
         if isinstance(other, (float, int, np.ndarray)):
@@ -1357,7 +1357,7 @@ class DiagonalAdArray(AdArrayBase):
             return self.copy(val, jac)
 
         else:
-            return self.to_full().__mul__(other)
+            return self.to_sparse().__mul__(other)
 
     def __pow__(self, other: AdType) -> AdArrayBase:
         if isinstance(other, (float, int, np.ndarray)):
@@ -1373,7 +1373,7 @@ class DiagonalAdArray(AdArrayBase):
             return self.copy(val, jac)
 
         else:
-            return self.to_full().__pow__(other)
+            return self.to_sparse().__pow__(other)
 
     def __rpow__(self, other: AdType) -> AdArrayBase:
         if isinstance(other, (float, int, np.ndarray)):
@@ -1383,7 +1383,7 @@ class DiagonalAdArray(AdArrayBase):
         elif isinstance(other, DiagonalAdArray):
             return other.__pow__(self)
         else:
-            return self.to_full().__rpow__(other)
+            return self.to_sparse().__rpow__(other)
 
     def __truediv__(self, other: AdType) -> AdArrayBase:
         if isinstance(other, (float, int, np.ndarray)):
@@ -1395,7 +1395,7 @@ class DiagonalAdArray(AdArrayBase):
             jac = (self.jac * other.val - self.val * other.jac) / (other.val**2)
             return self.copy(val, jac)
         else:
-            return self.to_full().__truediv__(other)
+            return self.to_sparse().__truediv__(other)
 
     def __rtruediv__(self, other: AdType) -> AdArrayBase:
         if isinstance(other, (float, int, np.ndarray)):
@@ -1405,7 +1405,7 @@ class DiagonalAdArray(AdArrayBase):
         elif isinstance(other, DiagonalAdArray):
             return other.__truediv__(self)
         else:
-            return self.to_full().__rtruediv__(other)
+            return self.to_sparse().__rtruediv__(other)
 
     def __rmatmul__(self, other: AdType) -> SparseAdArray:
         # When multiplying with a sparse matrix, the expectation is that the result will
@@ -1414,4 +1414,4 @@ class DiagonalAdArray(AdArrayBase):
         # simple) potential simplifications would be if the matrix is either diagonal or
         # a permutation matrix, but we do not expect these cases to be common enough to
         # warrant a special implementation.
-        return self.to_full().__rmatmul__(other)
+        return self.to_sparse().__rmatmul__(other)

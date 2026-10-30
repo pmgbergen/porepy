@@ -286,7 +286,7 @@ class DiagonalJacobianFunction(AbstractFunction):
         """The approximate Jacobian consists of identity blocks times scalar multiplier
         per every function dependency."""
         jacs = [
-            arg.full_jac * m
+            arg.sparse_jac * m
             for arg, m in zip(args, self._multipliers)
             if isinstance(arg, AdArrayBase)
         ]
@@ -345,7 +345,7 @@ class Function(AbstractFunction):
         )
         result = self._func(*args)
         assert isinstance(result, AdArrayBase)
-        return result.full_jac
+        return result.sparse_jac
 
 
 class InterpolatedFunction(AbstractFunction):
@@ -441,7 +441,7 @@ class InterpolatedFunction(AbstractFunction):
             if isinstance(arg, AdArrayBase):
                 # The trivial Jacobian of one argument gives us the correct position for
                 # the entries as ones
-                partial_jac = sps.csr_matrix(arg.full_jac, copy=True)
+                partial_jac = sps.csr_matrix(arg.sparse_jac, copy=True)
                 # replace the ones with actual values
                 # Since csr, we can simply replace the data array with the values of the
                 # derivative

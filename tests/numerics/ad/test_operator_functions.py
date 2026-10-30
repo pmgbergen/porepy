@@ -60,7 +60,7 @@ def test_ad_function():
     val_ad = F_var.value_and_jacobian(equation_system)
     # test values at current time step
     assert np.all(val_ad.val == 1.0)
-    assert np.all(val_ad.full_jac.toarray() == np.eye(mdg.num_subdomain_cells()))
+    assert np.all(val_ad.sparse_jac.toarray() == np.eye(mdg.num_subdomain_cells()))
 
     # vals at previous iter and zero Jacobian
     # previous iterate has the same values as the original operator, but no Jacobian

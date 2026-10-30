@@ -145,7 +145,7 @@ def l2_norm(dim: int, var: AdArrayBase) -> AdArrayBase:
         return pp.ad.functions.abs(var)
     # The norm mixes dim separate degrees of freedom into one output entry, which cannot
     # be represented in the diagonal format.
-    var = var.to_full()
+    var = var.to_sparse()
     resh = np.reshape(var.val, (dim, -1), order="F")
     vals = np.linalg.norm(resh, axis=0)
     # Avoid dividing by zero
@@ -349,7 +349,7 @@ def heaviside(zerovalue: float, var: FloatType) -> FloatType:
             return var.copy(val, np.zeros_like(var.jac))
         # An empty sparse matrix, rather than the chain rule with a zero derivative,
         # which would store the zeros.
-        zero_jac = sps.csr_matrix(var.full_jac.shape)
+        zero_jac = sps.csr_matrix(var.sparse_jac.shape)
         return pp.ad.SparseAdArray(val, zero_jac)
     else:
         return np.heaviside(var, zerovalue)
@@ -440,9 +440,9 @@ def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
         jac = np.where(pick_1, var_1.jac, var_0.jac)
         return var_0.copy(val, jac)
     if isinstance(var_0, AdArrayBase):
-        var_0 = var_0.to_full()
+        var_0 = var_0.to_sparse()
     if isinstance(var_1, AdArrayBase):
-        var_1 = var_1.to_full()
+        var_1 = var_1.to_sparse()
 
     # At least one argument is now a SparseAdArray. A constant argument (ndarray or
     # scalar) gets a zero Jacobian of matching shape.
@@ -496,7 +496,7 @@ def characteristic_function(tol: float, var: FloatType) -> FloatType:
     vals[zero_inds] = 1.0
     if isinstance(var, DiagonalAdArray):
         return var.copy(vals, np.zeros_like(var.jac))
-    jac = sps.csr_matrix(var.full_jac.shape)
+    jac = sps.csr_matrix(var.sparse_jac.shape)
     return SparseAdArray(vals, jac)
 
 
@@ -544,7 +544,7 @@ def mask_by_threshold(tol: float, char_var: FloatType, var: FloatType) -> FloatT
     if isinstance(var, DiagonalAdArray):
         return var.copy(vals, var.jac * char_inds.astype(float))
     # zero_rows requires csr format; the Jacobian may be csc (or another sparse format).
-    full_jac = var.full_jac
-    jac = full_jac.tocsr(copy=True)
+    sparse_jac = var.sparse_jac
+    jac = sparse_jac.tocsr(copy=True)
     pp.matrix_operations.zero_rows(jac, np.where(~char_inds)[0])
     return SparseAdArray(vals, jac)

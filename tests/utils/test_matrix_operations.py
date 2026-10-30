@@ -1063,7 +1063,7 @@ def test_array_slicer_diagonal_ad_array():
     )
 
     sliced = slicer @ diagonal
-    reference = slicer @ diagonal.to_full()
+    reference = slicer @ diagonal.to_sparse()
 
     assert isinstance(sliced, pp.ad.SparseAdArray)
     assert np.allclose(sliced.val, reference.val)

@@ -382,7 +382,7 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         """
         if not any(isinstance(arg, AdArrayBase) for arg in args):
             raise ValueError("A Jacobian requires at least one Ad array as argument.")
-        return self._apply_chain_rule(self.get_values(*args), *args).full_jac
+        return self._apply_chain_rule(self.get_values(*args), *args).sparse_jac
 
 
 def _check_expected_values(

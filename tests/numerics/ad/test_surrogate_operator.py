@@ -260,11 +260,11 @@ def test_secondary_operators(
     # with new data
     jacs = []
     for v, d in zip(var_vals, diff_vals):
-        jac_ = v.full_jac.copy()
+        jac_ = v.sparse_jac.copy()
         jac_.data = d
         jacs.append(jac_)
 
-    assert np.all(sop_val.full_jac.toarray() == sum(jacs).toarray())
+    assert np.all(sop_val.sparse_jac.toarray() == sum(jacs).toarray())
 
     # progress values in time and check that only values are progressed, and that
     # they are correct, i.e. current iter is set as previous time
@@ -503,7 +503,7 @@ def _argument_in_representation(
 
     Parameters:
         representation: ``"full"`` for an Ad array assembled directly in the full
-            representation, ``"diagonal"`` for a diagonal Ad array, and ``"to_full"``
+            representation, ``"diagonal"`` for a diagonal Ad array, and ``"to_sparse"``
             for the diagonal Ad array converted to the full representation. The latter
             differs from ``"full"`` by explicitly stored zeros in its Jacobian.
         sparse_array: The argument in the full representation.
@@ -518,11 +518,11 @@ def _argument_in_representation(
     elif representation == "diagonal":
         return diagonal_array
     else:
-        return diagonal_array.to_full()
+        return diagonal_array.to_sparse()
 
 
-@pytest.mark.parametrize("first", ["full", "diagonal", "to_full"])
-@pytest.mark.parametrize("second", ["full", "diagonal", "to_full"])
+@pytest.mark.parametrize("first", ["full", "diagonal", "to_sparse"])
+@pytest.mark.parametrize("second", ["full", "diagonal", "to_sparse"])
 def test_jacobian_with_arguments_in_different_representations(
     equation_system: pp.ad.EquationSystem, first: str, second: str
 ):
@@ -555,7 +555,7 @@ def test_jacobian_with_arguments_in_different_representations(
     )
     assert isinstance(result, expected_type)
     np.testing.assert_allclose(result.val, np.ones(num_cells))
-    np.testing.assert_allclose(result.full_jac.toarray(), expected_jacobian)
+    np.testing.assert_allclose(result.sparse_jac.toarray(), expected_jacobian)
 
 
 def test_diagonal_jacobian_with_variables_not_arguments(
@@ -595,7 +595,7 @@ def test_diagonal_jacobian_with_variables_not_arguments(
     # not depend on ``var2``.
     np.testing.assert_allclose(result.jac[1], 0.0)
 
-    np.testing.assert_allclose(result.full_jac.toarray(), expected_jacobian)
+    np.testing.assert_allclose(result.sparse_jac.toarray(), expected_jacobian)
     # The same Jacobian is obtained from ``var1`` in the full representation.
     jac = sop.get_jacobian(sparse_array[0])
     np.testing.assert_allclose(jac.toarray(), expected_jacobian)
@@ -630,12 +630,12 @@ def test_chain_rule_for_arguments_which_are_not_variables(
     # The derivative values as set by _surrogate_and_arguments.
     derivatives = 2.0 * np.ones(arg.val.size)
     derivatives[0] = 0.0
-    expected_jacobian = derivatives[:, np.newaxis] * arg.full_jac.toarray()
+    expected_jacobian = derivatives[:, np.newaxis] * arg.sparse_jac.toarray()
 
     np.testing.assert_allclose(sop.get_jacobian(arg).toarray(), expected_jacobian)
     result = sop.func(arg)
     np.testing.assert_allclose(result.val, np.ones(arg.val.size))
-    np.testing.assert_allclose(result.full_jac.toarray(), expected_jacobian)
+    np.testing.assert_allclose(result.sparse_jac.toarray(), expected_jacobian)
 
 
 @pytest.mark.parametrize("representation", ["full", "diagonal"])
@@ -647,7 +647,9 @@ def test_repeated_argument(equation_system: pp.ad.EquationSystem, representation
     )
     arg = sparse_array[0] if representation == "full" else diagonal_array[0]
     np.testing.assert_allclose(sop.get_jacobian(arg, arg).toarray(), expected_jacobian)
-    np.testing.assert_allclose(sop.func(arg, arg).full_jac.toarray(), expected_jacobian)
+    np.testing.assert_allclose(
+        sop.func(arg, arg).sparse_jac.toarray(), expected_jacobian
+    )
 
 
 def test_arguments_which_are_not_ad_arrays(equation_system: pp.ad.EquationSystem):
@@ -667,7 +669,7 @@ def test_arguments_which_are_not_ad_arrays(equation_system: pp.ad.EquationSystem
     expected[:, var2_dofs] = expected_jacobian[:, var2_dofs]
 
     result = sop.func(sparse_array[0].val, sparse_array[1])
-    np.testing.assert_allclose(result.full_jac.toarray(), expected)
+    np.testing.assert_allclose(result.sparse_jac.toarray(), expected)
 
     values = sop.func(sparse_array[0].val, sparse_array[1].val)
     assert isinstance(values, np.ndarray)
@@ -708,4 +710,4 @@ def test_separately_initialized_diagonal_arguments(
     ]
     result = sop.func(*args)
     assert isinstance(result, pp.ad.SparseAdArray)
-    np.testing.assert_allclose(result.full_jac.toarray(), expected_jacobian)
+    np.testing.assert_allclose(result.sparse_jac.toarray(), expected_jacobian)
