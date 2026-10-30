@@ -430,10 +430,10 @@ def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
     if not isinstance(var_0, AdArrayBase) and not isinstance(var_1, AdArrayBase):
         return np.maximum(var_0, var_1)
 
-    # Diagonal SparseAdArrays have a Jacobian shape the rest of this function does not
+    # DiagonalAdArrays have a Jacobian shape the rest of this function does not
     # understand. If both arguments are diagonal, the maximum can be computed directly
-    # in the diagonal representation; otherwise, convert any diagonal argument to full
-    # (non-diagonal) format.
+    # in the diagonal representation; otherwise, convert any diagonal argument to the
+    # sparse representation.
     if isinstance(var_0, DiagonalAdArray) and isinstance(var_1, DiagonalAdArray):
         val = np.maximum(var_0.val, var_1.val)
         pick_1 = var_1.val > var_0.val
