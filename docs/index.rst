@@ -50,6 +50,9 @@ but it also reflects that these are difficult problems for which robust and stan
 
 .. only:: html
 
-   * :download:`Download the PorePy manual (PDF) <_build/latex/porepy.pdf>`
    * :ref:`genindex`
    * :ref:`modindex`
+
+.. only:: html and pdf
+
+   * :download:`Download the PorePy manual (PDF) <_build/latex/porepy.pdf>`
