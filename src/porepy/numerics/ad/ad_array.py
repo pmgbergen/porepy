@@ -1141,8 +1141,8 @@ class DiagonalAdArray(AdArrayBase):
 
     @property
     def col_indices(self) -> list[np.ndarray]:
-        """The column indices of this array's entries in the full, non-diagonal
-        representation of the Jacobian."""
+        """The column indices of this array's entries in the sparse representation of
+        the Jacobian."""
         return self._col_indices
 
     @property
@@ -1409,7 +1409,7 @@ class DiagonalAdArray(AdArrayBase):
 
     def __rmatmul__(self, other: AdType) -> SparseAdArray:
         # When multiplying with a sparse matrix, the expectation is that the result will
-        # no longer be suitable for a diagonal representation, so we convert to a full
+        # no longer be suitable for a diagonal representation, so we convert to a
         # SparseAdArray and perform the multiplication there. The only (reasonably
         # simple) potential simplifications would be if the matrix is either diagonal or
         # a permutation matrix, but we do not expect these cases to be common enough to

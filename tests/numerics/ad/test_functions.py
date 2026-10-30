@@ -131,7 +131,7 @@ ZERO_DERIVATIVE_FUNCTIONS = {
 # Jacobians of the Ad arrays passed to the tested functions, with respect to the
 # underlying variables. By the chain rule, the Jacobian of an elementwise function of an
 # Ad array is the derivative of the function times the Jacobian of the Ad array; using
-# Jacobians other than the identity checks that this product is formed. The full
+# Jacobians other than the identity checks that this product is formed. The sparse
 # Jacobian has off-diagonal entries, the diagonal one has only diagonal entries.
 ARG_JAC: dict[AdRepresentation, np.ndarray] = {
     "sparse_ad": np.array([[3.0, 2.0, 1.0], [5.0, 6.0, 1.0], [2.0, 3.0, 5.0]]),
@@ -184,8 +184,8 @@ def _dense_jac(result: AdArrayBase) -> np.ndarray:
 def test_elementwise_function(
     func_name: str, representation: AdRepresentation | Literal["ndarray"]
 ):
-    """Value and Jacobian of an elementwise AD function, for a plain ndarray, a full
-    (non-diagonal) SparseAdArray, and a DiagonalAdArray argument."""
+    """Value and Jacobian of an elementwise AD function, for a plain ndarray, a
+    SparseAdArray, and a DiagonalAdArray argument."""
     spec = ELEMENTWISE_FUNCTIONS[func_name]
     lo, hi = spec["domain"]
     val = np.linspace(lo, hi, 3)
@@ -284,9 +284,9 @@ class TestMaximum:
         constant: np.ndarray | float | np.int64,
         ad_first: bool,
     ):
-        """One argument is a SparseAdArray (sparse or diagonal), the other a constant
+        """One argument is an Ad array (sparse or diagonal), the other a constant
         (ndarray or scalar) with an implicit zero Jacobian, in either argument order. A
-        scalar is broadcast to the shape of the SparseAdArray. All constants tie with
+        scalar is broadcast to the shape of the Ad array. All constants tie with
         the SparseAdArray at index 2, where the first argument wins."""
         val = np.array([1.0, 5.0, 2.0])
         var = _make_ad(val, representation)
@@ -320,7 +320,7 @@ class TestMaximum:
     def test_ad_representations(
         self, representation_0: AdRepresentation, representation_1: AdRepresentation
     ):
-        """maximum with var_0 and var_1 independently sparse or diagonal SparseAdArrays,
+        """maximum with var_0 and var_1 independently sparse or diagonal Ad arrays,
         including the two mixed combinations. Index 2 is a tie (equal values), where the
         documented convention is that var_0's Jacobian is used."""
         val_0 = np.array([1.0, 5.0, 2.0])
@@ -470,8 +470,8 @@ class TestMaskByThreshold:
         char_representation: AdRepresentation,
         var_representation: AdRepresentation,
     ):
-        """mask_by_threshold with char_var and var independently sparse or diagonal
-        SparseAdArrays. The Jacobian of the result is that of var in kept rows, and zero
+        """mask_by_threshold with char_var and var independently sparse or diagonal Ad
+        arrays. The Jacobian of the result is that of var in kept rows, and zero
         in masked rows; the Jacobian of char_var does not enter."""
         var_val = np.array([10.0, 20.0, 30.0])
         char_var = _make_ad(char_val, char_representation)
@@ -531,7 +531,7 @@ class TestClip:
         kept: list[float],
         representation: AdRepresentation,
     ):
-        """clip of a sparse or diagonal SparseAdArray. Rows of the Jacobian are kept for
+        """clip of a sparse or diagonal Ad array. Rows of the Jacobian are kept for
         values strictly between the bounds, and zeroed for values at or outside the
         bounds."""
         var = _make_ad(np.array(val), representation)

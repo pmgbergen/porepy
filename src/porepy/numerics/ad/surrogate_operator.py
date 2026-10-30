@@ -309,7 +309,7 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
 
         The representation of the result follows from the arithmetic of the arguments,
         see :class:`~porepy.numerics.ad.ad_array.AdArrayBase`: The result is diagonal if
-        all contributing arguments are, and full otherwise.
+        all contributing arguments are, and sparse otherwise.
 
         Parameters:
             values: The values of this operator, see :meth:`get_values`.
