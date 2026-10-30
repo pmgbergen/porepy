@@ -377,6 +377,50 @@ def test_secondary_operators_on_boundaries(
     )
 
 
+@pytest.mark.parametrize("violation", ["not_variable", "order", "subset", "dofs"])
+def test_dependencies_must_conform_to_domains(
+    equation_system: pp.ad.EquationSystem, violation: str
+):
+    """A surrogate factory raises an error when called on domains on which its
+    dependencies do not conform to the surrogate operator.
+
+    The values of a surrogate operator are stacked in the order of the domains it is
+    called with, and must match the rows of its dependencies. This fails if the
+    dependency is not a variable, if the domains are not in the order of the
+    sub-variables of the dependency, if the dependency is defined on other domains, and
+    if the numbers of DOFs differ.
+
+    """
+    subdomains = equation_system.mdg.subdomains()
+
+    def var1(domains):
+        return equation_system.md_variable(VAR1_NAME, domains)
+
+    domains = subdomains
+    dof_info = None
+    dependency: Callable = var1
+    if violation == "not_variable":
+        dependency = lambda domains: pp.ad.Scalar(2.0) * var1(domains)
+    elif violation == "order":
+        domains = subdomains[::-1]
+    elif violation == "subset":
+        # The dependency is defined on all subdomains, the operator on the first only.
+        dependency = lambda domains: var1(subdomains)
+        domains = subdomains[:1]
+    else:
+        # Two DOFs per cell in the surrogate operator, one in the dependency.
+        dof_info = {GridEntity.cells: 2}
+
+    factory = pp.ad.SurrogateFactory(
+        "surrogate", equation_system.mdg, [dependency], dof_info=dof_info
+    )
+    expected_error = TypeError if violation == "not_variable" else ValueError
+    with pytest.raises(expected_error):
+        factory(domains)
+    # In the order of the md-grid, the factory can be called on a subset of domains.
+    pp.ad.SurrogateFactory("surrogate", equation_system.mdg, [var1])(subdomains[1:])
+
+
 def _surrogate_and_arguments(
     equation_system: pp.ad.EquationSystem,
     dependencies: list[str],
