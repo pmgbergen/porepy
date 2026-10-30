@@ -52,11 +52,36 @@ jobs:
         run: make full SPHINXOPTS= O=
         working-directory: docs
 
-      - name: Upload HTML site
+      - name: Save HTML output for the upload job
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/develop'
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs-html-${{ github.sha }}
+          path: docs/_build/html
+          retention-days: 1
+          include-hidden-files: true
+  # Above is a temporary upload of the HTML output.
+  # To be retained for 1 day only, to not clutter the memory.
+  # Successful PRs or manual workflow_dispatch will download the temporary file and
+  # upload it to the GitHub Pages artifact for deployment, with a retention of 30 days.
+  # Once hosted on Github Pages, the HTML output will be retained indefinitely, until the next successful deploy.
+  upload_artifact:
+    if: success() && github.event_name != 'pull_request' && github.ref == 'refs/heads/develop'
+    name: Upload GitHub Pages artifact
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download built HTML
+        uses: actions/download-artifact@v8
+        with:
+          name: docs-html-${{ github.sha }}
+          path: docs-html
+
+      - name: Upload HTML site to GitHub Pages
         uses: actions/upload-pages-artifact@v5
         with:
           name: GH-PAGES-${{ github.sha }}
-          path: docs/_build/html
+          path: docs-html
           retention-days: 30
           include-hidden-files: true
 
@@ -64,7 +89,7 @@ jobs:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/develop'
     name: Deploy documentation to GitHub Pages
     runs-on: ubuntu-latest
-    needs: build
+    needs: upload_artifact
     permissions:
       pages: write
       id-token: write
