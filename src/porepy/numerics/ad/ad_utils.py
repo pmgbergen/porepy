@@ -43,7 +43,7 @@ __all__ = [
 ]
 
 
-def concatenate_ad_arrays(ad_arrays: list[pp.ad.AdArray], axis=0):
+def concatenate_ad_arrays(ad_arrays: list[pp.ad.SparseAdArray], axis=0):
     """Concatenates a sequence of AD arrays into a single AD Array along a specified
     axis."""
     msg = "This functionality is deprecated and will be removed in a future version"
@@ -54,7 +54,7 @@ def concatenate_ad_arrays(ad_arrays: list[pp.ad.AdArray], axis=0):
     vals_stacked = np.concatenate(vals, axis=axis)
     jacs_stacked = sps.vstack(jacs)
 
-    return pp.ad.AdArray(vals_stacked, jacs_stacked)
+    return pp.ad.SparseAdArray(vals_stacked, jacs_stacked)
 
 
 def wrap_discretization(

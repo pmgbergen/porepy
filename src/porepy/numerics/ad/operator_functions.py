@@ -23,7 +23,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.ad_array import AdArray, AdArrayBase
+from porepy.numerics.ad.ad_array import AdArrayBase, SparseAdArray
 
 from .functions import FloatType
 from .operator_space import OperatorSpace
@@ -200,7 +200,7 @@ class AbstractFunction(Operator):
             if isinstance(values, float):
                 assert jac.shape[0] == 1, "Inconsistent Jacobian of scalar function."
                 values = np.array([values])
-            return AdArray(values, jac)
+            return SparseAdArray(values, jac)
         else:
             return values
 
@@ -209,7 +209,7 @@ class AbstractFunction(Operator):
         """Abstract method for evaluating the callable passed at instantiation.
 
         The returned numpy array will be set as
-        :attr:`~porepy.numerics.ad.ad_array.AdArray.val` in for cases when any
+        :attr:`~porepy.numerics.ad.ad_array.SparseAdArray.val` in for cases when any
         child is parsed as an Ad array.
         Otherwise the value returned here will be returned directly as the numerical
         representation of this instance.
@@ -233,7 +233,7 @@ class AbstractFunction(Operator):
         by this instance.
 
         The returned matrix will be set as
-        :attr:`~porepy.numerics.ad.ad_array.AdArray.jac` in for cases when any
+        :attr:`~porepy.numerics.ad.ad_array.SparseAdArray.jac` in for cases when any
         child is parsed as an Ad array.
 
         This method is called in :meth:`func` if any argument is an Ad array.
@@ -286,7 +286,7 @@ class DiagonalJacobianFunction(AbstractFunction):
         """The approximate Jacobian consists of identity blocks times scalar multiplier
         per every function dependency."""
         jacs = [
-            arg.full_jac * m
+            arg.sparse_jac * m
             for arg, m in zip(args, self._multipliers)
             if isinstance(arg, AdArrayBase)
         ]
@@ -345,7 +345,7 @@ class Function(AbstractFunction):
         )
         result = self._func(*args)
         assert isinstance(result, AdArrayBase)
-        return result.full_jac
+        return result.sparse_jac
 
 
 class InterpolatedFunction(AbstractFunction):
@@ -441,7 +441,7 @@ class InterpolatedFunction(AbstractFunction):
             if isinstance(arg, AdArrayBase):
                 # The trivial Jacobian of one argument gives us the correct position for
                 # the entries as ones
-                partial_jac = sps.csr_matrix(arg.full_jac, copy=True)
+                partial_jac = sps.csr_matrix(arg.sparse_jac, copy=True)
                 # replace the ones with actual values
                 # Since csr, we can simply replace the data array with the values of the
                 # derivative

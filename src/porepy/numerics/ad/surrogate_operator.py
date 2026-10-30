@@ -309,7 +309,7 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
 
         The representation of the result follows from the arithmetic of the arguments,
         see :class:`~porepy.numerics.ad.ad_array.AdArrayBase`: The result is diagonal if
-        all contributing arguments are, and full otherwise.
+        all contributing arguments are, and sparse otherwise.
 
         Parameters:
             values: The values of this operator, see :meth:`get_values`.
@@ -365,7 +365,7 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
     def get_jacobian(
         self, *args: float | np.ndarray | AdArrayBase
     ) -> sps.spmatrix | sps.sparray:
-        """Assemble the Jacobian of this operator in the full representation.
+        """Assemble the Jacobian of this operator in the sparse representation.
 
         Parameters:
             *args: The children of this operator in evaluated form. At least one of them
@@ -382,7 +382,7 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         """
         if not any(isinstance(arg, AdArrayBase) for arg in args):
             raise ValueError("A Jacobian requires at least one Ad array as argument.")
-        return self._apply_chain_rule(self.get_values(*args), *args).full_jac
+        return self._apply_chain_rule(self.get_values(*args), *args).sparse_jac
 
 
 def _check_expected_values(
