@@ -441,7 +441,7 @@ def _surrogate_and_arguments(
         derivatives: Derivative values of the surrogate operator, one per dependency.
 
     Returns:
-        The surrogate operator; Ad arrays in the full representation for the variables
+        The surrogate operator; Ad arrays in the sparse representation for the variables
         ``var1`` and ``var2``; diagonal Ad arrays for the same variables; and the
         expected Jacobian of the surrogate operator, as a dense array. The expected
         Jacobian is assembled directly from the derivative values and the degrees of
@@ -502,18 +502,18 @@ def _argument_in_representation(
     """Pick an argument of a surrogate operator in a given representation.
 
     Parameters:
-        representation: ``"full"`` for an Ad array assembled directly in the full
+        representation: ``"sparse"`` for an Ad array assembled directly in the sparse
             representation, ``"diagonal"`` for a diagonal Ad array, and ``"to_sparse"``
-            for the diagonal Ad array converted to the full representation. The latter
-            differs from ``"full"`` by explicitly stored zeros in its Jacobian.
-        sparse_array: The argument in the full representation.
+            for the diagonal Ad array converted to the sparse representation. The latter
+            differs from ``"sparse"`` by explicitly stored zeros in its Jacobian.
+        sparse_array: The argument in the sparse representation.
         diagonal_array: The argument in the diagonal representation.
 
     Returns:
         The argument in the requested representation.
 
     """
-    if representation == "full":
+    if representation == "sparse":
         return sparse_array
     elif representation == "diagonal":
         return diagonal_array
@@ -521,16 +521,16 @@ def _argument_in_representation(
         return diagonal_array.to_sparse()
 
 
-@pytest.mark.parametrize("first", ["full", "diagonal", "to_sparse"])
-@pytest.mark.parametrize("second", ["full", "diagonal", "to_sparse"])
+@pytest.mark.parametrize("first", ["sparse", "diagonal", "to_sparse"])
+@pytest.mark.parametrize("second", ["sparse", "diagonal", "to_sparse"])
 def test_jacobian_with_arguments_in_different_representations(
     equation_system: pp.ad.EquationSystem, first: str, second: str
 ):
     """The value and Jacobian of a surrogate operator do not depend on the
-    representation of its arguments, which can be full, diagonal or a mix of the two.
+    representation of its arguments, which can be sparse, diagonal or a mix of the two.
 
     The result is a diagonal Ad array if both arguments are diagonal, and an Ad array
-    in the full representation otherwise.
+    in the sparse representation otherwise.
 
     """
     # Use _surrogate_and_arguments to create a surrogate operator and its arguments in
@@ -571,7 +571,7 @@ def test_diagonal_jacobian_with_variables_not_arguments(
 
     Test: Evaluation of the surrogate operator gives a diagonal Ad array with the same
     two-block structure as its argument. The block of ``var1`` contains the derivatives
-    of the surrogate operator, while the block of ``var2`` is zero. The full
+    of the surrogate operator, while the block of ``var2`` is zero. The sparse
     representation equals the expected Jacobian.
 
     """
@@ -596,13 +596,13 @@ def test_diagonal_jacobian_with_variables_not_arguments(
     np.testing.assert_allclose(result.jac[1], 0.0)
 
     np.testing.assert_allclose(result.sparse_jac.toarray(), expected_jacobian)
-    # The same Jacobian is obtained from ``var1`` in the full representation.
+    # The same Jacobian is obtained from ``var1`` in the sparse representation.
     jac = sop.get_jacobian(sparse_array[0])
     np.testing.assert_allclose(jac.toarray(), expected_jacobian)
 
 
 @pytest.mark.parametrize("argument", ["scaled", "sum"])
-@pytest.mark.parametrize("representation", ["full", "diagonal"])
+@pytest.mark.parametrize("representation", ["sparse", "diagonal"])
 def test_chain_rule_for_arguments_which_are_not_variables(
     equation_system: pp.ad.EquationSystem, argument: str, representation: str
 ):
@@ -622,7 +622,7 @@ def test_chain_rule_for_arguments_which_are_not_variables(
     )
     var1, var2 = (
         (sparse_array[0], sparse_array[1])
-        if representation == "full"
+        if representation == "sparse"
         else (diagonal_array[0], diagonal_array[1])
     )
     arg = 5.0 * var1 if argument == "scaled" else var1 + var2
@@ -638,14 +638,14 @@ def test_chain_rule_for_arguments_which_are_not_variables(
     np.testing.assert_allclose(result.sparse_jac.toarray(), expected_jacobian)
 
 
-@pytest.mark.parametrize("representation", ["full", "diagonal"])
+@pytest.mark.parametrize("representation", ["sparse", "diagonal"])
 def test_repeated_argument(equation_system: pp.ad.EquationSystem, representation: str):
     """The derivatives of a surrogate operator with respect to a repeated argument add
     up, in both representations."""
     sop, sparse_array, diagonal_array, expected_jacobian = _surrogate_and_arguments(
         equation_system, [VAR1_NAME, VAR1_NAME], [2.0, 3.0]
     )
-    arg = sparse_array[0] if representation == "full" else diagonal_array[0]
+    arg = sparse_array[0] if representation == "sparse" else diagonal_array[0]
     np.testing.assert_allclose(sop.get_jacobian(arg, arg).toarray(), expected_jacobian)
     np.testing.assert_allclose(
         sop.func(arg, arg).sparse_jac.toarray(), expected_jacobian
@@ -697,7 +697,7 @@ def test_separately_initialized_diagonal_arguments(
 ):
     """The Jacobian of a surrogate operator is correct also for diagonal arguments that
     were initialized separately, and thus do not share a Jacobian structure. The result
-    is then in the full representation."""
+    is then in the sparse representation."""
     sop, _, diagonal_array, expected_jacobian = _surrogate_and_arguments(
         equation_system, [VAR1_NAME, VAR2_NAME], [2.0, 3.0]
     )
