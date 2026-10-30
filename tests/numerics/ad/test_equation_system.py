@@ -72,10 +72,11 @@ def test_evaluate_variables():
         assert np.allclose(ad_array.full_jac.toarray(), known_jac)
 
         # Now create the variable at the previous iterate. This should also give the
-        # most recent value in pp.ITERATE_SOLUTIONS, but it should not yield an AdArray.
+        # most recent value in pp.ITERATE_SOLUTIONS, but it should not yield a
+        # SparseAdArray.
         var_prev_iter = var.previous_iteration()
         ad_array_prev_iter = var_prev_iter.value_and_jacobian(equation_system)
-        assert isinstance(ad_array_prev_iter, pp.ad.AdArray)
+        assert isinstance(ad_array_prev_iter, pp.ad.SparseAdArray)
         assert np.allclose(ad_array_prev_iter.val, 2)
         assert np.allclose(ad_array_prev_iter.jac.toarray(), np.zeros(known_jac.shape))
 
@@ -83,15 +84,15 @@ def test_evaluate_variables():
         # recent value in pp.TIME_STEP_SOLUTIONS.
         var_prev_timestep = var.previous_timestep()
         ad_array_prev_timestep = var_prev_timestep.value_and_jacobian(equation_system)
-        assert isinstance(ad_array_prev_timestep, pp.ad.AdArray)
+        assert isinstance(ad_array_prev_timestep, pp.ad.SparseAdArray)
         assert np.allclose(ad_array_prev_timestep.val, 1)
         assert np.allclose(
             ad_array_prev_timestep.jac.toarray(), np.zeros(known_jac.shape)
         )
 
         # Use the ad machinery to define the difference between the current and previous
-        # time step. This should give an AdArray with the same value as that obtained by
-        # subtracting the evaluated variables.
+        # time step. This should give a SparseAdArray with the same value as that
+        # obtained by subtracting the evaluated variables.
         var_increment = pp.ad.time_increment(var)
         ad_array_increment = var_increment.value_and_jacobian(equation_system)
         assert isinstance(ad_array_increment, pp.ad.AdArrayBase)
