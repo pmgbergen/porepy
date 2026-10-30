@@ -543,7 +543,6 @@ def test_diagonal_ad_array_coerces_int_val_and_jac_to_float():
     var = DiagonalAdArray(
         val,
         jac,
-        row_indices=np.arange(3),
         col_indices=[np.arange(3)],
         num_derivatives=3,
     )
@@ -557,7 +556,6 @@ def _diagonal_ad_array_with_indices() -> DiagonalAdArray:
     return DiagonalAdArray(
         np.array([1.0, 2.0]),
         np.array([3.0, 4.0]),
-        row_indices=np.array([2, 5]),
         col_indices=[np.array([2, 5])],
         num_derivatives=6,
     )
@@ -575,7 +573,6 @@ def test_diagonal_ad_array_copy_with_data():
     assert isinstance(new_var, DiagonalAdArray)
     assert new_var.val is new_val
     assert new_var.jac is new_jac
-    assert new_var.row_indices is var.row_indices
     assert new_var.col_indices is var.col_indices
     assert new_var.num_derivatives == 6
 
@@ -594,19 +591,16 @@ def test_diagonal_ad_array_copy(deep: bool):
     assert not np.shares_memory(new_var.val, var.val)
     assert not np.shares_memory(new_var.jac, var.jac)
 
-    assert np.array_equal(new_var.row_indices, var.row_indices)
     assert all(
         np.array_equal(new, old)
         for new, old in zip(new_var.col_indices, var.col_indices)
     )
     if deep:
-        assert not np.shares_memory(new_var.row_indices, var.row_indices)
         assert not any(
             np.shares_memory(new, old)
             for new, old in zip(new_var.col_indices, var.col_indices)
         )
     else:
-        assert new_var.row_indices is var.row_indices
         assert new_var.col_indices is var.col_indices
 
 
@@ -678,15 +672,28 @@ def test_ad_array_rejects_dense_jacobian():
         AdArray(np.array([1.0, 2.0]), np.ones((1, 2)))  # type: ignore[arg-type]
 
 
-def test_diagonal_ad_array_rejects_inconsistent_jacobian():
-    """The diagonal Jacobian must have one column per entry in the value."""
+@pytest.mark.parametrize(
+    "jac, col_indices",
+    [
+        # One column too many in the Jacobian.
+        (np.ones((1, 3)), [np.arange(2)]),
+        # Two blocks in the Jacobian, one array of column indices.
+        (np.ones((2, 2)), [np.arange(2)]),
+        # One column index too few.
+        (np.ones((1, 2)), [np.arange(1)]),
+    ],
+)
+def test_diagonal_ad_array_rejects_inconsistent_jacobian(
+    jac: np.ndarray, col_indices: list[np.ndarray]
+):
+    """The diagonal Jacobian must have one column per entry in the value, and the
+    column indices one array per block of the Jacobian, with one index per entry."""
     with pytest.raises(ValueError):
         DiagonalAdArray(
             np.array([1.0, 2.0]),
-            np.ones((1, 3)),
-            row_indices=np.arange(2),
-            col_indices=[np.arange(2)],
-            num_derivatives=2,
+            jac,
+            col_indices=col_indices,
+            num_derivatives=4,
         )
 
 
