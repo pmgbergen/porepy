@@ -17,10 +17,10 @@ Note:
 on some specified grids, at a specified time and iterate index.
 
 Note:
-    A connection between operator and factory class is established via
-    :attr:`SurrogateOperator.fetch_data`. Since operators are in general *not aware* of
-    the mixed-dimensional grid, a connection to the factory is required to fetch the
-    data for the correct grids, at the correct time and iterate index.
+    A connection between operator and factory class is established via the argument
+    ``fetch_data`` of :class:`SurrogateOperator`. Since operators are in general *not
+    aware* of the mixed-dimensional grid, a connection to the factory is required to
+    fetch the data for the correct grids, at the correct time and iterate index.
     Therefore, the class :class:`SurrogateOperator` should not be instantiated directly,
     but only calling the factory class.
 
@@ -165,6 +165,8 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         domains: Arguments to its call.
         children: The first-order dependencies of the called
             :class:`SurrogateFactory` in AD form (defined on the same ``domains``).
+        fetch_data: A function returning the stored data for a surrogate operator on a
+            grid, see :meth:`SurrogateFactory.fetch_data`.
         dof_info: Mapping from grid entities to the number of DOFs per entity. Defaults
             to ``{GridEntity.cells: 1}``.
         domain_type: The type of domain (subdomains or interfaces) that *domains*
@@ -177,6 +179,7 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         name: str,
         domains: Sequence[pp.Grid] | Sequence[pp.MortarGrid],
         children: Sequence[pp.ad.Variable],
+        fetch_data: Callable[[SurrogateOperator, pp.GridLike, bool], np.ndarray],
         dof_info: Optional[Union[GridEntities, Mapping[GridEntity, int]]] = None,
         domain_type: Optional[pp.ad.DomainType] = None,
     ) -> None:
@@ -192,12 +195,14 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
             target=op_space,
         )
 
-        self._fetch_data: Callable[[SurrogateOperator, pp.GridLike, bool], np.ndarray]
+        self._fetch_data: Callable[
+            [SurrogateOperator, pp.GridLike, bool], np.ndarray
+        ] = fetch_data
         """A function returning the stored data for a surrogate operator on a grid,
         which is time step and iterate index dependent.
 
-        This function is assigned by the factory class :class:`SurrogateFactory`
-        which has a reference to the md-grid and must not be touched by the user.
+        This function is passed by the factory class :class:`SurrogateFactory`, which
+        has a reference to the md-grid, and must not be touched by the user.
 
         Note:
             This method is private in the surrogate **operator**, because it is not
@@ -580,17 +585,13 @@ class SurrogateFactory:
             )
 
             # always start with operator at current time step, current iterate
-            op = SurrogateOperator(
+            return SurrogateOperator(
                 name=self.name,
                 domains=domains_,
                 children=children,
+                fetch_data=self.fetch_data,
                 dof_info=self._dof_info,
             )
-
-            # assign the function which extracts the data
-            op._fetch_data = self.fetch_data
-
-            return op
         else:
             raise ValueError(
                 f"Unsupported domain configuration {[type(g) for g in domains]}."
@@ -605,7 +606,7 @@ class SurrogateFactory:
         ``op`` has a time step or iterate index, which specifies which data should be
         fetched.
 
-        This function is assigned to :attr:`SurrogateOperator.fetch_data`
+        This function is passed to :class:`SurrogateOperator` as ``fetch_data``
         (a work-around such that the Ad operator has no reference to the md-grid like
         the other operators).
 
