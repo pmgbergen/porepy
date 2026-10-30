@@ -976,8 +976,8 @@ class SourceTerms:
         # good code practice
         internal_sources: pp.ad.Operator = super().fluid_source(subdomains)
 
-        # External sources are retrieved from pp.TIME_STEP_SOLUTIONS and wrapped as an
-        # AdArray.
+        # External sources are retrieved from pp.TIME_STEP_SOLUTIONS and wrapped as a
+        # SparseAdArray.
         external_sources = pp.ad.TimeDependentDenseArray(
             name="source_flow",
             domains=self.mdg.subdomains(),
@@ -1008,8 +1008,8 @@ class SourceTerms:
         # good code practice
         internal_sources: pp.ad.Operator = super().energy_source(subdomains)
 
-        # External sources are retrieved from pp.TIME_STEP_SOLUTIONS and wrapped as an
-        # AdArray.
+        # External sources are retrieved from pp.TIME_STEP_SOLUTIONS and wrapped as a
+        # SparseAdArray.
         external_sources = pp.ad.TimeDependentDenseArray(
             name="source_energy",
             domains=self.mdg.subdomains(),
