@@ -17,10 +17,10 @@ Note:
 on some specified grids, at a specified time and iterate index.
 
 Note:
-    A connection between operator and factory class is established via
-    :attr:`SurrogateOperator.fetch_data`. Since operators are in general *not aware* of
-    the mixed-dimensional grid, a connection to the factory is required to fetch the
-    data for the correct grids, at the correct time and iterate index.
+    A connection between operator and factory class is established via the argument
+    ``fetch_data`` of :class:`SurrogateOperator`. Since operators are in general *not
+    aware* of the mixed-dimensional grid, a connection to the factory is required to
+    fetch the data for the correct grids, at the correct time and iterate index.
     Therefore, the class :class:`SurrogateOperator` should not be instantiated directly,
     but only calling the factory class.
 
@@ -165,6 +165,8 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         domains: Arguments to its call.
         children: The first-order dependencies of the called
             :class:`SurrogateFactory` in AD form (defined on the same ``domains``).
+        fetch_data: A function returning the stored data for a surrogate operator on a
+            grid, see :meth:`SurrogateFactory.fetch_data`.
         dof_info: Mapping from grid entities to the number of DOFs per entity. Defaults
             to ``{GridEntity.cells: 1}``.
         domain_type: The type of domain (subdomains or interfaces) that *domains*
@@ -177,6 +179,7 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         name: str,
         domains: Sequence[pp.Grid] | Sequence[pp.MortarGrid],
         children: Sequence[pp.ad.Variable],
+        fetch_data: Callable[[SurrogateOperator, pp.GridLike, bool], np.ndarray],
         dof_info: Optional[Union[GridEntities, Mapping[GridEntity, int]]] = None,
         domain_type: Optional[pp.ad.DomainType] = None,
     ) -> None:
@@ -192,12 +195,14 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
             target=op_space,
         )
 
-        self._fetch_data: Callable[[SurrogateOperator, pp.GridLike, bool], np.ndarray]
+        self._fetch_data: Callable[
+            [SurrogateOperator, pp.GridLike, bool], np.ndarray
+        ] = fetch_data
         """A function returning the stored data for a surrogate operator on a grid,
         which is time step and iterate index dependent.
 
-        This function is assigned by the factory class :class:`SurrogateFactory`
-        which has a reference to the md-grid and must not be touched by the user.
+        This function is passed by the factory class :class:`SurrogateFactory`, which
+        has a reference to the md-grid, and must not be touched by the user.
 
         Note:
             This method is private in the surrogate **operator**, because it is not
@@ -551,6 +556,11 @@ class SurrogateFactory:
         Raises:
             ValueError: If ``domains`` is not composed of either grids, mortar grids or
                 boundary grids.
+            TypeError: If a dependency is not a variable, see
+                :meth:`_check_dependency`.
+            ValueError: If a dependency is not defined on ``domains``, in the same
+                order, or has a different number of DOFs than this expression, see
+                :meth:`_check_dependency`.
 
         """
 
@@ -572,28 +582,70 @@ class SurrogateFactory:
             # Call the provided method for obtaining children (independent variables) on
             # the domains.
             children = [child(domains_) for child in self._dependencies]
-
-            # Check if first-order dependency
-            assert all(isinstance(child, pp.ad.Variable) for child in children), (
-                "Surrogate operators must depend on independent variables, not"
-                + f" {[type(c) for c in children]}."
-            )
+            for child in children:
+                self._check_dependency(child, domains_)
 
             # always start with operator at current time step, current iterate
-            op = SurrogateOperator(
+            return SurrogateOperator(
                 name=self.name,
                 domains=domains_,
                 children=children,
+                fetch_data=self.fetch_data,
                 dof_info=self._dof_info,
             )
-
-            # assign the function which extracts the data
-            op._fetch_data = self.fetch_data
-
-            return op
         else:
             raise ValueError(
                 f"Unsupported domain configuration {[type(g) for g in domains]}."
+            )
+
+    def _check_dependency(
+        self,
+        dependency: pp.ad.Operator,
+        domains: Sequence[pp.Grid] | Sequence[pp.MortarGrid],
+    ) -> None:
+        """Check that a dependency, called on some domains, is consistent with the
+        surrogate operator on the same domains.
+
+        The values and derivative values of a surrogate operator are stacked in the
+        order of the domains it is called with, while the rows of a variable follow the
+        order of its sub-variables. In the evaluation, the derivative values are
+        combined with the rows of the dependencies, hence the two orders, as well as
+        the numbers of DOFs, must coincide.
+
+        Parameters:
+            dependency: A dependency of this expression, called on ``domains``.
+            domains: The domains this expression is called with.
+
+        Raises:
+            TypeError: If ``dependency`` is not a variable.
+            ValueError: If ``dependency`` is not defined on ``domains``, in the same
+                order, or if its number of DOFs differs from that of this expression on
+                ``domains``.
+
+        """
+        if not isinstance(dependency, pp.ad.Variable):
+            raise TypeError(
+                f"Surrogate operator {self.name} must depend on variables, not on"
+                f" {type(dependency)}."
+            )
+        if isinstance(dependency, pp.ad.MixedDimensionalVariable):
+            dependency_domains = [var.domain for var in dependency.sub_vars]
+        else:
+            dependency_domains = [dependency.domain]
+        if len(dependency_domains) != len(domains) or any(
+            a is not b for a, b in zip(dependency_domains, domains)
+        ):
+            raise ValueError(
+                f"Dependency {dependency.name} of surrogate operator {self.name} must"
+                " be defined on the domains the operator is called with, in the same"
+                " order. Call the operator on domains in the order of the"
+                " mixed-dimensional grid."
+            )
+        num_dofs = sum(self.num_dofs_on_grid(grid) for grid in domains)
+        if dependency.size != num_dofs:
+            raise ValueError(
+                f"Dependency {dependency.name} of surrogate operator {self.name} has"
+                f" {dependency.size} DOFs, but the operator has {num_dofs}."
             )
 
     def fetch_data(
@@ -605,7 +657,7 @@ class SurrogateFactory:
         ``op`` has a time step or iterate index, which specifies which data should be
         fetched.
 
-        This function is assigned to :attr:`SurrogateOperator.fetch_data`
+        This function is passed to :class:`SurrogateOperator` as ``fetch_data``
         (a work-around such that the Ad operator has no reference to the md-grid like
         the other operators).
 
