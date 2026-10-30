@@ -543,7 +543,6 @@ def test_diagonal_ad_array_coerces_int_val_and_jac_to_float():
     var = DiagonalAdArray(
         val,
         jac,
-        row_indices=np.arange(3),
         col_indices=[np.arange(3)],
         num_derivatives=3,
     )
@@ -557,7 +556,6 @@ def _diagonal_ad_array_with_indices() -> DiagonalAdArray:
     return DiagonalAdArray(
         np.array([1.0, 2.0]),
         np.array([3.0, 4.0]),
-        row_indices=np.array([2, 5]),
         col_indices=[np.array([2, 5])],
         num_derivatives=6,
     )
@@ -575,7 +573,6 @@ def test_diagonal_ad_array_copy_with_data():
     assert isinstance(new_var, DiagonalAdArray)
     assert new_var.val is new_val
     assert new_var.jac is new_jac
-    assert new_var.row_indices is var.row_indices
     assert new_var.col_indices is var.col_indices
     assert new_var.num_derivatives == 6
 
@@ -594,19 +591,16 @@ def test_diagonal_ad_array_copy(deep: bool):
     assert not np.shares_memory(new_var.val, var.val)
     assert not np.shares_memory(new_var.jac, var.jac)
 
-    assert np.array_equal(new_var.row_indices, var.row_indices)
     assert all(
         np.array_equal(new, old)
         for new, old in zip(new_var.col_indices, var.col_indices)
     )
     if deep:
-        assert not np.shares_memory(new_var.row_indices, var.row_indices)
         assert not any(
             np.shares_memory(new, old)
             for new, old in zip(new_var.col_indices, var.col_indices)
         )
     else:
-        assert new_var.row_indices is var.row_indices
         assert new_var.col_indices is var.col_indices
 
 
@@ -678,15 +672,28 @@ def test_ad_array_rejects_dense_jacobian():
         AdArray(np.array([1.0, 2.0]), np.ones((1, 2)))  # type: ignore[arg-type]
 
 
-def test_diagonal_ad_array_rejects_inconsistent_jacobian():
-    """The diagonal Jacobian must have one column per entry in the value."""
+@pytest.mark.parametrize(
+    "jac, col_indices",
+    [
+        # One column too many in the Jacobian.
+        (np.ones((1, 3)), [np.arange(2)]),
+        # Two blocks in the Jacobian, one array of column indices.
+        (np.ones((2, 2)), [np.arange(2)]),
+        # One column index too few.
+        (np.ones((1, 2)), [np.arange(1)]),
+    ],
+)
+def test_diagonal_ad_array_rejects_inconsistent_jacobian(
+    jac: np.ndarray, col_indices: list[np.ndarray]
+):
+    """The diagonal Jacobian must have one column per entry in the value, and the
+    column indices one array per block of the Jacobian, with one index per entry."""
     with pytest.raises(ValueError):
         DiagonalAdArray(
             np.array([1.0, 2.0]),
-            np.ones((1, 3)),
-            row_indices=np.arange(2),
-            col_indices=[np.arange(2)],
-            num_derivatives=2,
+            jac,
+            col_indices=col_indices,
+            num_derivatives=4,
         )
 
 
@@ -786,3 +793,73 @@ def test_chain_rule(representation: str):
     assert np.allclose(
         result.full_jac.toarray(), (sps.diags(val) @ x.full_jac).toarray()
     )
+
+
+def _diagonal_arrays_with_structures(
+    joint: bool,
+) -> tuple[DiagonalAdArray, DiagonalAdArray]:
+    """Two diagonal Ad arrays of two entries each, in a system of four degrees of
+    freedom.
+
+    Parameters:
+        joint: If True, the arrays are initialized jointly, and share a Jacobian
+            structure with two blocks. Otherwise, each array is initialized separately,
+            with a single block of its own.
+
+    """
+    vals = [np.array([1.0, 2.0]), np.array([3.0, 4.0])]
+    indices = [np.array([0, 1]), np.array([2, 3])]
+    if joint:
+        a, b = initialize_diagonal_ad_arrays(vals, indices, 4)
+    else:
+        a = initialize_diagonal_ad_arrays(vals[:1], indices[:1], 4)[0]
+        b = initialize_diagonal_ad_arrays(vals[1:], indices[1:], 4)[0]
+    return a, b
+
+
+@pytest.mark.parametrize("op", ["+", "-", "*", "/", "**"])
+@pytest.mark.parametrize("joint", [True, False])
+def test_operations_between_diagonal_structures(op: str, joint: bool):
+    """An operation between diagonal Ad arrays gives a DiagonalAdArray if they share a
+    Jacobian structure, and an AdArray otherwise. In both cases, the value and Jacobian
+    equal those of the operation between the full representations."""
+    a, b = _diagonal_arrays_with_structures(joint)
+
+    result = eval(f"a {op} b")
+    reference = eval(f"a.to_full() {op} b.to_full()")
+
+    assert isinstance(result, DiagonalAdArray if joint else AdArray)
+    assert np.allclose(result.val, reference.val)
+    assert np.allclose(result.full_jac.toarray(), reference.jac.toarray())
+
+
+@pytest.mark.parametrize("same_entries", [True, False])
+def test_operations_between_sliced_diagonal_arrays(same_entries: bool):
+    """Slices of jointly initialized diagonal Ad arrays share a Jacobian structure if
+    they contain the same entries, although the slicing creates new column indices."""
+    a, b = _diagonal_arrays_with_structures(joint=True)
+    key_b = np.array([0]) if same_entries else np.array([1])
+
+    result = a[np.array([0])] + b[key_b]
+    reference = a[np.array([0])].to_full() + b[key_b].to_full()
+
+    assert isinstance(result, DiagonalAdArray if same_entries else AdArray)
+    assert np.allclose(result.full_jac.toarray(), reference.jac.toarray())
+
+
+def test_setitem_diagonal_with_other_structure_raises_without_modification():
+    """A diagonal Ad array which does not share the Jacobian structure of the target
+    cannot be inserted. The failed insertion must leave the target untouched."""
+    a, b = _diagonal_arrays_with_structures(joint=False)
+    val, jac = a.val.copy(), a.jac.copy()
+
+    with pytest.raises(ValueError):
+        a[0:2] = b
+
+    assert np.array_equal(a.val, val)
+    assert np.array_equal(a.jac, jac)
+
+    # An array with the structure of the target at the key can be inserted.
+    c, _ = _diagonal_arrays_with_structures(joint=False)
+    a[0:1] = 2.0 * c[0:1]
+    assert np.allclose(a.full_jac.toarray()[0], [2.0, 0.0, 0.0, 0.0])

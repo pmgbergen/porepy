@@ -690,22 +690,22 @@ def test_number_of_arguments_must_match_dependencies(
         sop.get_jacobian(*sparse_array, sparse_array[0])
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Arithmetic on diagonal Ad arrays assumes, but does not check, that the"
-    " arrays share a Jacobian structure.",
-)
 def test_separately_initialized_diagonal_arguments(
     equation_system: pp.ad.EquationSystem,
 ):
     """The Jacobian of a surrogate operator is correct also for diagonal arguments that
-    were initialized separately, and thus do not share a Jacobian structure."""
+    were initialized separately, and thus do not share a Jacobian structure. The result
+    is then in the full representation."""
     sop, _, diagonal_array, expected_jacobian = _surrogate_and_arguments(
         equation_system, [VAR1_NAME, VAR2_NAME], [2.0, 3.0]
     )
     num_dofs = equation_system.num_dofs()
     args = [
-        pp.ad.initialize_diagonal_ad_arrays([arg.val], [arg.row_indices], num_dofs)[0]
-        for arg in diagonal_array
+        pp.ad.initialize_diagonal_ad_arrays(
+            [arg.val], [equation_system.dofs_of([name])], num_dofs
+        )[0]
+        for arg, name in zip(diagonal_array, [VAR1_NAME, VAR2_NAME])
     ]
-    np.testing.assert_allclose(sop.func(*args).full_jac.toarray(), expected_jacobian)
+    result = sop.func(*args)
+    assert isinstance(result, pp.ad.AdArray)
+    np.testing.assert_allclose(result.full_jac.toarray(), expected_jacobian)
