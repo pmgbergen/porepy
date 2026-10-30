@@ -556,6 +556,11 @@ class SurrogateFactory:
         Raises:
             ValueError: If ``domains`` is not composed of either grids, mortar grids or
                 boundary grids.
+            TypeError: If a dependency is not a variable, see
+                :meth:`_check_dependency`.
+            ValueError: If a dependency is not defined on ``domains``, in the same
+                order, or has a different number of DOFs than this expression, see
+                :meth:`_check_dependency`.
 
         """
 
@@ -577,12 +582,8 @@ class SurrogateFactory:
             # Call the provided method for obtaining children (independent variables) on
             # the domains.
             children = [child(domains_) for child in self._dependencies]
-
-            # Check if first-order dependency
-            assert all(isinstance(child, pp.ad.Variable) for child in children), (
-                "Surrogate operators must depend on independent variables, not"
-                + f" {[type(c) for c in children]}."
-            )
+            for child in children:
+                self._check_dependency(child, domains_)
 
             # always start with operator at current time step, current iterate
             return SurrogateOperator(
@@ -595,6 +596,56 @@ class SurrogateFactory:
         else:
             raise ValueError(
                 f"Unsupported domain configuration {[type(g) for g in domains]}."
+            )
+
+    def _check_dependency(
+        self,
+        dependency: pp.ad.Operator,
+        domains: Sequence[pp.Grid] | Sequence[pp.MortarGrid],
+    ) -> None:
+        """Check that a dependency, called on some domains, is consistent with the
+        surrogate operator on the same domains.
+
+        The values and derivative values of a surrogate operator are stacked in the
+        order of the domains it is called with, while the rows of a variable follow the
+        order of its sub-variables. In the evaluation, the derivative values are
+        combined with the rows of the dependencies, hence the two orders, as well as
+        the numbers of DOFs, must coincide.
+
+        Parameters:
+            dependency: A dependency of this expression, called on ``domains``.
+            domains: The domains this expression is called with.
+
+        Raises:
+            TypeError: If ``dependency`` is not a variable.
+            ValueError: If ``dependency`` is not defined on ``domains``, in the same
+                order, or if its number of DOFs differs from that of this expression on
+                ``domains``.
+
+        """
+        if not isinstance(dependency, pp.ad.Variable):
+            raise TypeError(
+                f"Surrogate operator {self.name} must depend on variables, not on"
+                f" {type(dependency)}."
+            )
+        if isinstance(dependency, pp.ad.MixedDimensionalVariable):
+            dependency_domains = [var.domain for var in dependency.sub_vars]
+        else:
+            dependency_domains = [dependency.domain]
+        if len(dependency_domains) != len(domains) or any(
+            a is not b for a, b in zip(dependency_domains, domains)
+        ):
+            raise ValueError(
+                f"Dependency {dependency.name} of surrogate operator {self.name} must"
+                " be defined on the domains the operator is called with, in the same"
+                " order. Call the operator on domains in the order of the"
+                " mixed-dimensional grid."
+            )
+        num_dofs = sum(self.num_dofs_on_grid(grid) for grid in domains)
+        if dependency.size != num_dofs:
+            raise ValueError(
+                f"Dependency {dependency.name} of surrogate operator {self.name} has"
+                f" {dependency.size} DOFs, but the operator has {num_dofs}."
             )
 
     def fetch_data(
