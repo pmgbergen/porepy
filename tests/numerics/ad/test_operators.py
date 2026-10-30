@@ -1179,7 +1179,6 @@ def _get_diag_array(
         ad_arr = pp.ad.DiagonalAdArray(
             jac * variable_val,
             jac,
-            row_indices=np.arange(variable_val.size),
             col_indices=[np.arange(variable_val.size)],
             num_derivatives=3,
         )
@@ -1628,7 +1627,6 @@ def _expected_value(
         return pp.ad.DiagonalAdArray(
             val,
             jac,
-            row_indices=np.arange(3),
             col_indices=[np.arange(3)],
             num_derivatives=3,
         )
