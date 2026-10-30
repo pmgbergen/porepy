@@ -1054,7 +1054,7 @@ def test_diagonal_scaling_matrix():
 
 def test_array_slicer_diagonal_ad_array():
     """The ArraySlicer accepts Ad arrays in the diagonal representation, and returns the
-    slice of their full representation."""
+    slice of their sparse representation."""
     diagonal = pp.ad.initialize_diagonal_ad_arrays(
         [np.array([1.0, 2.0, 3.0])], [np.array([0, 1, 2])], 3
     )[0]
