@@ -43,7 +43,7 @@ figures:
     matplotlib_plot:
       script: geothermal_flow/benchmark/plotting/plot_benchmark_comparison.py
       porepy_csv: csv/benchmark/porepy_benchmark_profile.csv
-      reference_dir: geothermal_flow/benchmark/reference_data_same_vis
+      reference_dir: geothermal_flow/benchmark/reference_data
       output: figures/benchmark/figure7.png
       simulation_time_years: 2000
       residual_liquid_saturation: 0.3
