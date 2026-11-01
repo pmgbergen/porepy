@@ -121,8 +121,6 @@ class VTKSamplerMixin:
 # =============================================================================
 # Geometry
 # =============================================================================
-
-
 class BenchmarkHorizontalGeometry(pp.PorePyModel):
     """Horizontal benchmark domain used for the CSMP comparison.
 
@@ -255,7 +253,8 @@ class _FractionalFlowBCMixin:
         r_l, r_v = 0.3, 0.0
         denom = 1.0 - r_l - r_v
         kr_l = np.maximum((s["liq"] - r_l) / denom, 0.0)
-        kr_v = np.maximum((s["gas"] - r_v) / denom, 0.0)
+        # kr_v = np.maximum((s["gas"] - r_v) / denom, 0.0)
+        kr_v = np.clip((s["gas"] - r_v) / denom, 0.0, 1.0)
         kr_h = np.zeros_like(s["liq"])
         return {"liq": kr_l, "gas": kr_v, "halite": kr_h}
 
@@ -443,26 +442,15 @@ class BenchmarkThreePhaseBoundaryConditions(_FractionalFlowBCMixin, pp.PorePyMod
         return values
 
     def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        """Evaluate boundary enthalpy from p-T-z conditions."""
         values = np.zeros(boundary_grid.num_cells)
-
         sides = self.domain_boundary_sides(boundary_grid)
-        p = self.bc_values_pressure(boundary_grid)
-        t = self.bc_values_temperature(boundary_grid)
         dirichlet = sides.west | sides.east
-
         if np.any(dirichlet):
-            nacl_component = next(
-                component
-                for component in self.fluid.components
-                if component.name == "NaCl"
-            )
-            z_nacl = self.bc_values_overall_fraction(nacl_component, boundary_grid)
-
-            points = np.array((z_nacl[dirichlet], t[dirichlet], p[dirichlet])).T
-            self.vtk_sampler_ptz.sample_at(points)
-            values[dirichlet] = self.vtk_sampler_ptz.sampled_cloud.point_data["H"]
-
+            nacl = next(c for c in self.fluid.components if c.name == "NaCl")
+            z = self.bc_values_overall_fraction(nacl, boundary_grid)[dirichlet]
+            T = self.bc_values_temperature(boundary_grid)[dirichlet]
+            p = self.bc_values_pressure(boundary_grid)[dirichlet]
+            values[dirichlet] = self._bulk_enthalpy_ptz(z, T, p)
         return values
 
     def bc_values_overall_fraction(
@@ -512,8 +500,6 @@ class BenchmarkThreePhaseBoundaryConditions(_FractionalFlowBCMixin, pp.PorePyMod
 # =============================================================================
 # Initial conditions
 # =============================================================================
-
-
 class BenchmarkThreePhaseInitialConditions(pp.PorePyModel):
     """Initial conditions for the low-pressure benchmark case."""
 
@@ -540,20 +526,20 @@ class BenchmarkThreePhaseInitialConditions(pp.PorePyModel):
         temperature = as_float(self._ic_config().get("temperature", 423.15))
         return np.ones(sd.num_cells) * temperature
 
+    def _bulk_enthalpy_ptz(self, z, T, p):
+        self.vtk_sampler_ptz.sample_at(np.array((z, T, p)).T)
+        pd = self.vtk_sampler_ptz.sampled_cloud.point_data
+        num = sum(np.asarray(pd[f"S_{g}"]) * np.asarray(pd[f"Rho_{g}"]) * np.asarray(pd[f"H_{g}"]) for g in ("l", "v", "h"))
+        den = sum(np.asarray(pd[f"S_{g}"]) * np.asarray(pd[f"Rho_{g}"]) for g in ("l", "v", "h"))
+        return num / den
+
     def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
-        """Evaluate initial enthalpy from p-T-z conditions."""
-        pressure = self.ic_values_pressure(sd)
-        temperature = self.ic_values_temperature(sd)
-
-        nacl_component = next(
-            component for component in self.fluid.components if component.name == "NaCl"
+        nacl = next(c for c in self.fluid.components if c.name == "NaCl")
+        return self._bulk_enthalpy_ptz(
+            self.ic_values_overall_fraction(nacl, sd),
+            self.ic_values_temperature(sd),
+            self.ic_values_pressure(sd)
         )
-        z_nacl = self.ic_values_overall_fraction(nacl_component, sd)
-
-        points = np.array((z_nacl, temperature, pressure)).T
-        self.vtk_sampler_ptz.sample_at(points)
-
-        return self.vtk_sampler_ptz.sampled_cloud.point_data["H"]
 
     def ic_values_overall_fraction(
         self,
@@ -637,7 +623,13 @@ class BenchmarkThreePhaseSecondaryEquations(SecondaryEquations):
             )
             return maximum(s_eff, epsilon)
 
-        return (saturation - residual_vapor) / (1.0 - residual_liquid - residual_vapor)
+        s_eff = (saturation - residual_vapor) / (1.0 - residual_liquid - residual_vapor)
+        return -maximum(-maximum(s_eff, epsilon), pp.ad.Scalar(-1.0))  # min(max(s_eff, 0), 1)
+
+    def prepare_simulation(self) -> None:
+        super().prepare_simulation()
+        es = self.equation_system
+        es.set_variable_values(es.get_variable_values(iterate_index=0), time_step_index=0)
 
 
 class BenchmarkPorosityWithHaliteMixin(pp.PorePyModel):
@@ -663,6 +655,14 @@ class BenchmarkPorosityWithHaliteMixin(pp.PorePyModel):
         )
 
         return phi_0 * (1.0 - s_halite_clamped)
+
+
+class BenchmarkConstantPorosityMixin(pp.PorePyModel):
+    """Storage with the full porosity phi_0 (Weis et al. 2014, Eqs. 2-4); halite enters only via s_h and K."""
+
+    def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        size = sum(sd.num_cells for sd in subdomains)
+        return pp.wrap_as_dense_ad_array(self.solid.porosity, size, name="porosity")
 
 
 class BenchmarkPermeabilityWithHaliteMixin(pp.PorePyModel):
@@ -721,10 +721,20 @@ class SolverStatisticsMixin(pp.PorePyModel):
         self.exporter.write_pvd()
         print("Benchmark PVD output written.")
 
+class BenchmarkRediscretizeDarcyFluxMixin(pp.PorePyModel):
+    """Re-discretise the Darcy flux every iteration in CF, since K depends on s_h."""
+
+    def add_nonlinear_darcy_flux_discretization(self) -> None:
+        super().add_nonlinear_darcy_flux_discretization()
+        if not cf.is_fractional_flow(self):
+            self.add_nonlinear_diffusive_flux_discretization(
+                self.darcy_flux_discretization(self.mdg.subdomains()).flux()
+            )
+
 
 class BenchmarkThreePhaseFlowModelCFF(
+    BenchmarkConstantPorosityMixin,
     SolverStatisticsMixin,
-    BenchmarkPorosityWithHaliteMixin,
     BenchmarkPermeabilityWithHaliteMixin,
     BenchmarkHorizontalGeometry,
     BenchmarkThreePhaseBoundaryConditions,
@@ -739,10 +749,10 @@ class BenchmarkThreePhaseFlowModelCFF(
 
     """
 
-
 class BenchmarkThreePhaseFlowModelCF(
+    BenchmarkRediscretizeDarcyFluxMixin,
+    BenchmarkConstantPorosityMixin,
     SolverStatisticsMixin,
-    BenchmarkPorosityWithHaliteMixin,
     BenchmarkPermeabilityWithHaliteMixin,
     BenchmarkHorizontalGeometry,
     BenchmarkThreePhaseBoundaryConditions,
