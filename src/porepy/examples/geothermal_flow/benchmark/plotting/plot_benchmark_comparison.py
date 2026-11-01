@@ -33,6 +33,29 @@ plt.rcParams["font.family"] = "serif"
 plt.rcParams["text.latex.preamble"] = r"\usepackage{lmodern}\usepackage{bm}"
 
 
+# Zone labels: text, x position (axes fraction of the 0-2 km axis), font size, rotation.
+REGION_LABELS = (
+    ("Vapor\n+\nHalite", 0.08, 15, 0),
+    ("Vapor \n+ \nLiquid", 0.42, 15, 0),
+    ("Liquid", 0.59, 14, 90),
+    ("Liquid\n+\nHalite", 0.86, 15, 0),
+)
+
+def annotate_regions(ax: plt.Axes, heights: tuple[float, float, float, float]) -> None:
+    """Write the four zone labels on ax, at the given heights (axes fractions)."""
+    for (text, x, size, rotation), y in zip(REGION_LABELS, heights):
+        ax.text(
+            x,
+            y,
+            text,
+            transform=ax.transAxes,
+            fontsize=size,
+            rotation=rotation,
+            ha="center",
+            va="center",
+            color="black",
+        )
+        
 def load_reference_curve(path: str | Path) -> tuple[np.ndarray, np.ndarray]:
     """Load one CSMP reference curve."""
     path = Path(path)
@@ -197,7 +220,7 @@ def plot_benchmark_comparison(
         vapor_liquid_region = vapor_liquid_region or inferred["vapor_liquid"]
         liquid_halite_region = liquid_halite_region or inferred["liquid_halite"]
 
-    linewidth_porepy = 3.5
+    linewidth_porepy = 2.0
     linewidth_csmp = 3.5
     fontsize = 23
 
@@ -261,14 +284,14 @@ def plot_benchmark_comparison(
     ax_p.set_ylim(1.0, 4.0)
     ax_p.set_yticks([1.0, 2.0, 3.0, 4.0])
 
-    ax_tp.text(
-        0.68,
-        0.82,
-        rf"{simulation_time_years:g} years",
-        transform=ax_tp.transAxes,
-        fontsize=16,
-        color="black",
-    )
+    # ax_tp.text(
+    #     0.68,
+    #     0.82,
+    #     rf"{simulation_time_years:g} years",
+    #     transform=ax_tp.transAxes,
+    #     fontsize=16,
+    #     color="black",
+    # )
 
     # -------------------------------------------------------------------------
     # Right panel: Liquid and halite saturation
@@ -337,49 +360,9 @@ def plot_benchmark_comparison(
         linestyle="-",
         linewidth=1.8,
     )
-
     if show_annotations:
-        ax_sat.text(
-            0.08,
-            0.65,
-            "Vapor\n+\nHalite",
-            transform=ax_sat.transAxes,
-            fontsize=15,
-            ha="center",
-            va="center",
-            color="black",
-        )
-        ax_sat.text(
-            0.42,
-            0.61,
-            "Vapor + Liquid",
-            transform=ax_sat.transAxes,
-            fontsize=15,
-            ha="center",
-            va="center",
-            color="black",
-        )
-        ax_sat.text(
-            0.68,
-            0.58,
-            "Liquid",
-            transform=ax_sat.transAxes,
-            fontsize=14,
-            rotation=90,
-            ha="center",
-            va="center",
-            color="black",
-        )
-        ax_sat.text(
-            0.86,
-            0.65,
-            "Liquid\n+\nHalite",
-            transform=ax_sat.transAxes,
-            fontsize=15,
-            ha="center",
-            va="center",
-            color="black",
-        )
+        annotate_regions(ax_sat, heights=(0.65, 0.61, 0.58, 0.65))
+        annotate_regions(ax_tp, heights=(0.55, 0.25, 0.58, 0.55))
 
     style_spines(ax_tp, ax_p, ax_sat, ax_hal)
 
