@@ -185,8 +185,8 @@ class ConvergencePlotMixin:
         ax.minorticks_off()
 
         # Title on top, legend in one row beneath it, both above the data.
-        ax.set_title(title, color=self._INK, fontsize=18, loc="left", pad=30)
-        if len(names) > 1:
+        # ax.set_title(title, color=self._INK, fontsize=18, loc="left", pad=30)
+        if names:
             legend = ax.legend(
                 frameon=False,
                 fontsize=15,
@@ -214,14 +214,15 @@ class ConvergencePlotMixin:
         start = 1.6 * anchor
         for order in self.REFERENCE_ORDERS:
             line = start * (refinement / refinement[0]) ** (-order)
-            ax.plot(refinement, line, color=self._AXIS, linewidth=1.0, zorder=1)
+            # ax.plot(refinement, line, color=self._AXIS, linewidth=1.0, zorder=1)
+            ax.plot(refinement, line, color="0.4", linestyle=":", linewidth=1.4, zorder=1)
             ax.annotate(
                 f"order {order:g}",
                 xy=(refinement[-1], line[-1]),
                 xytext=(4, 0),
                 textcoords="offset points",
-                color=self._INK_MUTED,
-                fontsize=15,
+                color="0.4",
+                fontsize=12,
                 va="center",
             )
 

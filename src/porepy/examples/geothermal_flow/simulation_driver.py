@@ -180,6 +180,7 @@ def create_model_class(config: dict[str, Any]) -> type[pp.PorePyModel]:
             # Physical simulation times, in seconds, corresponding to exported VTU files.
             self.pvd_times_seconds: list[float] = []
             super().prepare_simulation()
+            
 
         def save_data_time_step(self) -> None:
             """Save one VTU time step and store its cumulative physical time."""

@@ -2,14 +2,14 @@ case_name: benchmark
 
 model:
   kind: benchmark_1d
-  fractional_flow: true
+  fractional_flow: false
 
 geometry: benchmark_horizontal
 
 time:
   end: 6.3072e10          # 2000 years in seconds
   dt_init: 3.1536e7       # 1 year in seconds
-  dt_min: 1.728e7         # 200 days in seconds
+  dt_min: 1.728e7         # 200 days in seconds 1.728e7
   dt_max: 3.1536e7
   constant_dt: false
   max_iterations: 200
@@ -54,7 +54,6 @@ solver:
   max_iterations: 200
   linear_solver: pypardiso
   flag_failure_as_diverged: true
-  use_anderson: true
 
 vtk:
   directory: model_configuration/constitutive_description/driesner_vtk_files
