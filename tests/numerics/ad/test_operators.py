@@ -1022,12 +1022,11 @@ def _get_ad_array(
     # variable. This expression is represented in the returned SparseAdArray, either
     # directly or (if wrapped=True) on abstract form.
     #
-    #  If this is confusing, it may be helpful to recall that a SparseAdArray can
-    # represent
-    #  any state, not only primary variables (e.g., a pp.ad.Variable). The main
-    #  motivation for using a more complex value is that the Jacobian matrix of primary
-    #  variables are identity matrices, thus compound expressions give higher chances of
-    #  uncovering errors.
+    # If this is confusing, it may be helpful to recall that a SparseAdArray can
+    # represent any state, not only primary variables (e.g., a pp.ad.Variable). The main
+    # motivation for using a more complex value is that the Jacobian matrix of primary
+    # variables are identity matrices, thus compound expressions give higher chances of
+    # uncovering errors.
 
     # This is the value of the variable
     variable_val = np.ones(3)
