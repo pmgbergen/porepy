@@ -1,6 +1,6 @@
 """Convergence figure of the manufactured-solution test.
 
-Errors are plotted as ``log2(error)`` against ``log2(1/h)``, so a quantity
+Errors are plotted as ``log2(error)`` against ``log2(1/delta zeta)``, so a quantity
 converging at order ``p`` is a line of slope ``-p``.
 """
 
@@ -23,7 +23,6 @@ class PlotConvergenceUtil:
         "markersize": 4,
         "linewidth": 1.1,
     }
-
 
     PRIMARY_VARIABLES = {
         "pressure": "pressure",
@@ -50,7 +49,9 @@ class PlotConvergenceUtil:
         reference_orders: Sequence[float] = (1, 2),
     ):
         if len(results) < 2:
-            raise ValueError("At least two refinement levels are needed to plot convergence.")
+            raise ValueError(
+                "At least two refinement levels are needed to plot convergence."
+            )
         # Coarsest first, whatever order the levels were supplied in.
         self.results = sorted(results, key=lambda r: r.cell_diameter, reverse=True)
         self.primary_variables = dict(
@@ -89,11 +90,15 @@ class PlotConvergenceUtil:
             The values, coarsest first; NaN where the error is zero.
 
         """
-        errors = np.array([getattr(r, "error_" + quantity) for r in self.results], dtype=float)
+        errors = np.array(
+            [getattr(r, "error_" + quantity) for r in self.results], dtype=float
+        )
         with np.errstate(divide="ignore", invalid="ignore"):
             return np.where(errors > 0.0, np.log2(errors), np.nan)
 
-    def observed_order(self, quantity: str, data_range: slice = slice(-2, None)) -> float:
+    def observed_order(
+        self, quantity: str, data_range: slice = slice(-2, None)
+    ) -> float:
         """Least-squares order of convergence over ``data_range``.
 
         Parameters:
@@ -124,6 +129,8 @@ class PlotConvergenceUtil:
         primary_title: Optional[str] = None,
         interface_title: Optional[str] = None,
         show_legend: bool = True,
+        margins: Optional[dict] = None,
+        ylabel_x: Optional[float] = None,
     ):
         """Draw both panels and optionally save the figure.
 
@@ -154,7 +161,7 @@ class PlotConvergenceUtil:
             "legend.title_fontsize": fontsize - 2,
         }
         self._markersize, self._linewidth = markersize, linewidth
-        
+
         with plt.rc_context(fonts):
             fig, (ax_primary, ax_interface) = plt.subplots(1, 2, figsize=figsize)
             ylabel = r"$\log_2$ of relative $l_2$ error"
@@ -173,19 +180,23 @@ class PlotConvergenceUtil:
 
             if title is not None:
                 fig.suptitle(title)
-        
-            fig.tight_layout()
-            if legend_below:
-                fig.subplots_adjust(wspace=0.25)
+
+            if margins is None:
+                fig.tight_layout()
+                if legend_below:
+                    fig.subplots_adjust(wspace=0.25)
+            else:
+                fig.subplots_adjust(**margins)
+            if ylabel_x is not None:
+                ax_primary.yaxis.set_label_coords(ylabel_x, 0.5)
 
             if show_legend:
                 if legend_below:
                     fig.canvas.draw()
                 for ax in (ax_primary, ax_interface):
                     if legend_below:
-                        label_bounds = (
-                            ax.xaxis.label.get_window_extent()
-                            .transformed(ax.transAxes.inverted())
+                        label_bounds = ax.xaxis.label.get_window_extent().transformed(
+                            ax.transAxes.inverted()
                         )
                         ax.legend(
                             loc="upper center",
@@ -200,9 +211,12 @@ class PlotConvergenceUtil:
             if save_path is not None:
                 save_path = Path(save_path)
                 save_path.parent.mkdir(parents=True, exist_ok=True)
-                fig.savefig(save_path, dpi=600, bbox_inches="tight")
+                fig.savefig(
+                    save_path,
+                    dpi=600,
+                    **({} if margins is not None else {"bbox_inches": "tight"}),
+                )
         return fig, (ax_primary, ax_interface)
-
 
     def plot_primary_variables(self, ax, **panel_options) -> None:
         """Matrix and fracture primary variables on one axis.
@@ -217,7 +231,13 @@ class PlotConvergenceUtil:
             for subdomain, style in self.SUBDOMAIN_STYLES.items():
                 quantity = f"{subdomain}_{variable}"
                 if self.has_quantity(quantity):
-                    curves.append((quantity, f"{subdomain} {label}", {"color": f"C{index}", **style}))
+                    curves.append(
+                        (
+                            quantity,
+                            f"{subdomain} {label}",
+                            {"color": f"C{index}", **style},
+                        )
+                    )
         self._draw_panel(ax, curves, **panel_options)
 
     def plot_interface_fluxes(self, ax, **panel_options) -> None:
@@ -229,24 +249,33 @@ class PlotConvergenceUtil:
 
         """
         curves = [
-            (f"interface_{name}", label, {"color": f"C{index}", "marker": "^", "linestyle": "-"})
+            (
+                f"interface_{name}",
+                label,
+                {"color": f"C{index}", "marker": "^", "linestyle": "-"},
+            )
             for index, (name, label) in enumerate(self.interface_fluxes.items())
             if self.has_quantity(f"interface_{name}")
         ]
         self._draw_panel(ax, curves, **panel_options)
 
-    def _draw_panel(
-            self, ax, curves, *, title=None, xlabel=None, ylabel=None
-        ) -> None:
+    def _draw_panel(self, ax, curves, *, title=None, xlabel=None, ylabel=None) -> None:
         if not curves:
-            raise ValueError(f"None of the quantities for '{title}' are in the results.")
-        
+            raise ValueError(
+                f"None of the quantities for '{title}' are in the results."
+            )
+
         x = self.log2_inverse_h
         for quantity, label, style in curves:
-            ax.plot(x, self.log2_error(quantity), label=f"{label}", #({order:.2f})
+            ax.plot(
+                x,
+                self.log2_error(quantity),
+                label=f"{label}",  # ({order:.2f})
                 markersize=getattr(self, "_markersize", 6.0),
-                linewidth=getattr(self, "_linewidth", 1.4), **style)
-            
+                linewidth=getattr(self, "_linewidth", 1.4),
+                **style,
+            )
+
         self._draw_reference_orders(ax, [quantity for quantity, _, _ in curves])
         span = x[-1] - x[0]
         ax.set_xlim(x[0] - 0.05 * span, x[-1] + 0.2 * span)
@@ -259,7 +288,7 @@ class PlotConvergenceUtil:
         if title is not None:
             ax.set_title(title)
         ax.grid(True, linestyle=":", linewidth=0.5, alpha=0.6)
-    
+
     def _draw_reference_orders(self, ax, quantities, margin: float = 0.70) -> None:
         """Dotted reference slopes over the coarsest interval, drawn below every curve.
 
@@ -269,17 +298,27 @@ class PlotConvergenceUtil:
             margin: Gap below the curves, in ``log2`` units.
 
         """
-        
+
         x = self.log2_inverse_h[:2]
         first = np.array([self.log2_error(q)[0] for q in quantities])
         second = np.array([self.log2_error(q)[1] for q in quantities])
         ok = np.isfinite(first) & np.isfinite(second)
         if not ok.any():
             return
-        anchor = min(first[ok].min(), second[ok].min() + min(self.reference_orders) * (x[1] - x[0]))
+        anchor = min(
+            first[ok].min(),
+            second[ok].min() + min(self.reference_orders) * (x[1] - x[0]),
+        )
         anchor -= margin
         for order in self.reference_orders:
             y = anchor - order * (x - x[0])
             ax.plot(x, y, color="0.4", linestyle=":", linewidth=1.4)
-            ax.annotate(f"order {order:g}", xy=(x[-1], y[-1]), xytext=(3, 0),
-                        textcoords="offset points", color="0.4", fontsize="small", va="center")
+            ax.annotate(
+                f"order {order:g}",
+                xy=(x[-1], y[-1]),
+                xytext=(3, 0),
+                textcoords="offset points",
+                color="0.4",
+                fontsize="small",
+                va="center",
+            )

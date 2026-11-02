@@ -181,6 +181,24 @@ if __name__ == "__main__":
     PlotConvergenceUtil(results).plot(
         save_path=json_path.parent / f"convergence_{stem}.png"
     )
+    # Both rows get the same width and panel size, so the stacked rows line up.
+    width, panel, top = 6.4, 2.6, 0.1  # inches
+    bottom = (
+        0.3 if stem.startswith("cartesian") else 1.3
+    )  # tick labels / + x-label and legend
+    height = panel + top + bottom
+    row_style = {
+        **PlotConvergenceUtil.SLIDE_STYLE,
+        "figsize": (width, height),
+        "margins": dict(
+            left=0.12,
+            right=0.98,
+            top=1 - top / height,
+            bottom=bottom / height,
+            wspace=0.3,
+        ),
+        "ylabel_x": -0.16,
+    }
     if stem.startswith("cartesian"):
         PlotConvergenceUtil(results).plot(
             save_path=json_path.parent / f"convergence_{stem}.png",
@@ -189,10 +207,10 @@ if __name__ == "__main__":
             primary_title=None,
             interface_title=None,
             show_legend=False,
-            **PlotConvergenceUtil.SLIDE_STYLE,
+            **row_style,
         )
     else:
         PlotConvergenceUtil(results).plot(
             save_path=json_path.parent / f"convergence_{stem}.png",
-            **PlotConvergenceUtil.SLIDE_STYLE,
+            **row_style,
         )
