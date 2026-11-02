@@ -17,6 +17,7 @@ Breaking changes (what users must do when upgrading).
 
 ### Changes
 PR 1840: BLD: Use Pypardiso in all GH actions. 
+PR 1828: MAINT: Rename AdArray -> SparseJacAdArray to better reflect the difference with DiagonalJacAdArray.
 PR 1826: MAINT: Sanity checks for arithmetic operations with DiagonalAdArrays.
 PR 1825: MAINT: Improved security for surrogate operator construction.
 PR 1816: SPEED: Faster manufactured-solution functional tests by compiling each sympy expression once (issue 1814).
@@ -57,6 +58,9 @@ PR 1748: Refactor time-step control with interval-based scheduling and extensibl
     constraints, including nonlinear-iteration and Courant-number constraints.
 
 ### Breaking changes
+PR 1828: The class AdArray, used in forward-mode Ad, has been renamed SparseJacAdArray. Any
+    production code which constructs objects of this class explicitly must be updated.
+    There are no functional changes to the class.
 PR 1805: Fractured models now use a different default tangential contact formulation,
     which may slightly change results. Preserve the old behavior by mixing in
     ScaledProjectionTangentialContactMechanicsEquation.
