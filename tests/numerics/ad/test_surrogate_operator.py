@@ -414,8 +414,15 @@ def test_dependencies_must_conform_to_domains(
     factory = pp.ad.SurrogateFactory(
         "surrogate", equation_system.mdg, [dependency], dof_info=dof_info
     )
-    expected_error = TypeError if violation == "not_variable" else ValueError
-    with pytest.raises(expected_error):
+    # Match the error message, since the checks of order, subset and number of DOFs
+    # all raise a ValueError.
+    expected_error, message = {
+        "not_variable": (TypeError, "must depend on variables"),
+        "order": (ValueError, "in the same order"),
+        "subset": (ValueError, "in the same order"),
+        "dofs": (ValueError, "DOFs"),
+    }[violation]
+    with pytest.raises(expected_error, match=message):
         factory(domains)
     # In the order of the md-grid, the factory can be called on a subset of domains.
     pp.ad.SurrogateFactory("surrogate", equation_system.mdg, [var1])(subdomains[1:])
