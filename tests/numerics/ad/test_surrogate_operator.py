@@ -635,7 +635,7 @@ def test_arguments_which_are_not_ad_arrays(equation_system: pp.ad.EquationSystem
     values = sop.func(sparse_array[0].val, sparse_array[1].val)
     assert isinstance(values, np.ndarray)
     np.testing.assert_allclose(values, np.ones(num_cells))
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="at least one Ad array"):
         sop.get_jacobian(sparse_array[0].val, sparse_array[1].val)
 
 
@@ -647,9 +647,9 @@ def test_number_of_arguments_must_match_dependencies(
     sop, sparse_array, _, _ = _surrogate_and_arguments(
         equation_system, [VAR1_NAME, VAR2_NAME], [2.0, 3.0]
     )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="dependencies"):
         sop.func(sparse_array[0])
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="dependencies"):
         sop.get_jacobian(*sparse_array, sparse_array[0])
 
 
