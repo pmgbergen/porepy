@@ -609,22 +609,29 @@ def test_repeated_argument(equation_system: pp.ad.EquationSystem, representation
 def test_arguments_which_are_not_ad_arrays(equation_system: pp.ad.EquationSystem):
     """Arguments which are not Ad arrays do not contribute to the Jacobian.
 
-    Without Ad arrays among the arguments, the surrogate operator evaluates to its
-    values, and the Jacobian cannot be assembled.
+    Setup: A surrogate operator depending on two variables, var1 and var2.
+
+    Test: The operator is evaluated twice. First, var1 is passed by its values (a numpy
+    array) and var2 as an Ad array. The result is an Ad array, with a Jacobian
+    containing only the derivatives with respect to var2. Second, both variables are
+    passed by their values. The operator then evaluates to its values, and its Jacobian
+    cannot be assembled.
 
     """
     sop, sparse_array, _, expected_jacobian = _surrogate_and_arguments(
         equation_system, [VAR1_NAME, VAR2_NAME], [2.0, 3.0]
     )
     num_cells = sparse_array[0].val.size
-    # Only the derivatives with respect to var2 remain, since var1 is not an Ad array.
+
+    # var1 is passed by its values, var2 as an Ad array. Only the derivatives with
+    # respect to var2 remain in the Jacobian.
+    result = sop.func(sparse_array[0].val, sparse_array[1])
     var2_dofs = equation_system.dofs_of([VAR2_NAME])
     expected = np.zeros_like(expected_jacobian)
     expected[:, var2_dofs] = expected_jacobian[:, var2_dofs]
-
-    result = sop.func(sparse_array[0].val, sparse_array[1])
     np.testing.assert_allclose(result.full_jac.toarray(), expected)
 
+    # Both variables are passed by their values.
     values = sop.func(sparse_array[0].val, sparse_array[1].val)
     assert isinstance(values, np.ndarray)
     np.testing.assert_allclose(values, np.ones(num_cells))
@@ -648,14 +655,23 @@ def test_number_of_arguments_must_match_dependencies(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="Arithmetic on diagonal Ad arrays assumes, but does not check, that the"
-    " arrays share a Jacobian structure.",
+    reason="Arithmetic on diagonal Ad arrays does not yet check that the arrays share a"
+    " Jacobian structure.",
 )
 def test_separately_initialized_diagonal_arguments(
     equation_system: pp.ad.EquationSystem,
 ):
     """The Jacobian of a surrogate operator is correct also for diagonal arguments that
-    were initialized separately, and thus do not share a Jacobian structure."""
+    were initialized separately, and thus do not share a Jacobian structure.
+
+    Note:
+        The test states the intended behavior, which is not yet met: Arithmetic on
+        diagonal Ad arrays assumes, but does not check, that the arrays share a
+        Jacobian structure, and the Jacobian computed here is wrong. The test is
+        therefore marked as an expected failure. The mark is strict, so the test
+        fails once the behavior is met, and the mark must then be removed.
+
+    """
     sop, _, diagonal_array, expected_jacobian = _surrogate_and_arguments(
         equation_system, [VAR1_NAME, VAR2_NAME], [2.0, 3.0]
     )
