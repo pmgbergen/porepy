@@ -151,7 +151,12 @@ def test_arithmetic_operations_on_ad_objects(
             # as well as in the test of equation_system.py and other tests.
             expression = eval(f"v1 {op} v2")
             state = equation_system.get_variable_values(time_step_index=0)
-            ad_base = pp.ad.initAdArrays([state])[0]
+            ad_base = equation_system._ad_parser._initialize_variables(
+                [expression],
+                state,
+                equation_system.variable_indexer,
+                derivative=True,
+            )
             val = equation_system._ad_parser._evaluate_single(
                 expression,
                 ad_base,
