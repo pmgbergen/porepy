@@ -1,10 +1,11 @@
 """Tests of arithmetic operations between Ad objects.
 
-Scalars, dense arrays, sparse matrices and Ad arrays are combined pairwise with the
-operators +, -, *, /, ** and @. Each combination is evaluated both in forward mode, on
-the numerical values directly, and wrapped as Ad operators that are parsed by an
-EquationSystem. The result is compared with a value computed independently, or, if the
-combination is not supported, it is checked that the evaluation fails.
+Scalars, dense arrays, sparse matrices and Ad arrays, in both the sparse and the
+diagonal representation, are combined pairwise with the operators +, -, *, /, ** and
+@. Each combination is evaluated both in forward mode, on the numerical values directly,
+and wrapped as Ad operators that are parsed by an EquationSystem. The result is
+compared with a value computed independently, or, if the combination is not supported,
+it is checked that the evaluation fails.
 
 The module is laid out from the test down to the helpers it uses:
     1. The test function and its fixture.
@@ -28,7 +29,7 @@ import porepy as pp
 from porepy.numerics.ad.equation_system import GridEntity
 
 # The types of the operands, and of the values that operations between them evaluate to.
-AdType = Union[float, np.ndarray, sps.spmatrix, sps.sparray, pp.ad.SparseAdArray]
+AdType = Union[float, np.ndarray, sps.spmatrix, sps.sparray, pp.ad.AdArrayBase]
 
 # The expected value of an operation is the value its evaluation should give, or False
 # if the operation is not supported, that is, if its evaluation should raise an error.
@@ -47,10 +48,10 @@ def arithmetic_mdg() -> pp.MixedDimensionalGrid:
 
 
 @pytest.mark.parametrize(
-    "var_1", ["scalar", "dense", "sparse_matrix", "sparse_array", "ad"]
+    "var_1", ["scalar", "dense", "sparse_matrix", "sparse_array", "ad", "diag"]
 )
 @pytest.mark.parametrize(
-    "var_2", ["scalar", "dense", "sparse_matrix", "sparse_array", "ad"]
+    "var_2", ["scalar", "dense", "sparse_matrix", "sparse_array", "ad", "diag"]
 )
 @pytest.mark.parametrize("op", ["+", "-", "*", "/", "**", "@"])
 @pytest.mark.parametrize("wrapped", [True, False])
@@ -66,19 +67,19 @@ def test_arithmetic_operations_on_ad_objects(
 
     All combinations of operands and operations are formed, in two different modes:
     Wrapped as Ad operators (subclasses of pp.ad.Operator), or as primitive values
-    (float, numpy.ndarray, scipy sparse matrices and arrays, SparseAdArray). In the
-    wrapped form, all combinations are tested, since the parsing of the operator tree
-    must handle each of them. In the primitive form, which is what is applied in
-    forward-mode algorithmic differentiation, only combinations that involve at least
-    one Ad array are tested; the remaining combinations are evaluated by numpy and scipy
-    alone.
+    (float, numpy.ndarray, scipy sparse matrices and arrays, and the two Ad array
+    representations SparseAdArray and DiagonalAdArray). In the wrapped form, all
+    combinations are tested, since the parsing of the operator tree must handle each of
+    them. In the primitive form, which is what is applied in forward-mode algorithmic
+    differentiation, only combinations that involve at least one Ad array are tested;
+    the remaining combinations are evaluated by numpy and scipy alone.
 
     For each combination, the result is compared with an expected value, or, if the
     combination is not supported, it is checked that the evaluation raises an error.
 
     """
 
-    has_ad_operand = var_1 == "ad" or var_2 == "ad"
+    has_ad_operand = var_1 in ["ad", "diag"] or var_2 in ["ad", "diag"]
     if not wrapped and not has_ad_operand:
         # If not wrapped in the abstract layer, these cases should be covered by the
         # tests for the external packages; PorePy just has to rely on e.g., numpy being
@@ -113,6 +114,13 @@ def test_arithmetic_operations_on_ad_objects(
                 equation_system=equation_system if do_wrap else None,
                 variable_name=variable_name,
             )
+        if v == "diag":
+            return _get_diag_array(
+                do_wrap,
+                arithmetic_mdg,
+                equation_system=equation_system if do_wrap else None,
+                variable_name=variable_name,
+            )
         raise ValueError("Unknown variable type")
 
     # Get the actual variables from the input strings.
@@ -125,7 +133,7 @@ def test_arithmetic_operations_on_ad_objects(
     # variables, which the expected value must account for, see _expected_wrapped_value.
     v1_as_value = _var_from_string(var_1, False, "foo_v1")
     v2_as_value = _var_from_string(var_2, False, "foo_v2")
-    if wrapped and var_1 == "ad" and var_2 == "ad":
+    if wrapped and var_1 in ["ad", "diag"] and var_2 in ["ad", "diag"]:
         expected = _expected_wrapped_value(v1_as_value, v2_as_value, op)
     else:
         expected = _expected_value(v1_as_value, v2_as_value, op)
@@ -202,9 +210,7 @@ def _get_dense_array(wrapped: bool, mdg) -> np.ndarray | pp.ad.DenseArray:
     hardcoded with respect to this value. The array is either returned as-is, or wrapped
     as an Ad DenseArray."""
     array = np.array([1, 2, 3]).astype(float)
-    space = pp.ad.OperatorSpace.from_domains(
-        mdg.subdomains(), dof_info={GridEntity.cells: 1}
-    )
+    space = pp.ad.OperatorSpace.from_domains(mdg.subdomains())
     if wrapped:
         return pp.ad.DenseArray(array, source=space, target=space)
     return array
@@ -220,9 +226,7 @@ def _get_sparse_array(
     mat = sps.csr_matrix(inner) if use_csr_matrix else sps.csr_array(inner)
     mat = mat.astype(float)
 
-    space = pp.ad.OperatorSpace.from_domains(
-        mdg.subdomains(), dof_info={GridEntity.cells: 1}
-    )
+    space = pp.ad.OperatorSpace.from_domains(mdg.subdomains())
     if wrapped:
         return pp.ad.SparseArray(mat, source=space, target=space)
     return mat
@@ -273,9 +277,7 @@ def _get_ad_array(
 
     if wrapped:
         assert equation_system is not None
-        equation_system.create_variables(
-            variable_name, subdomains=mdg.subdomains(), dof_info={GridEntity.cells: 1}
-        )
+        equation_system.create_variables(variable_name, subdomains=mdg.subdomains())
         var = equation_system.variables[-1]
         d = mdg.subdomain_data(mdg.subdomains()[0])
 
@@ -285,9 +287,7 @@ def _get_ad_array(
         pp.set_solution_values(
             name=variable_name, values=variable_val, data=d, iterate_index=0
         )
-        space = pp.ad.OperatorSpace.from_domains(
-            mdg.subdomains(), dof_info={GridEntity.cells: 1}
-        )
+        space = pp.ad.OperatorSpace.from_domains(mdg.subdomains())
         mat = pp.ad.SparseArray(jac, source=space, target=space)
 
         return mat @ var
@@ -295,9 +295,55 @@ def _get_ad_array(
     return pp.ad.SparseAdArray(expression_val, jac)
 
 
+def _get_diag_array(
+    wrapped: bool,
+    mdg: pp.MixedDimensionalGrid,
+    equation_system: pp.ad.EquationSystem | None = None,
+    variable_name: str = "foo_diag",
+) -> pp.ad.DiagonalAdArray | pp.ad.Operator:
+    """Get a DiagonalAdArray object which can be used in the tests.
+
+    The array has the same value as the one returned by _get_ad_array, [6, 15, 24], but
+    a diagonal Jacobian, with diagonal [6, 7.5, 8]. In the wrapped form, it is
+    constructed as the elementwise product of a dense array holding the diagonal and a
+    variable with value [1, 2, 3]. The parameters are the same as for _get_ad_array.
+
+    """
+    variable_val = np.array([1, 2, 3])
+    jac = np.array([6, 7.5, 8])
+
+    if wrapped:
+        assert equation_system is not None
+        equation_system.create_variables(variable_name, subdomains=mdg.subdomains())
+        var = equation_system.variables[-1]
+        d = mdg.subdomain_data(mdg.subdomains()[0])
+        pp.set_solution_values(
+            name=variable_name, values=variable_val, data=d, time_step_index=0
+        )
+        pp.set_solution_values(
+            name=variable_name, values=variable_val, data=d, iterate_index=0
+        )
+
+        space = pp.ad.OperatorSpace.from_domains(mdg.subdomains())
+        vec = pp.ad.DenseArray(jac, source=space, target=space)
+
+        return vec * var
+
+    return pp.ad.DiagonalAdArray(
+        jac * variable_val,
+        jac,
+        col_indices=[np.arange(variable_val.size)],
+        num_derivatives=3,
+    )
+
+
 def _compare(actual: AdType, expected: AdType) -> None:
     """Assert that an evaluated object equals the expected one, both in type and in
     value.
+
+    For Ad arrays, the values and the Jacobians are compared, but not the
+    representation: The expected value is always a SparseAdArray, while the evaluated
+    one may be a DiagonalAdArray.
 
     Parameters:
         actual: The value obtained by evaluating an operation.
@@ -305,12 +351,13 @@ def _compare(actual: AdType, expected: AdType) -> None:
             operation, with expected value False, must be handled by the caller.
 
     Raises:
-        AssertionError: If the types differ, or the values differ beyond round-off. For
-            Ad arrays, both the values and the Jacobians are compared.
+        AssertionError: If the types differ, other than in the representation of Ad
+            arrays, or the values differ beyond round-off.
         ValueError: If the values are of a type not covered by the test.
 
     """
-    assert type(actual) is type(expected)
+    if not (_is_ad(actual) and _is_ad(expected)):
+        assert type(actual) is type(expected)
     # Entries that are zero in the expected value may be affected by round-off in the
     # evaluated one, so a small absolute tolerance is needed.
     atol = 1e-12
@@ -318,7 +365,7 @@ def _compare(actual: AdType, expected: AdType) -> None:
         np.testing.assert_allclose(actual, expected, atol=atol)
     elif isinstance(actual, (sps.spmatrix, sps.sparray)):
         np.testing.assert_allclose(actual.toarray(), expected.toarray(), atol=atol)
-    elif isinstance(actual, pp.ad.SparseAdArray):
+    elif _is_ad(actual):
         np.testing.assert_allclose(actual.val, expected.val, atol=atol)
         np.testing.assert_allclose(
             _jac_to_dense(actual), _jac_to_dense(expected), atol=atol
@@ -332,15 +379,25 @@ def _is_sparse(var: AdType) -> bool:
 
 
 def _is_ad(var: AdType) -> bool:
-    return isinstance(var, pp.ad.SparseAdArray)
+    return isinstance(var, pp.ad.AdArrayBase)
 
 
 def _is_nonad(var: AdType) -> bool:
     return isinstance(var, (float, np.ndarray, sps.spmatrix, sps.sparray))
 
 
-def _jac_to_dense(ad: pp.ad.SparseAdArray) -> np.ndarray:
+def _jac_to_dense(ad: pp.ad.AdArrayBase) -> np.ndarray:
     return ad.sparse_jac.toarray()
+
+
+def _create_adarray(
+    val: np.ndarray, jac: np.ndarray | sps.spmatrix
+) -> pp.ad.SparseAdArray:
+    """Create a SparseAdArray from a value and a Jacobian, where the Jacobian is either
+    a sparse matrix, or a numpy array holding the diagonal of a diagonal matrix."""
+    if isinstance(jac, np.ndarray):
+        jac = sps.dia_matrix((jac, [0]), shape=(jac.size, jac.size))
+    return pp.ad.SparseAdArray(val, jac)
 
 
 def _expected_value(
@@ -358,7 +415,7 @@ def _expected_value(
         - One operand is an Ad array: _expected_value_ad_nonad or
           _expected_value_nonad_ad, depending on which. These dispatch further on the
           type of the other operand, to functions with values computed by hand for the
-          operands returned by the _get_* functions.
+          operands returned by the _get_* functions, in both Ad array representations.
 
     Parameters:
         var_1: Left operand.
@@ -426,7 +483,7 @@ def _expected_no_ad(
 
 
 def _expected_value_ad_nonad(
-    var_1: pp.ad.SparseAdArray,
+    var_1: pp.ad.AdArrayBase,
     var_2: float | np.ndarray | sps.spmatrix | sps.sparray,
     op: Literal["+", "-", "*", "/", "**", "@"],
 ) -> Literal[False] | pp.ad.SparseAdArray:
@@ -450,7 +507,7 @@ def _expected_value_ad_nonad(
 
 def _expected_value_nonad_ad(
     var_1: float | np.ndarray | sps.spmatrix | sps.sparray,
-    var_2: pp.ad.SparseAdArray,
+    var_2: pp.ad.AdArrayBase,
     op: Literal["+", "-", "*", "/", "**", "@"],
 ) -> Literal[False] | pp.ad.SparseAdArray:
     """Expected value of var_1 op var_2 for an operand var_1 that is not an Ad array and
@@ -466,8 +523,8 @@ def _expected_value_nonad_ad(
 
 
 def _expected_ad_ad(
-    var_1: pp.ad.SparseAdArray,
-    var_2: pp.ad.SparseAdArray,
+    var_1: pp.ad.AdArrayBase,
+    var_2: pp.ad.AdArrayBase,
     op: Literal["+", "-", "*", "/", "**"],
 ) -> pp.ad.SparseAdArray:
     """Expected value of var_1 op var_2 for two Ad arrays, with the Jacobian computed
@@ -515,215 +572,291 @@ def _expected_ad_ad(
 
 
 def _expected_ad_scalar(
-    var_1: pp.ad.SparseAdArray, op: Literal["+", "-", "*", "/", "**"]
+    var_1: pp.ad.AdArrayBase, op: Literal["+", "-", "*", "/", "**"]
 ) -> pp.ad.SparseAdArray:
-    """Expected value of var_1 op 2.0, for the Ad array returned by _get_ad_array."""
-    # var_1 has value [6, 15, 24] and Jacobian rows [1, 2, 3], [4, 5, 6], [7, 8, 9].
+    """Expected value of var_1 op 2.0, for the Ad array returned by _get_ad_array or
+    _get_diag_array."""
+    # var_1 has value [6, 15, 24]. Its Jacobian has rows [1, 2, 3], [4, 5, 6],
+    # [7, 8, 9] if var_1 is a SparseAdArray, and diagonal [6, 7.5, 8] if it is a
+    # DiagonalAdArray.
     if op == "+":
         val = np.array([8, 17, 26])
-        jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+        if isinstance(var_1, pp.ad.DiagonalAdArray):
+            jac = np.array([6, 7.5, 8])
+        else:
+            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
     elif op == "-":
         val = np.array([4, 13, 22])
-        jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+        if isinstance(var_1, pp.ad.DiagonalAdArray):
+            jac = np.array([6, 7.5, 8])
+        else:
+            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
     elif op == "*":
         val = np.array([12, 30, 48])
-        jac = sps.csr_matrix(np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]]))
+        if isinstance(var_1, pp.ad.DiagonalAdArray):
+            jac = np.array([12, 15, 16])
+        else:
+            jac = sps.csr_matrix(np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]]))
     elif op == "/":
         val = np.array([6 / 2, 15 / 2, 24 / 2])
-        jac = sps.csr_matrix(
-            np.array(
-                [
-                    [1 / 2, 2 / 2, 3 / 2],
-                    [4 / 2, 5 / 2, 6 / 2],
-                    [7 / 2, 8 / 2, 9 / 2],
-                ]
+        if isinstance(var_1, pp.ad.DiagonalAdArray):
+            jac = np.array([6 / 2, 7.5 / 2, 8 / 2])
+        else:
+            jac = sps.csr_matrix(
+                np.array(
+                    [
+                        [1 / 2, 2 / 2, 3 / 2],
+                        [4 / 2, 5 / 2, 6 / 2],
+                        [7 / 2, 8 / 2, 9 / 2],
+                    ]
+                )
             )
-        )
     else:  # op == "**"
         val = np.array([6**2, 15**2, 24**2])
-        jac = sps.csr_matrix(
-            2
-            * np.vstack(
-                (
-                    var_1.val[0] * var_1.jac[0].toarray(),
-                    var_1.val[1] * var_1.jac[1].toarray(),
-                    var_1.val[2] * var_1.jac[2].toarray(),
-                )
-            ),
-        )
-    return pp.ad.SparseAdArray(val, jac)
+        if isinstance(var_1, pp.ad.DiagonalAdArray):
+            jac = 2 * var_1.val * var_1.jac
+        else:
+            jac = sps.csr_matrix(
+                2
+                * np.vstack(
+                    (
+                        var_1.val[0] * var_1.jac[0].toarray(),
+                        var_1.val[1] * var_1.jac[1].toarray(),
+                        var_1.val[2] * var_1.jac[2].toarray(),
+                    )
+                ),
+            )
+    return _create_adarray(val, jac)
 
 
 def _expected_ad_dense(
-    var_1: pp.ad.SparseAdArray, var_2: np.ndarray, op: Literal["+", "-", "*", "/", "**"]
+    var_1: pp.ad.AdArrayBase, var_2: np.ndarray, op: Literal["+", "-", "*", "/", "**"]
 ) -> pp.ad.SparseAdArray:
-    """Expected value of var_1 op var_2, for the Ad array returned by _get_ad_array and
-    the dense array returned by _get_dense_array."""
-    # var_1 has value [6, 15, 24] and Jacobian rows [1, 2, 3], [4, 5, 6], [7, 8, 9];
-    # var_2 is the dense array [1, 2, 3].
+    """Expected value of var_1 op var_2, for the Ad array returned by _get_ad_array or
+    _get_diag_array, and the dense array returned by _get_dense_array."""
+    # var_1 has value [6, 15, 24]. Its Jacobian has rows [1, 2, 3], [4, 5, 6],
+    # [7, 8, 9] if var_1 is a SparseAdArray, and diagonal [6, 7.5, 8] if it is a
+    # DiagonalAdArray. The operand var_2 is the dense array [1, 2, 3].
     if op == "+":
         val = np.array([7, 17, 27])
-        jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+        if isinstance(var_1, pp.ad.DiagonalAdArray):
+            jac = np.array([6, 7.5, 8])
+        else:
+            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
     elif op == "-":
         val = np.array([5, 13, 21])
-        jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+        if isinstance(var_1, pp.ad.DiagonalAdArray):
+            jac = np.array([6, 7.5, 8])
+        else:
+            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
     elif op == "*":
         val = np.array([6, 30, 72])
-        jac = sps.csr_matrix(np.array([[1, 2, 3], [8, 10, 12], [21, 24, 27]]))
+        if isinstance(var_1, pp.ad.DiagonalAdArray):
+            jac = np.array([6 * 1, 7.5 * 2, 8 * 3])
+        else:
+            jac = sps.csr_matrix(np.array([[1, 2, 3], [8, 10, 12], [21, 24, 27]]))
     elif op == "/":
         val = np.array([6 / 1, 15 / 2, 24 / 3])
-        jac = sps.csr_matrix(
-            np.vstack(
-                (
-                    var_1.jac[0].toarray() / var_2[0],
-                    var_1.jac[1].toarray() / var_2[1],
-                    var_1.jac[2].toarray() / var_2[2],
+        if isinstance(var_1, pp.ad.DiagonalAdArray):
+            jac = np.array([6 / 1, 7.5 / 2, 8 / 3])
+        else:
+            jac = sps.csr_matrix(
+                np.vstack(
+                    (
+                        var_1.jac[0].toarray() / var_2[0],
+                        var_1.jac[1].toarray() / var_2[1],
+                        var_1.jac[2].toarray() / var_2[2],
+                    )
                 )
             )
-        )
     else:  # op == "**"
         # The derivative is Array**(var_2 - 1) * var_2 * dArray
         val = np.array([6, 15**2, 24**3])
-        jac = sps.csr_matrix(
-            np.vstack(
-                (
-                    var_2[0]
-                    * (var_1.val[0] ** (var_2[0] - 1.0))
-                    * var_1.jac[0].toarray(),
-                    var_2[1]
-                    * (var_1.val[1] ** (var_2[1] - 1.0))
-                    * var_1.jac[1].toarray(),
-                    var_2[2]
-                    * (var_1.val[2] ** (var_2[2] - 1.0))
-                    * var_1.jac[2].toarray(),
+        if isinstance(var_1, pp.ad.DiagonalAdArray):
+            jac = var_2 * (var_1.val ** (var_2 - 1.0)) * var_1.jac
+        else:
+            jac = sps.csr_matrix(
+                np.vstack(
+                    (
+                        var_2[0]
+                        * (var_1.val[0] ** (var_2[0] - 1.0))
+                        * var_1.jac[0].toarray(),
+                        var_2[1]
+                        * (var_1.val[1] ** (var_2[1] - 1.0))
+                        * var_1.jac[1].toarray(),
+                        var_2[2]
+                        * (var_1.val[2] ** (var_2[2] - 1.0))
+                        * var_1.jac[2].toarray(),
+                    )
                 )
             )
-        )
-    return pp.ad.SparseAdArray(val, jac)
+    return _create_adarray(val, jac)
 
 
 def _expected_scalar_ad(
-    var_2: pp.ad.SparseAdArray, op: Literal["+", "-", "*", "/", "**"]
+    var_2: pp.ad.AdArrayBase, op: Literal["+", "-", "*", "/", "**"]
 ) -> pp.ad.SparseAdArray:
-    """Expected value of 2.0 op var_2, for the Ad array returned by _get_ad_array."""
-    # var_2 has value [6, 15, 24] and Jacobian rows [1, 2, 3], [4, 5, 6], [7, 8, 9].
+    """Expected value of 2.0 op var_2, for the Ad array returned by _get_ad_array or
+    _get_diag_array."""
+    # var_2 has value [6, 15, 24]. Its Jacobian has rows [1, 2, 3], [4, 5, 6],
+    # [7, 8, 9] if var_2 is a SparseAdArray, and diagonal [6, 7.5, 8] if it is a
+    # DiagonalAdArray.
     if op == "+":
         val = np.array([8, 17, 26])
-        jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+        if isinstance(var_2, pp.ad.DiagonalAdArray):
+            jac = np.array([6, 7.5, 8])
+        else:
+            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
     elif op == "-":
         val = np.array([-4, -13, -22])
-        jac = sps.csr_matrix(np.array([[-1, -2, -3], [-4, -5, -6], [-7, -8, -9]]))
+        if isinstance(var_2, pp.ad.DiagonalAdArray):
+            jac = -np.array([6, 7.5, 8])
+        else:
+            jac = sps.csr_matrix(np.array([[-1, -2, -3], [-4, -5, -6], [-7, -8, -9]]))
     elif op == "*":
         val = np.array([12, 30, 48])
-        jac = sps.csr_matrix(np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]]))
+        if isinstance(var_2, pp.ad.DiagonalAdArray):
+            jac = np.array([12, 15, 16])
+        else:
+            jac = sps.csr_matrix(np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]]))
     elif op == "/":
         # The derivative is -2 / Array**2 * dArray
         val = np.array([2 / 6, 2 / 15, 2 / 24])
-        jac = sps.csr_matrix(
-            np.vstack(
-                (
-                    -2 / var_2.val[0] ** 2 * var_2.jac[0].toarray(),
-                    -2 / var_2.val[1] ** 2 * var_2.jac[1].toarray(),
-                    -2 / var_2.val[2] ** 2 * var_2.jac[2].toarray(),
-                )
-            ),
-        )
+        if isinstance(var_2, pp.ad.DiagonalAdArray):
+            jac = -2 / var_2.val**2 * var_2.jac
+        else:
+            jac = sps.csr_matrix(
+                np.vstack(
+                    (
+                        -2 / var_2.val[0] ** 2 * var_2.jac[0].toarray(),
+                        -2 / var_2.val[1] ** 2 * var_2.jac[1].toarray(),
+                        -2 / var_2.val[2] ** 2 * var_2.jac[2].toarray(),
+                    )
+                ),
+            )
     else:  # op == "**"
         # The derivative is 2**Array * log(2) * dArray
         val = np.array([2**6, 2**15, 2**24])
-        jac = sps.csr_matrix(
-            np.vstack(
-                (
-                    np.log(2.0) * (2 ** var_2.val[0]) * var_2.jac[0].toarray(),
-                    np.log(2.0) * (2 ** var_2.val[1]) * var_2.jac[1].toarray(),
-                    np.log(2.0) * (2 ** var_2.val[2]) * var_2.jac[2].toarray(),
-                )
-            ),
-        )
-    return pp.ad.SparseAdArray(val, jac)
+        if isinstance(var_2, pp.ad.DiagonalAdArray):
+            jac = np.log(2.0) * (2**var_2.val) * var_2.jac
+        else:
+            jac = sps.csr_matrix(
+                np.vstack(
+                    (
+                        np.log(2.0) * (2 ** var_2.val[0]) * var_2.jac[0].toarray(),
+                        np.log(2.0) * (2 ** var_2.val[1]) * var_2.jac[1].toarray(),
+                        np.log(2.0) * (2 ** var_2.val[2]) * var_2.jac[2].toarray(),
+                    )
+                ),
+            )
+    return _create_adarray(val, jac)
 
 
 def _expected_dense_ad(
-    var_1: np.ndarray, var_2: pp.ad.SparseAdArray, op: Literal["+", "-", "*", "/", "**"]
+    var_1: np.ndarray, var_2: pp.ad.AdArrayBase, op: Literal["+", "-", "*", "/", "**"]
 ) -> pp.ad.SparseAdArray:
     """Expected value of var_1 op var_2, for the dense array returned by
-    _get_dense_array and the Ad array returned by _get_ad_array."""
-    # var_2 has value [6, 15, 24] and Jacobian rows [1, 2, 3], [4, 5, 6], [7, 8, 9];
-    # var_1 is the dense array [1, 2, 3].
+    _get_dense_array, and the Ad array returned by _get_ad_array or _get_diag_array."""
+    # var_2 has value [6, 15, 24]. Its Jacobian has rows [1, 2, 3], [4, 5, 6],
+    # [7, 8, 9] if var_2 is a SparseAdArray, and diagonal [6, 7.5, 8] if it is a
+    # DiagonalAdArray. The operand var_1 is the dense array [1, 2, 3].
     if op == "+":
         val = np.array([7, 17, 27])
-        jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+        if isinstance(var_2, pp.ad.DiagonalAdArray):
+            jac = np.array([6, 7.5, 8])
+        else:
+            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
     elif op == "-":
         val = np.array([-5, -13, -21])
-        jac = sps.csr_matrix(np.array([[-1, -2, -3], [-4, -5, -6], [-7, -8, -9]]))
+        if isinstance(var_2, pp.ad.DiagonalAdArray):
+            jac = -np.array([6, 7.5, 8])
+        else:
+            jac = sps.csr_matrix(np.array([[-1, -2, -3], [-4, -5, -6], [-7, -8, -9]]))
     elif op == "*":
         val = np.array([6, 30, 72])
-        jac = sps.csr_matrix(np.array([[1, 2, 3], [8, 10, 12], [21, 24, 27]]))
+        if isinstance(var_2, pp.ad.DiagonalAdArray):
+            jac = np.array([6 * 1, 7.5 * 2, 8 * 3])
+        else:
+            jac = sps.csr_matrix(np.array([[1, 2, 3], [8, 10, 12], [21, 24, 27]]))
     elif op == "/":
         # The derivative is -var_1 / Array**2 * dArray
         val = np.array([1 / 6, 2 / 15, 3 / 24])
-        jac = sps.csr_matrix(
-            np.vstack(
-                (
-                    -var_1[0] * var_2.jac[0].toarray() / var_2.val[0] ** 2,
-                    -var_1[1] * var_2.jac[1].toarray() / var_2.val[1] ** 2,
-                    -var_1[2] * var_2.jac[2].toarray() / var_2.val[2] ** 2,
+        if isinstance(var_2, pp.ad.DiagonalAdArray):
+            jac = -var_1 / var_2.val**2 * var_2.jac
+        else:
+            jac = sps.csr_matrix(
+                np.vstack(
+                    (
+                        -var_1[0] * var_2.jac[0].toarray() / var_2.val[0] ** 2,
+                        -var_1[1] * var_2.jac[1].toarray() / var_2.val[1] ** 2,
+                        -var_1[2] * var_2.jac[2].toarray() / var_2.val[2] ** 2,
+                    )
                 )
             )
-        )
     else:  # op == "**"
         # The derivative is var_1**Array * log(var_1) * dArray
         val = np.array([1, 2**15, 3**24])
-        jac = sps.csr_matrix(
-            np.vstack(
-                (
-                    var_1[0] ** var_2.val[0]
-                    * np.log(var_1[0])
-                    * var_2.jac[0].toarray(),
-                    var_1[1] ** var_2.val[1]
-                    * np.log(var_1[1])
-                    * var_2.jac[1].toarray(),
-                    var_1[2] ** var_2.val[2]
-                    * np.log(var_1[2])
-                    * var_2.jac[2].toarray(),
+        if isinstance(var_2, pp.ad.DiagonalAdArray):
+            jac = (var_1**var_2.val) * np.log(var_1) * var_2.jac
+        else:
+            jac = sps.csr_matrix(
+                np.vstack(
+                    (
+                        var_1[0] ** var_2.val[0]
+                        * np.log(var_1[0])
+                        * var_2.jac[0].toarray(),
+                        var_1[1] ** var_2.val[1]
+                        * np.log(var_1[1])
+                        * var_2.jac[1].toarray(),
+                        var_1[2] ** var_2.val[2]
+                        * np.log(var_1[2])
+                        * var_2.jac[2].toarray(),
+                    )
                 )
             )
-        )
-    return pp.ad.SparseAdArray(val, jac)
+    return _create_adarray(val, jac)
 
 
 def _expected_sparse_ad(
     var_1: sps.spmatrix | sps.sparray,
-    var_2: pp.ad.SparseAdArray,
+    var_2: pp.ad.AdArrayBase,
     op: Literal["+", "-", "*", "/", "**", "@"],
 ) -> Literal[False] | pp.ad.SparseAdArray:
     """Expected value of var_1 op var_2 for a sparse matrix or array var_1. Only the
-    matrix-vector product is supported."""
+    matrix-vector product is supported. The Jacobian of a DiagonalAdArray holds the
+    diagonal of the Jacobian matrix, which is formed explicitly for the product."""
     if op != "@":
         return False
 
     if isinstance(var_1, sps.spmatrix):
         val = var_1 * var_2.val
-        jac = var_1 * var_2.jac
+        if isinstance(var_2, pp.ad.DiagonalAdArray):
+            jac = var_1 @ sps.diags(var_2.jac.ravel())
+        else:
+            jac = var_1 * var_2.jac
     else:
         val = var_1 @ var_2.val
-        jac = var_1 @ var_2.jac
+        if isinstance(var_2, pp.ad.DiagonalAdArray):
+            jac = var_1 @ sps.diags(var_2.jac.ravel())
+        else:
+            jac = var_1 @ var_2.jac
     return pp.ad.SparseAdArray(val, jac)
 
 
 def _expected_wrapped_value(
-    var_1: pp.ad.SparseAdArray,
-    var_2: pp.ad.SparseAdArray,
+    var_1: pp.ad.AdArrayBase,
+    var_2: pp.ad.AdArrayBase,
     op: Literal["+", "-", "*", "/", "**", "@"],
 ) -> Literal[False] | pp.ad.SparseAdArray:
     """Expected value of var_1 op var_2 for two Ad arrays in wrapped form.
 
     In wrapped form, the two Ad operands are formed from two different variables in the
-    same EquationSystem, see _get_ad_array. The Jacobian of an evaluated operand has one
-    column for each degree of freedom in the EquationSystem, and thus consists of two
-    blocks of columns, one for each variable. Each operand depends only on its own
-    variable, so with J_1 and J_2 the Jacobians of the operands with respect to their
-    own variables, the evaluated operands have the Jacobians [J_1, 0] and [0, J_2].
+    same EquationSystem, see _get_ad_array and _get_diag_array. The Jacobian of an
+    evaluated operand has one column for each degree of freedom in the EquationSystem,
+    and thus consists of two blocks of columns, one for each variable. Each operand
+    depends only on its own variable, so with J_1 and J_2 the Jacobians of the operands
+    with respect to their own variables, the evaluated operands have the Jacobians
+    [J_1, 0] and [0, J_2].
 
     The unwrapped operands var_1 and var_2 have only the Jacobians J_1 and J_2. They
     are therefore extended to [J_1, 0] and [0, J_2] before the expected value is
@@ -739,7 +872,7 @@ def _expected_wrapped_value(
 
 
 def _embed_jacobian_in_block(
-    ad_array: pp.ad.SparseAdArray, block: int, num_blocks: int
+    ad_array: pp.ad.AdArrayBase, block: int, num_blocks: int
 ) -> pp.ad.SparseAdArray:
     """Extend the Jacobian of an Ad array with zero blocks of columns.
 
