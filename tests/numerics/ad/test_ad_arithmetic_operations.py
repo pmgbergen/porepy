@@ -27,14 +27,13 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.ad.equation_system import GridEntity
 
-AdType = Union[float, np.ndarray, sps.spmatrix, pp.ad.SparseAdArray]
+# The types of the operands, and of the values that operations between them evaluate to.
+AdType = Union[float, np.ndarray, sps.spmatrix, sps.sparray, pp.ad.SparseAdArray]
 
 # The expected value of an operation is the value its evaluation should give, or False
 # if the operation is not supported, that is, if its evaluation should raise an error.
 # No supported operation evaluates to a bool, so False is never a valid value.
-ExpectedValue = Union[
-    Literal[False], float, np.ndarray, sps.spmatrix, sps.sparray, pp.ad.SparseAdArray
-]
+ExpectedValue = Union[Literal[False], AdType]
 
 
 @pytest.fixture
@@ -160,6 +159,11 @@ def test_arithmetic_operations_on_ad_objects(
         except (TypeError, ValueError, NotImplementedError):
             assert expected is False
             return
+
+    # The evaluation succeeded, which it should only do for supported operations.
+    assert expected is not False, (
+        f"The operation {var_1} {op} {var_2} is not supported, but was evaluated."
+    )
 
     # Compare numerical values between evaluated and expected outcomes.
     _compare(val, expected)
@@ -291,9 +295,21 @@ def _get_ad_array(
     return pp.ad.SparseAdArray(expression_val, jac)
 
 
-def _compare(actual, expected) -> None:
+def _compare(actual: AdType, expected: AdType) -> None:
     """Assert that an evaluated object equals the expected one, both in type and in
-    value. For Ad arrays, both the values and the Jacobians are compared."""
+    value.
+
+    Parameters:
+        actual: The value obtained by evaluating an operation.
+        expected: The value the evaluation should give. The case of an unsupported
+            operation, with expected value False, must be handled by the caller.
+
+    Raises:
+        AssertionError: If the types differ, or the values differ beyond round-off. For
+            Ad arrays, both the values and the Jacobians are compared.
+        ValueError: If the values are of a type not covered by the test.
+
+    """
     assert type(actual) is type(expected)
     # Entries that are zero in the expected value may be affected by round-off in the
     # evaluated one, so a small absolute tolerance is needed.
