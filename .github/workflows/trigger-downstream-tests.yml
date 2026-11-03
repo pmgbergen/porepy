@@ -78,6 +78,17 @@
 #     `.github/downstream-repos.json` and add a `porepy-integration-test.yml`
 #     to that repo following the same input contract as mpxa's/pp_solvers'
 #     — no changes needed to this file.
+#   - Rollout order matters: `gh workflow run` can only dispatch a workflow
+#     that exists on the target repo's *default* branch, and needs
+#     `DOWNSTREAM_DISPATCH_PAT` to exist. So the downstream workflow must be
+#     merged there (and the PAT/secret set up) *before* this file reaches
+#     porepy's develop, or every dispatch job fails. The same holds when
+#     adding a new entry to downstream-repos.json.
+#   - PRs from forks and from Dependabot are skipped (see the `if:` on
+#     `resolve-pr`): GitHub does not expose repository secrets to those
+#     runs, so the dispatch would fail on the missing PAT. Skipping them is
+#     also the safe choice, since the downstream run would otherwise execute
+#     untrusted porepy code on a runner that later holds the PAT.
 name: Trigger downstream integration tests
 
 on:
@@ -106,6 +117,12 @@ concurrency:
 jobs:
   resolve-pr:
     name: Resolve dispatch target
+    # Skip PRs that run without access to secrets (forks, Dependabot); see the
+    # header comment. `dispatch` needs this job, so it is skipped too.
+    if: >-
+      github.event_name == 'push' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+       github.actor != 'dependabot[bot]')
     runs-on: ubuntu-latest
     outputs:
       pr_number: ${{ steps.resolve.outputs.pr_number }}
