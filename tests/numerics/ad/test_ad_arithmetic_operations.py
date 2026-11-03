@@ -175,9 +175,12 @@ def test_arithmetic_operations_on_ad_objects(
         if not multidimensional:
             val_jac = equation_system.evaluate(expression, derivative=True)
             val = equation_system.evaluate(expression)
-            assert np.all(val_jac.val == val)
+            np.testing.assert_array_equal(val_jac.val, val)
         else:
-            with pytest.raises(NotImplementedError):
+            with pytest.raises(
+                NotImplementedError,
+                match="not implemented because it is multidimensional",
+            ):
                 equation_system.evaluate(expression, derivative=True)
 
 
@@ -292,15 +295,18 @@ def _compare(actual, expected) -> None:
     """Assert that an evaluated object equals the expected one, both in type and in
     value. For Ad arrays, both the values and the Jacobians are compared."""
     assert type(actual) is type(expected)
-    if isinstance(actual, float):
-        assert np.isclose(actual, expected)
-    elif isinstance(actual, np.ndarray):
-        assert np.allclose(actual, expected)
+    # Entries that are zero in the expected value may be affected by round-off in the
+    # evaluated one, so a small absolute tolerance is needed.
+    atol = 1e-12
+    if isinstance(actual, (float, np.ndarray)):
+        np.testing.assert_allclose(actual, expected, atol=atol)
     elif isinstance(actual, (sps.spmatrix, sps.sparray)):
-        assert np.allclose(actual.toarray(), expected.toarray())
+        np.testing.assert_allclose(actual.toarray(), expected.toarray(), atol=atol)
     elif isinstance(actual, pp.ad.SparseJacAdArray):
-        assert np.allclose(actual.val, expected.val)
-        assert np.allclose(_jac_to_dense(actual), _jac_to_dense(expected))
+        np.testing.assert_allclose(actual.val, expected.val, atol=atol)
+        np.testing.assert_allclose(
+            _jac_to_dense(actual), _jac_to_dense(expected), atol=atol
+        )
     else:
         raise ValueError(f"Unknown type: {type(actual)}")
 
