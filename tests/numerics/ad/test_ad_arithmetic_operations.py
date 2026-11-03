@@ -120,423 +120,383 @@ def _get_ad_array(
     return pp.ad.SparseJacAdArray(expression_val, jac)
 
 
+def _is_sparse(var: AdType) -> bool:
+    return isinstance(var, (sps.spmatrix, sps.sparray))
+
+
+def _is_ad(var: AdType) -> bool:
+    return isinstance(var, pp.ad.SparseJacAdArray)
+
+
+def _is_nonad(var: AdType) -> bool:
+    return isinstance(var, (float, np.ndarray, sps.spmatrix, sps.sparray))
+
+
+def _jac_to_dense(ad: pp.ad.SparseJacAdArray) -> np.ndarray:
+    return ad.sparse_jac.toarray()
+
+
+def _expected_value_no_ad(
+    var_1: float | np.ndarray | sps.spmatrix | sps.sparray,
+    var_2: float | np.ndarray | sps.spmatrix | sps.sparray,
+    op: Literal["+", "-", "*", "/", "**", "@"],
+) -> bool | float | np.ndarray | sps.spmatrix:
+    """Expected value of an operation between two operands that are not Ad arrays.
+
+    Combinations that PorePy does not support are returned as False. All other
+    combinations are evaluated by Python, numpy and scipy, and the evaluation is
+    required to succeed.
+
+    """
+    if op == "@" and (isinstance(var_1, float) or isinstance(var_2, float)):
+        # The matrix product is not defined for scalars.
+        return False
+    if _is_sparse(var_1) and op == "**":
+        # SciPy has implemented a limited version of matrix powers, but not with a
+        # satisfactory flexibility. If we try to evaluate the expression, it may or may
+        # not work (see comments in the __pow__ method of Operators), but the operation
+        # is anyhow explicitly disallowed.
+        return False
+    if isinstance(var_1, float) and _is_sparse(var_2) and op != "*":
+        return False
+    if isinstance(var_1, np.ndarray) and _is_sparse(var_2) and op in ["/", "**"]:
+        return False
+    if _is_sparse(var_1) and isinstance(var_2, float) and op not in ["*", "/"]:
+        return False
+
+    return eval(f"var_1 {op} var_2")
+
+
+def _expected_ad_scalar(
+    var_1: pp.ad.SparseJacAdArray, op: Literal["+", "-", "*", "/", "**"]
+) -> pp.ad.SparseJacAdArray:
+    """Expected value of var_1 op 2.0, for the Ad array returned by _get_ad_array."""
+    # var_1 has value [6, 15, 24] and Jacobian rows [1, 2, 3], [4, 5, 6], [7, 8, 9].
+    if op == "+":
+        val = np.array([8, 17, 26])
+        jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+    elif op == "-":
+        val = np.array([4, 13, 22])
+        jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+    elif op == "*":
+        val = np.array([12, 30, 48])
+        jac = sps.csr_matrix(np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]]))
+    elif op == "/":
+        val = np.array([6 / 2, 15 / 2, 24 / 2])
+        jac = sps.csr_matrix(
+            np.array(
+                [
+                    [1 / 2, 2 / 2, 3 / 2],
+                    [4 / 2, 5 / 2, 6 / 2],
+                    [7 / 2, 8 / 2, 9 / 2],
+                ]
+            )
+        )
+    else:  # op == "**"
+        val = np.array([6**2, 15**2, 24**2])
+        jac = sps.csr_matrix(
+            2
+            * np.vstack(
+                (
+                    var_1.val[0] * var_1.jac[0].toarray(),
+                    var_1.val[1] * var_1.jac[1].toarray(),
+                    var_1.val[2] * var_1.jac[2].toarray(),
+                )
+            ),
+        )
+    return pp.ad.SparseJacAdArray(val, jac)
+
+
+def _expected_scalar_ad(
+    var_2: pp.ad.SparseJacAdArray, op: Literal["+", "-", "*", "/", "**"]
+) -> pp.ad.SparseJacAdArray:
+    """Expected value of 2.0 op var_2, for the Ad array returned by _get_ad_array."""
+    # var_2 has value [6, 15, 24] and Jacobian rows [1, 2, 3], [4, 5, 6], [7, 8, 9].
+    if op == "+":
+        val = np.array([8, 17, 26])
+        jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+    elif op == "-":
+        val = np.array([-4, -13, -22])
+        jac = sps.csr_matrix(np.array([[-1, -2, -3], [-4, -5, -6], [-7, -8, -9]]))
+    elif op == "*":
+        val = np.array([12, 30, 48])
+        jac = sps.csr_matrix(np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]]))
+    elif op == "/":
+        # The derivative is -2 / Array**2 * dArray
+        val = np.array([2 / 6, 2 / 15, 2 / 24])
+        jac = sps.csr_matrix(
+            np.vstack(
+                (
+                    -2 / var_2.val[0] ** 2 * var_2.jac[0].toarray(),
+                    -2 / var_2.val[1] ** 2 * var_2.jac[1].toarray(),
+                    -2 / var_2.val[2] ** 2 * var_2.jac[2].toarray(),
+                )
+            ),
+        )
+    else:  # op == "**"
+        # The derivative is 2**Array * log(2) * dArray
+        val = np.array([2**6, 2**15, 2**24])
+        jac = sps.csr_matrix(
+            np.vstack(
+                (
+                    np.log(2.0) * (2 ** var_2.val[0]) * var_2.jac[0].toarray(),
+                    np.log(2.0) * (2 ** var_2.val[1]) * var_2.jac[1].toarray(),
+                    np.log(2.0) * (2 ** var_2.val[2]) * var_2.jac[2].toarray(),
+                )
+            ),
+        )
+    return pp.ad.SparseJacAdArray(val, jac)
+
+
+def _expected_ad_dense(
+    var_1: pp.ad.SparseJacAdArray,
+    var_2: np.ndarray,
+    op: Literal["+", "-", "*", "/", "**"],
+) -> pp.ad.SparseJacAdArray:
+    """Expected value of var_1 op var_2, for the Ad array returned by _get_ad_array and
+    the dense array returned by _get_dense_array."""
+    # var_1 has value [6, 15, 24] and Jacobian rows [1, 2, 3], [4, 5, 6], [7, 8, 9];
+    # var_2 is the dense array [1, 2, 3].
+    if op == "+":
+        val = np.array([7, 17, 27])
+        jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+    elif op == "-":
+        val = np.array([5, 13, 21])
+        jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+    elif op == "*":
+        val = np.array([6, 30, 72])
+        jac = sps.csr_matrix(np.array([[1, 2, 3], [8, 10, 12], [21, 24, 27]]))
+    elif op == "/":
+        val = np.array([6 / 1, 15 / 2, 24 / 3])
+        jac = sps.csr_matrix(
+            np.vstack(
+                (
+                    var_1.jac[0].toarray() / var_2[0],
+                    var_1.jac[1].toarray() / var_2[1],
+                    var_1.jac[2].toarray() / var_2[2],
+                )
+            )
+        )
+    else:  # op == "**"
+        # The derivative is Array**(var_2 - 1) * var_2 * dArray
+        val = np.array([6, 15**2, 24**3])
+        jac = sps.csr_matrix(
+            np.vstack(
+                (
+                    var_2[0]
+                    * (var_1.val[0] ** (var_2[0] - 1.0))
+                    * var_1.jac[0].toarray(),
+                    var_2[1]
+                    * (var_1.val[1] ** (var_2[1] - 1.0))
+                    * var_1.jac[1].toarray(),
+                    var_2[2]
+                    * (var_1.val[2] ** (var_2[2] - 1.0))
+                    * var_1.jac[2].toarray(),
+                )
+            )
+        )
+    return pp.ad.SparseJacAdArray(val, jac)
+
+
+def _expected_dense_ad(
+    var_1: np.ndarray,
+    var_2: pp.ad.SparseJacAdArray,
+    op: Literal["+", "-", "*", "/", "**"],
+) -> pp.ad.SparseJacAdArray:
+    """Expected value of var_1 op var_2, for the dense array returned by
+    _get_dense_array and the Ad array returned by _get_ad_array."""
+    # var_2 has value [6, 15, 24] and Jacobian rows [1, 2, 3], [4, 5, 6], [7, 8, 9];
+    # var_1 is the dense array [1, 2, 3].
+    if op == "+":
+        val = np.array([7, 17, 27])
+        jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+    elif op == "-":
+        val = np.array([-5, -13, -21])
+        jac = sps.csr_matrix(np.array([[-1, -2, -3], [-4, -5, -6], [-7, -8, -9]]))
+    elif op == "*":
+        val = np.array([6, 30, 72])
+        jac = sps.csr_matrix(np.array([[1, 2, 3], [8, 10, 12], [21, 24, 27]]))
+    elif op == "/":
+        # The derivative is -var_1 / Array**2 * dArray
+        val = np.array([1 / 6, 2 / 15, 3 / 24])
+        jac = sps.csr_matrix(
+            np.vstack(
+                (
+                    -var_1[0] * var_2.jac[0].toarray() / var_2.val[0] ** 2,
+                    -var_1[1] * var_2.jac[1].toarray() / var_2.val[1] ** 2,
+                    -var_1[2] * var_2.jac[2].toarray() / var_2.val[2] ** 2,
+                )
+            )
+        )
+    else:  # op == "**"
+        # The derivative is var_1**Array * log(var_1) * dArray
+        val = np.array([1, 2**15, 3**24])
+        jac = sps.csr_matrix(
+            np.vstack(
+                (
+                    var_1[0] ** var_2.val[0]
+                    * np.log(var_1[0])
+                    * var_2.jac[0].toarray(),
+                    var_1[1] ** var_2.val[1]
+                    * np.log(var_1[1])
+                    * var_2.jac[1].toarray(),
+                    var_1[2] ** var_2.val[2]
+                    * np.log(var_1[2])
+                    * var_2.jac[2].toarray(),
+                )
+            )
+        )
+    return pp.ad.SparseJacAdArray(val, jac)
+
+
+def _expected_value_sparse_ad(
+    var_1: sps.spmatrix | sps.sparray,
+    var_2: pp.ad.SparseJacAdArray,
+    op: Literal["+", "-", "*", "/", "**", "@"],
+) -> bool | pp.ad.SparseJacAdArray:
+    """Expected value of var_1 op var_2 for a sparse matrix or array var_1. Only the
+    matrix-vector product is supported."""
+    if op != "@":
+        return False
+
+    if isinstance(var_1, sps.spmatrix):
+        val = var_1 * var_2.val
+        jac = var_1 * var_2.jac
+    else:
+        val = var_1 @ var_2.val
+        jac = var_1 @ var_2.jac
+    return pp.ad.SparseJacAdArray(val, jac)
+
+
+def _expected_ad_ad(
+    var_1: pp.ad.SparseJacAdArray,
+    var_2: pp.ad.SparseJacAdArray,
+    op: Literal["+", "-", "*", "/", "**"],
+) -> pp.ad.SparseJacAdArray:
+    """Expected value of var_1 op var_2 for two Ad arrays, with the Jacobian computed
+    row by row from the sum, product, quotient and power rules."""
+    j1 = _jac_to_dense(var_1)
+    j2 = _jac_to_dense(var_2)
+
+    if op == "+":
+        val = var_1.val + var_2.val
+        jac = j1 + j2
+    elif op == "-":
+        val = var_1.val - var_2.val
+        jac = j1 - j2
+    elif op == "*":
+        val = var_1.val * var_2.val
+        jac = np.vstack(
+            (
+                j1[0] * var_2.val[0] + var_1.val[0] * j2[0],
+                j1[1] * var_2.val[1] + var_1.val[1] * j2[1],
+                j1[2] * var_2.val[2] + var_1.val[2] * j2[2],
+            )
+        )
+    elif op == "/":
+        val = var_1.val / var_2.val
+        jac = np.vstack(
+            (
+                j1[0] / var_2.val[0] - var_1.val[0] * j2[0] / var_2.val[0] ** 2,
+                j1[1] / var_2.val[1] - var_1.val[1] * j2[1] / var_2.val[1] ** 2,
+                j1[2] / var_2.val[2] - var_1.val[2] * j2[2] / var_2.val[2] ** 2,
+            )
+        )
+    else:  # op == "**"
+        val = var_1.val**var_2.val
+        jac = np.vstack(
+            (
+                var_2.val[0] * var_1.val[0] ** (var_2.val[0] - 1.0) * j1[0]
+                + np.log(var_1.val[0]) * (var_1.val[0] ** var_2.val[0]) * j2[0],
+                var_2.val[1] * var_1.val[1] ** (var_2.val[1] - 1.0) * j1[1]
+                + np.log(var_1.val[1]) * (var_1.val[1] ** var_2.val[1]) * j2[1],
+                var_2.val[2] * var_1.val[2] ** (var_2.val[2] - 1.0) * j1[2]
+                + np.log(var_1.val[2]) * (var_1.val[2] ** var_2.val[2]) * j2[2],
+            )
+        )
+    return pp.ad.SparseJacAdArray(val, sps.csr_matrix(jac))
+
+
+def _expected_value_ad_nonad(
+    var_1: pp.ad.SparseJacAdArray,
+    var_2: float | np.ndarray | sps.spmatrix | sps.sparray,
+    op: Literal["+", "-", "*", "/", "**", "@"],
+) -> bool | pp.ad.SparseJacAdArray:
+    """Expected value of var_1 op var_2 for an Ad array var_1 and an operand var_2 that
+    is not an Ad array."""
+    if op == "@":
+        # We disallow this operation due to the following reason: The only case in
+        # which it is convenient to use the @ operator for the scalars is a generic
+        # operator that can accept everything: scalars, ndarrays and sparse matrices.
+        # However, we do not know any cases where one operator can be both a scalar or
+        # ndarray AND a matrix. This choice will be reconsidered if a reasonable example
+        # is found.
+        return False
+    if isinstance(var_2, float):
+        return _expected_ad_scalar(var_1, op)
+    if isinstance(var_2, np.ndarray):
+        return _expected_ad_dense(var_1, var_2, op)
+    # Ad array op sparse matrix is not supported for any operation.
+    return False
+
+
+def _expected_value_nonad_ad(
+    var_1: float | np.ndarray | sps.spmatrix | sps.sparray,
+    var_2: pp.ad.SparseJacAdArray,
+    op: Literal["+", "-", "*", "/", "**", "@"],
+) -> bool | pp.ad.SparseJacAdArray:
+    """Expected value of var_1 op var_2 for an operand var_1 that is not an Ad array and
+    an Ad array var_2."""
+    if _is_sparse(var_1):
+        return _expected_value_sparse_ad(var_1, var_2, op)
+    if op == "@":
+        # See the comment for the case Ad array @ scalar in _expected_value_ad_nonad.
+        return False
+    if isinstance(var_1, float):
+        return _expected_scalar_ad(var_2, op)
+    return _expected_dense_ad(var_1, var_2, op)
+
+
 def _expected_value(
     var_1: AdType, var_2: AdType, op: Literal["+", "-", "*", "/", "**", "@"]
 ) -> bool | float | np.ndarray | sps.spmatrix | pp.ad.SparseJacAdArray:
     """For a combination of two Ad objects and an operation return either the expected
     value, or False if the operation is not supported.
 
-    The function considers all combinations of types for var_1 and var_2 (as a long list
-    of if-else statements that checks isinstance), and returns the expected value of the
-    given operation. The calculation of the expected value is done in one of two ways:
-        i)  None of the variables are SparseJacAdArrays. In this case, the operation is
+    The calculation of the expected value is done in one of two ways:
+        i)  None of the variables are Ad arrays. In this case, the operation is
             evaluated using eval (in practice, this means that the evaluation is left to
-            the Python, numpy and/or scipy).
-        ii) One or both of the variables are SparseJacAdArrays. In this case, the
-        expected
+            Python, numpy and/or scipy).
+        ii) One or both of the variables are Ad arrays. In this case, the expected
             values are either hard-coded (this is typically the case where it is easy to
             do the calculation by hand, e.g., for addition), or computed using rules for
             derivation (product rule etc.) by hand, but using matrix-vector products and
             similar to compute the actual values.
 
+    The function dispatches to a helper for each combination of operand types.
+
     """
-    # General comment regarding implementation for cases that do not include the
-    # SparseJacAdArray: We always (except in a few cases which are documented
-    # explicitly) use eval to evaluate the expression. To catch cases that are not
-    # supported by numpy or/else scipy, the evalutation is surrounded by a try-except
-    # block. The except typically checks that the operation is one that was expected to
-    # fail;
-    # example: scalar @ scalar is not supported, but scalar + scalar is, so if the
-    # latter fails, something is wrong. For a few combinations of operators, the
-    # combination will fail in almost all cases, and the assertion is for simplicity put
-    # inside the try instead of the except block.
-
-    ### First do all combinations that do not involve SparseJacAdArrays
-    if isinstance(var_1, float) and isinstance(var_2, float):
-        try:
-            return eval(f"var_1 {op} var_2")
-        except TypeError:
-            assert op in ["@"]
-            return False
-    elif isinstance(var_1, float) and isinstance(var_2, np.ndarray):
-        try:
-            return eval(f"var_1 {op} var_2")
-        except ValueError:
-            assert op in ["@"]
-            return False
-    elif isinstance(var_1, float) and isinstance(var_2, (sps.spmatrix, sps.sparray)):
-        try:
-            # This should fail for all operations expect from multiplication.
-            val = eval(f"var_1 {op} var_2")
-            assert op == "*"
-            return val
-        except (ValueError, NotImplementedError, TypeError):
-            return False
-    elif isinstance(var_1, np.ndarray) and isinstance(var_2, float):
-        try:
-            return eval(f"var_1 {op} var_2")
-        except ValueError:
-            assert op in ["@"]
-            return False
-    elif isinstance(var_1, np.ndarray) and isinstance(var_2, np.ndarray):
-        return eval(f"var_1 {op} var_2")
-    elif isinstance(var_1, np.ndarray) and isinstance(
-        var_2, (sps.spmatrix, sps.sparray)
-    ):
-        try:
-            return eval(f"var_1 {op} var_2")
-        except TypeError:
-            assert op in ["/", "**"]
-            return False
-    elif isinstance(var_1, (sps.spmatrix, sps.sparray)) and isinstance(var_2, float):
-        if op == "**":
-            # SciPy has implemented a limited version matrix powers to scalars, but not
-            # with a satisfactory flexibility. If we try to evaluate the expression, it
-            # may or may not work (see comments in the __pow__ method is Operators), but
-            # the operation is anyhow explicitly disallowed. Thus, we return False.
-            return False
-
-        try:
-            # This should fail for all operations expect from multiplication.
-            val = eval(f"var_1 {op} var_2")
-            assert op in ["*", "/"]
-            return val
-        except (ValueError, NotImplementedError):
-            return False
-    elif isinstance(var_1, (sps.spmatrix, sps.sparray)) and isinstance(
-        var_2, np.ndarray
-    ):
-        if op == "**":
-            # SciPy has implemented a limited version matrix powers to numpy arrays, but
-            # not with a satisfactory flexibility. If we try to evaluate the expression,
-            # it may or may not work (see comments in the __pow__ method is Operators),
-            # but the operation is anyhow explicitly disallowed. Thus, we return False.
-            return False
-        try:
-            return eval(f"var_1 {op} var_2")
-        except TypeError:
-            assert op in ["**"]
-            return False
-
-    elif isinstance(var_1, (sps.spmatrix, sps.sparray)) and isinstance(
-        var_2, (sps.spmatrix, sps.sparray)
-    ):
-        try:
-            return eval(f"var_1 {op} var_2")
-        except (ValueError, TypeError, NotImplementedError):
-            assert op in ["**"]
-            return False
-
-    ### From here on, we have at least one SparseJacAdArray
-    elif isinstance(var_1, pp.ad.SparseJacAdArray) and isinstance(var_2, float):
-        if op == "+":
-            # Array + 2.0
-            val = np.array([8, 17, 26])
-            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-            return pp.ad.SparseJacAdArray(val, jac)
-        elif op == "-":
-            # Array - 2.0
-            val = np.array([4, 13, 22])
-            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-            return pp.ad.SparseJacAdArray(val, jac)
-        elif op == "*":
-            # Array * 2.0
-            val = np.array([12, 30, 48])
-            jac = sps.csr_matrix(np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]]))
-            return pp.ad.SparseJacAdArray(val, jac)
-        elif op == "/":
-            # Array / 2.0
-            val = np.array([6 / 2, 15 / 2, 24 / 2])
-            jac = sps.csr_matrix(
-                np.array(
-                    [
-                        [1 / 2, 2 / 2, 3 / 2],
-                        [4 / 2, 5 / 2, 6 / 2],
-                        [7 / 2, 8 / 2, 9 / 2],
-                    ]
-                )
-            )
-            return pp.ad.SparseJacAdArray(val, jac)
-        elif op == "**":
-            # Array ** 2.0
-            val = np.array([6**2, 15**2, 24**2])
-            jac = sps.csr_matrix(
-                2
-                * np.vstack(
-                    (
-                        var_1.val[0] * var_1.jac[0].toarray(),
-                        var_1.val[1] * var_1.jac[1].toarray(),
-                        var_1.val[2] * var_1.jac[2].toarray(),
-                    )
-                ),
-            )
-            return pp.ad.SparseJacAdArray(val, jac)
-        elif op == "@":
-            # We disallow this operation due to the following reason: The only case in
-            # which it is convenient to use the @ operator for the scalars is a generic
-            # operator that can accept everything: scalars, ndarrays and sparse
-            # matrices. However, we do not know any cases where one operator can be both
-            # a scalar or ndarray AND a matrix. This choice will be reconsidered if a
-            # reasonable example is found.
-            return False
-
-    elif isinstance(var_1, float) and isinstance(var_2, pp.ad.SparseJacAdArray):
-        if op == "+":
-            # 2.0 + Array
-            val = np.array([8, 17, 26])
-            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-            return pp.ad.SparseJacAdArray(val, jac)
-        elif op == "-":
-            # 2.0 - Array
-            val = np.array([-4, -13, -22])
-            jac = sps.csr_matrix(np.array([[-1, -2, -3], [-4, -5, -6], [-7, -8, -9]]))
-            return pp.ad.SparseJacAdArray(val, jac)
-        elif op == "*":
-            # 2.0 * Array
-            val = np.array([12, 30, 48])
-            jac = sps.csr_matrix(np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]]))
-            return pp.ad.SparseJacAdArray(val, jac)
-        elif op == "/":
-            # This is 2 / Array
-            # The derivative is -2 / Array**2 * dArray
-            val = np.array([2 / 6, 2 / 15, 2 / 24])
-            jac = sps.csr_matrix(
-                np.vstack(
-                    (
-                        -2 / var_2.val[0] ** 2 * var_2.jac[0].toarray(),
-                        -2 / var_2.val[1] ** 2 * var_2.jac[1].toarray(),
-                        -2 / var_2.val[2] ** 2 * var_2.jac[2].toarray(),
-                    )
-                ),
-            )
-            return pp.ad.SparseJacAdArray(val, jac)
-        elif op == "**":
-            # 2.0 ** Array
-            # The derivative is 2**Array * log(2) * dArray
-            val = np.array([2**6, 2**15, 2**24])
-            jac = sps.csr_matrix(
-                np.vstack(
-                    (
-                        np.log(2.0) * (2 ** var_2.val[0]) * var_2.jac[0].toarray(),
-                        np.log(2.0) * (2 ** var_2.val[1]) * var_2.jac[1].toarray(),
-                        np.log(2.0) * (2 ** var_2.val[2]) * var_2.jac[2].toarray(),
-                    )
-                ),
-            )
-            return pp.ad.SparseJacAdArray(val, jac)
-        elif op == "@":
-            # Note: See the comment for the case SparseJacAdArray @ scalar.
-            return False
-
-    elif isinstance(var_1, pp.ad.SparseJacAdArray) and isinstance(var_2, np.ndarray):
-        # Recall that the numpy array has values np.array([1, 2, 3])
-        if op == "+":
-            # Array + np.array([1, 2, 3])
-            val = np.array([7, 17, 27])
-            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-            return pp.ad.SparseJacAdArray(val, jac)
-        elif op == "-":
-            # Array - np.array([1, 2, 3])
-            val = np.array([5, 13, 21])
-            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-            return pp.ad.SparseJacAdArray(val, jac)
-        elif op == "*":
-            # Array * np.array([1, 2, 3])
-            val = np.array([6, 30, 72])
-            jac = sps.csr_matrix(np.array([[1, 2, 3], [8, 10, 12], [21, 24, 27]]))
-            return pp.ad.SparseJacAdArray(val, jac)
-        elif op == "/":
-            # Array / np.array([1, 2, 3])
-            val = np.array([6 / 1, 15 / 2, 24 / 3])
-            jac = sps.csr_matrix(
-                np.vstack(
-                    (
-                        var_1.jac[0].toarray() / var_2[0],
-                        var_1.jac[1].toarray() / var_2[1],
-                        var_1.jac[2].toarray() / var_2[2],
-                    )
-                )
-            )
-            return pp.ad.SparseJacAdArray(val, jac)
-        elif op == "**":
-            # Array ** np.array([1, 2, 3])
-            # The derivative is
-            #    Array**(np.array([1, 2, 3]) - 1) * np.array([1, 2, 3]) * dArray
-            val = np.array([6, 15**2, 24**3])
-            jac = sps.csr_matrix(
-                np.vstack(
-                    (
-                        var_2[0]
-                        * (var_1.val[0] ** (var_2[0] - 1.0))
-                        * var_1.jac[0].toarray(),
-                        var_2[1]
-                        * (var_1.val[1] ** (var_2[1] - 1.0))
-                        * var_1.jac[1].toarray(),
-                        var_2[2]
-                        * (var_1.val[2] ** (var_2[2] - 1.0))
-                        * var_1.jac[2].toarray(),
-                    )
-                )
-            )
-            return pp.ad.SparseJacAdArray(val, jac)
-        elif op == "@":
-            # The operation is not allowed
-            return False
-    elif isinstance(var_1, np.ndarray) and isinstance(var_2, pp.ad.SparseJacAdArray):
-        # Recall that the numpy array has values np.array([1, 2, 3])
-        if op == "+":
-            # Array + np.array([1, 2, 3])
-            val = np.array([7, 17, 27])
-            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-            return pp.ad.SparseJacAdArray(val, jac)
-        elif op == "-":
-            # np.array([1, 2, 3]) - Array
-            val = np.array([-5, -13, -21])
-            jac = sps.csr_matrix(np.array([[-1, -2, -3], [-4, -5, -6], [-7, -8, -9]]))
-            return pp.ad.SparseJacAdArray(val, jac)
-        elif op == "*":
-            # Array * np.array([1, 2, 3])
-            val = np.array([6, 30, 72])
-            jac = sps.csr_matrix(np.array([[1, 2, 3], [8, 10, 12], [21, 24, 27]]))
-            return pp.ad.SparseJacAdArray(val, jac)
-        elif op == "/":
-            # np.array([1, 2, 3]) / Array
-            val = np.array([1 / 6, 2 / 15, 3 / 24])
-            jac = sps.csr_matrix(
-                np.vstack(
-                    (
-                        -var_1[0] * var_2.jac[0].toarray() / var_2.val[0] ** 2,
-                        -var_1[1] * var_2.jac[1].toarray() / var_2.val[1] ** 2,
-                        -var_1[2] * var_2.jac[2].toarray() / var_2.val[2] ** 2,
-                    )
-                )
-            )
-            return pp.ad.SparseJacAdArray(val, jac)
-        elif op == "**":
-            # np.array([1, 2, 3]) ** Array
-            val = np.array([1, 2**15, 3**24])
-            jac = sps.csr_matrix(
-                np.vstack(
-                    (
-                        var_1[0] ** var_2.val[0]
-                        * np.log(var_1[0])
-                        * var_2.jac[0].toarray(),
-                        var_1[1] ** var_2.val[1]
-                        * np.log(var_1[1])
-                        * var_2.jac[1].toarray(),
-                        var_1[2] ** var_2.val[2]
-                        * np.log(var_1[2])
-                        * var_2.jac[2].toarray(),
-                    )
-                )
-            )
-            return pp.ad.SparseJacAdArray(val, jac)
-
-    elif isinstance(var_1, pp.ad.SparseJacAdArray) and isinstance(
-        var_2, (sps.spmatrix, sps.sparray)
-    ):
-        return False
-    elif isinstance(var_1, sps.spmatrix) and isinstance(var_2, pp.ad.SparseJacAdArray):
-        # This combination is only allowed for matrix-vector products (op = "@")
+    if _is_ad(var_1) and _is_ad(var_2):
         if op == "@":
-            val = var_1 * var_2.val
-            jac = var_1 * var_2.jac
-            return pp.ad.SparseJacAdArray(val, jac)
-        else:
             return False
-    elif isinstance(var_1, sps.sparray) and isinstance(var_2, pp.ad.SparseJacAdArray):
-        # This combination is only allowed for matrix-vector products (op = "@")
-        if op == "@":
-            val = var_1 @ var_2.val
-            jac = var_1 @ var_2.jac
-            return pp.ad.SparseJacAdArray(val, jac)
-        else:
-            return False
+        # The test function sets var_2 to twice var_1 when both operands are Ad arrays,
+        # see comments there. Mirror this here to be consistent.
+        return _expected_ad_ad(var_1, var_1 + var_1, op)
 
-    elif isinstance(var_1, pp.ad.SparseJacAdArray) and isinstance(
-        var_2, pp.ad.SparseJacAdArray
-    ):
-        # For this case, var_2 was modified manually to be twice var_1, see comments in
-        # the main test function. Mirror this here to be consistent.
-        var_2 = var_1 + var_1
-        if op == "+":
-            # This evaluates to 3 * Array (since var_2 = 2 * var_1)
-            val = np.array([18, 45, 72])
-            jac = sps.csr_matrix(np.array([[3, 6, 9], [12, 15, 18], [21, 24, 27]]))
-            return pp.ad.SparseJacAdArray(val, jac)
-        elif op == "-":
-            # This evaluates to -Array (since var_2 = 2 * var_1)
-            val = np.array([-6, -15, -24])
-            jac = sps.csr_matrix(np.array([[-1, -2, -3], [-4, -5, -6], [-7, -8, -9]]))
-            return pp.ad.SparseJacAdArray(val, jac)
-        elif op == "*":
-            # This evaluates to 2 * Array**2 (since var_2 = 2 * var_1)
-            val = np.array([6 * 12, 15 * 30, 24 * 48])
-            jac = sps.csr_matrix(
-                np.vstack(
-                    (
-                        var_1.jac[0].toarray() * var_2.val[0]
-                        + var_1.val[0] * var_2.jac[0].toarray(),
-                        var_1.jac[1].toarray() * var_2.val[1]
-                        + var_1.val[1] * var_2.jac[1].toarray(),
-                        var_1.jac[2].toarray() * var_2.val[2]
-                        + var_1.val[2] * var_2.jac[2].toarray(),
-                    )
-                )
-            )
-            return pp.ad.SparseJacAdArray(val, jac)
-        elif op == "/":
-            # This evaluates to Array / (2 * Array)
-            # The derivative is computed from the product and chain rules
-            val = np.array([1 / 2, 1 / 2, 1 / 2])
-            jac = sps.csr_matrix(
-                np.vstack(  # NBNB
-                    (
-                        var_1.jac[0].toarray() / var_2.val[0]
-                        - var_1.val[0] * var_2.jac[0].toarray() / var_2.val[0] ** 2,
-                        var_1.jac[1].toarray() / var_2.val[1]
-                        - var_1.val[1] * var_2.jac[1].toarray() / var_2.val[1] ** 2,
-                        var_1.jac[2].toarray() / var_2.val[2]
-                        - var_1.val[2] * var_2.jac[2].toarray() / var_2.val[2] ** 2,
-                    )
-                )
-            )
-            return pp.ad.SparseJacAdArray(val, jac)
-        elif op == "**":
-            # This is Array ** (2 * Array)
-            # The derivative is
-            #    Array**(2 * Array - 1) * (2 * Array) * dArray
-            #  + Array**(2 * Array) * log(Array) * dArray
-            val = np.array([6**12, 15**30, 24**48])
-            jac = sps.csr_matrix(
-                np.vstack(  #
-                    (
-                        var_2.val[0]
-                        * var_1.val[0] ** (var_2.val[0] - 1.0)
-                        * var_1.jac[0].toarray()
-                        + np.log(var_1.val[0])
-                        * (var_1.val[0] ** var_2.val[0])
-                        * var_2.jac[0].toarray(),
-                        var_2.val[1]
-                        * var_1.val[1] ** (var_2.val[1] - 1.0)
-                        * var_1.jac[1].toarray()
-                        + np.log(var_1.val[1])
-                        * (var_1.val[1] ** var_2.val[1])
-                        * var_2.jac[1].toarray(),
-                        var_2.val[2]
-                        * var_1.val[2] ** (var_2.val[2] - 1.0)
-                        * var_1.jac[2].toarray()
-                        + np.log(var_1.val[2])
-                        * (var_1.val[2] ** var_2.val[2])
-                        * var_2.jac[2].toarray(),
-                    )
-                )
-            )
-            return pp.ad.SparseJacAdArray(val, jac)
-        elif op == "@":
-            return False
-    else:
-        raise ValueError(f"Unknown classes: {type(var_1)}, {type(var_2)}.")
+    if _is_ad(var_1):
+        if not _is_nonad(var_2):
+            raise ValueError(f"Unknown classes: {type(var_1)}, {type(var_2)}.")
+        return _expected_value_ad_nonad(var_1, var_2, op)
+
+    if _is_ad(var_2):
+        if not _is_nonad(var_1):
+            raise ValueError(f"Unknown classes: {type(var_1)}, {type(var_2)}.")
+        return _expected_value_nonad_ad(var_1, var_2, op)
+
+    if _is_nonad(var_1) and _is_nonad(var_2):
+        return _expected_value_no_ad(var_1, var_2, op)
+
+    raise ValueError(f"Unknown classes: {type(var_1)}, {type(var_2)}.")
 
 
 def _compare(actual, expected) -> None:
@@ -551,7 +511,7 @@ def _compare(actual, expected) -> None:
         assert np.allclose(actual.toarray(), expected.toarray())
     elif isinstance(actual, pp.ad.SparseJacAdArray):
         assert np.allclose(actual.val, expected.val)
-        assert np.allclose(actual.jac.toarray(), expected.jac.toarray())
+        assert np.allclose(_jac_to_dense(actual), _jac_to_dense(expected))
     else:
         raise ValueError(f"Unknown type: {type(actual)}")
 
