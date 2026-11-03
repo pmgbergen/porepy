@@ -17,6 +17,7 @@ Breaking changes (what users must do when upgrading).
 
 ### Changes
 PR 1840: BLD: Use Pypardiso in all GH actions. 
+PR 1834: MAINT: Move arithmetic test of Ad operators to a dedicated module.
 PR 1828: MAINT: Rename AdArray -> SparseJacAdArray to better reflect the difference with DiagonalJacAdArray.
 PR 1826: MAINT: Sanity checks for arithmetic operations with DiagonalAdArrays.
 PR 1825: MAINT: Improved security for surrogate operator construction.
