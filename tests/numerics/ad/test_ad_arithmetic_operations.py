@@ -20,14 +20,23 @@ from porepy.numerics.ad.equation_system import GridEntity
 AdType = Union[float, np.ndarray, sps.spmatrix, pp.ad.SparseJacAdArray]
 
 
+@pytest.fixture
+def arithmetic_mdg() -> pp.MixedDimensionalGrid:
+    """Mixed-dimensional grid with a single subdomain of three cells, on which the
+    operands of the tests are defined."""
+    g = pp.CartGrid([3, 1])
+    mdg = pp.MixedDimensionalGrid()
+    mdg.add_subdomains([g])
+    return mdg
+
+
 def _get_scalar(wrapped: bool) -> float | pp.ad.Scalar:
     """Helper to set a scalar. Expected values in the test are hardcoded with respect to
     this value. The scalar is either returned as-is, or wrapped as an Ad scalar."""
     scalar = 2.0
     if wrapped:
         return pp.ad.Scalar(scalar)
-    else:
-        return scalar
+    return scalar
 
 
 def _get_dense_array(wrapped: bool, mdg) -> np.ndarray | pp.ad.DenseArray:
@@ -40,8 +49,7 @@ def _get_dense_array(wrapped: bool, mdg) -> np.ndarray | pp.ad.DenseArray:
     )
     if wrapped:
         return pp.ad.DenseArray(array, source=space, target=space)
-    else:
-        return array
+    return array
 
 
 def _get_sparse_array(
@@ -59,8 +67,7 @@ def _get_sparse_array(
     )
     if wrapped:
         return pp.ad.SparseArray(mat, source=space, target=space)
-    else:
-        return mat
+    return mat
 
 
 def _get_ad_array(
@@ -110,9 +117,7 @@ def _get_ad_array(
 
         return mat @ var, equation_system
 
-    else:
-        ad_arr = pp.ad.SparseJacAdArray(expression_val, jac)
-        return ad_arr
+    return pp.ad.SparseJacAdArray(expression_val, jac)
 
 
 def _expected_value(
@@ -534,6 +539,23 @@ def _expected_value(
         raise ValueError(f"Unknown classes: {type(var_1)}, {type(var_2)}.")
 
 
+def _compare(actual, expected) -> None:
+    """Assert that an evaluated object equals the expected one, both in type and in
+    value. For Ad arrays, both the values and the Jacobians are compared."""
+    assert type(actual) is type(expected)
+    if isinstance(actual, float):
+        assert np.isclose(actual, expected)
+    elif isinstance(actual, np.ndarray):
+        assert np.allclose(actual, expected)
+    elif isinstance(actual, (sps.spmatrix, sps.sparray)):
+        assert np.allclose(actual.toarray(), expected.toarray())
+    elif isinstance(actual, pp.ad.SparseJacAdArray):
+        assert np.allclose(actual.val, expected.val)
+        assert np.allclose(actual.jac.toarray(), expected.jac.toarray())
+    else:
+        raise ValueError(f"Unknown type: {type(actual)}")
+
+
 @pytest.mark.parametrize(
     "var_1", ["scalar", "dense", "sparse_matrix", "sparse_array", "ad"]
 )
@@ -543,19 +565,26 @@ def _expected_value(
 @pytest.mark.parametrize("op", ["+", "-", "*", "/", "**", "@"])
 @pytest.mark.parametrize("wrapped", [True, False])
 def test_arithmetic_operations_on_ad_objects(
-    var_1: str, var_2: str, op: str, wrapped: bool
+    arithmetic_mdg: pp.MixedDimensionalGrid,
+    var_1: str,
+    var_2: str,
+    op: str,
+    wrapped: bool,
 ) -> None:
     """Test that the fundamental Ad operators can be combined using the standard
     arithmetic operations.
 
-    All combinations of operators and operations are formed, in two different modes:
-    Wrapped as Ad operators (subclasses of pp.ad.Operator) or primitive values (float,
-    numpy.ndarray, scipy.spmatrix, SparseJacAdArray). In the wrapped form, all of these
-    combinations are actually tested, while in the primitive form (which is what is
-    applied when doing forward-mode algorithmic differentiation), only combinations that
-    involve at least one SparseJacAdArray are meaningfully tested, see below if for an
-    explanation (there is an exception to this, involving numpy arrays and
-    SparseJacAdArrays, see the second if just below for an explanation).
+    All combinations of operands and operations are formed, in two different modes:
+    Wrapped as Ad operators (subclasses of pp.ad.Operator), or as primitive values
+    (float, numpy.ndarray, scipy sparse matrices and arrays, SparseJacAdArray). In the
+    wrapped form, all combinations are tested, since the parsing of the operator tree
+    must handle each of them. In the primitive form, which is what is applied in
+    forward-mode algorithmic differentiation, only combinations that involve at least
+    one Ad array are tested; the remaining combinations are evaluated by numpy and scipy
+    alone.
+
+    For each combination, the result is compared with an expected value, or, if the
+    combination is not supported, it is checked that the evaluation raises an error.
 
     """
 
@@ -566,26 +595,18 @@ def test_arithmetic_operations_on_ad_objects(
         # is okay, thus we do not skip if wrapped is True.
         return
 
-    # TODO: This can be made into a fixture, but that should be part of a full
-    # restructuring of this test file, which will be done as part of an ongoing
-    # extension to cell-wise SparseJacAdArrays.
-    g = pp.CartGrid([3, 1])
-    mdg = pp.MixedDimensionalGrid()
-    mdg.add_subdomains([g])
-
-    def _var_from_string(v, do_wrap: bool):
+    def _var_from_string(v: str, do_wrap: bool):
         if v == "scalar":
             return _get_scalar(do_wrap)
-        elif v == "dense":
-            return _get_dense_array(do_wrap, mdg)
-        elif v == "sparse_matrix":
-            return _get_sparse_array(do_wrap, use_csr_matrix=True, mdg=mdg)
-        elif v == "sparse_array":
-            return _get_sparse_array(do_wrap, use_csr_matrix=False, mdg=mdg)
-        elif v == "ad":
-            return _get_ad_array(do_wrap, mdg)
-        else:
-            raise ValueError("Unknown variable type")
+        if v == "dense":
+            return _get_dense_array(do_wrap, arithmetic_mdg)
+        if v == "sparse_matrix":
+            return _get_sparse_array(do_wrap, use_csr_matrix=True, mdg=arithmetic_mdg)
+        if v == "sparse_array":
+            return _get_sparse_array(do_wrap, use_csr_matrix=False, mdg=arithmetic_mdg)
+        if v == "ad":
+            return _get_ad_array(do_wrap, arithmetic_mdg)
+        raise ValueError("Unknown variable type")
 
     # Get the actual variables from the input strings.
     v1 = _var_from_string(var_1, wrapped)
@@ -607,8 +628,7 @@ def test_arithmetic_operations_on_ad_objects(
             # The case of both v1 and v2 being Ad variables is dealt with below.
             v2, equation_system = v2
         else:
-            mdg = pp.MixedDimensionalGrid()
-            equation_system = pp.ad.EquationSystem(mdg)
+            equation_system = pp.ad.EquationSystem(pp.MixedDimensionalGrid())
     if var_1 == "ad" and var_2 == "ad":
         # For the case of two ad variables, they should be associated with the
         # same EquationSystem, or else parsing will fail. We could have set v1 =
@@ -617,50 +637,35 @@ def test_arithmetic_operations_on_ad_objects(
         # code to get the expected values, see that function.
         v2 = v1 + v1
 
-    # Calculate the expected numerical values for this expression. This inolves
+    # Calculate the expected numerical values for this expression. This involves
     # hard-coded values for the different operators and their combinations, see the
-    # function for more information. If the operation is not expected to succeeed, the
+    # function for more information. If the operation is not expected to succeed, the
     # function will return False.
     expected = _expected_value(
         _var_from_string(var_1, False), _var_from_string(var_2, False), op
     )
 
-    def _compare(v1, v2):
-        # Helper function to compare two evaluated objects.
-        assert type(v1) is type(v2)
-        if isinstance(v1, float):
-            assert np.isclose(v1, v2)
-        elif isinstance(v1, np.ndarray):
-            assert np.allclose(v1, v2)
-        elif isinstance(v1, (sps.spmatrix, sps.sparray)):
-            assert np.allclose(v1.toarray(), v2.toarray())
-        elif isinstance(v1, pp.ad.SparseJacAdArray):
-            assert np.allclose(v1.val, v2.val)
-            assert np.allclose(v1.jac.toarray(), v2.jac.toarray())
-
-    # Evaluate the funtion. This is a bit different for the wrapped and forward mode,
+    # Evaluate the expression. This is a bit different for the wrapped and forward mode,
     # but the logic is the same: Try to evaluate. If this breaks, check that this was
-    # not a surprize (variable expected is False).
+    # not a surprise (variable expected is False).
     if wrapped:
         try:
             # The idea here is to test evaluation on the deepest level, i.e., the method
             # _evaluate_single in the AdParser. This is the method that actually
             # translates an expression into a numerical value. An error here signifies
             # that something is wrong with the parsing itself. Note that testing of the
-            # frontend evaluation is done below (calls to equation_system.value()), as
-            # well as in the test of equation_system.py and other tests.
+            # frontend evaluation is done below (calls to equation_system.evaluate()),
+            # as well as in the test of equation_system.py and other tests.
             expression = eval(f"v1 {op} v2")
-            state = pp.ad.initAdArrays(
-                [equation_system.get_variable_values(time_step_index=0)]
-            )[0]
+            state = equation_system.get_variable_values(time_step_index=0)
+            ad_base = pp.ad.initAdArrays([state])[0]
             val = equation_system._ad_parser._evaluate_single(
                 expression,
-                state,
+                ad_base,
                 equation_system,
                 variable_indexer=equation_system.variable_indexer,
             )
         except (TypeError, ValueError, NotImplementedError):
-            # The variable e is not used here, but it is invaluable for debugging.
             assert not expected
             return
     else:
@@ -673,9 +678,8 @@ def test_arithmetic_operations_on_ad_objects(
     # Compare numerical values between evaluated and expected outcomes.
     _compare(val, expected)
 
-    # Finally, we test that the methods `value_and_jacobian` and `value` produce the
-    # same result. If the expected value is multidimensional, the Jacobian is not
-    # implemented.
+    # Finally, test that evaluation with and without derivatives give the same value.
+    # If the expected value is multidimensional, the Jacobian is not implemented.
     try:
         multidimensional = len(expected.shape) > 1
     except AttributeError:
