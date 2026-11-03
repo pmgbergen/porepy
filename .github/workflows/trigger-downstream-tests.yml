@@ -6,10 +6,13 @@
 # the GitHub API and dispatches each repo listed in downstream-repos.json,
 # passing that PR number along so the downstream repo can comment back on it.
 #
-# On a porepy pull request (opened/synchronize/reopened): the PR is already
-# known, so no API resolution is needed. Dispatches against the PR's head SHA
-# (immutable per dispatch, unlike the branch name, which can move under a
-# force-push) so a superseded run can't silently report on stale code.
+# On a porepy pull request into develop (opened/synchronize/reopened): the PR
+# is already known, so no API resolution is needed. Dispatches against the
+# PR's head SHA (immutable per dispatch, unlike the branch name, which can
+# move under a force-push) so a superseded run can't silently report on stale
+# code. PRs into other branches are not tested: release PRs into main come
+# from develop, which is already tested post-merge. To also test stacked PRs,
+# add their base branches to `pull_request: branches:` below.
 #
 # The downstream workflows are fire-and-forget: this workflow does not wait
 # for their result, it only triggers them.
@@ -100,6 +103,8 @@ on:
       - '**/*.md'
   pull_request:
     types: [opened, synchronize, reopened]
+    branches:
+      - develop
     paths-ignore:
       - 'docs/**'
       - '**/*.md'
