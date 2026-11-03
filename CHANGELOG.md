@@ -16,6 +16,7 @@ Breaking changes (what users must do when upgrading).
 ## Unreleased
 
 ### Changes
+PR 1836: TST: Add tests for arithmetics of DiagonalAdArray class.
 PR 1835: MAINT: Refactor test of arithmetic test of Ad operators. 
 PR 1834: MAINT: Move arithmetic test of Ad operators to a dedicated module.
 PR 1828: MAINT: Rename AdArray -> SparseAdArray to better reflect the difference with DiagonalAdArray.
