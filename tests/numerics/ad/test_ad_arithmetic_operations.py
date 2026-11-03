@@ -71,9 +71,24 @@ def _get_sparse_array(
 
 
 def _get_ad_array(
-    wrapped: bool, mdg
-) -> pp.ad.SparseJacAdArray | tuple[pp.ad.SparseJacAdArray, pp.ad.EquationSystem]:
-    """Get a SparseJacAdArray object which can be used in the tests."""
+    wrapped: bool,
+    mdg: pp.MixedDimensionalGrid,
+    equation_system: pp.ad.EquationSystem | None = None,
+    variable_name: str = "foo_ad",
+) -> pp.ad.SparseJacAdArray | pp.ad.Operator:
+    """Get a SparseJacAdArray object which can be used in the tests.
+
+    Parameters:
+        wrapped: If True, return an Ad operator that evaluates to the array. If False,
+            return the array itself.
+        mdg: Grid on which the array is defined.
+        equation_system: Only used if wrapped is True, and then required. The equation
+            system in which the variable of the operator is created, and which must be
+            used to evaluate the operator.
+        variable_name: Name of the variable created if wrapped is True. Operands that
+            are evaluated in the same equation system must have different names.
+
+    """
 
     # The construction between the wrapped and unwrapped case differs significantly: For
     # the latter we can simply create a SparseJacAdArray with any value and Jacobian
@@ -99,23 +114,25 @@ def _get_ad_array(
     expression_val = jac @ variable_val
 
     if wrapped:
-        equation_system = pp.ad.EquationSystem(mdg)
+        assert equation_system is not None
         equation_system.create_variables(
-            "foo", subdomains=mdg.subdomains(), dof_info={GridEntity.cells: 1}
+            variable_name, subdomains=mdg.subdomains(), dof_info={GridEntity.cells: 1}
         )
-        var = equation_system.variables[0]
+        var = equation_system.variables[-1]
         d = mdg.subdomain_data(mdg.subdomains()[0])
 
         pp.set_solution_values(
-            name="foo", values=variable_val, data=d, time_step_index=0
+            name=variable_name, values=variable_val, data=d, time_step_index=0
         )
-        pp.set_solution_values(name="foo", values=variable_val, data=d, iterate_index=0)
+        pp.set_solution_values(
+            name=variable_name, values=variable_val, data=d, iterate_index=0
+        )
         space = pp.ad.OperatorSpace.from_domains(
             mdg.subdomains(), dof_info={GridEntity.cells: 1}
         )
         mat = pp.ad.SparseArray(jac, source=space, target=space)
 
-        return mat @ var, equation_system
+        return mat @ var
 
     return pp.ad.SparseJacAdArray(expression_val, jac)
 
@@ -479,9 +496,7 @@ def _expected_value(
     if _is_ad(var_1) and _is_ad(var_2):
         if op == "@":
             return False
-        # The test function sets var_2 to twice var_1 when both operands are Ad arrays,
-        # see comments there. Mirror this here to be consistent.
-        return _expected_ad_ad(var_1, var_1 + var_1, op)
+        return _expected_ad_ad(var_1, var_2, op)
 
     if _is_ad(var_1):
         if not _is_nonad(var_2):
@@ -497,6 +512,54 @@ def _expected_value(
         return _expected_value_no_ad(var_1, var_2, op)
 
     raise ValueError(f"Unknown classes: {type(var_1)}, {type(var_2)}.")
+
+
+def _expand_adarray_derivatives(
+    ad_obj: pp.ad.SparseJacAdArray, slot: int, n_slots: int
+) -> pp.ad.SparseJacAdArray:
+    """Embed the Jacobian of an Ad array in a block of a wider Jacobian.
+
+    When n_slots operands are created as separate variables in the same equation
+    system, the Jacobian of an evaluated operand has one block of columns for each
+    variable, and is zero outside the block of its own variable. This function returns
+    the array with its Jacobian placed in block number slot of n_slots blocks.
+
+    """
+
+    if n_slots == 1:
+        return ad_obj
+
+    jac = _jac_to_dense(ad_obj)
+    expanded = np.zeros((jac.shape[0], jac.shape[1] * n_slots), dtype=float)
+    start = slot * jac.shape[1]
+    expanded[:, start : start + jac.shape[1]] = jac
+    return pp.ad.SparseJacAdArray(ad_obj.val, sps.csr_matrix(expanded))
+
+
+def _expected_wrapped_value(
+    var_1: AdType, var_2: AdType, op: Literal["+", "-", "*", "/", "**", "@"]
+) -> bool | float | np.ndarray | sps.spmatrix | pp.ad.SparseJacAdArray:
+    """Expected value of a wrapped operation between two Ad arrays.
+
+    The wrapped operands are separate variables in the same equation system, so their
+    Jacobians occupy different blocks of columns, see _expand_adarray_derivatives. The
+    expected value is computed by forward-mode evaluation of the operation on the
+    expanded arrays, thus the comparison checks that the wrapped evaluation agrees with
+    the forward mode, which is tested separately.
+
+    """
+    n_ad_operands = int(_is_ad(var_1)) + int(_is_ad(var_2))
+    if _is_ad(var_1):
+        slot_1 = 0
+        var_1 = _expand_adarray_derivatives(var_1, slot_1, max(1, n_ad_operands))
+    if _is_ad(var_2):
+        slot_2 = 1 if _is_ad(var_1) and n_ad_operands == 2 else 0
+        var_2 = _expand_adarray_derivatives(var_2, slot_2, max(1, n_ad_operands))
+
+    if op == "@":
+        # The matrix product is not defined between Ad arrays.
+        return False
+    return eval(f"var_1 {op} var_2")
 
 
 def _compare(actual, expected) -> None:
@@ -548,14 +611,26 @@ def test_arithmetic_operations_on_ad_objects(
 
     """
 
-    if not wrapped and var_1 != "ad" and var_2 != "ad":
+    has_ad_operand = var_1 == "ad" or var_2 == "ad"
+    if not wrapped and not has_ad_operand:
         # If not wrapped in the abstract layer, these cases should be covered by the
         # tests for the external packages; PorePy just has to rely on e.g., numpy being
         # correctly implemented. For the wrapped case, we need to test that the parsing
         # is okay, thus we do not skip if wrapped is True.
         return
 
-    def _var_from_string(v: str, do_wrap: bool):
+    # In the wrapped form, expressions are evaluated by an EquationSystem, which must
+    # know the variables of all Ad operands. The Ad operands are therefore created as
+    # separate variables in a common EquationSystem. If none of the operands is an Ad
+    # array, an EquationSystem is still formally needed to evaluate the expression, but
+    # since it will not actually be used for anything, it is defined on an empty grid.
+    equation_system = (
+        pp.ad.EquationSystem(arithmetic_mdg)
+        if wrapped and has_ad_operand
+        else pp.ad.EquationSystem(pp.MixedDimensionalGrid())
+    )
+
+    def _var_from_string(v: str, do_wrap: bool, variable_name: str):
         if v == "scalar":
             return _get_scalar(do_wrap)
         if v == "dense":
@@ -565,45 +640,28 @@ def test_arithmetic_operations_on_ad_objects(
         if v == "sparse_array":
             return _get_sparse_array(do_wrap, use_csr_matrix=False, mdg=arithmetic_mdg)
         if v == "ad":
-            return _get_ad_array(do_wrap, arithmetic_mdg)
+            return _get_ad_array(
+                do_wrap,
+                arithmetic_mdg,
+                equation_system=equation_system if do_wrap else None,
+                variable_name=variable_name,
+            )
         raise ValueError("Unknown variable type")
 
     # Get the actual variables from the input strings.
-    v1 = _var_from_string(var_1, wrapped)
-    v2 = _var_from_string(var_2, wrapped)
+    v1 = _var_from_string(var_1, wrapped, "foo_v1")
+    v2 = _var_from_string(var_2, wrapped, "foo_v2")
 
-    # Some gymnastics is needed here: In the wrapped form, expressions need an
-    # EquationSystem for evaluation and, if one of the operands is a SparseJacAdArray,
-    # this should be the EquationSystem used to generate this operand (see method
-    # _get_ad_array). If this is not the case, the EquationSystem will end up having to
-    # evaluate an Ad variable that it does not know about. Therefore, the method
-    # _get_ad_array returns the generated EquationSystem together with variable. If none
-    # of the operands is an Ad array, we will still formally need an EquationSystem to
-    # evaluate the expression, but since this will not actually be used for anything, we
-    # can generate a new one and pass it as a formality.
-    if wrapped:
-        if var_1 == "ad":
-            v1, equation_system = v1
-        elif var_2 == "ad":
-            # The case of both v1 and v2 being Ad variables is dealt with below.
-            v2, equation_system = v2
-        else:
-            equation_system = pp.ad.EquationSystem(pp.MixedDimensionalGrid())
-    if var_1 == "ad" and var_2 == "ad":
-        # For the case of two ad variables, they should be associated with the
-        # same EquationSystem, or else parsing will fail. We could have set v1 =
-        # v2, but this is less likely to catch errors in the parsing. Instead,
-        # we reassign v2 = v1 + v1. This also requires some adaptations in the
-        # code to get the expected values, see that function.
-        v2 = v1 + v1
-
-    # Calculate the expected numerical values for this expression. This involves
-    # hard-coded values for the different operators and their combinations, see the
-    # function for more information. If the operation is not expected to succeed, the
-    # function will return False.
-    expected = _expected_value(
-        _var_from_string(var_1, False), _var_from_string(var_2, False), op
-    )
+    # Calculate the expected numerical values for this expression from the unwrapped
+    # operands. If the operation is not expected to succeed, the expected value is
+    # False. When both wrapped operands are Ad arrays, their Jacobians have one block of
+    # columns per variable, which the expected value must account for.
+    v1_as_value = _var_from_string(var_1, False, "foo_v1")
+    v2_as_value = _var_from_string(var_2, False, "foo_v2")
+    if wrapped and var_1 == "ad" and var_2 == "ad":
+        expected = _expected_wrapped_value(v1_as_value, v2_as_value, op)
+    else:
+        expected = _expected_value(v1_as_value, v2_as_value, op)
 
     # Evaluate the expression. This is a bit different for the wrapped and forward mode,
     # but the logic is the same: Try to evaluate. If this breaks, check that this was
