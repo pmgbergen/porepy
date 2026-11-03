@@ -78,7 +78,7 @@ class AdParser:
         derivative: Literal[True],
         state: np.ndarray | None,
         variable_indexer: pp.ad.VariableIndexer,
-    ) -> pp.ad.AdArray: ...
+    ) -> pp.ad.SparseAdArray: ...
 
     @overload
     def evaluate(
@@ -88,7 +88,7 @@ class AdParser:
         derivative: Literal[True],
         state: np.ndarray | None,
         variable_indexer: pp.ad.VariableIndexer,
-    ) -> list[pp.ad.AdArray]: ...
+    ) -> list[pp.ad.SparseAdArray]: ...
 
     @overload
     def evaluate(
@@ -111,9 +111,9 @@ class AdParser:
         float
         | np.ndarray
         | sps.spmatrix
-        | pp.ad.AdArray
+        | pp.ad.SparseAdArray
         | list[float | np.ndarray | sps.spmatrix]
-        | list[pp.ad.AdArray]
+        | list[pp.ad.SparseAdArray]
     ):
         """Evaluate the operator x and its derivative if requested.
 
@@ -134,8 +134,8 @@ class AdParser:
                 pressure) and the restricted state array (with only pressure values).
 
         Returns:
-            The value, or value and Jacobian combined in an AdArray, of the operator op,
-                or a list of values, or AdArrays if op is a list.
+            The value, or value and Jacobian combined in a SparseAdArray, of the
+                operator op, or a list of values, or SparseAdArrays if op is a list.
 
         """
         # Get the state of the system, if not provided.
@@ -149,8 +149,8 @@ class AdParser:
                 f"indexer size ({variable_indexer.size})."
             )
 
-        # Create an AdArray representation of the state, if the derivative is requested.
-        # If not, the state is used as is (as a numpy array).
+        # Create a SparseAdArray representation of the state, if the derivative is
+        # requested. If not, the state is used as is (as a numpy array).
         ad_base = pp.ad.initAdArrays([state])[0] if derivative else state
 
         # Evaluate the operators. A single operator is treated as a list to simplify the
@@ -165,7 +165,8 @@ class AdParser:
                 self._evaluate_single(op, ad_base, equation_system, variable_indexer)
             ]
 
-        # If the derivative is requested, the results should be AdArrays. Enforce this.
+        # If the derivative is requested, the results should be SparseAdArrays. Enforce
+        # this.
         if derivative:
             for index, res in enumerate(result_list):
                 if isinstance(res, (int, float)):
@@ -173,8 +174,8 @@ class AdParser:
                     # result_list, since res will also be operated on by the next if.
                     res = np.array([res])
                 if isinstance(res, np.ndarray) and len(res.shape) == 1:
-                    # Convert numpy arrays to AdArrays and update result_list.
-                    result_list[index] = pp.ad.AdArray(
+                    # Convert numpy arrays to SparseAdArrays and update result_list.
+                    result_list[index] = pp.ad.SparseAdArray(
                         res, sps.csr_matrix((res.shape[0], variable_indexer.size))
                     )
                 elif isinstance(res, (sps.spmatrix, sps.sparray, np.ndarray)):
@@ -208,22 +209,22 @@ class AdParser:
     def _evaluate_single(
         self,
         op: pp.ad.Operator,
-        ad_base: np.ndarray | pp.ad.AdArray,
+        ad_base: np.ndarray | pp.ad.SparseAdArray,
         equation_system: pp.EquationSystem,
         variable_indexer: pp.ad.VariableIndexer,
-    ) -> float | np.ndarray | sps.spmatrix | pp.ad.AdArray:
+    ) -> float | np.ndarray | sps.spmatrix | pp.ad.SparseAdArray:
         """Evaluate a single operator.
 
         Parameters:
             op: The operator to evaluate.
-            ad_base: The base for the automatic differentiation. This should be an
-                AdArray if the derivative is requested, and a numpy array if not.
+            ad_base: The base for the automatic differentiation. This should be a
+                SparseAdArray if the derivative is requested, and a numpy array if not.
             equation_system: The EquationSystem wherein the system state is defined.
             variable_indexer: The indexer that defines the arrangement in ad_base.
 
         Returns:
-            A numpy array or an AdArray representation of the operator op, depending on
-                whether the derivative is requested.
+            A numpy array or a SparseAdArray representation of the operator op,
+                depending on whether the derivative is requested.
 
         """
         # If the operator is in the cache, return the cached value.
@@ -379,24 +380,25 @@ class AdParser:
                         )
 
                 if isinstance(child_values[0], np.ndarray) and isinstance(
-                    child_values[1], (pp.ad.AdArray, pp.ad.ad_array.AdArray)
+                    child_values[1], (pp.ad.SparseAdArray, pp.ad.ad_array.SparseAdArray)
                 ):
                     if operation == Operations.mul:
-                        # In the implementation of multiplication between an AdArray and
-                        # a numpy array (in the forward mode Ad), a * b and b * a do not
-                        # commute. Flip the order of the results to get the expected
-                        # behavior. This is permissible, since the elementwise product
-                        # commutes.
+                        # In the implementation of multiplication between a
+                        # SparseAdArray and a numpy array (in the forward mode Ad), a *
+                        # b and b * a do not commute. Flip the order of the results to
+                        # get the expected behavior. This is permissible, since the
+                        # elementwise product commutes.
                         child_values = child_values[::-1]
 
                     # Mypy does not understand that the above if ensures that the type
                     # of the second operand is not a float, so we need to assert it.
                     assert not isinstance(child_values[1], float)
 
-                    # If the first operand is a numpy array and the second is an
-                    # AdArray, numpy will make the operation in a strange way, using its
-                    # broadcasting logic. Instead enforce the operation to be done by
-                    # the AdArray, using the relevant right-operation method.
+                    # If the first operand is a numpy array and the second is a
+                    # SparseAdArray, numpy will make the operation in a strange way,
+                    # using its broadcasting logic. Instead enforce the operation to be
+                    # done by the SparseAdArray, using the relevant right-operation
+                    # method.
                     try:
                         if operation == Operations.div:
                             return child_values[1].__rtruediv__(child_values[0])
@@ -488,9 +490,9 @@ class AdParser:
         # Finally some information on sizes
         if isinstance(results[0], (sps.spmatrix, sps.sparray)):
             msg += f"First argument is a sparse matrix of size {results[0].shape}\n"
-        elif isinstance(results[0], pp.ad.AdArray):
+        elif isinstance(results[0], pp.ad.SparseAdArray):
             msg += (
-                f"First argument is an AdArray of size {results[0].val.size} "
+                f"First argument is a SparseAdArray of size {results[0].val.size} "
                 f" and Jacobian of shape  {results[0].jac.shape} \n"
             )
         elif isinstance(results[0], np.ndarray):
@@ -498,9 +500,9 @@ class AdParser:
 
         if isinstance(results[1], (sps.spmatrix, sps.sparray)):
             msg += f"Second argument is a sparse matrix of size {results[1].shape}\n"
-        elif isinstance(results[1], pp.ad.AdArray):
+        elif isinstance(results[1], pp.ad.SparseAdArray):
             msg += (
-                f"Second argument is an AdArray of size {results[1].val.size} "
+                f"Second argument is a SparseAdArray of size {results[1].val.size} "
                 f" and Jacobian of shape  {results[1].jac.shape} \n"
             )
         elif isinstance(results[1], np.ndarray):
