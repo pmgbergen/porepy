@@ -61,13 +61,16 @@ class TwoPhaseFlowModelConfiguration(
     IsothermalCompositionalFlowTemplate,
     VTKSamplerMixin
 ):
+    # remove old permeability model? 
     def relative_permeability_old(
         self,
         phase: pp.Phase,
         domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
         return phase.saturation(domains)
-    
+
+    #should i  modify this or make this  "relative_permeability_old"
+    #assuming if i make  new definition i have to refrence youre paper? like its for the residual saturation
     def relative_permeability(
         self,
         phase: pp.Phase,
@@ -84,3 +87,4 @@ class TwoPhaseFlowModelConfiguration(
             kr_l = (s - pp.ad.Scalar(r_l)) / (pp.ad.Scalar(1.0) - pp.ad.Scalar(r_l))
             return max(kr_l, pp.ad.Scalar(0.0))
         return s / (pp.ad.Scalar(1.0) - pp.ad.Scalar(r_l))
+
