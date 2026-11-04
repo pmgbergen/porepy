@@ -14,8 +14,8 @@ class ICSinglePhaseHighPressure(pp.PorePyModel):
 
            Initial condition setup for liquid fluid flow
         """
-        p_inlet = 14.0e6
-        p_outlet = 10.0e6
+        p_inlet = 10.0e6
+        p_outlet = 5.0e6
 
 #       old pressure values for testing
 #        p_inlet = 35.0e6

@@ -33,7 +33,7 @@ class BCSinglePhaseHighPressure(pp.PorePyModel):
         inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
 
         p_inlet = 14.0e6
-        p_outlet = 10.0e6
+        p_outlet = 5.0e6
 
 #       Old presshure values for testing
 #       p_inlet = 35.0e6
@@ -47,7 +47,7 @@ class BCSinglePhaseHighPressure(pp.PorePyModel):
     def bc_values_salt(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Define a boundary salt concentration distribution"""
         inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
-        z_NaCl_inlet = 0.1  # [mass fraction]
+        z_NaCl_inlet = 0.001  # [mass fraction]
         z_NaCl_outlet = 0.3  # [mass fraction]
         z_NaCl = z_NaCl_outlet * np.ones(boundary_grid.num_cells)
         z_NaCl[inlet_idx] = z_NaCl_inlet

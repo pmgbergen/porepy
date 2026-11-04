@@ -58,7 +58,6 @@ SIMULATION_CASES = {
         "tf": 2 * 365 * 86400,  # 2 years in seconds
         "dt": 5 * 86400,  # 5 days in seconds
 
-
     }
 }
 

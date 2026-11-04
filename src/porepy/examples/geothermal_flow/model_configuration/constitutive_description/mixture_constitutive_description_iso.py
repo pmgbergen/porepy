@@ -33,9 +33,9 @@ def enthaply_from_pressure(
     # constant temperature
     n_cell = len(p)
 
-    T = 573.15 * np.ones(n_cell)  # 150°C in Kelvin, changed from 423,15K in the original code
+ #   T = 573.15 * np.ones(n_cell)  # 300°C in Kelvin, changed from 423,15K in the original code
 
-#    T = 673.15 * np.ones(n_cell)  # 400°C in Kelvin, changed from 423,15K in the original code
+    T = 673.15 * np.ones(n_cell)  # 400°C in Kelvin, changed from 423,15K in the original code
 
     if z is None:
         z_NaCl = np.zeros_like(p)
