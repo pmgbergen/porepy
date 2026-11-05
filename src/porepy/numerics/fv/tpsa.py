@@ -143,6 +143,7 @@ class Tpsa(Discretization):
     See in particular the apendix for the expressions of the discretization schemes.
 
     Example (intended to show basic input and output functionality):
+
         # Imports:
         >>> import numpy as np
         >>> import porepy as pp
@@ -183,38 +184,39 @@ class Tpsa(Discretization):
 
         # Assemble matrix of face quantities:
         >>> face_discr = sps.block_array(
-                        [
-                            [
-                                matrices["stress"], matrices["stress_rotation"],
-                                matrices["stress_total_pressure"],
-                            ], [
-                                matrices["rotation_displacement"],
-                                matrices["rotation_diffusion"], sps.csr_array(
-                                    (num_rot_face, nc)),
-                            ], [
-                                matrices["solid_mass_displacement"], sps.csr_array(
-                                    (nf, num_rot_cell)),
-                                matrices["solid_mass_total_pressure"],
-                            ],
-                        ],
-                    )
+        ...     [
+        ...         [
+        ...             matrices["stress"],
+        ...             matrices["stress_rotation"],
+        ...             matrices["stress_total_pressure"],
+        ...         ], [
+        ...             matrices["rotation_displacement"],
+        ...             matrices["rotation_diffusion"],
+        ...             sps.csr_array((num_rot_face, nc)),
+        ...         ], [
+        ...             matrices["solid_mass_displacement"],
+        ...             sps.csr_array((nf, num_rot_cell)),
+        ...             matrices["solid_mass_total_pressure"],
+        ...         ],
+        ...     ],
+        ... )
         # Assemble divergence operator
         >>> div = sps.block_diag([div_vector, div_rot, div_scalar])
         # Matrix for imposing boundary conditions
         >>> rhs_matrix = sps.bmat(
-                    [
-                        [
-                            matrices["bound_stress"],
-                            sps.csr_array((nf * g.dim, num_rot_face)),
-                        ], [
-                            matrices["bound_rotation_displacement"],
-                            sps.csr_matrix((num_rot_face, num_rot_face)),
-                        ], [
-                            matrices["bound_mass_displacement"], sps.csr_matrix((nf,
-                            num_rot_face)),
-                        ],
-                    ]
-                )
+        ...     [
+        ...         [
+        ...             matrices["bound_stress"],
+        ...             sps.csr_array((nf * g.dim, num_rot_face)),
+        ...         ], [
+        ...             matrices["bound_rotation_displacement"],
+        ...             sps.csr_matrix((num_rot_face, num_rot_face)),
+        ...         ], [
+        ...             matrices["bound_mass_displacement"], sps.csr_matrix((nf,
+        ...             num_rot_face)),
+        ...         ],
+        ...     ]
+        ... )
         # Boundary conditions for displacement is a vector of size nf * g.dim.
         # To keep track of indices and dimensions, it can be useful to do:
         >>> bc = np.zeros((g.dim, nf))
@@ -235,13 +237,13 @@ class Tpsa(Discretization):
 
         # Accumulation terms
         >>> accum = sps.block_diag(
-                [
-                    sps.csr_array((nc * g.dim, nc * g.dim)),
-                    sps.dia_array((1.0 / mu, 0), shape=(num_rot_cell, num_rot_cell)),
-                    sps.dia_array((1.0 / lmbda, 0), shape=(num_rot_cell, num_rot_cell)),
-                ],
-                format="csr",
-            )
+        ...     [
+        ...         sps.csr_array((nc * g.dim, nc * g.dim)),
+        ...         sps.dia_array((1.0 / mu, 0), shape=(num_rot_cell, num_rot_cell)),
+        ...         sps.dia_array((1.0 / lmbda, 0), shape=(num_rot_cell, num_rot_cell)),
+        ...     ],
+        ...     format="csr",
+        ... )
         # System matrix (the minus sign on accum corresponds to the sign in the paper)
         >>> A = div @ face_discr - accum
         # Solve

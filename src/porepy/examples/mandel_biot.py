@@ -1,15 +1,15 @@
 """
 This module contains the implementation of Mandel's consolidation problem. The problem
 is discretized using MPFA/MPSA-FV in space and backward Euler in time. For further
-details on Mandel's problem, see [1 – 3]. For the implementation details, see [4].
+details on Mandel's problem, see [1 - 3]. For the implementation details, see [4].
 
 References:
 
-    - [1] Mandel, J.: Consolidation des sols (étude mathématique). Geotechnique.
-      3(7), 287–299 (1953).
+    - [1] Mandel, J.: Consolidation des sols (étude mathématique). Geotechnique.
+      3(7), 287-299 (1953).
 
     - [2] Cheng, A.H.-D., Detournay, E.: A direct boundary element method for plane
-     strain poroelasticity. Int. J. Numer. Anal. Methods Geomech. 12(5), 551–572 (1988).
+     strain poroelasticity. Int. J. Numer. Anal. Methods Geomech. 12(5), 551-572 (1988).
 
     - [3] Mikelić, A., Wang, B., & Wheeler, M. F. (2014). Numerical convergence study of
       iterative coupling for coupled flow and geomechanics. Computational Geosciences,
@@ -17,7 +17,7 @@ References:
 
     - [4] Keilegavlen, E., Berge, R., Fumagalli, A. et al. PorePy: an open-source
       software for simulation of multiphysics processes in fractured porous media.
-      Comput Geosci 25, 243–265 (2021).
+      Comput Geosci 25, 243-265 (2021).
 
 """
 

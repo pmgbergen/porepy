@@ -602,7 +602,8 @@ class FluidBuoyancy(pp.PorePyModel):
     def buoyancy_discretization(
         self, gamma: pp.Phase, delta: pp.Phase, subdomains: list[pp.Grid]
     ) -> pp.ad.UpwindAd:
-        """Return upwind discretization for subdomain buoyancy term gamma↔delta.
+        r"""Return upwind discretization for subdomain buoyancy term
+        :math:`\gamma \leftrightarrow \delta`.
 
         Parameters:
             gamma: The first phase.
@@ -1327,7 +1328,7 @@ class ConstantViscosity(pp.PorePyModel):
 
 
 class ConstantFluidThermalConductivity(pp.PorePyModel):
-    """Ïmplementation of a constant thermal conductivity for a single-phase fluid."""
+    """Implementation of a constant thermal conductivity for a single-phase fluid."""
 
     def thermal_conductivity_of_phase(
         self, phase: pp.Phase

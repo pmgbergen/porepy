@@ -109,7 +109,7 @@ def _chainrule_fractional_derivatives_parallel(
 def chainrule_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndarray:
     r"""Applies the chain rule to the derivatives of a scalar function
     :math:`f(y, \tilde{x})`, assuming its derivatives are given w.r.t. to the normalized
-    fractions :math:`\tilde{x}_i = \frac{x_i} / \frac{\sum_j x_j}`.
+    fractions :math:`\tilde{x}_i = \frac{x_i}{\sum_j x_j}`.
 
     Intended use is for thermodynamic properties in the unified formulation, which
     are given as functions with above signature.
