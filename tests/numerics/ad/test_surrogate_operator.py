@@ -377,7 +377,10 @@ def test_secondary_operators_on_boundaries(
     )
 
 
-@pytest.mark.parametrize("violation", ["not_variable", "order", "subset", "dofs"])
+@pytest.mark.parametrize(
+    "violation",
+    ["not_variable", "order", "different_dependency_factory_variable", "dofs"],
+)
 def test_dependencies_must_conform_to_domains(
     equation_system: pp.ad.EquationSystem, violation: str
 ):
@@ -403,8 +406,8 @@ def test_dependencies_must_conform_to_domains(
         dependency = lambda domains: pp.ad.Scalar(2.0) * var1(domains)
     elif violation == "order":
         domains = subdomains[::-1]
-    elif violation == "subset":
-        # The dependency is defined on all subdomains, the operator on the first only.
+    elif violation == "different_dependency_factory_variable":
+        # The dependency is defined on a different set of domains than the operator.
         dependency = lambda domains: var1(subdomains)
         domains = subdomains[:1]
     else:
@@ -419,7 +422,7 @@ def test_dependencies_must_conform_to_domains(
     expected_error, message = {
         "not_variable": (TypeError, "must depend on variables"),
         "order": (ValueError, "in the same order"),
-        "subset": (ValueError, "in the same order"),
+        "different_dependency_factory_variable": (ValueError, "in the same order"),
         "dofs": (ValueError, "DOFs"),
     }[violation]
     with pytest.raises(expected_error, match=message):
