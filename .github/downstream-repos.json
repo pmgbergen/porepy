@@ -1,5 +1,5 @@
 {
-  "_comment": "Downstream repositories tested by .github/workflows/trigger-downstream-tests.yml (see its header). 'name' labels the job in the Actions UI; 'workflow_file' is the workflow_dispatch workflow in owner/repo; 'ref' is the branch it is run on, which must contain that workflow.",
+  "_comment": "Downstream repositories tested by .github/workflows/trigger-downstream-tests.yml (see its header). 'name' labels the job in the Actions UI; 'workflow_file' is the workflow_dispatch workflow in owner/repo; 'ref' is the branch it is run on in owner/repo (this branch must contain 'workflow_file'). ",
   "repos": [
     { "name": "mpxa", "owner": "pmgbergen", "repo": "mpxa",
       "workflow_file": "porepy-integration-test.yml", "ref": "main" },
