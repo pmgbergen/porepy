@@ -59,6 +59,17 @@ jobs:
       trigger_event: ${{ steps.resolve.outputs.trigger_event }}
       repos: ${{ steps.load-repos.outputs.repos }}
     steps:
+      # Fail once with a clear message, rather than with a generic gh error in
+      # every dispatch job. Failing here also skips `dispatch`.
+      - name: Check dispatch token
+        env:
+          GH_TOKEN: ${{ secrets.DOWNSTREAM_DISPATCH_PAT }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::DOWNSTREAM_DISPATCH_PAT is not available to this repository (missing, or org secret not shared with it)."
+            exit 1
+          fi
+
       - name: Check out the repo
         uses: actions/checkout@v4
 
