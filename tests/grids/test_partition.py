@@ -282,9 +282,20 @@ class TestExtractSubgridTags:
 
     """
 
-    def fractured_grid(self, dim: int, return_mdg: bool = False) -> pp.Grid:
-        """Grid with one immersed fracture, as the highest-dimensional subdomain of a
-        mixed-dimensional grid."""
+    def fractured_grid(
+        self, dim: int, return_mdg: bool = False
+    ) -> pp.Grid | pp.MixedDimensionalGrid:
+        """Grid with one immersed fracture.
+
+        Parameters:
+            dim: Dimension of the grid. Should be 2 or 3.
+            return_mdg: If True, return the mixed-dimensional grid, otherwise return
+                the highest-dimensional subdomain (e.g. the grid of co-dimension 0).
+
+        Returns:
+            The fractured grid or the mixed-dimensional grid, depending on `return_mdg`.
+
+        """
         if dim == 2:
             fracture = np.array([[1.0, 3.0], [2.0, 2.0]])
             num_cells = np.array([4, 4])
@@ -306,7 +317,7 @@ class TestExtractSubgridTags:
     def test_tags_of_full_extraction(self, dim: int):
         """Extracting all cells should reproduce the tags of the parent."""
         sd = self.fractured_grid(dim)
-        sub, sub_f, _ = pp.partition.extract_subgrid(sd, np.arange(sd.num_cells))
+        sub, sub_f, _ = pp.partition.extract_subgrid(sd.copy(), np.arange(sd.num_cells))
 
         assert sd.tags["fracture_faces"].sum() > 0
         for key in pp.utils.tags.standard_face_tags():
@@ -328,7 +339,7 @@ class TestExtractSubgridTags:
                 np.abs(sd.cell_centers[1] - 2) < 1,
             )
         )[0]
-        sub, sub_f, _ = pp.partition.extract_subgrid(sd, cells)
+        sub, sub_f, _ = pp.partition.extract_subgrid(sd.copy(), cells)
 
         # The fracture faces of the parent are still fracture faces.
         assert np.array_equal(
@@ -356,10 +367,12 @@ class TestExtractSubgridTags:
         sd.compute_geometry()
         assert sd.tags["tip_faces"].sum() > 0
         # 'Extract' the full fracture grid.
-        sub, sub_f, _ = pp.partition.extract_subgrid(sd, np.arange(sd.num_cells))
+        sub, sub_f, _ = pp.partition.extract_subgrid(sd.copy(), np.arange(sd.num_cells))
         # The tip face tags are transferred and equal those of the parent.
         assert np.array_equal(sd.tags["tip_faces"][sub_f], sub.tags["tip_faces"])
-        # The domain boundary and fracture face tags are not present in the subgrid.
+        # Since the fracture does not extend to the domain boundary and does not cross
+        # any other fractures, respectively, the tags "domain_boundary_faces" and
+        # "fracture_faces" should be empty.
         for tag in ["domain_boundary_faces", "fracture_faces"]:
             assert not np.any(sub.tags[tag])
 
@@ -426,7 +439,7 @@ class TestConnectivityChecker:
         # A single subgrid is connected
         g, p = self.setup()
 
-        sub_g, _, _ = pp.partition.extract_subgrid(g, np.where(p == 0)[0])
+        sub_g, _, _ = pp.partition.extract_subgrid(g.copy(), np.where(p == 0)[0])
         is_connected, components = pp.partition.grid_is_connected(sub_g)
         assert is_connected
         assert np.array_equal(np.sort(components[0]), np.arange(sub_g.num_cells))
@@ -436,7 +449,7 @@ class TestConnectivityChecker:
         g, p = self.setup()
 
         p_sub = np.r_[np.where(p == 0)[0], np.where(p == 3)[0]]
-        sub_g, _, _ = pp.partition.extract_subgrid(g, p_sub)
+        sub_g, _, _ = pp.partition.extract_subgrid(g.copy(), p_sub)
         is_connected, components = pp.partition.grid_is_connected(sub_g)
         assert not is_connected
         assert np.array_equal(np.sort(p_sub[components[0]]), np.array([0, 1, 4, 5]))
