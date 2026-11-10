@@ -494,9 +494,9 @@ def extract_subgrid(
     if hasattr(g, "face_areas"):
         h.face_areas = g.face_areas[unique_faces]
 
-    # Under initialization, the extracted grid will have all faces with a single
+    # Under initialization, the extracted grid will tag all faces having a single
     # neighbouring cell as domain boundary faces. Transfer fracture and tip tags from
-    # the parent grid and remove their domain boundary tag.
+    # the parent grid and remove the domain boundary tag from the corresponding faces.
     for key in ["fracture_faces", "tip_faces"]:
         h.tags[key] = g.tags[key][unique_faces]
     h.tags["domain_boundary_faces"] = np.logical_and(
