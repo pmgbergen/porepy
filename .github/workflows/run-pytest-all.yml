@@ -74,8 +74,16 @@ jobs:
       run: |
         pip install -U pip
         pip install .[testing]
+        pip install pypardiso
         pip freeze
 
     - name: all tests
       if: ${{always()}}
+      # Run on a single thread to make results (e.g., from the pypardiso solver)
+      # deterministic.
+      env:
+        OMP_NUM_THREADS: 1
+        MKL_NUM_THREADS: 1
+        OPENBLAS_NUM_THREADS: 1
+        NUMBA_NUM_THREADS: 1
       run: pytest --run-skipped -m "not tutorials"
