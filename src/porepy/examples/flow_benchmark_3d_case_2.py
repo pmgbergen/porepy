@@ -31,6 +31,7 @@ from porepy.examples.flow_benchmark_2d_case_1 import (
     Permeability,
 )
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
+from porepy.numerics.solvers.linear_solvers.linear_solver import LinearSolverDirect
 
 solid_constants_conductive = FractureSolidConstants(
     residual_aperture=1e-4,
@@ -272,7 +273,15 @@ def run_example() -> list[pp.PorePyModel]:
         solver_parameters = {
             "nl_convergence_res_atol": 1e-8,  # absolute tolerance on residuals
         }
-        pp.run_time_dependent_model(model, solver_parameters)
+        # The linear system is poorly scaled, which makes pypardiso (the default
+        # direct solver) inaccurate. Use SuperLU, which solves the system accurately.
+        nonlinear_solver = pp.solvers.NewtonSolver(
+            params=solver_parameters,
+            linear_solver=LinearSolverDirect(backend="scipy_sparse"),
+        )
+        pp.ModelRunner(
+            model, solver_parameters, nonlinear_solver=nonlinear_solver
+        ).run()
         models.append(model)
 
     return models
