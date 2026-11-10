@@ -357,7 +357,7 @@ class TestExtractSubgridTags:
         assert sd.tags["tip_faces"].sum() > 0
         # 'Extract' the full fracture grid.
         sub, sub_f, _ = pp.partition.extract_subgrid(sd, np.arange(sd.num_cells))
-        # The tip face tag is transferred and equals the those of the parent.
+        # The tip face tags are transferred and equal those of the parent.
         assert np.array_equal(sd.tags["tip_faces"][sub_f], sub.tags["tip_faces"])
         # The domain boundary and fracture face tags are not present in the subgrid.
         for tag in ["domain_boundary_faces", "fracture_faces"]:
