@@ -638,8 +638,7 @@ class SurrogateFactory:
             raise ValueError(
                 f"Dependency {dependency.name} of surrogate operator {self.name} must"
                 " be defined on the domains the operator is called with, in the same"
-                " order. Call the operator on domains in the order of the"
-                " mixed-dimensional grid."
+                " order."
             )
         num_dofs = sum(self.num_dofs_on_grid(grid) for grid in domains)
         if dependency.size != num_dofs:
