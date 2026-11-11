@@ -427,8 +427,12 @@ def test_dependencies_must_conform_to_domains(
     }[violation]
     with pytest.raises(expected_error, match=message):
         factory(domains)
-    # In the order of the md-grid, the factory can be called on a subset of domains.
-    pp.ad.SurrogateFactory("surrogate", equation_system.mdg, [var1])(subdomains[1:])
+
+    if violation == "different_dependency_factory_variable":
+        # In the order of the md-grid, the factory can be called on a subset of domains.
+        # This holds for all violations, but it is sufficient to test it for one of
+        # them (arbitrarily chosen).
+        pp.ad.SurrogateFactory("surrogate", equation_system.mdg, [var1])(subdomains[1:])
 
 
 def _surrogate_and_arguments(
