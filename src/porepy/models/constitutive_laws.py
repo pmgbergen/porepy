@@ -1426,7 +1426,7 @@ class AdTpfaFlux(pp.PorePyModel):
             # Define the Ad function for the flux, including the impact of boundary
             # conditions internal and external.
             target = OperatorSpace.from_domains(domains, {GridEntity.faces: 1})
-            flux_p = pp.ad.Function(
+            flux_p = pp.ad.Function(  # type: ignore[type-var]
                 # Mypy raises an error here since functool.partial returns a 'partial',
                 # while pp.ad.Function expects a Callable. partial.__call__ is a
                 # Callable, and we know this is the way the function will be evaluated
@@ -1439,7 +1439,7 @@ class AdTpfaFlux(pp.PorePyModel):
                 target=target,
             )(t_f, potential_difference, potential(domains), t_bnd, boundary_value)
             # Define the Ad function for the vector source
-            vector_source_d = Function(
+            vector_source_d = Function(  # type: ignore[type-var]
                 partial(  # type: ignore[arg-type]
                     self.__mpfa_vector_source_discretization, base_discr
                 ),
@@ -1532,7 +1532,7 @@ class AdTpfaFlux(pp.PorePyModel):
             # Approximate the derivative of the transmissibility matrix with respect to
             # permeability by a Tpfa-style discretization.
             space = OperatorSpace.from_domains(subdomains, {GridEntity.faces: 1})
-            boundary_value_contribution = Function(
+            boundary_value_contribution = Function(  # type: ignore[type-var]
                 # See comment in diffusive_flux method for explanation why the type
                 # ignore is needed.
                 partial(  # type: ignore[arg-type]
