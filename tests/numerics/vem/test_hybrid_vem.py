@@ -59,8 +59,8 @@ class TestVEMDiscretization:
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
-        assert np.allclose(M, M_known, rtol, atol)
+        np.testing.assert_allclose(M, M.T, rtol, atol, equal_nan=False)
+        np.testing.assert_allclose(M, M_known, rtol, atol, equal_nan=False)
 
     """Test one-dimensional for anisotropic material data."""
 
@@ -90,8 +90,8 @@ class TestVEMDiscretization:
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
-        assert np.allclose(M, M_known, rtol, atol)
+        np.testing.assert_allclose(M, M.T, rtol, atol, equal_nan=False)
+        np.testing.assert_allclose(M, M_known, rtol, atol, equal_nan=False)
 
     """Test two-dimensional for isotropic material data."""
 
@@ -124,8 +124,8 @@ class TestVEMDiscretization:
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
-        assert np.allclose(M, M_known, rtol, atol)
+        np.testing.assert_allclose(M, M.T, rtol, atol, equal_nan=False)
+        np.testing.assert_allclose(M, M_known, rtol, atol, equal_nan=False)
 
     """Test two-dimensional for anisotropic material data."""
 
@@ -216,8 +216,8 @@ class TestVEMDiscretization:
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
-        assert np.allclose(M, M_known, rtol, atol)
+        np.testing.assert_allclose(M, M.T, rtol, atol, equal_nan=False)
+        np.testing.assert_allclose(M, M_known, rtol, atol, equal_nan=False)
 
     def test_3d_isotropic_permeability_carterian(self):
         sd = self._create_cartesian_grid(dimension=3)
@@ -238,8 +238,8 @@ class TestVEMDiscretization:
 
         rtol = 1e-14
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
-        assert np.allclose(M, M_known, rtol, atol)
+        np.testing.assert_allclose(M, M.T, rtol, atol, equal_nan=False)
+        np.testing.assert_allclose(M, M_known, rtol, atol, equal_nan=False)
 
     """Test three-dimensional for anisotropic material data."""
 
@@ -264,8 +264,8 @@ class TestVEMDiscretization:
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
-        assert np.allclose(M, M_known, rtol, atol)
+        np.testing.assert_allclose(M, M.T, rtol, atol, equal_nan=False)
+        np.testing.assert_allclose(M, M_known, rtol, atol, equal_nan=False)
 
     """Test two-dimensional for isotropic material data (simplex grid)."""
 
@@ -320,9 +320,9 @@ class TestVEMDiscretization:
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
+        np.testing.assert_allclose(M, M.T, rtol, atol, equal_nan=False)
         # We test only the mass-Hdiv part
-        assert np.allclose(M, M_known, rtol, atol)
+        np.testing.assert_allclose(M, M_known, rtol, atol, equal_nan=False)
 
     """Test two-dimensional for anisotropic material data (simplex grid)."""
 
@@ -366,9 +366,9 @@ class TestVEMDiscretization:
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
+        np.testing.assert_allclose(M, M.T, rtol, atol, equal_nan=False)
         # We test only the mass-Hdiv part
-        assert np.allclose(M, M_known, rtol, atol)
+        np.testing.assert_allclose(M, M_known, rtol, atol, equal_nan=False)
 
     """Test one-dimensional R1-R3 for isotropic material data."""
 
@@ -399,8 +399,8 @@ class TestVEMDiscretization:
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
-        assert np.allclose(M, M_known, rtol, atol)
+        np.testing.assert_allclose(M, M.T, rtol, atol, equal_nan=False)
+        np.testing.assert_allclose(M, M_known, rtol, atol, equal_nan=False)
 
     """Test two-dimensional R2-R3 for isotropic material data."""
 
@@ -433,8 +433,8 @@ class TestVEMDiscretization:
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
-        assert np.allclose(M, M_known, rtol, atol)
+        np.testing.assert_allclose(M, M.T, rtol, atol, equal_nan=False)
+        np.testing.assert_allclose(M, M_known, rtol, atol, equal_nan=False)
 
 
 def matrix_for_test_dual_hybrid_vem_3d_isotropic_cart():
