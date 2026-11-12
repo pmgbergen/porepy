@@ -115,13 +115,21 @@ def test_sparse_nd_array(coords_values: list[np.ndarray]):
     arr_additive = pp.array_operations.SparseNdArray(dim, value_dim=value_dim)
     arr_additive.add(coords, values, additive=True)
     retrieved_values_additive = arr_additive.get(coords)
-    assert np.allclose(retrieved_values_additive, expected_values_additive)
+    np.testing.assert_allclose(
+        retrieved_values_additive, 
+        expected_values_additive,
+        equal_nan=False
+        )
 
     # Overwrite, all at the same time
     arr_overwrite = pp.array_operations.SparseNdArray(dim, value_dim=value_dim)
     arr_overwrite.add(coords, values)
     retrieved_values_overwrite = arr_overwrite.get(coords)
-    assert np.allclose(retrieved_values_overwrite, expected_values_overwrite)
+    np.testing.assert_allclose(
+        retrieved_values_overwrite, 
+        expected_values_overwrite,
+        equal_nan=False
+        )
 
     # Additive, add one by one
     arr_additive_incremental = pp.array_operations.SparseNdArray(
@@ -133,7 +141,11 @@ def test_sparse_nd_array(coords_values: list[np.ndarray]):
         )
     retrieved_values_additive_incremental = arr_additive_incremental.get(coords)
     # The expeted value is the same as when all coordinates are added at the same time
-    assert np.allclose(retrieved_values_additive_incremental, expected_values_additive)
+    np.testing.assert_allclose(
+        retrieved_values_additive_incremental, 
+        expected_values_additive,
+        equal_nan=False
+        )
 
     # Overwrite, one at a time
     arr_overwrite_incremental = pp.array_operations.SparseNdArray(
@@ -144,8 +156,10 @@ def test_sparse_nd_array(coords_values: list[np.ndarray]):
             [coord], values[:, ind].reshape((-1, 1)), additive=False
         )
     retrieved_values_overwrite_incremental = arr_overwrite_incremental.get(coords)
-    assert np.allclose(
-        retrieved_values_overwrite_incremental, expected_values_overwrite
+    np.testing.assert_allclose(
+        retrieved_values_overwrite_incremental, 
+        expected_values_overwrite, 
+        equal_nan=False
     )
 
     # Final test: Try to access a coordiinates that has not been added, this should
@@ -248,13 +262,13 @@ def test_intersect_sets(data):
 
     ia, ib, a_in_b, a_2_b = pp.array_operations.intersect_sets(a, b, tol)
 
-    assert np.allclose(ia, np.sort(ia_known))
-    assert np.allclose(ib, np.sort(ib_known))
+    np.testing.assert_allclose(ia, np.sort(ia_known), equal_nan=False)
+    np.testing.assert_allclose(ib, np.sort(ib_known), equal_nan=False)
 
     # The known values from a_in_b must be inferred from the known values.
     a_in_b_known = np.zeros(a.shape[-1])
     a_in_b_known[ia_known] = True
-    assert np.allclose(a_in_b, a_in_b_known)
+    np.testing.assert_allclose(a_in_b, a_in_b_known, equal_nan=False)
 
     # a_2_b is a list of list, check one by one.
     for e1, e2 in zip(a_2_b, a_2_b_known):
@@ -341,8 +355,8 @@ def test_intersect_sets(data):
 )
 def test_ismember_columns(a, b, ma_known, ia_known, sort):
     ma, ia = pp.array_operations.ismember_columns(a, b, sort=sort)
-    assert np.allclose(ma, ma_known)
-    assert np.allclose(ia, ia_known)
+    np.testing.assert_allclose(ma, ma_known, equal_nan=False)
+    np.testing.assert_allclose(ia, ia_known, equal_nan=False)
 
 
 @pytest.mark.parametrize(
@@ -578,6 +592,8 @@ def test_uniquify_point_set(params: dict):
     results = pp.array_operations.uniquify_point_set(points=input, tol=tol)
     unique_vectors, new_2_old, old_2_new = results
     expected = np.array(params["expected"]).T
-    assert np.allclose(unique_vectors, expected, atol=tol)
-    assert np.allclose(input[:, new_2_old], expected, atol=tol)
-    assert np.allclose(unique_vectors[:, old_2_new], input, atol=tol)
+    np.testing.assert_allclose(unique_vectors, expected, atol=tol, equal_nan=False)
+    np.testing.assert_allclose(input[:, new_2_old], expected, atol=tol, equal_nan=False)
+    np.testing.assert_allclose(
+        unique_vectors[:, old_2_new], input, atol=tol, equal_nan=False
+        )
