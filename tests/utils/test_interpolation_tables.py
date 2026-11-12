@@ -258,7 +258,7 @@ def test_interpolation_tables_random_points(dim, factory, random_seed):
     assert np.max(np.abs(table_vals - known_vals)) < function.tol
 
     # The two interpolation approaches should be identical
-    assert np.allclose(table_vals, adaptive_vals, atol=1e-10)
+    np.testing.assert_allclose(table_vals, adaptive_vals, atol=1e-10, equal_nan=False)
 
     # Test of derivatives
     for d in range(dim):
@@ -273,4 +273,4 @@ def test_interpolation_tables_random_points(dim, factory, random_seed):
         # function itself.
         assert np.max(np.abs(diff - known_diff)) < function.diff_tol
         # The adaptive and the full table should be equivalent.
-        assert np.allclose(diff, adaptive_diff, atol=1e-10)
+        np.testing.assert_allclose(diff, adaptive_diff, atol=1e-10, equal_nan=False)
