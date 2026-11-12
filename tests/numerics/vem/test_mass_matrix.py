@@ -65,8 +65,8 @@ class TestDualMethodMassMatrix:
                 ]
             )
         )
-        assert np.allclose(lhs.toarray(), lhs_known)
-        assert np.allclose(rhs, 0)
+        np.testing.assert_allclose(lhs.toarray(), lhs_known, equal_nan=False)
+        np.testing.assert_allclose(rhs, 0, equal_nan=False)
 
     """Test the inverse of mass matrix in 1d for a simple geometry."""
 
@@ -93,8 +93,8 @@ class TestDualMethodMassMatrix:
             ]
         )
 
-        assert np.allclose(lhs.toarray(), lhs_known)
-        assert np.allclose(rhs, 0)
+        np.testing.assert_allclose(lhs.toarray(), lhs_known, equal_nan=False)
+        np.testing.assert_allclose(rhs, 0, equal_nan=False)
 
     """Test the mass matrix in 1d for a simple geometry."""
 
@@ -693,8 +693,8 @@ class TestDualMethodMassMatrix:
             )
         )
 
-        assert np.allclose(lhs.toarray(), lhs_known)
-        assert np.allclose(rhs, 0)
+        np.testing.assert_allclose(lhs.toarray(), lhs_known, equal_nan=False)
+        np.testing.assert_allclose(rhs, 0, equal_nan=False)
 
     """Test the inverse of mass matrix in 2d for a simple geometry."""
 
@@ -1289,5 +1289,5 @@ class TestDualMethodMassMatrix:
             ]
         )
 
-        assert np.allclose(lhs.toarray(), lhs_known)
-        assert np.allclose(rhs, 0)
+        np.testing.assert_allclose(lhs.toarray(), lhs_known, equal_nan=False)
+        np.testing.assert_allclose(rhs, 0, equal_nan=False)
