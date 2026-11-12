@@ -16,7 +16,9 @@ Breaking changes (what users must do when upgrading).
 ## Unreleased
 
 ### Changes
+PR 1840: BLD: Use Pypardiso in all GH actions. 
 PR 1830: Reworking documentation build workflow, now available on develop and automatically deployed to GH pages.
+PR 1825: MAINT: Improved security for surrogate operator construction.
 PR 1816: SPEED: Faster manufactured-solution functional tests by compiling each sympy expression once (issue 1814).
 PR 1812: Fixed `DarcysLawAd` and `FouriersLawAd` with a TPFA base discretization dropping the interface flux on fracture faces (issue 1811).
 PR 1805: The tangential contact mechanics equation now defaults to the projection-based formulation of Alart and Curnier, replacing the scaled projection of Berge et al.
@@ -36,6 +38,9 @@ PR 1795: Introduced EarlyStopCriterion in ModelRunner. Introduced
 PR 1794: Introduced typed interface pp.Metric for convergence metric instead of
     duck-typed pp.ConvergenceMetricType.
 PR 1793: Fix bug related to wrong placement of enthalpy advection Ad operator naming.
+PR 1785: Ad Operator functions, SurrogateOperator, EquationSystem and ArraySlicer
+    accept DiagonalAdArray. SurrogateOperator assembles its Jacobian by the chain rule,
+    and returns a DiagonalAdArray if all its arguments are diagonal.
 PR 1784: Make forward-mode Ad functions compatible with DiagonalAdArray. Update the function test suite.
 PR 1783: Introduce DiagonalAdArray class, with AdArrayBase as common parent of it and AdArray. Not yet used elsewhere in the code base.
 PR 1782: Rename module containing AdArray class.
