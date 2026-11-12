@@ -25,7 +25,6 @@ from porepy.numerics.ad.ad_array import (
     initialize_partial_ad_array,
 )
 
-
 # Binary operators, keyed by their symbols. The tests are parametrized by the symbols,
 # which give readable test ids, and call the operator functions directly.
 _ARITHMETIC_OPERATORS: dict[str, Callable] = {
