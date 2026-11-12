@@ -89,9 +89,11 @@ def test_export_chosen_times(times_to_export):
     # The actual test of exported times based on the log stored in model.exported_times:
     if times_to_export is None:
         times_to_export = np.linspace(0.0, tf, time_steps + 1)
-        assert np.allclose(model.exported_times, times_to_export)
+        np.testing.assert_allclose(model.exported_times, times_to_export, 
+        equal_nan=False)
     else:
-        assert np.allclose(model.exported_times, np.sort(times_to_export))
+        np.testing.assert_allclose(model.exported_times, np.sort(times_to_export), 
+        equal_nan=False)
 
 
 @pytest.mark.parametrize(
