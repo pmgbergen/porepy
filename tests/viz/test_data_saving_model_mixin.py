@@ -141,10 +141,12 @@ def test_exported_times_consistency_with_files(
         times_data = json.load(f)
 
     # Compare exported times with the times in times.json.
-    assert np.allclose(model.time_manager.exported_times, times_data["time"])
+    np.testing.assert_allclose(model.time_manager.exported_times, times_data["time"], 
+        equal_nan=False)
 
     # Compare exported times with the expected times.
-    assert np.allclose(model.time_manager.exported_times, expected_times)
+    np.testing.assert_allclose(model.time_manager.exported_times, expected_times, 
+        equal_nan=False)
 
     # Check that the correct number of files are exported.
     # Parse the PVD file.
@@ -159,7 +161,7 @@ def test_exported_times_consistency_with_files(
         timesteps.add(float(timestep))
 
     # Compare unique timesteps with times.json.
-    assert np.allclose(sorted(timesteps), times_data["time"])
+    np.testing.assert_allclose(sorted(timesteps), times_data["time"], equal_nan=False)
 
 
 class TestComputeSlipTendency:
