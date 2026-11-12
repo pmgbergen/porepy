@@ -8,6 +8,9 @@ e.g., add, sub, etc., which are also covered in other tests.
 
 from __future__ import annotations
 
+import operator
+from typing import Callable
+
 import numpy as np
 import pytest
 import scipy.sparse as sps
@@ -21,6 +24,25 @@ from porepy.numerics.ad.ad_array import (
     initialize_diagonal_ad_arrays,
     initialize_partial_ad_array,
 )
+
+
+# Binary operators, keyed by their symbols. The tests are parametrized by the symbols,
+# which give readable test ids, and call the operator functions directly.
+_ARITHMETIC_OPERATORS: dict[str, Callable] = {
+    "+": operator.add,
+    "-": operator.sub,
+    "*": operator.mul,
+    "/": operator.truediv,
+    "**": operator.pow,
+}
+_COMPARISON_OPERATORS: dict[str, Callable] = {
+    ">": operator.gt,
+    ">=": operator.ge,
+    "<": operator.lt,
+    "<=": operator.le,
+    "==": operator.eq,
+    "!=": operator.ne,
+}
 
 
 def initAdArrays(variables: list[np.ndarray]) -> list[AdArray]:
@@ -345,7 +367,7 @@ def test_get_set_slice_ad_var(
 
 
 @pytest.mark.parametrize("N", [1, 3])
-@pytest.mark.parametrize("logical_op", [">", ">=", "<", "<=", "==", "!="])
+@pytest.mark.parametrize("logical_op", list(_COMPARISON_OPERATORS))
 @pytest.mark.parametrize(
     "other",
     [
@@ -377,26 +399,21 @@ def test_logical_operation(
 
     val = np.arange(N)
     jac = create_csr(np.eye(N))
-    # Ignore ad not being accessed, it is used in the exec statement.
-    ad = AdArray(val, jac)  # noqa: F841
+    ad = AdArray(val, jac)
+    op = _COMPARISON_OPERATORS[logical_op]
 
-    global result_numpy, result_ad
-    result_numpy = np.empty(N)
-    result_ad = np.empty(N)
+    # NOTE if the AD array is the right operand, the overload of numpy will be
+    # invoked. Must use the .val member in this case
+    other_numpy = other.val if isinstance(other, AdArray) else other
 
     # NOTE Numpy manages to compare arrays, if one of them has shape (1,) by treating
     # it as a scalar. All other cases should raise an error.
     try:
-        # NOTE if the AD array is the right operand, the overload of numpy will be
-        # invoked. Must use the .val member in this case
-        if isinstance(other, AdArray):
-            exec(f"global result_numpy; result_numpy = val {logical_op} other.val")
-        else:
-            exec(f"global result_numpy; result_numpy = val {logical_op} other")
+        result_numpy = op(val, other_numpy)
     # If numpy failes to broadcast the shapes, so should the Ad Array.
     except ValueError as numpy_err:
         with pytest.raises(ValueError) as ad_error:
-            exec(f"result_ad = ad {logical_op} other")
+            op(ad, other)
 
         # Comparison of exceptions by type and message content
         assert ad_error.type is type(numpy_err)
@@ -404,15 +421,15 @@ def test_logical_operation(
     # If numpy does not fail, the logical operation on AD should have same result,
     # dtype and shape
     else:
-        exec(f"global result_ad; result_ad = ad {logical_op} other")
+        result_ad = op(ad, other)
 
         assert result_ad.shape == result_numpy.shape
         assert result_ad.dtype == result_numpy.dtype
         np.testing.assert_array_equal(result_ad, result_numpy)
 
 
-@pytest.mark.parametrize("operator", ["+", "-", "*", "/", "**"])
-def test_numpy_array_as_left_operand(operator: str, create_csr):
+@pytest.mark.parametrize("op", list(_ARITHMETIC_OPERATORS))
+def test_numpy_array_as_left_operand(op: str, create_csr):
     """A numpy array to the left of an AdArray should give an AdArray.
 
     This tests the disabling of numpy's ufuncs for AdArray, by setting
@@ -426,7 +443,7 @@ def test_numpy_array_as_left_operand(operator: str, create_csr):
     ad = AdArray(val, jac)
     b = np.array([3.0, 2.0, 5.0])
 
-    res = eval(f"b {operator} ad")
+    res = _ARITHMETIC_OPERATORS[op](b, ad)
 
     # d/dx of (b op x), differentiated by hand.
     derivative = {
@@ -435,16 +452,16 @@ def test_numpy_array_as_left_operand(operator: str, create_csr):
         "*": b,
         "/": -b / val**2,
         "**": b**val * np.log(b),
-    }[operator]
+    }[op]
 
     assert isinstance(res, AdArray)
-    np.testing.assert_allclose(res.val, eval(f"b {operator} val"))
+    np.testing.assert_allclose(res.val, _ARITHMETIC_OPERATORS[op](b, val))
     np.testing.assert_allclose(res.jac.toarray(), np.diag(derivative) @ jac.toarray())
     # One Jacobian, not one per element.
     assert res.jac.nnz == jac.nnz
 
 
-@pytest.mark.parametrize("logical_op", [">", ">=", "<", "<=", "==", "!="])
+@pytest.mark.parametrize("logical_op", list(_COMPARISON_OPERATORS))
 def test_numpy_array_as_left_operand_logical(logical_op: str, create_csr):
     """Test disabling of numpy's ufuncs for AdArray when used with logical operators.
 
@@ -454,10 +471,11 @@ def test_numpy_array_as_left_operand_logical(logical_op: str, create_csr):
     ad = AdArray(val, create_csr(np.eye(3)))
     b = np.array([3.0, 3.0, 1.0])
 
-    res = eval(f"b {logical_op} ad")
+    op = _COMPARISON_OPERATORS[logical_op]
+    res = op(b, ad)
 
     assert isinstance(res, np.ndarray) and res.dtype == np.bool_
-    np.testing.assert_array_equal(res, eval(f"b {logical_op} val"))
+    np.testing.assert_array_equal(res, op(b, val))
 
 
 @pytest.mark.parametrize(
@@ -725,7 +743,7 @@ def test_full_jac():
     )
 
 
-@pytest.mark.parametrize("op", ["+", "-", "*", "/", "**"])
+@pytest.mark.parametrize("op", list(_ARITHMETIC_OPERATORS))
 @pytest.mark.parametrize("diagonal_first", [True, False])
 def test_operations_between_representations(op: str, diagonal_first: bool):
     """An operation between the two representations gives an AdArray, with the same
@@ -733,8 +751,9 @@ def test_operations_between_representations(op: str, diagonal_first: bool):
     full, diag = _full_and_diagonal_pair()
     left, right = (diag, full) if diagonal_first else (full, diag)
 
-    result = eval(f"left {op} right")
-    reference = eval(f"left.to_full() {op} right.to_full()")
+    operation = _ARITHMETIC_OPERATORS[op]
+    result = operation(left, right)
+    reference = operation(left.to_full(), right.to_full())
 
     assert isinstance(result, AdArray)
     np.testing.assert_allclose(result.val, reference.val)
@@ -747,7 +766,7 @@ def test_diagonal_ad_array_with_sparse_operand_raises(op: str):
     _, diag = _full_and_diagonal_pair()
     matrix = sps.csr_matrix(np.eye(2))
     with pytest.raises(ValueError):
-        eval(f"diag {op} matrix")
+        _ARITHMETIC_OPERATORS[op](diag, matrix)
 
 
 def test_diagonal_ad_array_left_multiplied_by_matrix():
@@ -786,13 +805,24 @@ def test_setitem_diagonal_into_full():
     np.testing.assert_allclose(full.jac.toarray(), diag.full_jac.toarray())
 
 
-@pytest.mark.parametrize("expression", ["2.0 + a", "a - b", "2.0 - a", "2.0 * a", "-a"])
-def test_shared_operations_on_ad_array_return_ad_array(expression: str):
+@pytest.mark.parametrize(
+    "expression",
+    [
+        pytest.param(lambda a, b: 2.0 + a, id="2.0 + a"),
+        pytest.param(lambda a, b: a - b, id="a - b"),
+        pytest.param(lambda a, b: 2.0 - a, id="2.0 - a"),
+        pytest.param(lambda a, b: 2.0 * a, id="2.0 * a"),
+        pytest.param(lambda a, b: -a, id="-a"),
+    ],
+)
+def test_shared_operations_on_ad_array_return_ad_array(
+    expression: Callable[[AdArray, DiagonalAdArray], AdArrayBase],
+):
     """The operations implemented in AdArrayBase return an AdArray when called on an
     AdArray, also when the other operand is diagonal. The type hints of AdArray rely
     on this."""
     a, b = _full_and_diagonal_pair()
-    assert isinstance(eval(expression), AdArray)
+    assert isinstance(expression(a, b), AdArray)
 
 
 @pytest.mark.parametrize("representation", ["full", "diagonal"])
@@ -835,7 +865,7 @@ def _diagonal_arrays_with_structures(
     return a, b
 
 
-@pytest.mark.parametrize("op", ["+", "-", "*", "/", "**"])
+@pytest.mark.parametrize("op", list(_ARITHMETIC_OPERATORS))
 @pytest.mark.parametrize("joint", [True, False])
 def test_operations_between_diagonal_structures(op: str, joint: bool):
     """An operation between diagonal Ad arrays gives a DiagonalAdArray if they share a
@@ -843,8 +873,9 @@ def test_operations_between_diagonal_structures(op: str, joint: bool):
     equal those of the operation between the full representations."""
     a, b = _diagonal_arrays_with_structures(joint)
 
-    result = eval(f"a {op} b")
-    reference = eval(f"a.to_full() {op} b.to_full()")
+    operation = _ARITHMETIC_OPERATORS[op]
+    result = operation(a, b)
+    reference = operation(a.to_full(), b.to_full())
 
     assert isinstance(result, DiagonalAdArray if joint else AdArray)
     np.testing.assert_allclose(result.val, reference.val)
