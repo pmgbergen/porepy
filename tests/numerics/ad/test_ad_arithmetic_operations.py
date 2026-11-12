@@ -18,7 +18,8 @@ The module is laid out from the test down to the helpers it uses:
 
 """
 
-from typing import Literal, Union
+import operator
+from typing import Callable, Literal, Union
 
 import numpy as np
 import pytest
@@ -34,6 +35,17 @@ AdType = Union[float, np.ndarray, sps.spmatrix, sps.sparray, pp.ad.SparseJacAdAr
 # if the operation is not supported, that is, if its evaluation should raise an error.
 # No supported operation evaluates to a bool, so False is never a valid value.
 ExpectedValue = Union[Literal[False], AdType]
+
+# The operations, keyed by their symbols. The test is parametrized by the symbols, which
+# give readable test ids, and calls the operator functions directly.
+_OPERATIONS: dict[str, Callable] = {
+    "+": operator.add,
+    "-": operator.sub,
+    "*": operator.mul,
+    "/": operator.truediv,
+    "**": operator.pow,
+    "@": operator.matmul,
+}
 
 
 @pytest.fixture
@@ -52,7 +64,7 @@ def arithmetic_mdg() -> pp.MixedDimensionalGrid:
 @pytest.mark.parametrize(
     "var_2", ["scalar", "dense", "sparse_matrix", "sparse_array", "ad"]
 )
-@pytest.mark.parametrize("op", ["+", "-", "*", "/", "**", "@"])
+@pytest.mark.parametrize("op", list(_OPERATIONS))
 @pytest.mark.parametrize("wrapped", [True, False])
 def test_arithmetic_operations_on_ad_objects(
     arithmetic_mdg: pp.MixedDimensionalGrid,
@@ -141,7 +153,7 @@ def test_arithmetic_operations_on_ad_objects(
             # that something is wrong with the parsing itself. Note that testing of the
             # frontend evaluation is done below (calls to equation_system.evaluate()),
             # as well as in the test of equation_system.py and other tests.
-            expression = eval(f"v1 {op} v2")
+            expression = _OPERATIONS[op](v1, v2)
             state = equation_system.get_variable_values(time_step_index=0)
             ad_base = pp.ad.initAdArrays([state])[0]
             val = equation_system._ad_parser._evaluate_single(
@@ -155,7 +167,7 @@ def test_arithmetic_operations_on_ad_objects(
             return
     else:
         try:
-            val = eval(f"v1 {op} v2")
+            val = _OPERATIONS[op](v1, v2)
         except (TypeError, ValueError, NotImplementedError):
             assert expected is False
             return
@@ -422,7 +434,7 @@ def _expected_no_ad(
     if _is_sparse(var_1) and isinstance(var_2, float) and op not in ["*", "/"]:
         return False
 
-    return eval(f"var_1 {op} var_2")
+    return _OPERATIONS[op](var_1, var_2)
 
 
 def _expected_value_ad_nonad(
