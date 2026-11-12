@@ -17,6 +17,7 @@ Breaking changes (what users must do when upgrading).
 
 ### Changes
 PR 1840: BLD: Use Pypardiso in all GH actions. 
+PR 1830: Reworking documentation build workflow, now available on develop and automatically deployed to GH pages.
 PR 1825: MAINT: Improved security for surrogate operator construction.
 PR 1816: SPEED: Faster manufactured-solution functional tests by compiling each sympy expression once (issue 1814).
 PR 1812: Fixed `DarcysLawAd` and `FouriersLawAd` with a TPFA base discretization dropping the interface flux on fracture faces (issue 1811).

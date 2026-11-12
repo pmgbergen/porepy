@@ -9,6 +9,8 @@ tree. We then divide the interval into two equal parts: all the points in the in
 [(a+b)/2, b ) will be placed in the right subtree. The reasoning is then iterated to the
 next level for each subtree.
 
+::
+
                     [0, 1)
                     /    \
                    /      \
@@ -21,6 +23,8 @@ next level for each subtree.
 
 When inserting the following nodes A = 0.1, B = 0.6, C = 0.7, D = 0.8, E = 0.2 and F =
 0.1 in the tree, we get the following
+
+::
 
                       A
                     /    \

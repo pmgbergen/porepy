@@ -135,16 +135,18 @@ class FractureNetwork(ABC):
         pass
 
     def mesh_quality_metrics(self) -> None:
-        """Visualize and log elementwise mesh quality metrics using gmsh.
+        r"""Visualize and log elementwise mesh quality metrics using gmsh.
 
         The evaluated metrics include:
             - minDetJac / maxDetJac : Minimum and maximum determinant of the Jacobian.
             - minSJ                 : Minimum scaled Jacobian (element regularity).
             - minSICN / minSIGE     : Inverse condition numbers measuring element
                                       skewness.
-            - gamma                 : Shape quality factor (close to 1 → good element).
+            - gamma                 : Shape quality factor (close to 1 :math:`\to` good
+                                      element).
             - innerRadius / outerRadius : Ratio of inscribed to circumscribed radii.
-            - minIsotropy           : Degree of isotropy (1 → perfectly isotropic).
+            - minIsotropy           : Degree of isotropy (1 :math:`\to` perfectly
+                                      isotropic).
             - angleShape            : Angular distortion indicator.
             - minEdge / maxEdge     : Minimum and maximum edge lengths.
             - volume                : Element area or volume measure.
