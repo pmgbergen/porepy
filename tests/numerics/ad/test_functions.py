@@ -4,8 +4,8 @@
 For each supported function, the value and Jacobian are compared with a reference.
 Functions with a uniform elementwise-derivative shape (exp, log, abs, the
 trigonometric/hyperbolic functions, safe_power) are covered by a single table-driven,
-parametrized test, run against a plain ndarray, a SparseAdArray, and a
-DiagonalAdArray. Functions with more specific behavior (mask_by_threshold, clip) have
+parametrized test, run against a plain ndarray, a SparseJacAdArray, and a
+DiagonalJacAdArray. Functions with more specific behavior (mask_by_threshold, clip) have
 dedicated parametrized tests.
 
 Tests that exercise a single function are grouped into a ``Test<FunctionName>`` class;
@@ -21,7 +21,7 @@ import numpy as np
 import pytest
 import scipy.sparse as sps
 
-from porepy.numerics.ad import AdArrayBase, DiagonalAdArray, SparseAdArray
+from porepy.numerics.ad import AdArrayBase, DiagonalJacAdArray, SparseJacAdArray
 from porepy.numerics.ad import functions as af
 
 warnings.simplefilter("ignore", sps.SparseEfficiencyWarning)
@@ -33,8 +33,8 @@ AdRepresentation = Literal["sparse_ad", "diagonal_ad"]
 #
 # Each entry maps a function name to the callable, a reference value function, and a
 # reference (elementwise) derivative function. Used by test_elementwise_function below
-# to check the same function against a plain ndarray, a SparseAdArray, and
-# a DiagonalAdArray, without hand-writing a test per representation per function.
+# to check the same function against a plain ndarray, a SparseJacAdArray, and
+# a DiagonalJacAdArray, without hand-writing a test per representation per function.
 #
 # `domain` gives a value range avoiding singularities of the function or its derivative
 # (e.g. log needs positive values, arcsin/arccos need [-1, 1]).
@@ -154,8 +154,8 @@ def _make_ad(
 
     Parameters:
         val: Values of the Ad array.
-        representation: Build a SparseAdArray (``"sparse_ad"``) or a DiagonalAdArray
-            (``"diagonal_ad"``).
+        representation: Build a SparseJacAdArray (``"sparse_ad"``) or a
+            DiagonalJacAdArray (``"diagonal_ad"``).
         jacobians: Jacobian of the Ad array for each representation, as a dense matrix.
             For ``"diagonal_ad"``, only the diagonal is used.
 
@@ -165,8 +165,8 @@ def _make_ad(
     """
     jac = jacobians[representation]
     if representation == "sparse_ad":
-        return SparseAdArray(val, sps.csc_matrix(jac))
-    return DiagonalAdArray(
+        return SparseJacAdArray(val, sps.csc_matrix(jac))
+    return DiagonalJacAdArray(
         val,
         np.atleast_2d(np.diag(jac)),
         [np.arange(val.size)],
@@ -175,7 +175,7 @@ def _make_ad(
 
 
 def _dense_jac(result: AdArrayBase) -> np.ndarray:
-    """Return Jacobian of a SparseAdArray or DiagonalAdArray, as a dense array."""
+    """Return Jacobian of a SparseJacAdArray or DiagonalJacAdArray, as a dense array."""
     return result.sparse_jac.toarray()
 
 
@@ -185,7 +185,7 @@ def test_elementwise_function(
     func_name: str, representation: AdRepresentation | Literal["ndarray"]
 ):
     """Value and Jacobian of an elementwise AD function, for a plain ndarray, a
-    SparseAdArray, and a DiagonalAdArray argument."""
+    SparseJacAdArray, and a DiagonalJacAdArray argument."""
     spec = ELEMENTWISE_FUNCTIONS[func_name]
     lo, hi = spec["domain"]
     val = np.linspace(lo, hi, 3)
@@ -203,9 +203,9 @@ def test_elementwise_function(
     np.testing.assert_allclose(result.val, expected_val)
     np.testing.assert_allclose(_dense_jac(result), expected_jac)
     if representation == "diagonal_ad":
-        assert isinstance(result, DiagonalAdArray)
+        assert isinstance(result, DiagonalJacAdArray)
     else:
-        assert isinstance(result, SparseAdArray)
+        assert isinstance(result, SparseJacAdArray)
 
 
 @pytest.mark.parametrize("func_name", list(ZERO_DERIVATIVE_FUNCTIONS))
@@ -214,7 +214,7 @@ def test_zero_derivative_function(
     func_name: str, representation: AdRepresentation | Literal["ndarray"]
 ):
     """Value and (identically zero) Jacobian of characteristic_function/heaviside, for a
-    plain ndarray, a SparseAdArray, and a DiagonalAdArray argument."""
+    plain ndarray, a SparseJacAdArray, and a DiagonalJacAdArray argument."""
     spec = ZERO_DERIVATIVE_FUNCTIONS[func_name]
     lo, hi = spec["domain"]
     val = np.linspace(lo, hi, 3)
@@ -231,7 +231,7 @@ def test_zero_derivative_function(
     np.testing.assert_allclose(result.val, expected_val)
     np.testing.assert_allclose(_dense_jac(result), np.zeros((3, 3)))
     if representation == "diagonal_ad":
-        assert isinstance(result, DiagonalAdArray)
+        assert isinstance(result, DiagonalJacAdArray)
 
 
 class TestRegularizedHeaviside:
@@ -260,9 +260,9 @@ class TestRegularizedHeaviside:
         np.testing.assert_allclose(result.val, expected_val)
         np.testing.assert_allclose(_dense_jac(result), expected_jac)
         if representation == "diagonal_ad":
-            assert isinstance(result, DiagonalAdArray)
+            assert isinstance(result, DiagonalJacAdArray)
         else:
-            assert isinstance(result, SparseAdArray)
+            assert isinstance(result, SparseJacAdArray)
 
 
 class TestMaximum:
@@ -287,7 +287,7 @@ class TestMaximum:
         """One argument is an Ad array (sparse or diagonal), the other a constant
         (ndarray or scalar) with an implicit zero Jacobian, in either argument order. A
         scalar is broadcast to the shape of the Ad array. All constants tie with
-        the SparseAdArray at index 2, where the first argument wins."""
+        the SparseJacAdArray at index 2, where the first argument wins."""
         val = np.array([1.0, 5.0, 2.0])
         var = _make_ad(val, representation)
 
@@ -306,7 +306,7 @@ class TestMaximum:
         np.testing.assert_allclose(result.val, expected_val)
         np.testing.assert_allclose(_dense_jac(result), expected_jac)
         # A mixed call is computed in the sparse representation.
-        assert isinstance(result, SparseAdArray)
+        assert isinstance(result, SparseJacAdArray)
 
     @pytest.mark.parametrize(
         "representation_0,representation_1",
@@ -342,9 +342,9 @@ class TestMaximum:
         np.testing.assert_allclose(result.val, expected_val)
         np.testing.assert_allclose(_dense_jac(result), expected_jac)
         if representation_0 == "diagonal_ad" and representation_1 == "diagonal_ad":
-            assert isinstance(result, DiagonalAdArray)
+            assert isinstance(result, DiagonalJacAdArray)
         else:
-            assert isinstance(result, SparseAdArray)
+            assert isinstance(result, SparseJacAdArray)
 
 
 class TestL2Norm:
@@ -370,8 +370,8 @@ class TestL2Norm:
 
     @pytest.mark.parametrize("representation", ["sparse_ad", "diagonal_ad"])
     def test_dim_one(self, representation: AdRepresentation):
-        """For dim=1, l2_norm is the absolute value, and a DiagonalAdArray argument
-        gives a DiagonalAdArray."""
+        """For dim=1, l2_norm is the absolute value, and a DiagonalJacAdArray argument
+        gives a DiagonalJacAdArray."""
         val = np.array([-2.0, 3.0, -0.5])
         var = _make_ad(val, representation)
 
@@ -381,12 +381,13 @@ class TestL2Norm:
         np.testing.assert_allclose(result.val, np.array([2.0, 3.0, 0.5]))
         np.testing.assert_allclose(_dense_jac(result), expected_jac)
         if representation == "diagonal_ad":
-            assert isinstance(result, DiagonalAdArray)
+            assert isinstance(result, DiagonalJacAdArray)
 
     @pytest.mark.parametrize("representation", ["sparse_ad", "diagonal_ad"])
     def test_dim_two(self, representation: AdRepresentation):
-        """L2 norm reduces dim=2 components per output entry, so a DiagonalAdArray input
-        must be converted to a SparseAdArray rather than stay diagonal."""
+        """L2 norm reduces dim=2 components per output entry, so a DiagonalJacAdArray
+        input
+        must be converted to a SparseJacAdArray rather than stay diagonal."""
         # Two 2-vectors, ordered [u0, v0, u1, v1]: (3, 4) has norm 5; (0, 0) has norm 0
         # (per the function docstring, a zero vector gets a Jacobian entry of 1, not 0).
         val = np.array([3.0, 4.0, 0.0, 0.0])
@@ -401,9 +402,9 @@ class TestL2Norm:
 
         np.testing.assert_allclose(result.val, expected_val)
         np.testing.assert_allclose(_dense_jac(result), expected_jac)
-        # dim > 1 always return a SparseAdArray, regardless of the input's
+        # dim > 1 always return a SparseJacAdArray, regardless of the input's
         # representation.
-        assert isinstance(result, SparseAdArray)
+        assert isinstance(result, SparseJacAdArray)
 
 
 class TestMaskByThreshold:
@@ -485,9 +486,9 @@ class TestMaskByThreshold:
             _dense_jac(result), mask @ SECOND_ARG_JAC[var_representation]
         )
         if var_representation == "diagonal_ad":
-            assert isinstance(result, DiagonalAdArray)
+            assert isinstance(result, DiagonalJacAdArray)
         else:
-            assert isinstance(result, SparseAdArray)
+            assert isinstance(result, SparseJacAdArray)
 
 
 class TestClip:
@@ -542,7 +543,7 @@ class TestClip:
         np.testing.assert_allclose(result.val, expected_val)
         np.testing.assert_allclose(_dense_jac(result), expected_jac)
         if representation == "diagonal_ad":
-            assert isinstance(result, DiagonalAdArray)
+            assert isinstance(result, DiagonalJacAdArray)
 
     @pytest.mark.parametrize("representation", ["sparse_ad", "diagonal_ad"])
     def test_does_not_mutate_input(self, representation: AdRepresentation):

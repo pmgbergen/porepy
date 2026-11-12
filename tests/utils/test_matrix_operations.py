@@ -162,7 +162,7 @@ def _get_arrayslicer_target(mat, mode: Literal["float", "dense", "sparse", "ad"]
             # this case.
             target = vec
         else:
-            target = pp.ad.SparseAdArray(vec, mat)
+            target = pp.ad.SparseJacAdArray(vec, mat)
     return target
 
 
@@ -204,8 +204,8 @@ def test_array_slicer(
 
     The test constructs an ArraySlicer with a given domain and range indices, and
     applies it to a target array. By parametrization, this target is etiher a numpy
-    array, a scipy sparse matrix, or a SparseAdArray (that is, the three data types on
-    which the ArraySlicer is meant to operate).
+    array, a scipy sparse matrix, or a SparseJacAdArray (that is, the three data types
+    on which the ArraySlicer is meant to operate).
 
     A failure in this test indicates that the ArraySlicer does not behave as expected;
     quite likely, something is wrong with the treatment of indices in the slicer class.
@@ -293,9 +293,9 @@ def test_array_slicer(
         else:
             A_known[range_inds] = target.toarray()[domain_inds]
         assert np.allclose(result.toarray(), A_known)
-    else:  # SparseAdArray.
+    else:  # SparseJacAdArray.
         # The logic is the same as in the two above cases. Consider the val and jac
-        # attributes of the SparseAdArray separately.
+        # attributes of the SparseJacAdArray separately.
         val_known = np.zeros(num_rows)
         if transpose:
             val_known[domain_inds] = target.val[range_inds]
@@ -344,7 +344,8 @@ def test_matrix_slicer_delayed_evaluation_ad_dense_float(
     target_mode: Literal["ad", "dense", "float"],
     operator: Literal["*", "/", "+", "-", "**"],
 ):
-    """Test the application of the ArraySlicer to numpy and SparseAdArrays, as well as
+    """Test the application of the ArraySlicer to numpy and SparseJacAdArrays, as well
+    as
     scalars (floats), with delayed evaluation.
 
     """
@@ -1065,6 +1066,6 @@ def test_array_slicer_diagonal_ad_array():
     sliced = slicer @ diagonal
     reference = slicer @ diagonal.to_sparse()
 
-    assert isinstance(sliced, pp.ad.SparseAdArray)
+    assert isinstance(sliced, pp.ad.SparseJacAdArray)
     assert np.allclose(sliced.val, reference.val)
     assert np.allclose(sliced.jac.toarray(), reference.jac.toarray())

@@ -441,8 +441,8 @@ def _surrogate_and_arguments(
     derivatives: list[float],
 ) -> tuple[
     pp.ad.SurrogateOperator,
-    list[pp.ad.SparseAdArray],
-    list[pp.ad.DiagonalAdArray],
+    list[pp.ad.SparseJacAdArray],
+    list[pp.ad.DiagonalJacAdArray],
     np.ndarray,
 ]:
     """Set up a surrogate operator, its arguments in both representations, and its
@@ -486,7 +486,7 @@ def _surrogate_and_arguments(
     indices = [equation_system.dofs_of([v]) for v in variables]
     values = [np.arange(ind.size, dtype=float) for ind in indices]
     sparse_array = [
-        pp.ad.SparseAdArray(
+        pp.ad.SparseJacAdArray(
             val,
             sps.csr_matrix(
                 (np.ones(ind.size), (np.arange(ind.size), ind)),
@@ -510,8 +510,8 @@ def _surrogate_and_arguments(
 
 def _argument_in_representation(
     representation: str,
-    sparse_array: pp.ad.SparseAdArray,
-    diagonal_array: pp.ad.DiagonalAdArray,
+    sparse_array: pp.ad.SparseJacAdArray,
+    diagonal_array: pp.ad.DiagonalJacAdArray,
 ) -> pp.ad.AdArrayBase:
     """Pick an argument of a surrogate operator in a given representation.
 
@@ -565,7 +565,9 @@ def test_jacobian_with_arguments_in_different_representations(
 
     result = sop.func(*args)
     expected_type = (
-        pp.ad.DiagonalAdArray if first == second == "diagonal" else pp.ad.SparseAdArray
+        pp.ad.DiagonalJacAdArray
+        if first == second == "diagonal"
+        else pp.ad.SparseJacAdArray
     )
     assert isinstance(result, expected_type)
     np.testing.assert_allclose(result.val, np.ones(num_cells))
@@ -599,7 +601,7 @@ def test_diagonal_jacobian_with_variables_not_arguments(
     )
 
     result = sop.func(diagonal_array[0])
-    assert isinstance(result, pp.ad.DiagonalAdArray)
+    assert isinstance(result, pp.ad.DiagonalJacAdArray)
     assert result.jac.shape == (2, sparse_array[0].val.size)
 
     expected_derivatives = known_derivative_value * np.ones(sparse_array[0].val.size)
@@ -730,5 +732,5 @@ def test_separately_initialized_diagonal_arguments(
         for arg, name in zip(diagonal_array, [VAR1_NAME, VAR2_NAME])
     ]
     result = sop.func(*args)
-    assert isinstance(result, pp.ad.SparseAdArray)
+    assert isinstance(result, pp.ad.SparseJacAdArray)
     np.testing.assert_allclose(result.sparse_jac.toarray(), expected_jacobian)

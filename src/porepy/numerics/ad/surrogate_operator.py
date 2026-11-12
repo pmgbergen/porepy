@@ -307,7 +307,7 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         chain rule makes no assumptions on the Jacobians of the arguments, though, and
         is valid also for other arguments.
 
-        The representation of the result (diagonal or a SparseAdArray) follows from
+        The representation of the result (diagonal or a SparseJacAdArray) follows from
         the arguments, see :class:`~porepy.numerics.ad.ad_array.AdArrayBase`: The result
         is diagonal if all contributing arguments are, and sparse otherwise.
 
