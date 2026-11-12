@@ -36,6 +36,10 @@ AdType = Union[float, np.ndarray, sps.spmatrix, sps.sparray, pp.ad.SparseJacAdAr
 # No supported operation evaluates to a bool, so False is never a valid value.
 ExpectedValue = Union[Literal[False], AdType]
 
+# The symbols of the operations, and the subset of them that act elementwise.
+Operation = Literal["+", "-", "*", "/", "**", "@"]
+ElementwiseOperation = Literal["+", "-", "*", "/", "**"]
+
 # The operations, keyed by their symbols. The test is parametrized by the symbols, which
 # give readable test ids, and calls the operator functions directly.
 _OPERATIONS: dict[str, Callable] = {
@@ -355,9 +359,7 @@ def _jac_to_dense(ad: pp.ad.SparseJacAdArray) -> np.ndarray:
     return ad.sparse_jac.toarray()
 
 
-def _expected_value(
-    var_1: AdType, var_2: AdType, op: Literal["+", "-", "*", "/", "**", "@"]
-) -> ExpectedValue:
+def _expected_value(var_1: AdType, var_2: AdType, op: Operation) -> ExpectedValue:
     """Expected value of var_1 op var_2, for operands in unwrapped form.
 
     The work is handed to a function for each combination of operand types:
@@ -409,7 +411,7 @@ def _expected_value(
 def _expected_no_ad(
     var_1: float | np.ndarray | sps.spmatrix | sps.sparray,
     var_2: float | np.ndarray | sps.spmatrix | sps.sparray,
-    op: Literal["+", "-", "*", "/", "**", "@"],
+    op: Operation,
 ) -> ExpectedValue:
     """Expected value of an operation between two operands that are not Ad arrays.
 
@@ -440,7 +442,7 @@ def _expected_no_ad(
 def _expected_value_ad_nonad(
     var_1: pp.ad.SparseJacAdArray,
     var_2: float | np.ndarray | sps.spmatrix | sps.sparray,
-    op: Literal["+", "-", "*", "/", "**", "@"],
+    op: Operation,
 ) -> Literal[False] | pp.ad.SparseJacAdArray:
     """Expected value of var_1 op var_2 for an Ad array var_1 and an operand var_2 that
     is not an Ad array."""
@@ -463,7 +465,7 @@ def _expected_value_ad_nonad(
 def _expected_value_nonad_ad(
     var_1: float | np.ndarray | sps.spmatrix | sps.sparray,
     var_2: pp.ad.SparseJacAdArray,
-    op: Literal["+", "-", "*", "/", "**", "@"],
+    op: Operation,
 ) -> Literal[False] | pp.ad.SparseJacAdArray:
     """Expected value of var_1 op var_2 for an operand var_1 that is not an Ad array and
     an Ad array var_2."""
@@ -480,7 +482,7 @@ def _expected_value_nonad_ad(
 def _expected_ad_ad(
     var_1: pp.ad.SparseJacAdArray,
     var_2: pp.ad.SparseJacAdArray,
-    op: Literal["+", "-", "*", "/", "**"],
+    op: ElementwiseOperation,
 ) -> pp.ad.SparseJacAdArray:
     """Expected value of var_1 op var_2 for two Ad arrays, with the Jacobian computed
     row by row from the sum, product, quotient and power rules."""
@@ -527,7 +529,7 @@ def _expected_ad_ad(
 
 
 def _expected_ad_scalar(
-    var_1: pp.ad.SparseJacAdArray, op: Literal["+", "-", "*", "/", "**"]
+    var_1: pp.ad.SparseJacAdArray, op: ElementwiseOperation
 ) -> pp.ad.SparseJacAdArray:
     """Expected value of var_1 op 2.0, for the Ad array returned by _get_ad_array."""
     # var_1 has value [6, 15, 24] and Jacobian rows [1, 2, 3], [4, 5, 6], [7, 8, 9].
@@ -569,7 +571,7 @@ def _expected_ad_scalar(
 def _expected_ad_dense(
     var_1: pp.ad.SparseJacAdArray,
     var_2: np.ndarray,
-    op: Literal["+", "-", "*", "/", "**"],
+    op: ElementwiseOperation,
 ) -> pp.ad.SparseJacAdArray:
     """Expected value of var_1 op var_2, for the Ad array returned by _get_ad_array and
     the dense array returned by _get_dense_array."""
@@ -617,7 +619,7 @@ def _expected_ad_dense(
 
 
 def _expected_scalar_ad(
-    var_2: pp.ad.SparseJacAdArray, op: Literal["+", "-", "*", "/", "**"]
+    var_2: pp.ad.SparseJacAdArray, op: ElementwiseOperation
 ) -> pp.ad.SparseJacAdArray:
     """Expected value of 2.0 op var_2, for the Ad array returned by _get_ad_array."""
     # var_2 has value [6, 15, 24] and Jacobian rows [1, 2, 3], [4, 5, 6], [7, 8, 9].
@@ -660,7 +662,7 @@ def _expected_scalar_ad(
 def _expected_dense_ad(
     var_1: np.ndarray,
     var_2: pp.ad.SparseJacAdArray,
-    op: Literal["+", "-", "*", "/", "**"],
+    op: ElementwiseOperation,
 ) -> pp.ad.SparseJacAdArray:
     """Expected value of var_1 op var_2, for the dense array returned by
     _get_dense_array and the Ad array returned by _get_ad_array."""
@@ -711,7 +713,7 @@ def _expected_dense_ad(
 def _expected_sparse_ad(
     var_1: sps.spmatrix | sps.sparray,
     var_2: pp.ad.SparseJacAdArray,
-    op: Literal["+", "-", "*", "/", "**", "@"],
+    op: Operation,
 ) -> Literal[False] | pp.ad.SparseJacAdArray:
     """Expected value of var_1 op var_2 for a sparse matrix or array var_1. Only the
     matrix-vector product is supported."""
@@ -730,7 +732,7 @@ def _expected_sparse_ad(
 def _expected_wrapped_value(
     var_1: pp.ad.SparseJacAdArray,
     var_2: pp.ad.SparseJacAdArray,
-    op: Literal["+", "-", "*", "/", "**", "@"],
+    op: Operation,
 ) -> Literal[False] | pp.ad.SparseJacAdArray:
     """Expected value of var_1 op var_2 for two Ad arrays in wrapped form.
 
