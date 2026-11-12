@@ -652,7 +652,8 @@ class ManuCompBalanceEquation(pp.fluid_mass_balance.FluidMassBalanceEquations):
         # Internal sources are inherited from parent class.
         internal_sources: pp.ad.Operator = super().fluid_source(subdomains)
 
-        # External sources are retrieved from SOLUTIONS and wrapped as a SparseAdArray.
+        # External sources are retrieved from SOLUTIONS and wrapped as a
+        # SparseJacAdArray.
         external_sources = pp.ad.TimeDependentDenseArray(
             name="external_sources",
             domains=self.mdg.subdomains(),

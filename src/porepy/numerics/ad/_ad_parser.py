@@ -78,7 +78,7 @@ class AdParser:
         derivative: Literal[True],
         state: np.ndarray | None,
         variable_indexer: pp.ad.VariableIndexer,
-    ) -> pp.ad.SparseAdArray: ...
+    ) -> pp.ad.SparseJacAdArray: ...
 
     @overload
     def evaluate(
@@ -88,7 +88,7 @@ class AdParser:
         derivative: Literal[True],
         state: np.ndarray | None,
         variable_indexer: pp.ad.VariableIndexer,
-    ) -> list[pp.ad.SparseAdArray]: ...
+    ) -> list[pp.ad.SparseJacAdArray]: ...
 
     @overload
     def evaluate(
@@ -111,9 +111,9 @@ class AdParser:
         float
         | np.ndarray
         | sps.spmatrix
-        | pp.ad.SparseAdArray
+        | pp.ad.SparseJacAdArray
         | list[float | np.ndarray | sps.spmatrix]
-        | list[pp.ad.SparseAdArray]
+        | list[pp.ad.SparseJacAdArray]
     ):
         """Evaluate the operator x and its derivative if requested.
 
@@ -134,8 +134,8 @@ class AdParser:
                 pressure) and the restricted state array (with only pressure values).
 
         Returns:
-            The value, or value and Jacobian combined in a SparseAdArray, of the
-                operator op, or a list of values, or SparseAdArrays if op is a list.
+            The value, or value and Jacobian combined in a SparseJacAdArray, of the
+                operator op, or a list of values, or SparseJacAdArrays if op is a list.
 
         """
         # Get the state of the system, if not provided.
@@ -149,7 +149,7 @@ class AdParser:
                 f"indexer size ({variable_indexer.size})."
             )
 
-        # Create a SparseAdArray representation of the state, if the derivative is
+        # Create a SparseJacAdArray representation of the state, if the derivative is
         # requested. If not, the state is used as is (as a numpy array).
         ad_base = pp.ad.initAdArrays([state])[0] if derivative else state
 
@@ -165,8 +165,8 @@ class AdParser:
                 self._evaluate_single(op, ad_base, equation_system, variable_indexer)
             ]
 
-        # If the derivative is requested, the results should be SparseAdArrays. Enforce
-        # this.
+        # If the derivative is requested, the results should be SparseJacAdArrays.
+        # Enforce this.
         if derivative:
             for index, res in enumerate(result_list):
                 if isinstance(res, (int, float)):
@@ -174,8 +174,8 @@ class AdParser:
                     # result_list, since res will also be operated on by the next if.
                     res = np.array([res])
                 if isinstance(res, np.ndarray) and len(res.shape) == 1:
-                    # Convert numpy arrays to SparseAdArrays and update result_list.
-                    result_list[index] = pp.ad.SparseAdArray(
+                    # Convert numpy arrays to SparseJacAdArrays and update result_list.
+                    result_list[index] = pp.ad.SparseJacAdArray(
                         res, sps.csr_matrix((res.shape[0], variable_indexer.size))
                     )
                 elif isinstance(res, (sps.spmatrix, sps.sparray, np.ndarray)):
@@ -209,21 +209,22 @@ class AdParser:
     def _evaluate_single(
         self,
         op: pp.ad.Operator,
-        ad_base: np.ndarray | pp.ad.SparseAdArray,
+        ad_base: np.ndarray | pp.ad.SparseJacAdArray,
         equation_system: pp.EquationSystem,
         variable_indexer: pp.ad.VariableIndexer,
-    ) -> float | np.ndarray | sps.spmatrix | pp.ad.SparseAdArray:
+    ) -> float | np.ndarray | sps.spmatrix | pp.ad.SparseJacAdArray:
         """Evaluate a single operator.
 
         Parameters:
             op: The operator to evaluate.
             ad_base: The base for the automatic differentiation. This should be a
-                SparseAdArray if the derivative is requested, and a numpy array if not.
+                SparseJacAdArray if the derivative is requested, and a numpy array if
+                not.
             equation_system: The EquationSystem wherein the system state is defined.
             variable_indexer: The indexer that defines the arrangement in ad_base.
 
         Returns:
-            A numpy array or a SparseAdArray representation of the operator op,
+            A numpy array or a SparseJacAdArray representation of the operator op,
                 depending on whether the derivative is requested.
 
         """
@@ -380,12 +381,13 @@ class AdParser:
                         )
 
                 if isinstance(child_values[0], np.ndarray) and isinstance(
-                    child_values[1], (pp.ad.SparseAdArray, pp.ad.ad_array.SparseAdArray)
+                    child_values[1],
+                    (pp.ad.SparseJacAdArray, pp.ad.ad_array.SparseJacAdArray),
                 ):
                     if operation == Operations.mul:
                         # In the implementation of multiplication between a
-                        # SparseAdArray and a numpy array (in the forward mode Ad), a *
-                        # b and b * a do not commute. Flip the order of the results to
+                        # SparseJacAdArray and a numpy array (in the forward mode Ad), a
+                        # * b and b * a do not commute. Flip the order of the results to
                         # get the expected behavior. This is permissible, since the
                         # elementwise product commutes.
                         child_values = child_values[::-1]
@@ -395,9 +397,9 @@ class AdParser:
                     assert not isinstance(child_values[1], float)
 
                     # If the first operand is a numpy array and the second is a
-                    # SparseAdArray, numpy will make the operation in a strange way,
+                    # SparseJacAdArray, numpy will make the operation in a strange way,
                     # using its broadcasting logic. Instead enforce the operation to be
-                    # done by the SparseAdArray, using the relevant right-operation
+                    # done by the SparseJacAdArray, using the relevant right-operation
                     # method.
                     try:
                         if operation == Operations.div:
@@ -490,9 +492,9 @@ class AdParser:
         # Finally some information on sizes
         if isinstance(results[0], (sps.spmatrix, sps.sparray)):
             msg += f"First argument is a sparse matrix of size {results[0].shape}\n"
-        elif isinstance(results[0], pp.ad.SparseAdArray):
+        elif isinstance(results[0], pp.ad.SparseJacAdArray):
             msg += (
-                f"First argument is a SparseAdArray of size {results[0].val.size} "
+                f"First argument is a SparseJacAdArray of size {results[0].val.size} "
                 f" and Jacobian of shape  {results[0].jac.shape} \n"
             )
         elif isinstance(results[0], np.ndarray):
@@ -500,9 +502,9 @@ class AdParser:
 
         if isinstance(results[1], (sps.spmatrix, sps.sparray)):
             msg += f"Second argument is a sparse matrix of size {results[1].shape}\n"
-        elif isinstance(results[1], pp.ad.SparseAdArray):
+        elif isinstance(results[1], pp.ad.SparseJacAdArray):
             msg += (
-                f"Second argument is a SparseAdArray of size {results[1].val.size} "
+                f"Second argument is a SparseJacAdArray of size {results[1].val.size} "
                 f" and Jacobian of shape  {results[1].jac.shape} \n"
             )
         elif isinstance(results[1], np.ndarray):
