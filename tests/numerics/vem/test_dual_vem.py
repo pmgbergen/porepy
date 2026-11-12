@@ -59,8 +59,8 @@ class TestMVEMDiscretization:
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
-        assert np.allclose(M, M_known, rtol, atol)
+        np.testing.assert_allclose(M, M.T, rtol, atol, equal_nan=False)
+        np.testing.assert_allclose(M, M_known, rtol, atol, equal_nan=False)
 
     def test_1d_anisotropic_permeability(self):
         sd = self._create_cartesian_grid(dimension=1)
@@ -103,8 +103,8 @@ class TestMVEMDiscretization:
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
-        assert np.allclose(M, M_known, rtol, atol)
+        np.testing.assert_allclose(M, M.T, rtol, atol, equal_nan=False)
+        np.testing.assert_allclose(M, M_known, rtol, atol, equal_nan=False)
 
     def test_2d_isotropic_permeability_cart(self):
         sd = self._create_cartesian_grid(dimension=2)
@@ -133,8 +133,8 @@ class TestMVEMDiscretization:
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
-        assert np.allclose(M, M_known, rtol, atol)
+        np.testing.assert_allclose(M, M.T, rtol, atol, equal_nan=False)
+        np.testing.assert_allclose(M, M_known, rtol, atol, equal_nan=False)
 
     def test_2d_anisotropic_permeability_cart(self):
         sd = self._create_cartesian_grid(dimension=2)
@@ -235,8 +235,8 @@ class TestMVEMDiscretization:
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
-        assert np.allclose(M, M_known, rtol, atol)
+        np.testing.assert_allclose(M, M.T, rtol, atol, equal_nan=False)
+        np.testing.assert_allclose(M, M_known, rtol, atol, equal_nan=False)
 
     def test_3d_isotropic_permeability_cart(self):
         sd = self._create_cartesian_grid(dimension=3)
@@ -255,8 +255,8 @@ class TestMVEMDiscretization:
 
         rtol = 1e-14
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
-        assert np.allclose(M, M_known, rtol, atol)
+        np.testing.assert_allclose(M, M.T, rtol, atol, equal_nan=False)
+        np.testing.assert_allclose(M, M_known, rtol, atol, equal_nan=False)
 
     def test_3d_anisotropic_permeability_cart(self):
         sd = self._create_cartesian_grid(dimension=3)
@@ -277,8 +277,8 @@ class TestMVEMDiscretization:
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
-        assert np.allclose(M, M_known, rtol, atol)
+        np.testing.assert_allclose(M, M.T, rtol, atol, equal_nan=False)
+        np.testing.assert_allclose(M, M_known, rtol, atol, equal_nan=False)
 
     def test_2d_isotropic_permeability_simplex(self):
         sd = pp.StructuredTriangleGrid([1, 1], [1, 1])
@@ -311,13 +311,14 @@ class TestMVEMDiscretization:
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
+        np.testing.assert_allclose(M, M.T, rtol, atol, equal_nan=False)
         # We test only the mass-Hdiv part
-        assert np.allclose(
+        np.testing.assert_allclose(
             M[np.ix_(faces, faces)],
             M_known,
             rtol,
             atol,
+            equal_nan=False
         )
 
     def test_2d_anisotropic_permeability_simplex(self):
@@ -353,13 +354,14 @@ class TestMVEMDiscretization:
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
+        np.testing.assert_allclose(M, M.T, rtol, atol, equal_nan=False)
         # We test only the mass-Hdiv part
-        assert np.allclose(
+        np.testing.assert_allclose(
             M[np.ix_(faces, faces)],
             M_known,
             rtol,
             atol,
+            equal_nan=False
         )
 
     def test_2d_isotropic_permeability_simplex_mixed_bc(self):
@@ -403,8 +405,8 @@ class TestMVEMDiscretization:
             (np.ones(sd.num_cells), np.zeros(sd.num_cells), np.zeros(sd.num_cells))
         )
 
-        assert np.allclose(p, p_ex)
-        assert np.allclose(P0u, P0u_ex)
+        np.testing.assert_allclose(p, p_ex, equal_nan=False)
+        np.testing.assert_allclose(P0u, P0u_ex, equal_nan=False, atol=1e-14)
 
         r, c, d = sparse_array_to_row_col_data(M)
         r_known = reference_dense_arrays.test_dual_vem[
@@ -417,9 +419,9 @@ class TestMVEMDiscretization:
             "test_2d_isotropic_permeability_simplex_mixed_bc"
         ]["data"]
 
-        assert np.allclose(r, r_known)
-        assert np.allclose(c, c_known)
-        assert np.allclose(d, d_known)
+        np.testing.assert_allclose(r, r_known, equal_nan=False)
+        np.testing.assert_allclose(c, c_known, equal_nan=False)
+        np.testing.assert_allclose(d, d_known, equal_nan=False)
 
     def test_1d_R1_R3_isotropic_permeability(self):
         sd = self._create_cartesian_grid(dimension=1)
@@ -450,8 +452,8 @@ class TestMVEMDiscretization:
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
-        assert np.allclose(M, M_known, rtol, atol)
+        np.testing.assert_allclose(M, M.T, rtol, atol, equal_nan=False)
+        np.testing.assert_allclose(M, M_known, rtol, atol, equal_nan=False)
 
     def test_2d_R2_R3_isotropic_permeability(self):
         sd = self._create_cartesian_grid(dimension=2)
@@ -484,8 +486,8 @@ class TestMVEMDiscretization:
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
-        assert np.allclose(M, M_known, rtol, atol)
+        np.testing.assert_allclose(M, M.T, rtol, atol, equal_nan=False)
+        np.testing.assert_allclose(M, M_known, rtol, atol, equal_nan=False)
 
     def test_2d_R2_R3_anisotropic_permeability(self):
         sd = self._create_cartesian_grid(dimension=2)
@@ -592,8 +594,8 @@ class TestMVEMDiscretization:
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
-        assert np.allclose(M, M_known, rtol, atol)
+        np.testing.assert_allclose(M, M.T, rtol, atol, equal_nan=False)
+        np.testing.assert_allclose(M, M_known, rtol, atol, equal_nan=False)
 
     def test_2d_R2_R3_isotropic_permeability_simplex(self):
         sd = pp.StructuredTriangleGrid([1, 1], [1, 1])
@@ -629,13 +631,14 @@ class TestMVEMDiscretization:
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
+        np.testing.assert_allclose(M, M.T, rtol, atol, equal_nan=False)
         # We test only the mass-Hdiv part
-        assert np.allclose(
+        np.testing.assert_allclose(
             M[np.ix_(faces, faces)],
             M_known,
             rtol,
             atol,
+            equal_nan=False
         )
 
     def test_2d_R2_R3_anisotropic_permeability_simplex(self):
@@ -676,13 +679,14 @@ class TestMVEMDiscretization:
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
+        np.testing.assert_allclose(M, M.T, rtol, atol, equal_nan=False)
         # We test only the mass-Hdiv part
-        assert np.allclose(
+        np.testing.assert_allclose(
             M[np.ix_(faces, faces)],
             M_known,
             rtol,
             atol,
+            equal_nan=False
         )
 
 
@@ -723,7 +727,7 @@ class TestMVEMRHS:
             [0.16666667, 0.33333333, 0.33333333, 0.16666667, 0.0, 0.0, 0.0]
         )
 
-        assert np.allclose(b, b_known)
+        np.testing.assert_allclose(b, b_known, equal_nan=False)
 
     """Test two-dimensional for isotropic material data."""
 
@@ -745,7 +749,7 @@ class TestMVEMRHS:
             [-1.33333333, 1.16666667, -0.33333333, 1.16666667, -1.33333333, 0.0, 0.0]
         )
 
-        assert np.allclose(b, b_known)
+        np.testing.assert_allclose(b, b_known, equal_nan=False)
 
     """Test three-dimensional for isotropic material data."""
 
@@ -792,7 +796,7 @@ class TestMVEMRHS:
             ]
         )
 
-        assert np.allclose(b, b_known)
+        np.testing.assert_allclose(b, b_known, equal_nan=False)
 
     """Test for single 2d-cell with isotropic material data."""
 
@@ -821,7 +825,7 @@ class TestMVEMRHS:
         b = self._rhs(sd, perm, bc, vect)
         b_known = np.array([-0.83333333, 0.66666667, 0.16666667, 0.0])
 
-        assert np.allclose(b, b_known)
+        np.testing.assert_allclose(b, b_known, equal_nan=False)
 
     """Test for single 3d-cell with isotropic material data."""
 
@@ -850,7 +854,7 @@ class TestMVEMRHS:
         b = self._rhs(sd, perm, bc, vect)
         b_known = np.array([0.41666667, 0.41666667, -0.25, -0.58333333, 0.0])
 
-        assert np.allclose(b, b_known)
+        np.testing.assert_allclose(b, b_known, equal_nan=False)
 
     """Test one-dimensional R1-R3 for isotropic material data."""
 
@@ -875,7 +879,7 @@ class TestMVEMRHS:
             [0.14433757, 0.28867513, 0.28867513, 0.14433757, 0.0, 0.0, 0.0]
         )
 
-        assert np.allclose(b, b_known)
+        np.testing.assert_allclose(b, b_known, equal_nan=False)
 
     """Test two-dimensional R2-R3 for isotropic material data."""
 
@@ -900,7 +904,7 @@ class TestMVEMRHS:
             [-0.73570226, 0.82197528, 0.17254603, 0.82197528, -0.73570226, 0.0, 0.0]
         )
 
-        assert np.allclose(b, b_known)
+        np.testing.assert_allclose(b, b_known, equal_nan=False)
 
     def test_convergence_mvem_2d_iso_simplex_exact(self):
         p_ex = lambda pt: 2 * pt[0, :] - 3 * pt[1, :] - 9
