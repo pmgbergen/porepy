@@ -40,6 +40,7 @@ from tests.functional.setups.manu_flow_incomp_frac_2d import (
     ManuIncompUtils,
     SingleEmbeddedVerticalLineFracture,
 )
+from tests.functional.setups.sympy_utils import lambdify
 
 # PorePy typings
 number = pp.number
@@ -320,7 +321,7 @@ class ManuCompExactSolution2d:
         cell_idx = [bot, mid, top]
 
         # Lambdify expression
-        p_fun = [sym.lambdify((x, y, t), p, "numpy") for p in self.p_matrix]
+        p_fun = [lambdify((x, y, t), p) for p in self.p_matrix]
 
         # Cell-centered pressures
         p_cc = np.zeros(sd_matrix.num_cells)
@@ -355,13 +356,13 @@ class ManuCompExactSolution2d:
         face_idx = [bot, mid, top]
 
         # Lambdify bubble function
-        bubble_fun = sym.lambdify((y, t), self._bubble, "numpy")
+        bubble_fun = lambdify((y, t), self._bubble)
 
         # Lambdify expression
         q_fun = [
             [
-                sym.lambdify((x, y, t), q[0], "numpy"),
-                sym.lambdify((x, y, t), q[1], "numpy"),
+                lambdify((x, y, t), q[0]),
+                lambdify((x, y, t), q[1]),
             ]
             for q in self.q_matrix
         ]
@@ -433,7 +434,7 @@ class ManuCompExactSolution2d:
         cell_idx = [bot, mid, top]
 
         # Lambdify expression
-        f_fun = [sym.lambdify((x, y, t), f, "numpy") for f in self.f_matrix]
+        f_fun = [lambdify((x, y, t), f) for f in self.f_matrix]
 
         # Integrated cell-centered sources
         vol = sd_matrix.cell_volumes
@@ -462,7 +463,7 @@ class ManuCompExactSolution2d:
         cc = sd_frac.cell_centers
 
         # Lambdify expression
-        p_fun = sym.lambdify((y, t), self.p_frac, "numpy")
+        p_fun = lambdify((y, t), self.p_frac)
 
         # Evaluate at the cell centers
         p_cc = p_fun(cc[1], time)
@@ -492,7 +493,7 @@ class ManuCompExactSolution2d:
         fn = sd_frac.face_normals
 
         # Lambdify expression
-        q_fun = sym.lambdify((y, t), self.q_frac, "numpy")
+        q_fun = lambdify((y, t), self.q_frac)
 
         # Evaluate at the face centers and scale with face normals
         q_fc = q_fun(fc[1], time) * fn[1]
@@ -519,7 +520,7 @@ class ManuCompExactSolution2d:
         vol = sd_frac.cell_volumes
 
         # Lambdify expression
-        f_fun = sym.lambdify((y, t), self.f_frac, "numpy")
+        f_fun = lambdify((y, t), self.f_frac)
 
         # Evaluate and integrate
         f_cc = f_fun(cc[1], time) * vol
@@ -549,7 +550,7 @@ class ManuCompExactSolution2d:
         vol = intf.cell_volumes
 
         # Lambdify expression
-        lmbda_fun = sym.lambdify((y, t), self.q_intf, "numpy")
+        lmbda_fun = lambdify((y, t), self.q_intf)
 
         # Evaluate and integrate
         lmbda_cc = lmbda_fun(cc[1], time) * vol
@@ -579,7 +580,7 @@ class ManuCompExactSolution2d:
         face_idx = [bot, mid, top]
 
         # Lambdify expression
-        p_fun = [sym.lambdify((x, y, t), p, "numpy") for p in self.p_matrix]
+        p_fun = [lambdify((x, y, t), p) for p in self.p_matrix]
 
         # Boundary pressures
         p_bf = np.zeros(bg.num_cells)

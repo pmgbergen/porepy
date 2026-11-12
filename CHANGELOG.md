@@ -10,9 +10,25 @@ author.
 
 The lists are sorted on PR numbers.
 
+A PR with breaking changes has an entry under both Changes (what changed) and
+Breaking changes (what users must do when upgrading).
+
 ## Unreleased
 
 ### Changes
+PR 1840: BLD: Use Pypardiso in all GH actions. 
+PR 1825: MAINT: Improved security for surrogate operator construction.
+PR 1816: SPEED: Faster manufactured-solution functional tests by compiling each sympy expression once (issue 1814).
+PR 1812: Fixed `DarcysLawAd` and `FouriersLawAd` with a TPFA base discretization dropping the interface flux on fracture faces (issue 1811).
+PR 1805: The tangential contact mechanics equation now defaults to the projection-based formulation of Alart and Curnier, replacing the scaled projection of Berge et al.
+PR 1804: Fix RadialReturnTangentialContactMechanicsEquation for vanishing trial
+    traction, which was treated as an open fracture instead of sticking. Elastoplastic
+    momentum balance tests now also run with this formulation.
+PR 1802: Introduced initialization pipeline.
+PR 1801: prepare_simulation can be called multiple times to fully regenerate the model.
+PR 1798: Restarting a model now converts the imported state from SI back to the model's
+    units, restores the reference state (variables, stress, boundary values) and the
+    time index, and exports interfaces of codimension two (wells).
 PR 1797: Changed model physics to respect the reference state. Affected: shear dilation,
     porosity, stress. This change is non-breaking: by default the model should behave
     exactly like before.
@@ -21,6 +37,9 @@ PR 1795: Introduced EarlyStopCriterion in ModelRunner. Introduced
 PR 1794: Introduced typed interface pp.Metric for convergence metric instead of
     duck-typed pp.ConvergenceMetricType.
 PR 1793: Fix bug related to wrong placement of enthalpy advection Ad operator naming.
+PR 1785: Ad Operator functions, SurrogateOperator, EquationSystem and ArraySlicer
+    accept DiagonalAdArray. SurrogateOperator assembles its Jacobian by the chain rule,
+    and returns a DiagonalAdArray if all its arguments are diagonal.
 PR 1784: Make forward-mode Ad functions compatible with DiagonalAdArray. Update the function test suite.
 PR 1783: Introduce DiagonalAdArray class, with AdArrayBase as common parent of it and AdArray. Not yet used elsewhere in the code base.
 PR 1782: Rename module containing AdArray class.
@@ -37,6 +56,14 @@ PR 1748: Refactor time-step control with interval-based scheduling and extensibl
     constraints, including nonlinear-iteration and Courant-number constraints.
 
 ### Breaking changes
+PR 1805: Fractured models now use a different default tangential contact formulation,
+    which may slightly change results. Preserve the old behavior by mixing in
+    ScaledProjectionTangentialContactMechanicsEquation.
+PR 1801: set_equation_system_manager always creates a new EquationSystem, instead of
+    keeping the old one. subdomain_projections is cached with pp.ad.cached_method, so
+    the private attribute model._subdomain_proj_of_dimension_{dim} no longer exists.
+PR 1798:  Restart histories written by older versions raise a ValueError, unless the
+    restart option `allow_missing_exported_files` is True.
 PR 1794: All metrics return a dict. Previously it was float | dict. If the metric
     returned float before, use key "norm". Abstract class pp.LebesgueMetric is removed
     with no replacement. pp.ConvergenceMetricType are removed, use pp.Metric interface

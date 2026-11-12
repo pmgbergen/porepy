@@ -30,6 +30,10 @@ RUN git checkout develop && git pull
 # NOTE: When run as a GH action (presumably after a PR to the develop branch
 # was accepted, e.g., when the tests have already been run on GH), this should
 # only fail if the docker image itself is flawed.
+# Run on a single thread to make results (e.g., from the pypardiso solver)
+# deterministic. The variables are set for this command only, so that the image itself
+# is not restricted to a single thread.
 WORKDIR ${POREPY_HOME}/tests
-RUN pytest
+RUN OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 NUMBA_NUM_THREADS=1 \
+    pytest
 WORKDIR ${POREPY_HOME}

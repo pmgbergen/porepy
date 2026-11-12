@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<VTKFile type="Collection" version="0.1" byte_order="LittleEndian" compressor="vtkZLibDataCompressor">
+<Collection>
+	<DataSet group="" part="" file="data_0_000003.vtu"/>
+	<DataSet group="" part="" file="data_1_000003.vtu"/>
+	<DataSet group="" part="" file="data_2_000003.vtu"/>
+	<DataSet group="" part="" file="data_3_000003.vtu"/>
+	<DataSet group="" part="" file="data_mortar_0_000003.vtu"/>
+	<DataSet group="" part="" file="data_mortar_1_000003.vtu"/>
+	<DataSet group="" part="" file="data_mortar_2_000003.vtu"/>
+	<DataSet group="" part="" file="data_mortar_codim2_0_000003.vtu"/>
+</Collection>
+</VTKFile>

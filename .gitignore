@@ -85,6 +85,9 @@ $RECYCLE.BIN/
 # Restart-related time step monitoring files
 times.json
 
+# Restart-related reference state data
+reference_state.npz
+
 # Paraview
 *.pvd
 *.vtu

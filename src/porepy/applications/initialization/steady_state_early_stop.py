@@ -47,7 +47,7 @@ class SteadyStateEarlyStopCriterion(pp.EarlyStopCriterion):
         rate_tolerances: Tolerance of the norm of the rate of change per variable name,
             in model units per second. Must return a value for all variable names.
         residual_tolerances: Tolerance of the norm of the residual per equation name, in
-            model units. Must contain all equation names.
+            model units. Must return a value for all equation names.
         earliest_stop_time: The simulation is not stopped before this time, although the
             tolerances are fulfilled.
         variable_rate_metric: Metric computing the norm of the rate of change per

@@ -195,7 +195,7 @@ class AbstractFunction(Operator):
 
         values = self.get_values(*args)
 
-        if any(isinstance(a, AdArray) for a in args):
+        if any(isinstance(a, AdArrayBase) for a in args):
             jac = self.get_jacobian(*args)
             if isinstance(values, float):
                 assert jac.shape[0] == 1, "Inconsistent Jacobian of scalar function."
@@ -288,7 +288,7 @@ class DiagonalJacobianFunction(AbstractFunction):
         jacs = [
             arg.full_jac * m
             for arg, m in zip(args, self._multipliers)
-            if isinstance(arg, AdArray)
+            if isinstance(arg, AdArrayBase)
         ]
         return reduce(operator.add, jacs).tocsr()
 
@@ -340,12 +340,12 @@ class Function(AbstractFunction):
         return result.val if isinstance(result, AdArrayBase) else result
 
     def get_jacobian(self, *args: float | np.ndarray | AdArrayBase) -> sps.spmatrix:
-        assert any(isinstance(a, AdArray) for a in args), (
+        assert any(isinstance(a, AdArrayBase) for a in args), (
             "No Ad arrays passed as arguments."
         )
         result = self._func(*args)
-        assert isinstance(result, AdArray)
-        return result.jac
+        assert isinstance(result, AdArrayBase)
+        return result.full_jac
 
 
 class InterpolatedFunction(AbstractFunction):
@@ -438,7 +438,7 @@ class InterpolatedFunction(AbstractFunction):
         jacs = []
 
         for axis, arg in enumerate(args):
-            if isinstance(arg, AdArray):
+            if isinstance(arg, AdArrayBase):
                 # The trivial Jacobian of one argument gives us the correct position for
                 # the entries as ones
                 partial_jac = sps.csr_matrix(arg.full_jac, copy=True)

@@ -26,6 +26,7 @@ import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.utils.examples_utils import VerificationUtils
+from tests.functional.setups.sympy_utils import lambdify
 
 # PorePy typings
 number = pp.number
@@ -288,7 +289,7 @@ class ManuIncompExactSolution2d:
         cell_idx = [bot, mid, top]
 
         # Lambdify expression
-        p_fun = [sym.lambdify((x, y), p, "numpy") for p in self.p_matrix]
+        p_fun = [lambdify((x, y), p) for p in self.p_matrix]
 
         # Cell-centered pressures
         p_cc = np.zeros(sd_matrix.num_cells)
@@ -322,12 +323,11 @@ class ManuIncompExactSolution2d:
         face_idx = [bot, mid, top]
 
         # Lambdify bubble
-        bubble_fun = sym.lambdify(y, self._bubble, "numpy")
+        bubble_fun = lambdify(y, self._bubble)
 
         # Lambdify expression
         q_fun = [
-            [sym.lambdify((x, y), q[0], "numpy"), sym.lambdify((x, y), q[1], "numpy")]
-            for q in self.q_matrix
+            [lambdify((x, y), q[0]), lambdify((x, y), q[1])] for q in self.q_matrix
         ]
 
         # Computation of the fluxes in the middle region results in NaN on faces that
@@ -389,7 +389,7 @@ class ManuIncompExactSolution2d:
         cell_idx = [bot, mid, top]
 
         # Lambdify expression
-        f_fun = [sym.lambdify((x, y), f, "numpy") for f in self.f_matrix]
+        f_fun = [lambdify((x, y), f) for f in self.f_matrix]
 
         # Integrated cell-centered sources
         vol = sd_matrix.cell_volumes
@@ -417,7 +417,7 @@ class ManuIncompExactSolution2d:
         cc = sd_frac.cell_centers
 
         # Lambdify expression
-        p_fun = sym.lambdify(y, self.p_frac, "numpy")
+        p_fun = lambdify(y, self.p_frac)
 
         # Evaluate at the cell centers
         p_cc = p_fun(cc[1])
@@ -446,7 +446,7 @@ class ManuIncompExactSolution2d:
         fn = sd_frac.face_normals
 
         # Lambdify expression
-        q_fun = sym.lambdify(y, self.q_frac, "numpy")
+        q_fun = lambdify(y, self.q_frac)
 
         # Evaluate at the face centers and scale with face normals
         q_fc = q_fun(fc[1]) * fn[1]
@@ -472,7 +472,7 @@ class ManuIncompExactSolution2d:
         vol = sd_frac.cell_volumes
 
         # Lambdify expression
-        f_fun = sym.lambdify(y, self.f_frac, "numpy")
+        f_fun = lambdify(y, self.f_frac)
 
         # Evaluate and integrate
         f_cc = f_fun(cc[1]) * vol
@@ -500,7 +500,7 @@ class ManuIncompExactSolution2d:
         vol = intf.cell_volumes
 
         # Lambdify expression
-        lmbda_fun = sym.lambdify(y, self.q_intf, "numpy")
+        lmbda_fun = lambdify(y, self.q_intf)
 
         # Evaluate and integrate
         lmbda_cc = lmbda_fun(cc[1]) * vol
@@ -529,7 +529,7 @@ class ManuIncompExactSolution2d:
         face_idx = [bot, mid, top]
 
         # Lambdify expression
-        p_fun = [sym.lambdify((x, y), p, "numpy") for p in self.p_matrix]
+        p_fun = [lambdify((x, y), p) for p in self.p_matrix]
 
         # Boundary pressures
         p_bf = np.zeros(bg.num_cells)

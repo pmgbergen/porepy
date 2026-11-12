@@ -59,6 +59,7 @@ import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.utils.examples_utils import VerificationUtils
+from tests.functional.setups.sympy_utils import lambdify
 
 # PorePy typings
 number = pp.number
@@ -352,7 +353,7 @@ class ManuPoroMechExactSolution2d:
         cc = sd.cell_centers
 
         # Lambdify expression
-        p_fun: Callable = sym.lambdify((x, y, t), self.p, "numpy")
+        p_fun: Callable = lambdify((x, y, t), self.p)
 
         # Cell-centered pressures
         p_cc: np.ndarray = p_fun(cc[0], cc[1], time)
@@ -382,8 +383,8 @@ class ManuPoroMechExactSolution2d:
 
         # Lambdify expression
         u_fun: list[Callable] = [
-            sym.lambdify((x, y, t), self.u[0], "numpy"),
-            sym.lambdify((x, y, t), self.u[1], "numpy"),
+            lambdify((x, y, t), self.u[0]),
+            lambdify((x, y, t), self.u[1]),
         ]
 
         # Cell-centered displacements
@@ -422,8 +423,8 @@ class ManuPoroMechExactSolution2d:
         # Lambdify expression
 
         q_fun: list[Callable] = [
-            sym.lambdify((x, y, t), self.q[0], "numpy"),
-            sym.lambdify((x, y, t), self.q[1], "numpy"),
+            lambdify((x, y, t), self.q[0]),
+            lambdify((x, y, t), self.q[1]),
         ]
 
         # Face-centered Darcy fluxes
@@ -460,12 +461,12 @@ class ManuPoroMechExactSolution2d:
         # Lambdify expression
         sigma_total_fun: list[list[Callable]] = [
             [
-                sym.lambdify((x, y, t), self.sigma_total[0][0], "numpy"),
-                sym.lambdify((x, y, t), self.sigma_total[0][1], "numpy"),
+                lambdify((x, y, t), self.sigma_total[0][0]),
+                lambdify((x, y, t), self.sigma_total[0][1]),
             ],
             [
-                sym.lambdify((x, y, t), self.sigma_total[1][0], "numpy"),
-                sym.lambdify((x, y, t), self.sigma_total[1][1], "numpy"),
+                lambdify((x, y, t), self.sigma_total[1][0]),
+                lambdify((x, y, t), self.sigma_total[1][1]),
             ],
         ]
 
@@ -509,8 +510,8 @@ class ManuPoroMechExactSolution2d:
 
         # Lambdify expression
         source_mech_fun: list[Callable] = [
-            sym.lambdify((x, y, t), self.source_mech[0], "numpy"),
-            sym.lambdify((x, y, t), self.source_mech[1], "numpy"),
+            lambdify((x, y, t), self.source_mech[0]),
+            lambdify((x, y, t), self.source_mech[1]),
         ]
 
         # Evaluate and integrate source
@@ -545,7 +546,7 @@ class ManuPoroMechExactSolution2d:
         vol = sd.cell_volumes
 
         # Lambdify expression
-        source_flow_fun: Callable = sym.lambdify((x, y, t), self.source_flow, "numpy")
+        source_flow_fun: Callable = lambdify((x, y, t), self.source_flow)
 
         # Evaluate and integrate source
         source_flow: np.ndarray = source_flow_fun(cc[0], cc[1], time) * vol
