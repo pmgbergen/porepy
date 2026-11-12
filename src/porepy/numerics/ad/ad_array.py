@@ -1028,28 +1028,6 @@ def initialize_diagonal_ad_arrays(
     return diagonal_variables
 
 
-def _same_block_columns(
-    col_indices: list[np.ndarray], other_col_indices: list[np.ndarray]
-) -> bool:
-    """Check whether two diagonal Jacobian structures have the same column indices.
-
-    Parameters:
-        col_indices: Column indices of the Jacobian blocks of a diagonal Ad array, see
-            :attr:`DiagonalAdArray.col_indices`.
-        other_col_indices: Column indices of the Jacobian blocks of another diagonal Ad
-            array.
-
-    Returns:
-        True if both have the same number of blocks, with the same column indices.
-
-    """
-    if col_indices is other_col_indices:
-        return True
-    return len(col_indices) == len(other_col_indices) and all(
-        np.array_equal(a, b) for a, b in zip(col_indices, other_col_indices)
-    )
-
-
 class DiagonalAdArray(AdArrayBase):
     """An Ad array for Jacobian matrices that are block diagonal.
 
@@ -1279,12 +1257,7 @@ class DiagonalAdArray(AdArrayBase):
         if isinstance(new_value, np.ndarray | pp.number):
             self.val[key] = new_value
         elif isinstance(new_value, DiagonalAdArray):
-            if new_value.num_derivatives != self._num_derivatives or not (
-                _same_block_columns(
-                    [col_ind[key] for col_ind in self._col_indices],
-                    new_value.col_indices,
-                )
-            ):
+            if not self._shares_structure(new_value, key):
                 raise ValueError(
                     "Cannot insert a DiagonalAdArray which does not share the Jacobian "
                     "structure of the target."
@@ -1301,7 +1274,11 @@ class DiagonalAdArray(AdArrayBase):
         else:
             raise NotImplementedError("Setting")
 
-    def _shares_structure(self, other: DiagonalAdArray) -> bool:
+    def _shares_structure(
+        self,
+        other: DiagonalAdArray,
+        key: slice | np.ndarray[Any, np.dtype[np.int_]] | None = None,
+    ) -> bool:
         """Check whether this array and ``other`` share a Jacobian structure.
 
         See the class documentation for why arithmetic operations between diagonal Ad
@@ -1309,14 +1286,25 @@ class DiagonalAdArray(AdArrayBase):
 
         Parameters:
             other: Another diagonal Ad array.
+            key: If given, compare the structure of this array at ``key`` (as in
+                ``self[key]``) with that of ``other``, instead of the structure of the
+                whole array.
 
         Returns:
             True if both arrays have the same number of derivatives, and the same
-            column indices of their Jacobian blocks.
+            number of Jacobian blocks, with the same column indices.
 
         """
-        return self._num_derivatives == other.num_derivatives and _same_block_columns(
-            self._col_indices, other.col_indices
+        if self._num_derivatives != other.num_derivatives:
+            return False
+        if key is None:
+            col_indices = self._col_indices
+        else:
+            col_indices = [col_ind[key] for col_ind in self._col_indices]
+        if col_indices is other.col_indices:
+            return True
+        return len(col_indices) == len(other.col_indices) and all(
+            np.array_equal(a, b) for a, b in zip(col_indices, other.col_indices)
         )
 
     def __add__(self, other: AdType) -> AdArrayBase:
