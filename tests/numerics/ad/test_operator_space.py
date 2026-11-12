@@ -404,6 +404,7 @@ class TestSurrogateOperatorSpace:
             name="bare",
             domains=[g1, g2],
             children=[v1, v2],
+            fetch_data=lambda op, grid, get_derivatives: np.zeros(grid.num_cells),
             dof_info=None,
         )
         assert op.source.dof_info == GridEntities(cells=1)
