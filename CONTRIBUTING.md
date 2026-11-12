@@ -65,6 +65,8 @@ Comments should focus on the actual code, not what was changed in a specific upd
 
 * New functionality should be covered by both **unit tests** (isolated, fast, targeting a single function or
   class) and, where relevant, **integration tests** (verifying that components work together correctly).
+* New tests should prefer the numpy testing framework where natural. For instance, this means that 
+  `np.testing.assert_allclose` should be used rather than `assert np.allclose`. 
 * Use `pytest` fixtures and parametrization to avoid duplicated test logic rather than copy-pasting near-identical
   test functions.
 * Do not contribute tests that were merely useful while developing a feature but are unnecessarily fine-grained
