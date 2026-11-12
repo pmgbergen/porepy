@@ -184,7 +184,7 @@ class TestComputeSlipTendency:
             ]
         )
 
-        assert np.allclose(result, expected)
+        np.testing.assert_allclose(result, expected, equal_nan=False)
 
     def test_zero_normal_traction_gives_nan(self):
         """Test that zero normal traction results in NaN slip tendency."""
@@ -216,7 +216,7 @@ class TestComputeSlipTendency:
             ]
         )
 
-        assert np.allclose(result, expected)
+        np.testing.assert_allclose(result, expected, equal_nan=False)
 
     def test_no_input_modification(self):
         """Test that input arrays are not modified."""
@@ -272,7 +272,7 @@ class TestComputeSlipTendency:
         )
 
         expected = -np.array([1.0, 2.0, 3.0]) / (-np.array([2.0, 4.0, 6.0]) * 0.5)
-        assert np.allclose(result, expected)
+        np.testing.assert_allclose(result, expected,equal_nan=False)
 
     def test_custom_tolerance(self):
         """Test that custom tolerance parameter works correctly."""
