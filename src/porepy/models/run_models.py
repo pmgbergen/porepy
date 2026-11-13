@@ -53,7 +53,7 @@ def run_stationary_model(model, params: dict) -> None:
     warnings.warn(
         "run_stationary_model is deprecated and will be removed in a future version. "
         "Use ModelRunner directly instead.",
-        DeprecationWarning,
+        FutureWarning,
         stacklevel=2,
     )
     runner = ModelRunner(model, params)
@@ -86,7 +86,7 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
     warnings.warn(
         "run_time_dependent_model is deprecated and will be removed in a future "
         "version. Use ModelRunner directly instead.",
-        DeprecationWarning,
+        FutureWarning,
         stacklevel=2,
     )
     runner = ModelRunner(model, params)

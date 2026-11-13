@@ -49,7 +49,7 @@ class SolutionStrategy(pp.PorePyModel):
                 "params, replace it with "
                 "pp.solvers.NewtonSolver(linear_solver=pp.LinearSolverDirect(backend="
                 "'pypardiso')). The current passed value is ignored.",
-                category=DeprecationWarning,
+                category=FutureWarning,
                 stacklevel=2,
             )
 
@@ -741,7 +741,7 @@ class SolutionStrategy(pp.PorePyModel):
         warn(
             "The method model.assemble_linear_system is deprecated and will be removed."
             " Use model.equation_system.assemble instead.",
-            category=DeprecationWarning,
+            category=FutureWarning,
             stacklevel=2,
         )
         t_0 = time.time()

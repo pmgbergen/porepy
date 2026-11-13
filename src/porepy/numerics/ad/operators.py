@@ -434,8 +434,10 @@ class Operator:
             matrix.
 
         """
-        msg = "This method is deprecated. Use the `evaluate` method of EquationSystem."
-        warn(msg, DeprecationWarning)
+        msg = (
+            "Operator.value is deprecated. Use the `evaluate` method of EquationSystem."
+        )
+        warn(msg, FutureWarning, stacklevel=2)
 
         return self._evaluate(equation_system, state=state, evaluate_jacobian=False)
 
@@ -461,8 +463,11 @@ class Operator:
                 depends on the operator.
 
         """
-        msg = "This method is deprecated. Use the `evaluate` method of EquationSystem."
-        warn(msg, DeprecationWarning)
+        msg = (
+            "Operator.value_and_jacobian is deprecated. Use the `evaluate` method of "
+            "EquationSystem."
+        )
+        warn(msg, FutureWarning, stacklevel=2)
         ad = self._evaluate(equation_system, state=state, evaluate_jacobian=True)
 
         # Casting the result to AdArray or raising an error.

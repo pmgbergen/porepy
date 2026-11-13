@@ -869,8 +869,11 @@ class Grid:
             internal nodes.
 
         """
-        msg = "This functionality is deprecated and will be removed in a future version"
-        warn(msg, DeprecationWarning)
+        msg = (
+            "Grid.get_internal_nodes is deprecated and will be removed in a "
+            "future version."
+        )
+        warn(msg, FutureWarning, stacklevel=2)
 
         internal_nodes = np.setdiff1d(
             np.arange(self.num_nodes), self.get_boundary_nodes(), assume_unique=True
@@ -912,8 +915,11 @@ class Grid:
             faces.
 
         """
-        msg = "This functionality is deprecated and will be removed in a future version"
-        warn(msg, DeprecationWarning)
+        msg = (
+            "Grid.get_internal_faces is deprecated and will be removed in a "
+            "future version."
+        )
+        warn(msg, FutureWarning, stacklevel=2)
 
         return np.setdiff1d(
             np.arange(self.num_faces), self.get_all_boundary_faces(), assume_unique=True
@@ -926,8 +932,11 @@ class Grid:
             boundary nodes.
 
         """
-        msg = "This functionality is deprecated and will be removed in a future version"
-        warn(msg, DeprecationWarning)
+        msg = (
+            "Grid.get_boundary_nodes is deprecated and will be removed in a "
+            "future version."
+        )
+        warn(msg, FutureWarning, stacklevel=2)
 
         return self._indices(self.tags["domain_boundary_nodes"])
 

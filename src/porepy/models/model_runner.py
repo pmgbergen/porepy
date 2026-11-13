@@ -131,9 +131,11 @@ def run_stationary_model(model, params: dict) -> None:
         params: Parameters related to the solution procedure.
 
     """
-    warnings.deprecated(
+    warnings.warn(
         "run_stationary_model is deprecated in favor of ModelRunner.run and will be"
-        " removed in future versions."
+        " removed in future versions.",
+        FutureWarning,
+        stacklevel=2,
     )
     runner = ModelRunner(model, params)
     runner.run()
@@ -165,9 +167,11 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
         params: Parameters related to the solution procedure.
 
     """
-    warnings.deprecated(
+    warnings.warn(
         "run_time_dependent_model is deprecated in favor of ModelRunner.run and will be"
-        " removed in future versions."
+        " removed in future versions.",
+        FutureWarning,
+        stacklevel=2,
     )
     runner = ModelRunner(model, params)
     runner.run()
