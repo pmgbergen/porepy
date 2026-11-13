@@ -131,10 +131,6 @@ def test_arithmetic_operations_on_ad_objects(
             )
         raise ValueError("Unknown variable type")
 
-    # Get the actual variables from the input strings.
-    v1 = _var_from_string(var_1, wrapped, "foo_v1")
-    v2 = _var_from_string(var_2, wrapped, "foo_v2")
-
     # Calculate the expected numerical values for this expression from the unwrapped
     # operands. If the operation is not expected to succeed, the expected value is
     # False. When both wrapped operands are Ad arrays, they are formed from different
@@ -157,7 +153,10 @@ def test_arithmetic_operations_on_ad_objects(
             # that something is wrong with the parsing itself. Note that testing of the
             # frontend evaluation is done below (calls to equation_system.evaluate()),
             # as well as in the test of equation_system.py and other tests.
-            expression = _OPERATIONS[op](v1, v2)
+            expression = _OPERATIONS[op](
+                _var_from_string(var_1, wrapped, "foo_v1"),
+                _var_from_string(var_2, wrapped, "foo_v2"),
+            )
             state = equation_system.get_variable_values(time_step_index=0)
             ad_base = pp.ad.initAdArrays([state])[0]
             val = equation_system._ad_parser._evaluate_single(
@@ -171,7 +170,10 @@ def test_arithmetic_operations_on_ad_objects(
             return
     else:
         try:
-            val = _OPERATIONS[op](v1, v2)
+            val = _OPERATIONS[op](
+                _var_from_string(var_1, wrapped, "foo_v1"),
+                _var_from_string(var_2, wrapped, "foo_v2"),
+            )
         except (TypeError, ValueError, NotImplementedError):
             assert expected is False
             return
