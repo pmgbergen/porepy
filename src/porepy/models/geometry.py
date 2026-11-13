@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from warnings import warn
 import copy
 import logging
 from pathlib import Path
@@ -688,6 +689,10 @@ class ModelGeometry(pp.PorePyModel):
             proj: Projection operator.
 
         """
+        msg = "This method is deprecated. Please use `pp.ad.SubdomainProjections` "
+        msg += "directly."
+        warn(msg, FutureWarning, stacklevel=2)
+
         return pp.ad.SubdomainProjections(self.mdg.subdomains(), dim)
 
     def domain_boundary_sides(
