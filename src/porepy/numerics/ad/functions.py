@@ -81,17 +81,16 @@ def log(var: FloatType) -> FloatType:
 
 
 def clip(var: FloatType, min_val: float, max_val: float) -> FloatType:
-    """Clip (limit) the values in an array or SparseJacAdArray between min_val and
-    max_val.
+    """Clip (limit) the values in an array or Ad array between min_val and max_val.
 
     Parameters:
-        var: Input variable (SparseJacAdArray, ndarray, or float).
+        var: Input variable (Ad array, ndarray, or float).
         min_val: Minimum allowed value.
         max_val: Maximum allowed value.
 
     Returns:
         Clipped variable, with values restricted to [min_val, max_val].
-        If input is SparseJacAdArray, the Jacobian is preserved only for the unclipped
+        If input is an Ad array, the Jacobian is preserved only for the unclipped
         region; for clipped values, the Jacobian is set to zero.
     """
     if isinstance(var, AdArrayBase):
@@ -181,7 +180,7 @@ def l2_norm(dim: int, var: AdArrayBase) -> AdArrayBase:
 def safe_power(
     power: float, zero_val: float, tol: float, var: AdArrayBase
 ) -> AdArrayBase:
-    """Safe (negative) power of a SparseJacAdArray.
+    """Safe (negative) power of an Ad array.
 
     The power is performed only for nonzeros in the variable, whereas zeros are left as
     zeros. This is useful for avoiding division by zero in the Jacobian.
@@ -190,10 +189,10 @@ def safe_power(
         power: Power to raise the variable to.
         zero_val: Value to assign to zero entries in the variable.
         tol: Tolerance for comparison with zero.
-        var: SparseJacAdArray representing the numerator.
+        var: Ad array representing the numerator.
 
     Returns:
-        SparseJacAdArray representing the safe power.
+        Ad array representing the safe power.
 
     """
     if isinstance(var, np.ndarray):
@@ -346,7 +345,7 @@ def heaviside(zerovalue: float, var: FloatType) -> FloatType:
 
     Returns:
         Heaviside function (and its Jacobian if applicable) in form of a
-        SparseJacAdArray or ndarray (depending on the input).
+        Ad array or ndarray (depending on the input).
     """
     if isinstance(var, AdArrayBase):
         val = np.heaviside(var.val, zerovalue)
@@ -378,7 +377,7 @@ def heaviside_smooth(var, eps: float = 1e-3):
 
     Returns:
         Regularized heaviside function (and its Jacobian if applicable) in form of a
-        SparseJacAdArray or ndarray (depending on the input).
+        Ad array or ndarray (depending on the input).
 
     """
     if isinstance(var, AdArrayBase):
@@ -412,7 +411,7 @@ def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
 
     The arguments can be either Ad arrays, ndarrays, or scalars, this duality is needed
     to allow for parsing of operators that can be taken at the current iteration (in
-    which case it will parse as a SparseJacAdArray) or at the previous iteration or time
+    which case it will parse as an Ad array) or at the previous iteration or time
     step (in which case it will parse as a numpy array or scalar).
 
     Parameters:
@@ -423,16 +422,16 @@ def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
 
     Returns:
         The maximum of the two arguments, taken element-wise in the arrays. The return
-        type is SparseJacAdArray if at least one of the arguments is a SparseJacAdArray,
-        otherwise it is an ndarray. If a SparseJacAdArray is returned, the Jacobian is
-        computed according to the maximum values of the SparseJacAdArrays (so if element
+        type is an Ad array if at least one of the arguments is an Ad array, otherwise
+        it is an ndarray. The result is a DiagonalJacAdArray if both arguments are, and
+        a SparseJacAdArray otherwise. The Jacobian is computed according to the maximum
+        values of the Ad arrays (so if element
         ``i`` of the maximum is picked from ``var_0``, row ``i`` of the Jacobian is also
         picked from the Jacobian of ``var_0``). Arguments with no derivatives (ndarrays
         or scalars) are treated as having a zero Jacobian.
 
     """
-    # If neither var_0 or var_1 are SparseJacAdArrays, return the numpy maximum
-    # function.
+    # If neither var_0 or var_1 are Ad arrays, return the numpy maximum function.
     if not isinstance(var_0, AdArrayBase) and not isinstance(var_1, AdArrayBase):
         return np.maximum(var_0, var_1)
 
@@ -528,8 +527,8 @@ def mask_by_threshold(tol: float, char_var: FloatType, var: FloatType) -> FloatT
             Kept where ``char_var > tol``, zeroed elsewhere.
 
     Returns:
-        Masked version of `var` as a SparseJacAdArray (if `var` is SparseJacAdArray) or
-        ndarray.
+        Masked version of `var` as an Ad array (if `var` is an Ad array, in the same
+        representation) or ndarray.
 
     """
     # Determine characteristic indices, i.e. where char_var is greater than tol.

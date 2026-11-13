@@ -142,8 +142,9 @@ class AdParser:
                 pressure) and the restricted state array (with only pressure values).
 
         Returns:
-            The value, or value and Jacobian combined in a SparseJacAdArray, of the
-                operator op, or a list of values, or SparseJacAdArrays if op is a list.
+            The value, or value and Jacobian combined in an Ad array, of the operator
+                op, or a list of values, or Ad arrays if op is a list. The Ad arrays can
+                be in either representation, SparseJacAdArray or DiagonalJacAdArray.
 
         """
         # Get the state of the system, if not provided.
@@ -157,8 +158,9 @@ class AdParser:
                 f"indexer size ({variable_indexer.size})."
             )
 
-        # Map each variable in the operator tree to its representation: a
-        # SparseJacAdArray if the derivative is requested, or a numpy array if not.
+        # Map each variable in the operator tree to its representation: an Ad array
+        # (SparseJacAdArray or DiagonalJacAdArray) if the derivative is requested, or a
+        # numpy array if not.
         ad_base = self._initialize_variables(
             op if isinstance(op, list) else [op],
             state,
@@ -177,8 +179,8 @@ class AdParser:
                 self._evaluate_single(op, ad_base, equation_system, variable_indexer)
             ]
 
-        # If the derivative is requested, the results should be SparseJacAdArrays.
-        # Enforce this.
+        # If the derivative is requested, the results should be Ad arrays. Enforce this
+        # by converting scalars and numpy arrays to SparseJacAdArrays.
         if derivative:
             for index, res in enumerate(result_list):
                 if isinstance(res, (int, float)):
@@ -237,8 +239,7 @@ class AdParser:
             state: State vector, ordered according to variable_indexer, used to look up
                 variable values.
             variable_indexer: The indexer that defines the arrangement in state, and
-                thereby also the columns of the Jacobians of the returned
-                SparseJacAdArrays.
+                thereby also the columns of the Jacobians of the returned Ad arrays.
             derivative: If True, variables are represented as SparseJacAdArrays or
                 DiagonalJacAdArrays, so that derivatives can be tracked. If False, only
                 the values of the variables are returned, as numpy arrays.
@@ -520,14 +521,14 @@ class AdParser:
             op: The operator to evaluate.
             ad_base: Mapping from each variable in the operator tree of op to its
                 representation, as produced by :meth:`_initialize_variables`. Values
-                are SparseJacAdArrays if the derivative is requested, and numpy arrays
-                if not.
+                are Ad arrays (SparseJacAdArray or DiagonalJacAdArray) if the derivative
+                is requested, and numpy arrays if not.
             equation_system: The EquationSystem wherein the system state is defined.
             variable_indexer: The indexer that defines the arrangement in ad_base.
 
         Returns:
-            A numpy array or a SparseJacAdArray representation of the operator op,
-                depending on whether the derivative is requested.
+            A numpy array or an Ad array representation of the operator op, depending
+                on whether the derivative is requested.
 
         """
         # If the operator is in the cache, return the cached value.
@@ -678,9 +679,9 @@ class AdParser:
                     child_values[1], pp.ad.AdArrayBase
                 ):
                     if operation == Operations.mul:
-                        # In the implementation of multiplication between a
-                        # SparseJacAdArray and a numpy array (in the forward mode Ad), a
-                        # * b and b * a do not commute. Flip the order of the results to
+                        # In the implementation of multiplication between an Ad
+                        # array and a numpy array (in the forward mode Ad), a * b and
+                        # b * a do not commute. Flip the order of the results to
                         # get the expected behavior. This is permissible, since the
                         # elementwise product commutes.
                         child_values = child_values[::-1]
@@ -689,11 +690,10 @@ class AdParser:
                     # of the second operand is not a float, so we need to assert it.
                     assert not isinstance(child_values[1], float)
 
-                    # If the first operand is a numpy array and the second is a
-                    # SparseJacAdArray, numpy will make the operation in a strange way,
-                    # using its broadcasting logic. Instead enforce the operation to be
-                    # done by the SparseJacAdArray, using the relevant right-operation
-                    # method.
+                    # If the first operand is a numpy array and the second is an Ad
+                    # array, numpy will make the operation in a strange way, using its
+                    # broadcasting logic. Instead enforce the operation to be done by
+                    # the Ad array, using the relevant right-operation method.
                     try:
                         if operation == Operations.div:
                             return child_values[1].__rtruediv__(child_values[0])
