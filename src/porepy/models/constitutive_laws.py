@@ -1708,13 +1708,13 @@ class AdTpfaFlux(pp.PorePyModel):
         Parameters:
             base_discr: Base discretization of the flux. T_f: Transmissibility matrix.
             T_f: Tpfa-style transmissibilities on the internal faces, represented as
-                either a SparseJacAdArray or a numpy array, depending on whether the
+                either an Ad array or a numpy array, depending on whether the
                 method is called for Jacbian evaluation or not.
             p_diff: Difference in potential between the two cells on either side of the
                 face.
             p: Cell potential.
             T_bnd: Tpfa-style transmissibilities on the boundary faces, represented as
-                either a SparseJacAdArray or a numpy array.
+                either an Ad array or a numpy array.
             bv: Boundary value, including contributions from both external boundaries
                 and internal boundaries.
 
@@ -1793,7 +1793,7 @@ class AdTpfaFlux(pp.PorePyModel):
         base_discr_vector_source = base_discr.vector_source().parse(self.mdg)
 
         # Composing the full expression for the vector source term is a bit tricky, as
-        # any of the three arguments may be either a numpy array or a SparseJacAdArray.
+        # any of the three arguments may be either a numpy array or an Ad array.
         # We need to handle all combinations of these cases.
         #
         # First, we check if any of the arguments are numpy arrays, which would
@@ -1811,7 +1811,7 @@ class AdTpfaFlux(pp.PorePyModel):
 
         # We now know that the return value should be a SparseJacAdArray, and we need to
         # compute the Jacobian as well as the value. However, the type of vs (thus
-        # vs_diff) can still be either numpy array or SparseJacAdArray: The former
+        # vs_diff) can still be either numpy array or Ad array: The former
         # corresponds to a constant vector source, the latter to a vector source that
         # depends on the primary variable (e.g., a non-constant density in a gravity
         # term). We need to unify
@@ -1883,8 +1883,8 @@ class AdTpfaFlux(pp.PorePyModel):
         # the inputs are not Ad-operators, but numerical values.
 
         # We know that base_discr.bound_pressure_face is a sparse matrix, so we can call
-        # parse directly. At the time of evaluation, internal_flux will be a
-        # SparseJacAdArray, thus we can access its val and jac attributes, while
+        # parse directly. At the time of evaluation, internal_flux will be an Ad
+        # array, thus we can access its val and sparse_jac attributes, while
         # external_flux is a numpy array.
         base_term = base_discr.bound_pressure_face().parse(self.mdg)
         # The value is the standard product of the matrix and boundary values.
@@ -1897,7 +1897,7 @@ class AdTpfaFlux(pp.PorePyModel):
         # Otherwise, at the time of evaluation, internal_flux will be an Ad array, thus
         # we can access its val and sparse_jac attributes.
 
-        # EK: Testing revealed a case where the external_bc was a SparseJacAdArray. The
+        # EK: Testing revealed a case where the external_bc was an Ad array. The
         # precise reason for this is not clear (it could be a straightforward result of
         # the rules of parsing), but to cover all cases, we do a if-else here.
         if isinstance(external_bc, pp.ad.AdArrayBase):

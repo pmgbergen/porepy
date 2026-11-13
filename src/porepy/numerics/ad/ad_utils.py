@@ -43,13 +43,13 @@ __all__ = [
 ]
 
 
-def concatenate_ad_arrays(ad_arrays: list[pp.ad.SparseJacAdArray], axis=0):
+def concatenate_ad_arrays(ad_arrays: list[pp.ad.AdArrayBase], axis=0):
     """Concatenates a sequence of AD arrays into a single AD Array along a specified
     axis."""
     msg = "This functionality is deprecated and will be removed in a future version"
     warnings.warn(msg, DeprecationWarning)
     vals = [var.val for var in ad_arrays]
-    jacs = np.array([var.jac for var in ad_arrays])
+    jacs = np.array([var.sparse_jac for var in ad_arrays])
 
     vals_stacked = np.concatenate(vals, axis=axis)
     jacs_stacked = sps.vstack(jacs)

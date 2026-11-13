@@ -444,10 +444,9 @@ class ArraySlicer:
     can give significant speedups for large matrices.
 
     Example:
-        Let y be a numpy array, scipy sparse matrix, or a SparseJacAdArray, with size,
-        say,
-        4. That is, if y is a 1d numpy array, it has shape (4,), if it is a
-        SparseJacAdArray, it's value attribute has shape (4,), and if it is a sparse
+        Let y be a numpy array, scipy sparse matrix, or an Ad array, with size, say,
+        4. That is, if y is a 1d numpy array, it has shape (4,), if it is an Ad array,
+        its value attribute has shape (4,), and if it is a sparse
         matrix (or a numpy array of more than one dimension, though that case is not a
         primary motivation for the slicer), it has 4 rows, while the number of columns
         is arbitrary. The slicer
@@ -704,7 +703,7 @@ class ArraySlicer:
 
         sliced: np.ndarray | sps.spmatrix | pp.ad.SparseJacAdArray | float | int
 
-        # Slice matrix, vector, or SparseJacAdArray by calling relevant helper methods.
+        # Slice matrix, vector, or Ad array by calling relevant helper methods.
         if isinstance(x, np.ndarray):
             sliced = self._slice_vector(x)
         elif isinstance(x, (sps.spmatrix, sps.sparray)):

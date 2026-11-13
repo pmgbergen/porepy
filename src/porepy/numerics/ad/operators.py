@@ -500,7 +500,7 @@ class Operator:
         equation_system: pp.ad.EquationSystem,
         state: Optional[np.ndarray] = None,
         evaluate_jacobian: bool = True,
-    ) -> pp.number | np.ndarray | sps.spmatrix | SparseJacAdArray:
+    ) -> pp.number | np.ndarray | sps.spmatrix | AdArrayBase:
         """Evaluate the residual and Jacobian matrix for a given solution.
 
         Parameters:

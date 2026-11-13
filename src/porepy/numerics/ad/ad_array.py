@@ -260,11 +260,11 @@ class AdArrayBase(abc.ABC):
         """
         if other.ndim != 1:
             raise ValueError(
-                f"Only 1d numpy arrays can be used for SparseJacAdArray {op_name}."
+                f"Only 1d numpy arrays can be used for Ad array {op_name}."
             )
 
     def __radd__(self, other: AdType) -> AdArrayBase:
-        """Add the SparseJacAdArray to another object.
+        """Add this Ad array to another object.
 
         Parameters:
             other: An object to be added to this object. See class documentation for
@@ -274,13 +274,13 @@ class AdArrayBase(abc.ABC):
             ValueError: If this represents an impermissible operation.
 
         Returns:
-            A SparseJacAdArray which combines ``self`` and ``other``.
+            An Ad array which combines ``self`` and ``other``.
 
         """
         return self.__add__(other)
 
     def __sub__(self, other: AdType) -> AdArrayBase:
-        """Subtract right hand operand (this SparseJacAdArray) from left hand operand
+        """Subtract right hand operand (this Ad array) from left hand operand
         (other).
 
         Parameters:
@@ -291,14 +291,14 @@ class AdArrayBase(abc.ABC):
             ValueError: If this represents an impermissible operation.
 
         Returns:
-            A SparseJacAdArray which combines ``self`` and ``other``.
+            An Ad array which combines ``self`` and ``other``.
 
         """
         return self.__add__(-other)
 
     def __rsub__(self, other: AdType) -> AdArrayBase:
-        """Subtract right hand operand (other) from left hand operand (this
-        SparseJacAdArray).
+        """Subtract right hand operand (other) from left hand operand (this Ad
+        array).
 
         Parameters:
             other: An object to be subtracted from this object. See class
@@ -308,7 +308,7 @@ class AdArrayBase(abc.ABC):
             ValueError: If this represents an impermissible operation.
 
         Returns:
-            A SparseJacAdArray which subtracts ``self`` from ``other``.
+            An Ad array which subtracts ``self`` from ``other``.
 
         """
         # Calculate self - other and negative the answer (note the minus sign in front).
@@ -322,7 +322,7 @@ class AdArrayBase(abc.ABC):
                 for restrictions on admissible types for this function.
 
         Returns:
-            A SparseJacAdArray which multiplies ``self`` and ``other`` elementwise.
+            An Ad array which multiplies ``self`` and ``other`` elementwise.
 
         Raises:
             ValueError: If this represents an impermissible operation.
@@ -339,34 +339,29 @@ class AdArrayBase(abc.ABC):
             # NotImplemented, which makes no sense. Raise an error; if we ever end
             # up here, something is really wrong.
             raise RuntimeError(
-                "Something went wrong when multiplying two SparseJacAdArrays "
-                "elementwise."
+                "Something went wrong when multiplying two Ad arrays elementwise."
             )
         else:
             raise ValueError(
-                f"Unknown type {type(other)} for SparseJacAdArray elementwise "
-                "multiplication."
+                f"Unknown type {type(other)} for Ad array elementwise multiplication."
             )
 
     def __matmul__(self, other: AdType) -> AdArrayBase:
-        """The operation `SparseJacAdArray @ Anything` is disallowed.
+        """The operation `Ad array @ Anything` is disallowed.
 
         Parameters:
-            other: An object which should be right multiplied with this
-            SparseJacAdArray.
-                See class documentation for restrictions on admissible types for this
-                function.
+            other: An object which should be right multiplied with this Ad array.
 
-        Returns:
-            A SparseJacAdArray which represents ``self`` @ ``other`` elementwise.
+        Raises:
+            ValueError: Always, since Ad arrays can only be left-multiplied by sparse
+                matrices.
 
         """
 
         if isinstance(other, (int, float, np.ndarray, AdArrayBase)):
             raise ValueError(
-                """Cannot perform matrix multiplication between a SparseJacAdArray and
-                a"""
-                f""" {type(other)}."""
+                "Cannot perform matrix multiplication between an Ad array and a "
+                f"{type(other)}."
             )
 
         elif isinstance(other, _SPARSE_TYPES):
@@ -374,14 +369,11 @@ class AdArrayBase(abc.ABC):
             # framework, variables should not be right-multiplied by anything. Raise a
             # value error to make sure this is not done.
             raise ValueError(
-                """SparseJacAdArrays should only be left-multiplied by sparse
-                matrices."""
+                "Ad arrays should only be left-multiplied by sparse matrices."
             )
 
         else:
-            raise ValueError(
-                f"Unknown type {type(other)} for SparseJacAdArray multiplication."
-            )
+            raise ValueError(f"Unknown type {type(other)} for Ad array multiplication.")
 
     def __neg__(self) -> AdArrayBase:
         return self * -1.0

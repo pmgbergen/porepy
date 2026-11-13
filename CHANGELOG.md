@@ -16,6 +16,7 @@ Breaking changes (what users must do when upgrading).
 ## Unreleased
 
 ### Changes
+PR 1843: MAINT: Improved documentation, typing fixes. Cleanup after the DiagonalJacAdArray project.
 PR 1840: BLD: Use Pypardiso in all GH actions. 
 PR 1836: TST: Add tests for arithmetics of DiagonalJacAdArray class.
 PR 1835: MAINT: Refactor test of arithmetic test of Ad operators. 
