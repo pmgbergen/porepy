@@ -42,7 +42,7 @@ ElementwiseOperation = Literal["+", "-", "*", "/", "**"]
 
 # The operations, keyed by their symbols. The test is parametrized by the symbols, which
 # give readable test ids, and calls the operator functions directly.
-_OPERATIONS: dict[str, Callable] = {
+_OPERATIONS: dict[Operation, Callable] = {
     "+": operator.add,
     "-": operator.sub,
     "*": operator.mul,
@@ -50,6 +50,19 @@ _OPERATIONS: dict[str, Callable] = {
     "**": operator.pow,
     "@": operator.matmul,
 }
+
+_OPERAND_TYPES = ["scalar", "dense", "sparse_matrix", "sparse_array", "ad"]
+
+# The combinations of operand types and modes that are tested. In forward mode, only
+# combinations that involve an Ad array exercise PorePy code, see the docstring of
+# test_arithmetic_operations_on_ad_objects.
+_OPERAND_CASES = [
+    (var_1, var_2, wrapped)
+    for wrapped in (True, False)
+    for var_1 in _OPERAND_TYPES
+    for var_2 in _OPERAND_TYPES
+    if wrapped or "ad" in (var_1, var_2)
+]
 
 
 @pytest.fixture
@@ -62,19 +75,25 @@ def arithmetic_mdg() -> pp.MixedDimensionalGrid:
     return mdg
 
 
-@pytest.mark.parametrize(
-    "var_1", ["scalar", "dense", "sparse_matrix", "sparse_array", "ad"]
-)
-@pytest.mark.parametrize(
-    "var_2", ["scalar", "dense", "sparse_matrix", "sparse_array", "ad"]
-)
+@pytest.fixture(scope="module")
+def empty_equation_system() -> pp.ad.EquationSystem:
+    """EquationSystem on an empty grid, used to evaluate expressions without Ad arrays.
+
+    The EquationSystem has no variables, and evaluation does not modify it, so it is
+    shared between the tests.
+
+    """
+    return pp.ad.EquationSystem(pp.MixedDimensionalGrid())
+
+
+@pytest.mark.parametrize("var_1, var_2, wrapped", _OPERAND_CASES)
 @pytest.mark.parametrize("op", list(_OPERATIONS))
-@pytest.mark.parametrize("wrapped", [True, False])
 def test_arithmetic_operations_on_ad_objects(
     arithmetic_mdg: pp.MixedDimensionalGrid,
+    empty_equation_system: pp.ad.EquationSystem,
     var_1: str,
     var_2: str,
-    op: str,
+    op: Operation,
     wrapped: bool,
 ) -> None:
     """Test that the fundamental Ad operators can be combined using the standard
@@ -94,23 +113,18 @@ def test_arithmetic_operations_on_ad_objects(
 
     """
 
-    has_ad_operand = var_1 == "ad" or var_2 == "ad"
-    if not wrapped and not has_ad_operand:
-        # If not wrapped in the abstract layer, these cases should be covered by the
-        # tests for the external packages; PorePy just has to rely on e.g., numpy being
-        # correctly implemented. For the wrapped case, we need to test that the parsing
-        # is okay, thus we do not skip if wrapped is True.
-        return
-
     # In the wrapped form, expressions are evaluated by an EquationSystem, which must
     # know the variables of all Ad operands. The Ad operands are therefore created as
-    # separate variables in a common EquationSystem. If none of the operands is an Ad
-    # array, an EquationSystem is still formally needed to evaluate the expression, but
-    # since it will not actually be used for anything, it is defined on an empty grid.
+    # separate variables in a common EquationSystem. Creating the variables modifies
+    # both the EquationSystem and the grid data, so this EquationSystem is created anew
+    # for each test. If none of the operands is an Ad array, an EquationSystem is still
+    # formally needed to evaluate the expression, but since it will not actually be
+    # used for anything, the shared one on an empty grid is used.
+    has_ad_operand = var_1 == "ad" or var_2 == "ad"
     equation_system = (
         pp.ad.EquationSystem(arithmetic_mdg)
         if wrapped and has_ad_operand
-        else pp.ad.EquationSystem(pp.MixedDimensionalGrid())
+        else empty_equation_system
     )
 
     def _var_from_string(v: str, do_wrap: bool, variable_name: str):
