@@ -19,7 +19,7 @@ def test_default_basis_2d():
         ]
     )
 
-    assert np.allclose(bc.basis, basis_known)
+    np.testing.assert_allclose(bc.basis, basis_known, equal_nan=False)
 
 
 def test_default_basis_3d():
@@ -33,4 +33,4 @@ def test_default_basis_3d():
         ]
     )
 
-    assert np.allclose(bc.basis, basis_known)
+    np.testing.assert_allclose(bc.basis, basis_known, equal_nan=False)

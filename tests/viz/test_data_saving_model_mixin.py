@@ -89,9 +89,11 @@ def test_export_chosen_times(times_to_export):
     # The actual test of exported times based on the log stored in model.exported_times:
     if times_to_export is None:
         times_to_export = np.linspace(0.0, tf, time_steps + 1)
-        assert np.allclose(model.exported_times, times_to_export)
+        np.testing.assert_allclose(model.exported_times, times_to_export, 
+        equal_nan=False)
     else:
-        assert np.allclose(model.exported_times, np.sort(times_to_export))
+        np.testing.assert_allclose(model.exported_times, np.sort(times_to_export), 
+        equal_nan=False)
 
 
 @pytest.mark.parametrize(
@@ -139,10 +141,12 @@ def test_exported_times_consistency_with_files(
         times_data = json.load(f)
 
     # Compare exported times with the times in times.json.
-    assert np.allclose(model.time_manager.exported_times, times_data["time"])
+    np.testing.assert_allclose(model.time_manager.exported_times, times_data["time"], 
+        equal_nan=False)
 
     # Compare exported times with the expected times.
-    assert np.allclose(model.time_manager.exported_times, expected_times)
+    np.testing.assert_allclose(model.time_manager.exported_times, expected_times, 
+        equal_nan=False)
 
     # Check that the correct number of files are exported.
     # Parse the PVD file.
@@ -157,7 +161,7 @@ def test_exported_times_consistency_with_files(
         timesteps.add(float(timestep))
 
     # Compare unique timesteps with times.json.
-    assert np.allclose(sorted(timesteps), times_data["time"])
+    np.testing.assert_allclose(sorted(timesteps), times_data["time"], equal_nan=False)
 
 
 class TestComputeSlipTendency:
@@ -180,7 +184,7 @@ class TestComputeSlipTendency:
             ]
         )
 
-        assert np.allclose(result, expected)
+        np.testing.assert_allclose(result, expected, equal_nan=False)
 
     def test_zero_normal_traction_gives_nan(self):
         """Test that zero normal traction results in NaN slip tendency."""
@@ -212,7 +216,7 @@ class TestComputeSlipTendency:
             ]
         )
 
-        assert np.allclose(result, expected)
+        np.testing.assert_allclose(result, expected, equal_nan=False)
 
     def test_no_input_modification(self):
         """Test that input arrays are not modified."""
@@ -268,7 +272,7 @@ class TestComputeSlipTendency:
         )
 
         expected = -np.array([1.0, 2.0, 3.0]) / (-np.array([2.0, 4.0, 6.0]) * 0.5)
-        assert np.allclose(result, expected)
+        np.testing.assert_allclose(result, expected,equal_nan=False)
 
     def test_custom_tolerance(self):
         """Test that custom tolerance parameter works correctly."""
