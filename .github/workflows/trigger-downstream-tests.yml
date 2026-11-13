@@ -1,0 +1,131 @@
+# Dispatch the integration tests of the downstream repositories listed in
+# .github/downstream-repos.json against a porepy commit:
+#   - Push to develop: test the new commit, passing on the PR that introduced
+#     it (if any), as resolved by the GitHub API.
+#   - PR into develop: test the PR's head SHA, passing on the PR number.
+# The downstream workflows run the tests and report the result as a comment on
+# that PR. This workflow does not wait for them; a green run here only means
+# the dispatch succeeded.
+#
+# Dispatching to other repositories, and commenting from them, requires the
+# fine-grained PAT in the org secret DOWNSTREAM_DISPATCH_PAT. PRs from forks
+# and Dependabot get no secrets and are skipped.
+#
+# To add a downstream repository, add an entry to downstream-repos.json and a
+# workflow_dispatch workflow to that repository, taking the inputs passed in
+# the dispatch step below. The workflow must exist on the repository's default
+# branch before it can be dispatched.
+#
+# Debugging: dispatch errors (PAT scope, wrong workflow_file or ref) fail this
+# workflow; test failures and missing comments are found in the downstream run.
+# Docs: https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#workflow_dispatch
+name: Trigger downstream integration tests
+
+on:
+  push:
+    branches:
+      - develop
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - develop
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+
+# A new commit to a PR cancels that PR's running dispatch. Pushes to develop
+# are queued, never cancelled.
+concurrency:
+  group: downstream-dispatch-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  resolve-pr:
+    name: Resolve dispatch target
+    # Skip PRs without access to secrets (forks, Dependabot). This also skips
+    # `dispatch`, which needs this job.
+    if: >-
+      github.event_name == 'push' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+       github.actor != 'dependabot[bot]')
+    runs-on: ubuntu-latest
+    outputs:
+      pr_number: ${{ steps.resolve.outputs.pr_number }}
+      sha: ${{ steps.resolve.outputs.sha }}
+      ref: ${{ steps.resolve.outputs.ref }}
+      trigger_event: ${{ steps.resolve.outputs.trigger_event }}
+      repos: ${{ steps.load-repos.outputs.repos }}
+    steps:
+      # Fail once with a clear message, rather than with a generic gh error in
+      # every dispatch job. Failing here also skips `dispatch`.
+      - name: Check dispatch token
+        env:
+          GH_TOKEN: ${{ secrets.DOWNSTREAM_DISPATCH_PAT }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::DOWNSTREAM_DISPATCH_PAT is not available to this repository (missing, or org secret not shared with it)."
+            exit 1
+          fi
+
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Resolve PR number, SHA and ref to dispatch
+        id: resolve
+        env:
+          GH_TOKEN: ${{ secrets.DOWNSTREAM_DISPATCH_PAT }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # Use the head SHA, not the merge commit github.sha, to test the
+            # code under review.
+            pr_number="${{ github.event.pull_request.number }}"
+            sha="${{ github.event.pull_request.head.sha }}"
+            ref="$sha"
+            echo "Dispatching for PR #$pr_number at $sha" >> "$GITHUB_STEP_SUMMARY"
+          else
+            pr_number=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" --jq '.[0].number // empty')
+            sha="${{ github.sha }}"
+            ref="develop"
+            if [ -z "$pr_number" ]; then
+              echo "No associated PR found for $sha (direct push?)." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "Resolved originating PR: #$pr_number" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
+          echo "pr_number=$pr_number" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "trigger_event=${{ github.event_name }}" >> "$GITHUB_OUTPUT"
+
+      - name: Load downstream repo list
+        id: load-repos
+        run: |
+          # Passed as a JSON string; the dispatch job parses it with fromJson.
+          repos=$(jq -c '.repos' .github/downstream-repos.json)
+          echo "repos=$repos" >> "$GITHUB_OUTPUT"
+
+  # One job per downstream repository. A failed dispatch does not cancel the
+  # others.
+  dispatch:
+    name: Dispatch ${{ matrix.repo.name }}
+    needs: resolve-pr
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        repo: ${{ fromJson(needs.resolve-pr.outputs.repos) }}
+    steps:
+      - name: Trigger downstream workflow
+        env:
+          GH_TOKEN: ${{ secrets.DOWNSTREAM_DISPATCH_PAT }}
+        run: |
+          gh workflow run "${{ matrix.repo.workflow_file }}" \
+            --repo "${{ matrix.repo.owner }}/${{ matrix.repo.repo }}" \
+            --ref "${{ matrix.repo.ref }}" \
+            -f porepy_ref=${{ needs.resolve-pr.outputs.ref }} \
+            -f porepy_sha=${{ needs.resolve-pr.outputs.sha }} \
+            -f porepy_pr_number="${{ needs.resolve-pr.outputs.pr_number }}" \
+            -f trigger_event=${{ needs.resolve-pr.outputs.trigger_event }}
