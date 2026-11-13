@@ -180,7 +180,12 @@ def test_arithmetic_operations_on_ad_objects(
                 _var_from_string(var_2, wrapped, "foo_v2"),
             )
             state = equation_system.get_variable_values(time_step_index=0)
-            ad_base = pp.ad.initAdArrays([state])[0]
+            ad_base = equation_system._ad_parser._initialize_variables(
+                [expression],
+                state,
+                equation_system.variable_indexer,
+                derivative=True,
+            )
             val = equation_system._ad_parser._evaluate_single(
                 expression,
                 ad_base,

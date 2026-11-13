@@ -869,11 +869,11 @@ def model_setup_gravity(
             """
             if np.isclose(gravity_angle, 0):
                 # Normalize by the GravityForce class' default value.
-                default = (
+                default = pp.ad.Scalar(
                     self.units.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
                     * self.fluid.reference_component.density
                 )
-                return super().gravity_force(grids, material) / pp.ad.Scalar(default)
+                return super().gravity_force(grids, material) / default
             num_cells = int(np.sum([g.num_cells for g in grids]))
             values = np.zeros((self.nd, num_cells))
             # Angle of zero means force vector of [0, -1]

@@ -13,7 +13,6 @@ import porepy as pp
 __all__ = [
     "AdArrayBase",
     "SparseJacAdArray",
-    "initAdArrays",
     "DiagonalJacAdArray",
     "initialize_diagonal_ad_arrays",
     "initialize_partial_ad_array",
@@ -78,37 +77,6 @@ def initialize_partial_ad_array(
     derivatives[indices] = 1.0
     jac = sps.dia_matrix((derivatives, 0), shape=(sz, sz)).tocsr()
     return SparseJacAdArray(state, jac)
-
-
-def initAdArrays(variables: list[np.ndarray]) -> list[SparseJacAdArray]:
-    """Initialize a set of SparseJacAdArrays.
-
-    The variables' gradients will be taken with respect to all variables jointly.
-
-    Parameters:
-        variables: A list of numpy arrays, each of which will be represented by a
-            SparseJacAdArray.
-
-    Returns:
-        A list of SparseJacAdArrays, each of which represents one of the variables in
-        the ``variables`` list.
-
-    """
-
-    num_values_per_variable = [v.size for v in variables]
-    ad_arrays: list[SparseJacAdArray] = []
-
-    for i, val in enumerate(variables):
-        # initiate zero jacobian
-        n = num_values_per_variable[i]
-        jac = [sps.csc_matrix((n, m)) for m in num_values_per_variable]
-        # Set jacobian of variable i to I
-        jac[i] = sps.diags(np.ones(num_values_per_variable[i])).tocsr()
-        # initiate SparseJacAdArray
-        jac = sps.bmat([jac])
-        ad_arrays.append(SparseJacAdArray(val, jac))
-
-    return ad_arrays
 
 
 class AdArrayBase(abc.ABC):
