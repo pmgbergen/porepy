@@ -264,6 +264,9 @@ def _get_ad_array(
         variable_name: Name of the variable created if wrapped is True. Operands that
             are evaluated in the same equation system must have different names.
 
+    Returns:
+        The Ad operator or the array, depending on the value of wrapped.
+
     """
 
     # The construction between the wrapped and unwrapped case differs significantly: For
@@ -449,12 +452,7 @@ def _expected_value_ad_nonad(
     """Expected value of var_1 op var_2 for an Ad array var_1 and an operand var_2 that
     is not an Ad array."""
     if op == "@":
-        # We disallow this operation due to the following reason: The only case in
-        # which it is convenient to use the @ operator for the scalars is a generic
-        # operator that can accept everything: scalars, ndarrays and sparse matrices.
-        # However, we do not know any cases where one operator can be both a scalar or
-        # ndarray AND a matrix. This choice will be reconsidered if a reasonable example
-        # is found.
+        # Matrix product is not defined for Ad arrays as left operand.
         return False
     if isinstance(var_2, float):
         return _expected_ad_scalar(var_1, op)
