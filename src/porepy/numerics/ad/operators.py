@@ -486,15 +486,6 @@ class Operator:
         else:
             return ad
 
-    def evaluate(
-        self,
-        equation_system: pp.ad.EquationSystem,
-        state: Optional[np.ndarray] = None,
-    ):
-        raise ValueError(
-            "`evaluate` is deprecated. Use `value` or `value_and_jacobian` instead."
-        )
-
     def _evaluate(
         self,
         equation_system: pp.ad.EquationSystem,
