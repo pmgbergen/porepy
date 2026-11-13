@@ -42,6 +42,7 @@ PR 1795: Introduced EarlyStopCriterion in ModelRunner. Introduced
 PR 1794: Introduced typed interface pp.Metric for convergence metric instead of
     duck-typed pp.ConvergenceMetricType.
 PR 1793: Fix bug related to wrong placement of enthalpy advection Ad operator naming.
+PR 1786: The AdParser takes the DiagonalJacAdArray class into use.
 PR 1785: Ad Operator functions, SurrogateOperator, EquationSystem and ArraySlicer
     accept DiagonalAdArray. SurrogateOperator assembles its Jacobian by the chain rule,
     and returns a DiagonalAdArray if all its arguments are diagonal.
