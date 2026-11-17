@@ -116,20 +116,16 @@ def test_sparse_nd_array(coords_values: list[np.ndarray]):
     arr_additive.add(coords, values, additive=True)
     retrieved_values_additive = arr_additive.get(coords)
     np.testing.assert_allclose(
-        retrieved_values_additive, 
-        expected_values_additive,
-        equal_nan=False
-        )
+        retrieved_values_additive, expected_values_additive, equal_nan=False
+    )
 
     # Overwrite, all at the same time
     arr_overwrite = pp.array_operations.SparseNdArray(dim, value_dim=value_dim)
     arr_overwrite.add(coords, values)
     retrieved_values_overwrite = arr_overwrite.get(coords)
     np.testing.assert_allclose(
-        retrieved_values_overwrite, 
-        expected_values_overwrite,
-        equal_nan=False
-        )
+        retrieved_values_overwrite, expected_values_overwrite, equal_nan=False
+    )
 
     # Additive, add one by one
     arr_additive_incremental = pp.array_operations.SparseNdArray(
@@ -142,10 +138,8 @@ def test_sparse_nd_array(coords_values: list[np.ndarray]):
     retrieved_values_additive_incremental = arr_additive_incremental.get(coords)
     # The expeted value is the same as when all coordinates are added at the same time
     np.testing.assert_allclose(
-        retrieved_values_additive_incremental, 
-        expected_values_additive,
-        equal_nan=False
-        )
+        retrieved_values_additive_incremental, expected_values_additive, equal_nan=False
+    )
 
     # Overwrite, one at a time
     arr_overwrite_incremental = pp.array_operations.SparseNdArray(
@@ -157,9 +151,9 @@ def test_sparse_nd_array(coords_values: list[np.ndarray]):
         )
     retrieved_values_overwrite_incremental = arr_overwrite_incremental.get(coords)
     np.testing.assert_allclose(
-        retrieved_values_overwrite_incremental, 
-        expected_values_overwrite, 
-        equal_nan=False
+        retrieved_values_overwrite_incremental,
+        expected_values_overwrite,
+        equal_nan=False,
     )
 
     # Final test: Try to access a coordiinates that has not been added, this should
@@ -596,4 +590,4 @@ def test_uniquify_point_set(params: dict):
     np.testing.assert_allclose(input[:, new_2_old], expected, atol=tol, equal_nan=False)
     np.testing.assert_allclose(
         unique_vectors[:, old_2_new], input, atol=tol, equal_nan=False
-        )
+    )

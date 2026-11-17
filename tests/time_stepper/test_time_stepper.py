@@ -508,9 +508,7 @@ def test_model_time_step_control(params: dict):
         else:
             assert False
     np.testing.assert_allclose(
-        model.time_step_history, 
-        exported_dt_expected, 
-        equal_nan=False
+        model.time_step_history, exported_dt_expected, equal_nan=False
     )
     assert model.time_manager.final_time_reached() != should_fail
     if should_fail:
