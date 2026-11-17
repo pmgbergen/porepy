@@ -16,6 +16,7 @@ Breaking changes (what users must do when upgrading).
 ## Unreleased
 
 ### Changes
+PR 1844: MAINT: Minor changes related to release of version 1.14.
 PR 1840: BLD: Use Pypardiso in all GH actions. 
 PR 1825: MAINT: Improved security for surrogate operator construction.
 PR 1816: SPEED: Faster manufactured-solution functional tests by compiling each sympy expression once (issue 1814).
