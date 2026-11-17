@@ -334,8 +334,8 @@ class TestRaviartThomasDiscretization:
             (np.ones(sd.num_cells), np.zeros(sd.num_cells), np.zeros(sd.num_cells))
         )
 
-        assert np.allclose(p, p_ex)
-        assert np.allclose(P0u, P0u_ex)
+        np.testing.assert_allclose(p, p_ex, atol=1e-14, equal_nan=False)
+        np.testing.assert_allclose(P0u, P0u_ex, atol=1e-14, equal_nan=False)
 
         r, c, d = sparse_array_to_row_col_data(M)
 
@@ -570,9 +570,9 @@ class TestRaviartThomasDiscretization:
             ]
         )
 
-        assert np.allclose(r, r_known)
-        assert np.allclose(c, c_known)
-        assert np.allclose(d, d_known)
+        np.testing.assert_allclose(r, r_known, equal_nan=False)
+        np.testing.assert_allclose(c, c_known, equal_nan=False)
+        np.testing.assert_allclose(d, d_known, equal_nan=False)
 
     """Test three-dimensional for anisotropic material data."""
 

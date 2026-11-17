@@ -507,7 +507,9 @@ def test_model_time_step_control(params: dict):
             status = e.args[0]
         else:
             assert False
-    assert np.allclose(model.time_step_history, exported_dt_expected)
+    np.testing.assert_allclose(
+        model.time_step_history, exported_dt_expected, equal_nan=False
+    )
     assert model.time_manager.final_time_reached() != should_fail
     if should_fail:
         assert isinstance(status, ModelRunnerStatusFailure)
@@ -576,7 +578,7 @@ def test_advanced_scheduler():
         130,
         166.98,
     ]
-    assert np.allclose(model.time_step_history, dt_expected)
+    np.testing.assert_allclose(model.time_step_history, dt_expected, equal_nan=False)
 
 
 # MARK: Statistics
