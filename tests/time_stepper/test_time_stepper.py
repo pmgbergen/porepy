@@ -1,6 +1,5 @@
 """Integration tests for the TimeStepper class."""
 
-from numpy import equal
 import json
 import tempfile
 from pathlib import Path
