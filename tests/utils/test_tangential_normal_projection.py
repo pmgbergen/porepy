@@ -1,7 +1,6 @@
 """Unit tests for class pp.TangentialNormalProjection and function
 pp.sides_of_fracture."""
 
-from numpy import equal
 import numpy as np
 import pytest
 
