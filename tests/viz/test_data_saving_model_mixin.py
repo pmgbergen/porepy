@@ -89,11 +89,13 @@ def test_export_chosen_times(times_to_export):
     # The actual test of exported times based on the log stored in model.exported_times:
     if times_to_export is None:
         times_to_export = np.linspace(0.0, tf, time_steps + 1)
-        np.testing.assert_allclose(model.exported_times, times_to_export, 
-        equal_nan=False)
+        np.testing.assert_allclose(
+            model.exported_times, times_to_export, equal_nan=False
+        )
     else:
-        np.testing.assert_allclose(model.exported_times, np.sort(times_to_export), 
-        equal_nan=False)
+        np.testing.assert_allclose(
+            model.exported_times, np.sort(times_to_export), equal_nan=False
+        )
 
 
 @pytest.mark.parametrize(
@@ -141,12 +143,14 @@ def test_exported_times_consistency_with_files(
         times_data = json.load(f)
 
     # Compare exported times with the times in times.json.
-    np.testing.assert_allclose(model.time_manager.exported_times, times_data["time"], 
-        equal_nan=False)
+    np.testing.assert_allclose(
+        model.time_manager.exported_times, times_data["time"], equal_nan=False
+    )
 
     # Compare exported times with the expected times.
-    np.testing.assert_allclose(model.time_manager.exported_times, expected_times, 
-        equal_nan=False)
+    np.testing.assert_allclose(
+        model.time_manager.exported_times, expected_times, equal_nan=False
+    )
 
     # Check that the correct number of files are exported.
     # Parse the PVD file.
@@ -272,7 +276,7 @@ class TestComputeSlipTendency:
         )
 
         expected = -np.array([1.0, 2.0, 3.0]) / (-np.array([2.0, 4.0, 6.0]) * 0.5)
-        np.testing.assert_allclose(result, expected,equal_nan=False)
+        np.testing.assert_allclose(result, expected, equal_nan=False)
 
     def test_custom_tolerance(self):
         """Test that custom tolerance parameter works correctly."""

@@ -314,11 +314,7 @@ class TestMVEMDiscretization:
         np.testing.assert_allclose(M, M.T, rtol, atol, equal_nan=False)
         # We test only the mass-Hdiv part
         np.testing.assert_allclose(
-            M[np.ix_(faces, faces)],
-            M_known,
-            rtol,
-            atol,
-            equal_nan=False
+            M[np.ix_(faces, faces)], M_known, rtol, atol, equal_nan=False
         )
 
     def test_2d_anisotropic_permeability_simplex(self):
@@ -357,11 +353,7 @@ class TestMVEMDiscretization:
         np.testing.assert_allclose(M, M.T, rtol, atol, equal_nan=False)
         # We test only the mass-Hdiv part
         np.testing.assert_allclose(
-            M[np.ix_(faces, faces)],
-            M_known,
-            rtol,
-            atol,
-            equal_nan=False
+            M[np.ix_(faces, faces)], M_known, rtol, atol, equal_nan=False
         )
 
     def test_2d_isotropic_permeability_simplex_mixed_bc(self):
@@ -634,11 +626,7 @@ class TestMVEMDiscretization:
         np.testing.assert_allclose(M, M.T, rtol, atol, equal_nan=False)
         # We test only the mass-Hdiv part
         np.testing.assert_allclose(
-            M[np.ix_(faces, faces)],
-            M_known,
-            rtol,
-            atol,
-            equal_nan=False
+            M[np.ix_(faces, faces)], M_known, rtol, atol, equal_nan=False
         )
 
     def test_2d_R2_R3_anisotropic_permeability_simplex(self):
@@ -682,11 +670,7 @@ class TestMVEMDiscretization:
         np.testing.assert_allclose(M, M.T, rtol, atol, equal_nan=False)
         # We test only the mass-Hdiv part
         np.testing.assert_allclose(
-            M[np.ix_(faces, faces)],
-            M_known,
-            rtol,
-            atol,
-            equal_nan=False
+            M[np.ix_(faces, faces)], M_known, rtol, atol, equal_nan=False
         )
 
 
