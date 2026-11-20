@@ -231,9 +231,8 @@ class BoundaryConditionsMechanicsDirNorthSouth(pp.PorePyModel):
             return values.ravel("F")
 
         if "uy_north" in self.params or "uy_south" in self.params:
-            warnings.warn(
-                "uy_north and uy_south are deprecated. Use u_north and u_south instead."
-            )
+            s = "uy_north and uy_south are deprecated. Use u_north and u_south instead."
+            warnings.warn(s, FutureWarning, stacklevel=2)
         # Wrap as array for convert_units. Thus, the passed values can be scalar or
         # list. Then tile for correct broadcasting below.
         u_n = np.tile(
