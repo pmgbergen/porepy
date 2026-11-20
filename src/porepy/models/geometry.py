@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from warnings import warn
 import copy
 import logging
 from pathlib import Path
 from typing import Callable, Literal, Optional, Sequence, Union, cast
+from warnings import warn
 
 import numpy as np
 import scipy.sparse as sps

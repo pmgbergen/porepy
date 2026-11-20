@@ -49,11 +49,11 @@ to other models, but this is untested and should be done with caution.
 """
 
 import logging
-from warnings import warn
 from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
 from typing import Optional, cast
+from warnings import warn
 
 import numpy as np
 
