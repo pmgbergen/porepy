@@ -204,10 +204,12 @@ class NewtonSolver(NonlinearSolverBase):
             }
             if old_key in self.params:
                 new_key = old_to_new[old_key]
-                logger.warning(
+                warn(
                     f"You are using a parameter name that has been changed: '{old_key}'"
                     f". Replace it with '{new_key}'. Currently replacing it "
-                    "automatically, but it will not always be the case."
+                    "automatically, but it will not always be the case.",
+                    category=FutureWarning,
+                    stacklevel=2,
                 )
                 self.params[new_key] = self.params[old_key]
 

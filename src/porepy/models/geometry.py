@@ -6,6 +6,7 @@ import copy
 import logging
 from pathlib import Path
 from typing import Callable, Literal, Optional, Sequence, Union, cast
+from warnings import warn
 
 import numpy as np
 import scipy.sparse as sps
@@ -688,6 +689,10 @@ class ModelGeometry(pp.PorePyModel):
             proj: Projection operator.
 
         """
+        msg = "This method is deprecated. Please use `pp.ad.SubdomainProjections` "
+        msg += "directly."
+        warn(msg, FutureWarning, stacklevel=2)
+
         return pp.ad.SubdomainProjections(self.mdg.subdomains(), dim)
 
     def domain_boundary_sides(

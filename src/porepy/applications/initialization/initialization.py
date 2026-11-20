@@ -1,9 +1,9 @@
 """Initialization of a model with mechanics to a steady state.
 
-This module finds the steady state of a model, given its boundary conditions and
-sources at initial time. The steady state becomes initial *and* the reference state of
-the model. In the new initial state, the stress, the porosity and the shear dilation of
-the model are the reference values, and the equations of the model are satisfied without
+This module finds the steady state of a model, given its boundary conditions and sources
+at initial time. The steady state becomes initial *and* the reference state of the
+model. In the new initial state, the stress, the porosity and the shear dilation of the
+model are the reference values, and the equations of the model are satisfied without
 accumulation.
 
 What the pipeline does
@@ -42,6 +42,10 @@ The data imposed at the first time step defines the steady state. The main simul
 will start by stepping up to that state, and then the "dynamic" part of the simulation
 proceeds.
 
+NOTE: The workflow indicated above is tailored for models with mechanics where the shear
+dilation and the porosity are assumed known. In principle, the workflow can be adapted
+to other models, but this is untested and should be done with caution.
+
 """
 
 import logging
@@ -49,6 +53,7 @@ from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
 from typing import Optional, cast
+from warnings import warn
 
 import numpy as np
 
@@ -480,6 +485,12 @@ def initialization_pipeline(
             be discarded then, since its equations are not those of the original model.
 
     """
+    msg = "The initialization pipeline should be considered experimental code. \n"
+    msg += "Read the documentation carefully and check that it is suitable for your "
+    msg += "model. \n"
+    msg += "Use with caution, and report any issues on GitHub. \n"
+    warn(msg, UserWarning, stacklevel=2)
+
     if not hasattr(model, "reference_stress_key"):
         raise ValueError(
             "The initialization requires a model with mechanics (a momentum balance)."

@@ -31,8 +31,10 @@ def multinary_permutations(base, length):
         array, size length: Array describing the next number combination.
 
     """
-    msg = "This functionality is deprecated and will be removed in a future version"
-    warnings.warn(msg, DeprecationWarning)
+    msg = (
+        "multinary_permutations is deprecated and will be removed in a future version."
+    )
+    warnings.warn(msg, FutureWarning, stacklevel=2)
 
     # There are in total base ** length numbers to be covered, these need to be
     # rewritten into the base number system

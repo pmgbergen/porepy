@@ -46,8 +46,8 @@ __all__ = [
 def concatenate_ad_arrays(ad_arrays: list[pp.ad.SparseJacAdArray], axis=0):
     """Concatenates a sequence of AD arrays into a single AD Array along a specified
     axis."""
-    msg = "This functionality is deprecated and will be removed in a future version"
-    warnings.warn(msg, DeprecationWarning)
+    msg = "concatenate_ad_arrays is deprecated and will be removed in a future version."
+    warnings.warn(msg, FutureWarning, stacklevel=2)
     vals = [var.val for var in ad_arrays]
     jacs = np.array([var.jac for var in ad_arrays])
 

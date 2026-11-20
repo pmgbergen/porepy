@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import dataclasses
 import inspect
+import numbers
 from collections import deque
 from enum import Enum
 from functools import reduce, wraps
@@ -434,8 +435,10 @@ class Operator:
             matrix.
 
         """
-        msg = "This method is deprecated. Use the `evaluate` method of EquationSystem."
-        warn(msg, DeprecationWarning)
+        msg = (
+            "Operator.value is deprecated. Use the `evaluate` method of EquationSystem."
+        )
+        warn(msg, FutureWarning, stacklevel=2)
 
         return self._evaluate(equation_system, state=state, evaluate_jacobian=False)
 
@@ -461,8 +464,11 @@ class Operator:
                 depends on the operator.
 
         """
-        msg = "This method is deprecated. Use the `evaluate` method of EquationSystem."
-        warn(msg, DeprecationWarning)
+        msg = (
+            "Operator.value_and_jacobian is deprecated. Use the `evaluate` method of "
+            "EquationSystem."
+        )
+        warn(msg, FutureWarning, stacklevel=2)
         ad = self._evaluate(equation_system, state=state, evaluate_jacobian=True)
 
         # Casting the result to SparseJacAdArray or raising an error.
@@ -485,15 +491,6 @@ class Operator:
             )
         else:
             return ad
-
-    def evaluate(
-        self,
-        equation_system: pp.ad.EquationSystem,
-        state: Optional[np.ndarray] = None,
-    ):
-        raise ValueError(
-            "`evaluate` is deprecated. Use `value` or `value_and_jacobian` instead."
-        )
 
     def _evaluate(
         self,
@@ -570,6 +567,7 @@ class Operator:
         if isinstance(other, (int, float)) and other == 0:
             other = Scalar(0, domains=self.domains)
 
+        self._raise_if_number(other, Operations.add)
         source, target = Operations.add.infer_source_target(self, other)
         children = self._parse_other(other)
 
@@ -606,6 +604,7 @@ class Operator:
             The difference of self and other.
 
         """
+        self._raise_if_number(other, Operations.sub)
         source, target = Operations.sub.infer_source_target(self, other)
         children = self._parse_other(other)
         return Operator(
@@ -626,6 +625,7 @@ class Operator:
             The difference of other and self.
 
         """
+        self._raise_if_number(other, Operations.sub)
         source, target = Operations.sub.infer_source_target(self, other)
         children = self._parse_other(other)
         # we need to change the order here since a-b != b-a
@@ -648,6 +648,7 @@ class Operator:
             The elementwise product of self and other.
 
         """
+        self._raise_if_number(other, Operations.mul)
         source, target = Operations.mul.infer_source_target(self, other)
         children = self._parse_other(other)
         return Operator(
@@ -671,6 +672,7 @@ class Operator:
             The elementwise product of self and other.
 
         """
+        self._raise_if_number(other, Operations.mul)
         source, target = Operations.mul.infer_source_target(self, other)
         children = self._parse_other(other)
         return Operator(
@@ -691,6 +693,7 @@ class Operator:
             The elementwise division of self and other.
 
         """
+        self._raise_if_number(other, Operations.div)
         source, target = Operations.div.infer_source_target(self, other)
 
         children = self._parse_other(other)
@@ -715,6 +718,7 @@ class Operator:
             The elementwise division of other and self.
 
         """
+        self._raise_if_number(other, Operations.div)
         source, target = Operations.div.infer_source_target(self, other)
 
         children = self._parse_other(other)
@@ -762,6 +766,7 @@ class Operator:
             # integers, the same problem as above applies). We explicitly disallow this.
             raise ValueError("Cannot take SparseArray to the power of an DenseArray.")
 
+        self._raise_if_number(other, Operations.pow)
         children = self._parse_other(other)
         source, target = Operations.pow.infer_source_target(self, other)
         return Operator(
@@ -785,6 +790,7 @@ class Operator:
             The elementwise exponentiation of other and self.
 
         """
+        self._raise_if_number(other, Operations.pow)
         source, target = Operations.pow.infer_source_target(self, other)
         children = self._parse_other(other)
         return Operator(
@@ -805,6 +811,7 @@ class Operator:
             The matrix product of self and other.
 
         """
+        self._raise_if_number(other, Operations.matmul)
         children = self._parse_other(other)
         source, target = Operations.matmul.infer_source_target(self, other)
         return Operator(
@@ -828,6 +835,7 @@ class Operator:
             The matrix product of other and self.
 
         """
+        self._raise_if_number(other, Operations.rmatmul)
         children = self._parse_other(other)
         source, target = Operations.rmatmul.infer_source_target(self, other)
         return Operator(
@@ -871,11 +879,30 @@ class Operator:
             self._cached_key = " ".join(tmp)
         return self._cached_key
 
-    def _parse_other(self, other):
-        if isinstance(other, float) or isinstance(other, int):
-            return [self, Scalar(other)]
+    def _raise_if_number(self, other: Any, operation: Operations) -> None:
+        """Raise an error if ``other`` is a plain number rather than an Ad operator.
 
-        elif isinstance(other, SparseJacAdArray):
+        Numbers must be wrapped as :class:`Scalar` before they are combined with Ad
+        operators, since a plain number carries no information on its source and target
+        spaces.
+
+        Parameters:
+            other: The second operand of an arithmetic operation with self.
+            operation: The operation that is attempted. Used in the error message.
+
+        Raises:
+            ValueError: If ``other`` is a number (including numpy scalars).
+
+        """
+        if isinstance(other, numbers.Number):
+            raise ValueError(
+                f"Cannot combine the Ad operator {self!r} with the number {other!r} "
+                f"when {Operations.to_str(operation)}. Wrap the number as "
+                f"pp.ad.Scalar({other!r}) first."
+            )
+
+    def _parse_other(self, other):
+        if isinstance(other, SparseJacAdArray):
             # This may happen when using nested pp.ad.Function.
             return [self, other]
         elif isinstance(other, pp.ad.AbstractFunction):
