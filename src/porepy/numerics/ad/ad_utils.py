@@ -13,12 +13,6 @@ Functions:
     discretize_from_list: Perform the actual discretization for a list of AD
         discretizations.
 
-    set_solution_values: Set values to the data dictionary providing parameter name and
-        time step/iterate index.
-
-    get_solution_values: Get values from the data dictionary providing parameter name
-        and time step/iterate index.
-
 Classes:
     MergedOperator: Representation of specific discretization fields for an AD
         discretization or a set of AD discretizations.
@@ -45,9 +39,6 @@ __all__ = [
     "wrap_discretization",
     "uniquify_discretization_list",
     "discretize_from_list",
-    "set_solution_values",
-    "get_solution_values",
-    "shift_solution_values",
     "MergedOperator",
 ]
 
@@ -55,8 +46,8 @@ __all__ = [
 def concatenate_ad_arrays(ad_arrays: list[pp.ad.AdArray], axis=0):
     """Concatenates a sequence of AD arrays into a single AD Array along a specified
     axis."""
-    msg = "This functionality is deprecated and will be removed in a future version"
-    warnings.warn(msg, DeprecationWarning)
+    msg = "concatenate_ad_arrays is deprecated and will be removed in a future version."
+    warnings.warn(msg, FutureWarning, stacklevel=2)
     vals = [var.val for var in ad_arrays]
     jacs = np.array([var.jac for var in ad_arrays])
 
@@ -67,8 +58,9 @@ def concatenate_ad_arrays(ad_arrays: list[pp.ad.AdArray], axis=0):
 
 
 def wrap_discretization(
-    obj: pp.ad.Discretization,
+    obj: pp.ad.DiscretizationAd,
     discr: Discretization | InterfaceDiscretization,
+    nd: int,
     subdomains: Optional[list[pp.Grid]] = None,
     interfaces: Optional[list[pp.MortarGrid]] = None,
     coupling_terms: Optional[list[str]] = None,
@@ -100,6 +92,9 @@ def wrap_discretization(
             ['displacement_divergence', 'bound_displacement_divergence',
             'bound_pressure', 'consistency', 'scalar_gradient'].
 
+        nd: Ambient dimension used to determine the number of vector-valued degrees of
+            freedom.
+
         The coupling keywords and coupling terms are combined in this wrapper, so that
         if ``obj`` has coupling terms ``foo`` and ``bar``, with a coupling keywords
         ``baz`` and ``qux``, then:
@@ -125,6 +120,7 @@ def wrap_discretization(
 
     # Process the domains
     domains: pp.GridLikeSequence
+    domain_type: pp.ad.DomainType
     if subdomains is None:
         # This is an interface discretization
         if interfaces is None:
@@ -133,11 +129,13 @@ def wrap_discretization(
             raise ValueError("Interfaces must be a list")
 
         domains = interfaces
+        domain_type = pp.ad.DomainType.interfaces
     elif interfaces is None:
         # This is a subdomain discretization
         if not isinstance(subdomains, list):
             raise ValueError("Subdomains must be a list")
         domains = subdomains
+        domain_type = pp.ad.DomainType.subdomains
     else:
         raise ValueError("Either subdomains or interfaces must be provided, not both")
 
@@ -175,6 +173,8 @@ def wrap_discretization(
                 discretization_matrix_key=discretization_key,
                 physics_key=discr.keyword,
                 domains=domains,
+                domain_type=domain_type,
+                nd=nd,
             )
             # Store the new
             operators[discretization_key].update({discr.keyword: op})
@@ -198,6 +198,8 @@ def wrap_discretization(
                 physics_key=discr.keyword,
                 inner_physics_key=inner_physics_key,
                 domains=domains,
+                domain_type=domain_type,
+                nd=nd,
             )
             return op
 
@@ -252,28 +254,25 @@ def uniquify_discretization_list(
         key = (cls, param_keyword)
 
         if key in cls_key_covered:
-            # If this has been encountered before, we add subdomains not earlier
-            # associated with this discretization to the existing list. of subdomains.
+            # If this has been encountered before, we add grids not earlier
+            # associated with this discretization to the existing list.
             # Map from discretization class to Ad discretization
             d = cls_obj_map[cls]
-            for g in discr.subdomains:
+            for g in discr.domains:
                 if g not in unique_discr_grids[d]:
                     unique_discr_grids[d].append(g)
-            for e in discr.interfaces:
-                if e not in unique_discr_grids[d]:
-                    unique_discr_grids[d].append(e)
         else:
             # Take note we have now encountered this discretization and parameter
             # keyword.
             cls_obj_map[cls] = discr._discr
             cls_key_covered.append(key)
 
-            # Add new discretization with associated list of subdomains.
-            # Need a copy here to avoid assigning additional subdomains to this
-            # discretization (if not copy, this may happen if
-            # the key-discr combination is encountered a second time and the
-            # code enters the if part of this if-else).
-            grid_likes = discr.subdomains.copy() + discr.interfaces.copy()
+            # Add new discretization with associated list of grids. Conversion to list
+            # creates a copy, which avoids assigning additional grids to this
+            # discretization (if not copy, this may happen if the key-discr combination
+            # is encountered a second time and the code enters the if part of this
+            # if-else).
+            grid_likes = list(discr.domains)
             unique_discr_grids[discr._discr] = grid_likes
 
     return unique_discr_grids
@@ -309,226 +308,6 @@ def discretize_from_list(
                     pass
 
 
-@lru_cache
-def _validate_indices(
-    time_step_index: Optional[int] = None,
-    iterate_index: Optional[int] = None,
-) -> list[tuple[Any, int]]:
-    """Helper method to validate the indexation of getter and setter methods for
-    values in a grid's data dictionary.
-
-    See :func:`set_solution_values` and :func:`get_solution_values`.
-
-    """
-    if time_step_index is None and iterate_index is None:
-        raise ValueError(
-            "At least one of time_step_index and iterate_index needs to be different"
-            " from None."
-        )
-
-    out = []
-
-    if iterate_index is not None:
-        # Some valid iterate value.
-        if iterate_index >= 0:
-            out.append((pp.ITERATE_SOLUTIONS, iterate_index))
-        # Negative iterate indices are not supported
-        else:
-            raise ValueError(
-                "Use increasing, non-negative integers for iterate indices."
-            )
-
-    if time_step_index is not None:
-        # Some previous time.
-        if time_step_index >= 0:
-            out.append((pp.TIME_STEP_SOLUTIONS, time_step_index))
-        # Negative time step indices are not supported.
-        else:
-            raise ValueError(
-                "Use increasing, non-negative integers for time step indices."
-            )
-
-    return out
-
-
-def set_solution_values(
-    name: str,
-    values: np.ndarray,
-    data: dict,
-    time_step_index: Optional[int] = None,
-    iterate_index: Optional[int] = None,
-    additive: bool = False,
-) -> None:
-    """Function for setting values in the data dictionary, for some time-dependent or
-    iterative term.
-
-    Parameters:
-        name: Name of the quantity that is to be assigned values.
-        values: The values that are set in the data dictionary.
-        data: Data dictionary corresponding to the subdomain or interface in question.
-        time_step_index: ``default=None``
-
-            Determines the key of where ``values`` are to be stored in
-            ``data[pp.TIME_STEP_SOLUTIONS][name]``.
-            0 is the most recent time step, 1 the one before that and so on.
-        iterate_index: ``default=None``
-
-            Determines the key of where ``values`` are to be stored in
-            ``data[pp.ITERATE_SOLUTIONS][name]``.
-            0 is the current iterate, 1 the previous iterate, and so on.
-        additive: ``default=False``
-
-            Flag to decide whether the values already stored in the data dictionary
-            should be added to or overwritten.
-
-    Raises:
-        ValueError: In the case of inconsistent usage of indices (both None, or negative
-            values).
-        ValueError: If the user attempts to set values additively at an index where no
-            values were set before.
-
-    """
-    loc_index = _validate_indices(time_step_index, iterate_index)
-
-    for loc, index in loc_index:
-        if loc not in data:
-            data[loc] = {}
-        if name not in data[loc]:
-            data[loc][name] = {}
-
-        if additive:
-            if index not in data[loc][name]:
-                raise ValueError(
-                    f"Cannot set value additively for {name} at {(loc, index)}:"
-                    + " No values stored to add to."
-                )
-            data[loc][name][index] += values
-        else:
-            data[loc][name][index] = values.copy()
-
-
-def get_solution_values(
-    name: str,
-    data: dict,
-    time_step_index: Optional[int] = None,
-    iterate_index: Optional[int] = None,
-) -> np.ndarray:
-    """Function for fetching values stored in the data dictionary, for some
-    time-dependent or iterative term.
-
-    Note:
-        Compared to :func:`set_solution_values` the getter works only for 1 defined
-        index, whereas the setter can take both a time and iterate index.
-
-    Parameters:
-        name: Name of the parameter whose values we are interested in.
-        data: The data dictionary.
-        time_step_index: ``default=None``
-
-            Determines the key of where ``values`` are to be stored in
-            ``data[pp.TIME_STEP_SOLUTIONS][name]``.
-            0 is the most recent time step, 1 the one before that and so on.
-        iterate_index: ``default=None``
-
-            Determines the key of where ``values`` are to be stored in
-            ``data[pp.ITERATE_SOLUTIONS][name]``.
-            0 is the current iterate, 1 the previous iterate, and so on.
-
-    Raises:
-        ValueError: In the case of inconsistent usage of indices (both None or negative
-            values).
-        ValueError: If the user attempts to get multiple iterate and time step values
-            simultanously. Only 1 index is permitted in the getter.
-        KeyError: If no values are stored for the passed index.
-
-    Returns:
-        A copy of the values stored at the passed index.
-
-    """
-    loc_index = _validate_indices(time_step_index, iterate_index)
-    if len(loc_index) != 1:
-        raise ValueError(
-            "Cannot get value from both iterate and time step at once. Call separately."
-        )
-
-    loc, index = loc_index[0]
-
-    try:
-        value = data[loc][name][index].copy()
-    except KeyError as err:
-        raise KeyError(
-            f"No values stored for {name} at {(loc, index)}: {str(err)}."
-        ) from err
-
-    return value
-
-
-def shift_solution_values(
-    name: str,
-    data: dict,
-    location: Any,
-    max_index: Optional[int] = None,
-) -> None:
-    """Function to shift numerical values stored in the data dictionary.
-
-    The shift is implemented s.t. values at index ``i`` are copied to index ``i + 1``.
-
-    Note:
-        The data stored must have support for ``.copy()`` in order to avoid faulty
-        referencing (e.g., numpy arrays or sparse matrices).
-
-    Note:
-        After this operation, values at index 0 and 1 will be the same.
-        Use :meth:`set_solution_values` to update the latest values at index 0.
-
-    Parameters:
-        name: Key in ``data`` for which quantity the shift should be performed.
-        data: A grid data dictionary.
-        location: Either :data:`~porepy.utils.common_constants.TIME_STEP_SOLUTIONS`
-            or :data:`~porepy.utils.common_constants.ITERATE_SOLUTIONS`.
-        max_index: ``default=None``
-
-            A non-negative integer, capping the range of the shift operation to
-            ``i -> max_index``.
-            If called repeatedly with ``None``, the depth in ``location`` keeps
-            increasing. To be used in schemes with a defined maximal depth of stored
-            iterate or time step values.
-
-    Raises:
-        ValueError: If unsupported ``location`` is passed.
-        ValueError: if ``max_index`` is negative.
-
-    """
-    if location not in [pp.ITERATE_SOLUTIONS, pp.TIME_STEP_SOLUTIONS]:
-        raise ValueError(f"Shifting values not implemented for location {location}")
-
-    # NOTE return because nothing to be shifted. Avoid confusion by introducing data
-    # dictionaries for values which were never set using pp.set_solution_values.
-    if location not in data:
-        return
-    if name not in data[location]:
-        return
-
-    num_stored = len(data[location][name])
-
-    if max_index is not None:
-        if max_index < 0:
-            raise ValueError("Maximal index must be non-negative.")
-
-        # Allow the number of stored values to increase
-        if max_index > num_stored:
-            range_ = range(num_stored, 0, -1)
-        # don't allow it to increase
-        else:
-            range_ = range(max_index - 1, 0, -1)
-            # TODO What should we do if for some reason already more stored?
-    else:
-        range_ = range(num_stored, 0, -1)
-
-    for i in range_:
-        data[location][name][i] = data[location][name][i - 1].copy()
-
-
 class MergedOperator(operators.Operator):
     """Representation of specific discretization fields for an Ad discretization.
 
@@ -545,37 +324,80 @@ class MergedOperator(operators.Operator):
         discr: pp.discretization_type,
         discretization_matrix_key: str,
         physics_key: str,
+        nd: int,
         inner_physics_key: Optional[str] = None,
         domains: Optional[pp.GridLikeSequence] = None,
+        domain_type: Optional[operators.DomainType] = None,
     ) -> None:
         """Initiate a merged discretization.
 
         Parameters:
             discr: Mapping between subdomains, or interfaces, where the discretization
                 is applied, and the actual Discretization objects.
-            key: Keyword that identifies this discretization matrix, e.g. for a class
-                with an attribute foo_matrix_key, the key will be foo.
-            mat_dict_key: Keyword used to access discretization matrices.
+            discretization_matrix_key: Keyword that identifies this discretization
+                matrix, e.g. for a class with an attribute foo_matrix_key, the key
+                will be foo.
+            physics_key: Keyword used to access discretization matrices.
+            nd: Ambient dimension, used to determine the number of degrees of freedom
+                for vector-valued discretization terms.
+            inner_physics_key: For nested matrix dicts, the inner key.
             domains: Domains on which the discretization is defined.
+            domain_type: The type of domain (subdomains or interfaces) that
+                ``domains`` represents. Known to the caller (``wrap_discretization``)
+                even when ``domains`` is empty, and is used to build a typed-but-empty
+                :class:`~porepy.numerics.ad.operator_space.OperatorSpace` in that case.
+
+        Raises:
+            ValueError: If ``domains`` is empty and ``domain_type`` is not provided.
 
         """
         name = discr.__class__.__name__
-        super().__init__(name=name, domains=domains)
+        self._merged_domains: list[pp.GridLike] = list(domains) if domains else []
+
+        # Infer operator source (column space) and target (row space) from the
+        # discretization.
+        op_source: operators.OperatorSpace
+        op_target: operators.OperatorSpace
+        domain_list: list[pp.GridLike] = list(domains) if domains else []
+        if not (domains or domain_type is not None):
+            raise ValueError(
+                "If domains is empty, domain_type must be provided to construct "
+                "the operator spaces."
+            )
+
+        op_source = operators.OperatorSpace.from_domains(
+            domain_list,
+            discr.get_col_entities(discretization_matrix_key, nd=nd),
+            domain_type=domain_type,
+        )
+        op_target = operators.OperatorSpace.from_domains(
+            domain_list,
+            discr.get_row_entities(discretization_matrix_key, nd=nd),
+            domain_type=domain_type,
+        )
+
+        super().__init__(name=name, source=op_source, target=op_target)
 
         self._discretization_matrix_key = discretization_matrix_key
         self._discr = discr
 
         self._physics_key = physics_key
         self._inner_physics_key = inner_physics_key
-        self.domain = domains
+
+    @property
+    def domains(self) -> tuple[pp.GridLike, ...]:
+        return tuple(self._merged_domains)
 
     def __repr__(self) -> str:
-        if len(self.interfaces) == 0:
-            s = f"Operator with key {self._discretization_matrix_key} defined on "
-            s += f"{len(self.subdomains)} subdomains"
-        else:
-            s = f"Operator with key {self._discretization_matrix_key} defined on "
-            s += f"{len(self.interfaces)} edges"
+        domain_label = (
+            self.target.domain_type.value
+            if self.target and self.target.domain_type
+            else "unknown"
+        )
+        s = (
+            f"Operator with key {self._discretization_matrix_key} defined on "
+            f"{len(self.domains)} {domain_label}"
+        )
         return s
 
     def __str__(self) -> str:

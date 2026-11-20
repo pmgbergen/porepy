@@ -157,9 +157,9 @@ class ADTree:
 
         self.nodes: List[ADTNode] = []
         """The list of nodes as ADTNode."""
-        self.region_min: float = 0.0
+        self.region_min: np.ndarray = np.zeros(phys_dim, dtype=float)
         """To scale the bounding box of all the elements in [0, 1]^phys_dim."""
-        self.delta: float = 1.0
+        self.delta: np.ndarray = np.ones(phys_dim, dtype=float)
         """float: a parameter to scale and get all the bounding box of the elements in
         [0, 1]^phys_dim."""
 

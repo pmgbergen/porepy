@@ -15,16 +15,18 @@ specified operator function type.
 from __future__ import annotations
 
 import abc
-from functools import partial
+import operator
+from functools import partial, reduce
 from typing import Callable, Optional, Sequence, Type
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.forward_mode import AdArray
+from porepy.numerics.ad.ad_array import AdArray, AdArrayBase
 
 from .functions import FloatType
+from .operator_space import OperatorSpace
 from .operators import Operations, Operator
 
 __all__ = [
@@ -57,6 +59,9 @@ class AbstractFunction(Operator):
 
     Parameters:
         name: Name of this instance as an AD operator.
+        source: Algebraic source space of this function.
+        target: Algebraic target space of this function. Defaults to ``source`` if not
+            given.
 
     """
 
@@ -66,19 +71,23 @@ class AbstractFunction(Operator):
     def __init__(
         self,
         name: Optional[str] = None,
-        domains: Optional[pp.GridLikeSequence] = None,
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
+        *,
+        source: OperatorSpace,
+        target: Optional[OperatorSpace] = None,
         **kwargs,  # Left for inheritance for more complex functions
     ) -> None:
         # NOTE Constructor is overwritten to have a consistent signature
         # But the operation is always overwritten to point to evaluate.
         # Done for reasons of multiple inheritance.
+
         super().__init__(
             name=name,
-            domains=domains,
             operation=pp.ad.operators.Operations.evaluate,
             children=children,
+            source=source,
+            target=target,
         )
 
     def __call__(self, *args: pp.ad.Operator) -> pp.ad.Operator:
@@ -98,12 +107,12 @@ class AbstractFunction(Operator):
         assert len(args) > 0, (
             "Operator functions must be called with at least 1 argument."
         )
-
         op = Operator(
             name=f"{self.name}{[a.name for a in args]}",
-            # domains=self.domains,
             operation=pp.ad.operators.Operations.evaluate,
             children=args,
+            source=self._source,
+            target=self._target,
         )
         # Assigning the functional representation by the implementation of this instance
         op.func = self.func  # type: ignore
@@ -161,7 +170,7 @@ class AbstractFunction(Operator):
         :meth:`func`."""
         return self
 
-    def func(self, *args: FloatType) -> float | np.ndarray | AdArray:
+    def func(self, *args: FloatType) -> float | np.ndarray | AdArrayBase:
         """The underlying numerical function which is represented by this operator
         function.
 
@@ -186,7 +195,7 @@ class AbstractFunction(Operator):
 
         values = self.get_values(*args)
 
-        if any(isinstance(a, AdArray) for a in args):
+        if any(isinstance(a, AdArrayBase) for a in args):
             jac = self.get_jacobian(*args)
             if isinstance(values, float):
                 assert jac.shape[0] == 1, "Inconsistent Jacobian of scalar function."
@@ -196,11 +205,11 @@ class AbstractFunction(Operator):
             return values
 
     @abc.abstractmethod
-    def get_values(self, *args: float | np.ndarray | AdArray) -> float | np.ndarray:
+    def get_values(self, *args: float | np.ndarray | AdArrayBase) -> float | np.ndarray:
         """Abstract method for evaluating the callable passed at instantiation.
 
         The returned numpy array will be set as
-        :attr:`~porepy.numerics.ad.forward_mode.AdArray.val` in for cases when any
+        :attr:`~porepy.numerics.ad.ad_array.AdArray.val` in for cases when any
         child is parsed as an Ad array.
         Otherwise the value returned here will be returned directly as the numerical
         representation of this instance.
@@ -219,12 +228,12 @@ class AbstractFunction(Operator):
         pass
 
     @abc.abstractmethod
-    def get_jacobian(self, *args: float | np.ndarray | AdArray) -> sps.spmatrix:
+    def get_jacobian(self, *args: float | np.ndarray | AdArrayBase) -> sps.spmatrix:
         """Abstract method for evaluating the Jacobian of the function represented
         by this instance.
 
         The returned matrix will be set as
-        :attr:`~porepy.numerics.ad.forward_mode.AdArray.jac` in for cases when any
+        :attr:`~porepy.numerics.ad.ad_array.AdArray.jac` in for cases when any
         child is parsed as an Ad array.
 
         This method is called in :meth:`func` if any argument is an Ad array.
@@ -262,23 +271,26 @@ class DiagonalJacobianFunction(AbstractFunction):
         self,
         multipliers: float | list[float],
         name: str,
+        *,
+        source: OperatorSpace,
+        target: Optional[OperatorSpace] = None,
     ):
-        super().__init__(name=name)
+        super().__init__(name=name, source=source, target=target)
         # check and format input for further use
         if isinstance(multipliers, list):
             self._multipliers = [float(val) for val in multipliers]
         else:
             self._multipliers = [float(multipliers)]
 
-    def get_jacobian(self, *args: float | np.ndarray | AdArray) -> sps.spmatrix:
+    def get_jacobian(self, *args: float | np.ndarray | AdArrayBase) -> sps.spmatrix:
         """The approximate Jacobian consists of identity blocks times scalar multiplier
         per every function dependency."""
         jacs = [
-            arg.jac * m
+            arg.full_jac * m
             for arg, m in zip(args, self._multipliers)
-            if isinstance(arg, AdArray)
+            if isinstance(arg, AdArrayBase)
         ]
-        return sum(jacs).tocsr()
+        return reduce(operator.add, jacs).tocsr()
 
 
 class Function(AbstractFunction):
@@ -300,31 +312,40 @@ class Function(AbstractFunction):
     Paramters:
         func: A callable returning a numpy array for numpy array arguments, and an
             Ad array for arguments containing Ad arrays.
+        source: The source of the function.
+        target: The target of the function. If not given (or explicitly ``None``),
+            defaults to ``source``.
 
     """
 
-    def __init__(self, func: Callable[..., FloatType], name: str) -> None:
-        super().__init__(name=name)
+    def __init__(
+        self,
+        func: Callable[..., FloatType],
+        name: str,
+        source: OperatorSpace,
+        target: Optional[OperatorSpace] = None,
+    ) -> None:
+        super().__init__(name=name, source=source, target=target)
 
-        self._func: Callable[..., float | np.ndarray | AdArray] = func
+        self._func: Callable[..., float | np.ndarray | AdArrayBase] = func
         """Reference to the callable passed at instantiation."""
 
-    def func(self, *args: FloatType) -> float | np.ndarray | AdArray:
+    def func(self, *args: FloatType) -> float | np.ndarray | AdArrayBase:
         """Overwrites the parent method to call the numerical function passed at
         instantiation."""
         return self._func(*args)
 
-    def get_values(self, *args: float | np.ndarray | AdArray) -> float | np.ndarray:
+    def get_values(self, *args: float | np.ndarray | AdArrayBase) -> float | np.ndarray:
         result = self._func(*args)
-        return result.val if isinstance(result, AdArray) else result
+        return result.val if isinstance(result, AdArrayBase) else result
 
-    def get_jacobian(self, *args: float | np.ndarray | AdArray) -> sps.spmatrix:
-        assert any(isinstance(a, AdArray) for a in args), (
+    def get_jacobian(self, *args: float | np.ndarray | AdArrayBase) -> sps.spmatrix:
+        assert any(isinstance(a, AdArrayBase) for a in args), (
             "No Ad arrays passed as arguments."
         )
         result = self._func(*args)
-        assert isinstance(result, AdArray)
-        return result.jac
+        assert isinstance(result, AdArrayBase)
+        return result.full_jac
 
 
 class InterpolatedFunction(AbstractFunction):
@@ -369,7 +390,12 @@ class InterpolatedFunction(AbstractFunction):
         order: int = 1,
         preval: bool = False,
     ):
-        super().__init__(name=name)
+        # For now, use unclear() for source and target, since the function is not aware
+        # of the grid/dof context of its arguments. This should be improved if this
+        # code is brought back to shape at some point.
+        source = OperatorSpace.unclear()
+        target = OperatorSpace.unclear()
+        super().__init__(name=name, source=source, target=target)
 
         ### PUBLIC
         self.order: int = order
@@ -394,35 +420,35 @@ class InterpolatedFunction(AbstractFunction):
                 f"Interpolation of order {self.order} not implemented."
             )
 
-    def get_values(self, *args: float | np.ndarray | AdArray) -> np.ndarray:
+    def get_values(self, *args: float | np.ndarray | AdArrayBase) -> np.ndarray:
         # stacking argument values vertically for interpolation
         args_: list[float | np.ndarray] = []
         for a in args:
-            if isinstance(a, AdArray):
+            if isinstance(a, AdArrayBase):
                 args_.append(a.val)
             else:
                 args_.append(a)
         X: np.ndarray = np.vstack(args_)
         return self._table.interpolate(X)
 
-    def get_jacobian(self, *args: float | np.ndarray | AdArray) -> sps.spmatrix:
+    def get_jacobian(self, *args: float | np.ndarray | AdArrayBase) -> sps.spmatrix:
         # get points at which to evaluate the differentiation
-        X = np.vstack([x.val if isinstance(x, AdArray) else x for x in args])
+        X = np.vstack([x.val if isinstance(x, AdArrayBase) else x for x in args])
         # allocate zero matrix for Jacobian with correct dimensions and in CSR format
         jacs = []
 
         for axis, arg in enumerate(args):
-            if isinstance(arg, AdArray):
+            if isinstance(arg, AdArrayBase):
                 # The trivial Jacobian of one argument gives us the correct position for
                 # the entries as ones
-                partial_jac = arg.jac
+                partial_jac = sps.csr_matrix(arg.full_jac, copy=True)
                 # replace the ones with actual values
                 # Since csr, we can simply replace the data array with the values of the
                 # derivative
                 partial_jac.data = self._table.gradient(X, axis)[0]
                 jacs.append(partial_jac)
 
-        return sum(jacs).tocsr()
+        return reduce(operator.add, jacs).tocsr()
 
 
 ### FUNCTION DECORATOR

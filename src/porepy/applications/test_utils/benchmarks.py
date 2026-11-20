@@ -84,7 +84,10 @@ class EffectivePermeability:
             ].values[0][0]
             values.append(val_loc)
         return pp.wrap_as_dense_ad_array(
-            np.hstack(values), size, "effective_tangential_permeability"
+            np.hstack(values),
+            size=size,
+            name="effective_tangential_permeability",
+            grids=subdomains,
         )
 
     def effective_normal_permeability(
@@ -107,7 +110,7 @@ class EffectivePermeability:
         subdomains = self.interfaces_to_subdomains(interfaces)
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
 
-        normal_gradient = pp.ad.Scalar(2) * (
+        normal_gradient_length = pp.ad.Scalar(2) * (
             projection.secondary_to_mortar_avg()
             @ self.aperture(subdomains) ** pp.ad.Scalar(-1)
         )
@@ -115,7 +118,7 @@ class EffectivePermeability:
         effective_normal_permeability = (
             self.specific_volume(interfaces)
             * self.normal_permeability(interfaces)
-            * normal_gradient
+            * normal_gradient_length
         )
         effective_normal_permeability.set_name("effective_normal_permeability")
 

@@ -8,8 +8,11 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.ad.equation_system import GridEntity
+from porepy.numerics.ad.operators import OperatorSpace
 
 
 def test_ad_function():
@@ -25,8 +28,9 @@ def test_ad_function():
     """
 
     func = lambda x: x  # identity
+    domain = OperatorSpace.scalar()
 
-    F = pp.ad.Function(func, "identity")
+    F = pp.ad.Function(func, "identity", domain, domain)
 
     grid = pp.CartGrid(np.array([3, 2]))
     mdg = pp.meshing.subdomains_to_mdg([grid])
@@ -34,7 +38,7 @@ def test_ad_function():
 
     subdomains = mdg.subdomains()
     equation_system = pp.ad.EquationSystem(mdg)
-    equation_system.create_variables("foo", {"cells": 1}, subdomains)
+    equation_system.create_variables("foo", {GridEntity.cells: 1}, subdomains)
 
     var = equation_system.md_variable("foo", subdomains)
 
@@ -56,7 +60,7 @@ def test_ad_function():
     val_ad = F_var.value_and_jacobian(equation_system)
     # test values at current time step
     assert np.all(val_ad.val == 1.0)
-    assert np.all(val_ad.jac.toarray() == np.eye(mdg.num_subdomain_cells()))
+    assert np.all(val_ad.full_jac.toarray() == np.eye(mdg.num_subdomain_cells()))
 
     # vals at previous iter and zero Jacobian
     # previous iterate has the same values as the original operator, but no Jacobian
@@ -84,3 +88,35 @@ def test_ad_function():
     assert isinstance(val, np.ndarray)
     assert isinstance(val_pi, np.ndarray)
     assert isinstance(val_pt, np.ndarray)
+
+
+def test_diagonal_jacobian_function_accepts_both_representations():
+    """The approximate Jacobian of a DiagonalJacobianFunction sums the scaled Jacobians
+    of all Ad arguments, whatever their representation."""
+
+    class Sum(pp.ad.DiagonalJacobianFunction):
+        def get_values(self, *args):
+            return sum(a.val for a in args)
+
+    domain = OperatorSpace.scalar()
+    # Use a DiagonalJacobianFunction to approximate the function f(x, y) = 2x + 3y.
+    function = Sum([2.0, 3.0], "sum", source=domain)
+
+    # The arguments are two variables, each with two degrees of freedom, in a system
+    # with four degrees of freedom in total. The first variable, x, is in the full
+    # representation and has degrees of freedom 0 and 1, thus its Jacobian is the
+    # identity in the first two columns. The second variable, y, is in the diagonal
+    # representation and has degrees of freedom 2 and 3.
+    x = pp.ad.AdArray(np.array([1.0, 2.0]), sps.csr_matrix(np.eye(2, 4)))
+    y = pp.ad.initialize_diagonal_ad_arrays(
+        [np.array([3.0, 4.0])],  # Variable values.
+        [np.array([2, 3])],  # Dof indices of the variable in the global system.
+        4,  # Total number of degrees of freedom in the system.
+    )[0]
+
+    jac = function.get_jacobian(x, y)
+
+    # As per the design of the DiagonalJacobianFunction, the Jacobian should be 2 times
+    # the identity in the columns of x, and 3 times the identity in the columns of y.
+    expected = np.array([[2.0, 0.0, 3.0, 0.0], [0.0, 2.0, 0.0, 3.0]])
+    np.testing.assert_allclose(jac.toarray(), expected)

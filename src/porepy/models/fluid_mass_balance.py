@@ -140,9 +140,9 @@ class FluidMassBalanceEquations(pp.BalanceEquation):
         sd_eq = self.mass_balance_equation(subdomains)
         intf_eq = self.interface_darcy_flux_equation(codim_1_interfaces)
         well_eq = self.well_flux_equation(codim_2_interfaces)
-        self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
-        self.equation_system.set_equation(intf_eq, codim_1_interfaces, {"cells": 1})
-        self.equation_system.set_equation(well_eq, codim_2_interfaces, {"cells": 1})
+        self.equation_system.set_equation(sd_eq)
+        self.equation_system.set_equation(intf_eq)
+        self.equation_system.set_equation(well_eq)
 
     def mass_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Mass balance equation for subdomains.
@@ -228,10 +228,10 @@ class FluidMassBalanceEquations(pp.BalanceEquation):
             Operator representing the fluid flux.
 
         """
-        if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
-            # Note: in case of the empty subdomain list, the time dependent array is
-            # still returned. Otherwise, this method produces an infinite recursion
-            # loop. It does not affect real computations anyhow.
+        if len(domains) == 0:
+            return pp.wrap_as_dense_ad_array(0, size=0, grids=[], name="fluid_flux")
+
+        if all(isinstance(d, pp.BoundaryGrid) for d in domains):
             return self.create_boundary_operator(
                 name=self.bc_data_fluid_flux_key,
                 domains=cast(Sequence[pp.BoundaryGrid], domains),
@@ -478,10 +478,16 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
         return self.reference_variable_values.pressure * np.ones(bg.num_cells)
 
     def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """**Volumetric** Darcy flux values for the Neumann boundary condition.
+        r"""Mobility-free Darcy flux values for the Neumann boundary condition.
 
-        These values are used on the boundaries where Neumann data for the
-        volumetric Darcy :math:`\\mathbf{K}\\nabla p` flux are required.
+        The values correspond to the integrated quantity
+        :math:`\int_\sigma \mathbf{K}\nabla p \cdot \mathbf{n}\, dA` on each boundary
+        face :math:`\sigma`, with SI unit :math:`\mathrm{m}^{n_d}\,\mathrm{Pa}`, where
+        :math:`n_d` is the ambient dimension.
+
+        The mobility term :math:`1/\mu` is *not* included. To convert to a true
+        volumetric flux (:math:`\mathrm{m}^{n_d}/\mathrm{s}`), multiply by the
+        appropriate mobility.
 
         Important:
             Override this method to provide custom Neumann data for the flux,
@@ -491,8 +497,8 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
             bg: Boundary grid to provide values for.
 
         Returns:
-            An array with ``shape=(bg.num_cells,)`` containing the volumetric Darcy flux
-            values on the provided boundary grid.
+            An array with ``shape=(bg.num_cells,)`` containing the mobility-free Darcy
+             flux values on the provided boundary grid.
 
         """
         return np.zeros(bg.num_cells)
@@ -500,23 +506,25 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
     def bc_values_fluid_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         r"""**Mass** flux values on the Neumann boundary.
 
-        These values are used on the boundaries where `self.bc_type_fluid_flux` is
-        Neumann.
+        The values correspond to the integrated quantity
+        :math:`\int_\sigma \frac{\rho}{\mu} \mathbf{K} \nabla p \cdot \mathbf{n}\, dA`
+        on each boundary face :math:`\sigma`, with SI unit
+        :math:`\mathrm{kg}\,\mathrm{m}^{n_d-3}\,\mathrm{s}^{-1}`,
+        where :math:`n_d` is the ambient dimension.
 
-        These values are used on the boundary for
-        :math:`\frac{\rho}{\mu} \mathbf{K} \nabla p` where Neumann data is required for
-        the whole expression.
+        The density-weighted mobility term :math:`\frac{\rho}{\mu}` is included, so the
+        values correspond to a mass flux.
 
         Important:
-            Override this method to provide custom Neumann data for the flux,
-            per boundary grid as a numpy array with numerical values.
+            Override this method to provide custom Neumann data for the integrated fluid
+            mass flux, per boundary grid as a numpy array with numerical values.
 
         Parameters:
             bg: Boundary grid to provide values for.
 
         Returns:
-            An array with ``shape=(bg.num_cells,)`` containing the mass fluid flux
-            values on the provided boundary grid.
+            An array with ``shape=(bg.num_cells,)`` containing the integrated fluid mass
+            flux values on the provided boundary grid.
 
         """
         return np.zeros(bg.num_cells)

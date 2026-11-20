@@ -1,0 +1,428 @@
+"""This module contains functions to run stationary and time-dependent models."""
+
+from __future__ import annotations
+
+import logging
+import warnings
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Optional, cast
+
+import porepy as pp
+from porepy.models.solution_strategy import SolutionStrategy
+from porepy.time_stepper.scheduler import assemble_default_time_scheduler
+from porepy.time_stepper.time_step_status import (
+    TimeStepperStatusFailure,
+    TimeStepperStatusSuccess,
+)
+from porepy.time_stepper.time_stepper import TimeStepper
+from porepy.utils.ui_and_logging import DummyProgressBar
+from porepy.utils.ui_and_logging import (
+    logging_redirect_tqdm_with_level as logging_redirect_tqdm,
+)
+from porepy.utils.ui_and_logging import progressbar_class
+
+__all__ = [
+    "ModelRunnerStatus",
+    "ModelRunnerStatusSuccess",
+    "ModelRunnerStatusFailure",
+    "ModelRunner",
+    "EarlyStopCriterion",
+    "EarlyStopNotRequested",
+]
+
+# Module-wide logger
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ModelRunnerStatus(ABC):
+    """A status object used to indicate the ModelRunner state. This is an enum of two
+    allowed states: either success or failure. Each state can have data associated with
+    it. `ModelRunnerStatusSuccess` and `ModelRunnerStatusFailure` can be subclassed to
+    (i) introduce specific cases of success or failure and (ii) associate additional
+    data with these cases. The base class `ModelRunnerStatus` should NOT be subclassed.
+
+    """
+
+    def is_success(self) -> bool:
+        """Whether the simulation finished successfully."""
+        # Developer note: This breaks the OOP principle that the base class should not
+        # know of its children, but we agreed on having these methods (is_success and
+        # is_failure) for convenience. One can think of ModelRunnerStatus as a closed
+        # enum of two cases (success and failure), which in this case justifies this
+        # binding with child classes.
+        return isinstance(self, ModelRunnerStatusSuccess)
+
+    def is_failure(self) -> bool:
+        """Whether the simulation finished with a failure."""
+        return isinstance(self, ModelRunnerStatusFailure)
+
+
+@dataclass
+class ModelRunnerStatusSuccess(ModelRunnerStatus):
+    """A status object that indicates that the simulation finished successfully."""
+
+
+@dataclass
+class ModelRunnerStatusFailure(ModelRunnerStatus):
+    """A status object that indicates that the simulation finished with a failure."""
+
+    reason: str
+    "Reason why the model runner failed."
+
+
+@dataclass
+class EarlyStopNotRequested:
+    """A marker object indicating that an early stop criterion does not request to stop.
+
+    If all early stop criteria return this status, the simulation continues.
+
+    """
+
+
+class EarlyStopCriterion(ABC):
+    """Abstract base class for criteria that stop the time stepping early.
+
+    The :class:`ModelRunner` evaluates the criteria after each accepted time step.
+
+    """
+
+    @abstractmethod
+    def simulation_should_stop(
+        self, model: pp.PorePyModel
+    ) -> ModelRunnerStatus | EarlyStopNotRequested:
+        """Decide whether the simulation should stop after an accepted time step.
+
+        Parameters:
+            model: The model in the state after the time step.
+
+        Returns:
+            :class:`EarlyStopNotRequested` to continue the simulation, or a
+            :class:`ModelRunnerStatus` to stop it and return this status from the
+            runner.
+
+        """
+
+
+def run_stationary_model(model, params: dict) -> None:
+    """Run a stationary model.
+
+    Deprecated: This function is deprecated and will be removed in a future version.
+        Instead, use
+        ```
+        runner = pp.ModelRunner(model, params)
+        runner.run()
+        ```
+
+    Note:
+        If the ``"progressbars"`` key in ``params`` is set to ``True`` (default is
+        ``False``), the progress of nonlinear iterations will be shown on a progressbar.
+        This requires the ``tqdm`` package to be installed. The package is not included
+        in the dependencies, but can be installed with
+        ```
+        pip install tqdm
+        ```
+
+    Parameters:
+        model: Model class containing all information on parameters, variables,
+            discretization, geometry. Various methods such as those relating to solving
+            the system, see the appropriate model for documentation.
+        params: Parameters related to the solution procedure.
+
+    """
+    warnings.warn(
+        "run_stationary_model is deprecated in favor of ModelRunner.run and will be"
+        " removed in future versions.",
+        FutureWarning,
+        stacklevel=2,
+    )
+    runner = ModelRunner(model, params)
+    runner.run()
+
+
+def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
+    """Run a time dependent model.
+
+    Deprecated: This function is deprecated and will be removed in a future version.
+        Instead, use
+        ```
+        runner = pp.ModelRunner(model, params)
+        runner.run()
+        ```
+
+    Note:
+        If the ``"progressbars"`` key in ``params`` is set to ``True`` (default is
+        ``False``), the progress of time steps and nonlinear iterations will be shown on
+        a progressbar. This requires the ``tqdm`` package to be installed. The package
+        is not included in the dependencies, but can be installed with
+        ```
+        pip install tqdm
+        ```
+
+    Parameters:
+        model: Model class containing all information on parameters, variables,
+            discretization, geometry. Various methods such as those relating to solving
+            the system, see the appropriate solver for documentation.
+        params: Parameters related to the solution procedure.
+
+    """
+    warnings.warn(
+        "run_time_dependent_model is deprecated in favor of ModelRunner.run and will be"
+        " removed in future versions.",
+        FutureWarning,
+        stacklevel=2,
+    )
+    runner = ModelRunner(model, params)
+    runner.run()
+
+
+class ModelRunner:
+    """Class for running PorePy models according to their configurations.
+
+    If ``params["prepare_simulation"]`` is ``True`` (default), calls the respective
+    method during initialization. Otherwise it assumes it was already called **before**
+    instantiating the runner.
+
+    :meth:`~ModelRunner.run` runs the simulation, stationary or time dependent,
+    depending on ``model.is_time_dependent.`
+
+    Parameters:
+        model: A PorePy model instance.
+        params: Parameters related to the solution procedure. Defaults to None.
+        time_stepper: The object corresponding for making a single time step. Passing
+            None (default) initializes the default PorePy time stepper.
+        nonlinear_solver: The solver for the discretized problem described by the PorePy
+            model). Passing None (default) initializes the default nonlinear solver with
+            a default set of convergence / divergence criteria. The default solver
+            may exploit model's linearity and apply shortcuts for it (e.g. avoid
+            expensive convergence checks). The reverse is also true: You can pass a
+            customized solver that treats the problem as linear even if it is not.
+        early_stop_criteria: Criteria evaluated after each accepted time step of a
+            time-dependent model. If one of them returns a
+            :class:`ModelRunnerStatus`, the time stepping stops and the runner returns
+            this status. By default, there are none.
+
+    """
+
+    def __init__(
+        self,
+        model: SolutionStrategy,
+        params: Optional[dict] = None,
+        time_stepper: Optional[TimeStepper] = None,
+        nonlinear_solver: Optional[pp.solvers.NonlinearSolverBase] = None,
+        early_stop_criteria: Optional[list[EarlyStopCriterion]] = None,
+    ) -> None:
+        self.params = params if isinstance(params, dict) else {}
+        """Parameters passed at instantiation."""
+
+        self.model = model
+        """Model instance passed at instantiation."""
+
+        if time_stepper is None:
+            time_stepper = TimeStepper(
+                scheduler=assemble_default_time_scheduler(
+                    time_manager=model.time_manager
+                ),
+                max_attempts=10,
+            )
+        self.time_stepper: TimeStepper = time_stepper
+        """Responsible for the time stepping logic. Used only in time-dependent
+        simulations."""
+
+        if self.params.get("prepare_simulation", True):
+            self.model.prepare_simulation()
+
+        # Some models (e.g. contact mechanics) determine nonlinearity from the mixed-
+        # dimensional grid, which is only available after prepare_simulation.
+        self._is_nonlinear = self.model._is_nonlinear_problem()
+        """Flag indicating whether the problem is nonlinear, set at initialization."""
+
+        self._is_time_dependent = self.model._is_time_dependent()
+        """Flag indicating whether the problem is time-dependent, set at
+        initialization."""
+
+        self.solver: pp.solvers.NonlinearSolverBase = (
+            _extract_nonlinear_solver_from_params(
+                nonlinear_solver=nonlinear_solver,
+                params=self.params,
+                is_nonlinear_problem=self._is_nonlinear,
+            )
+        )
+        """Solver instance."""
+
+        if early_stop_criteria is None:
+            early_stop_criteria = []
+        self.early_stop_criteria: list[EarlyStopCriterion] = early_stop_criteria
+        """Criteria to stop the time stepping before the final time is reached."""
+
+        if self._is_time_dependent:
+            self.init_time_progressbar()
+
+    def init_time_progressbar(self) -> None:
+        """Initializes the a progressbar for logging according to
+        ``params["progressbars"]``.
+
+        Note:
+            If the ``"progressbars"`` key in ``params`` is set to ``True`` (default is
+            ``False``), the progress of time steps and nonlinear iterations will be
+            shown on a progressbar. This requires the ``tqdm`` package to be installed.
+            The package is not included in the dependencies, but can be installed with
+            ```
+            pip install tqdm
+            ```
+
+        """
+        # Use time progressbar only when requested and the model is time dependent.
+        use_progress_bar = (
+            self.params.get("progressbars", False) and self._is_time_dependent
+        )
+        if use_progress_bar and progressbar_class is DummyProgressBar:
+            logger.warning(
+                "Progress bars are requested, but `tqdm` is not installed. The time"
+                " loop will run without progress bars."
+            )
+
+        # To display nested ``tqdm`` bars in the correct order, their positions have to
+        # be specified. The orders are increasing, i.e., 0 is the lowest level, then 1.
+        # Position is passed via '_nl_progress_bar_position' when calling 'NewtonSolver'
+        # in ``run``.
+        self.params.update({"_nl_progress_bar_position": 1})
+
+        if use_progress_bar:
+            # Create a time bar of length of expected simulation time.
+
+            # Creating a custom format string. Difference from the default: it converts
+            # the simulation time (done/total) to the a scientific format with :.1e.
+            l_bar = "{desc}: {percentage:3.0f}%|"
+            r_bar = "| {n:.1e}/{total:.1e} [{elapsed}<{remaining}, {rate_fmt}{postfix}]"
+            bar_format = l_bar + "{bar}" + r_bar
+
+            # NOTE: If tqdm is not installed, this returns a DummyProgressBar instance.
+            self.time_progressbar = progressbar_class(
+                total=self.model.time_manager.schedule.t_end,
+                desc="Time loop",
+                position=0,
+                dynamic_ncols=True,
+                bar_format=bar_format,
+                postfix=self._progressbar_postfix(),
+            )
+        else:
+            self.time_progressbar = DummyProgressBar()
+
+        self.use_progress_bar = use_progress_bar
+
+    def run(self) -> ModelRunnerStatus:
+        """Run the model (stationary or time-dependent)."""
+        # Run simulation.
+        if self._is_time_dependent:
+            simulation_status = self._run_time_dependent()
+        else:
+            simulation_status = self._run_stationary()
+
+        # Clean up model after simulation.
+        self.model.after_simulation()
+
+        if simulation_status.is_failure():
+            raise RuntimeError(simulation_status)
+
+        return simulation_status
+
+    def _run_stationary(self) -> ModelRunnerStatus:
+        """Run a stationary model."""
+        # Perform stationary solve.
+        convergence_status = self.solver.solve(self.model)
+
+        # Conclude the simulation status based on the solver status.
+        if convergence_status.is_converged():
+            # NOTE: time_step_convergence can be considered a misnomer.
+            # But technically this is the only time we solve for. Thus we reuse the
+            # method to set the solution and save data.
+            self.model.after_time_step_convergence()
+            return ModelRunnerStatusSuccess()
+        else:
+            self.model.after_time_step_failure()
+            return ModelRunnerStatusFailure("Solver did not converge.")
+
+    def _run_time_dependent(self) -> ModelRunnerStatus:
+        """Run a time-dependent model with trial-based time stepping."""
+
+        with logging_redirect_tqdm([logging.root]):
+            while not self.model.time_manager.final_time_reached():
+                # Update the progressbar before the time step.
+                self.time_progressbar.set_postfix_str(self._progressbar_postfix())
+
+                # Perform the time step.
+                time_step_status = self.time_stepper.perform_time_step(
+                    self.model, self.solver
+                )
+
+                # Update the progressbar after the time step.
+                if isinstance(time_step_status, TimeStepperStatusSuccess):
+                    self.time_progressbar.update(n=time_step_status.dt)
+
+                # Abort simulation if time step was stopped.
+                if isinstance(time_step_status, TimeStepperStatusFailure):
+                    logger.error(f"Time stepping failed: {time_step_status.reason}")
+                    return ModelRunnerStatusFailure(reason=time_step_status.reason)
+
+                # Stop early if any of the criteria returns a ModelRunnerStatus.
+                for criterion in self.early_stop_criteria:
+                    early_stop_status = criterion.simulation_should_stop(self.model)
+                    if isinstance(early_stop_status, ModelRunnerStatus):
+                        return early_stop_status
+
+            # Conclude the simulation status.
+            if self.model.time_manager.final_time_reached():
+                return ModelRunnerStatusSuccess()
+            return ModelRunnerStatusFailure("Final time was not reached.")
+
+    def _progressbar_postfix(self) -> str:
+        """Formats a progressbar postfix string with dt."""
+        return f"Δt={self.model.time_manager.dt:.1e}"
+
+
+def _extract_nonlinear_solver_from_params(
+    nonlinear_solver: Optional[pp.solvers.NonlinearSolverBase],
+    params: dict,
+    is_nonlinear_problem: bool,
+) -> pp.solvers.NonlinearSolverBase:
+    """A nonlinear solver may be passed directly or in the parameters dictionary. This
+    function extracts it and ensures it is not passed twice. If nothing is passed, it
+    constructs a default solver.
+
+    Parameters:
+        nonlinear_solver: A nonlinear solver from user.
+        params: A dictionary that may contain a key "nonlinear_solver".
+        is_nonlinear_solver: Used to construct a default solver.
+
+    Raises:
+        ValueError: If two nonlinear solvers are passed both directly and through
+            params.
+
+    Returns:
+        An instantiated nonlinear solver object.
+
+    """
+    solver_from_params = params.get("nonlinear_solver", None)
+    if solver_from_params is not None and nonlinear_solver is None:
+        warnings.warn(
+            "You should pass the nonlinear solver directly to the ModelRunner: use "
+            "ModelRunner(nonlinear_solver=...). Passing it through params will be "
+            "deprecated.",
+            category=FutureWarning,
+            stacklevel=3,
+        )
+        return cast(type[pp.solvers.NewtonSolver], solver_from_params)(params)
+    if solver_from_params is not None and nonlinear_solver is not None:
+        raise ValueError(
+            "You cannot pass the nonlinear solver both directly to the ModelRunner and "
+            "through params."
+        )
+
+    if nonlinear_solver is None:
+        return pp.solvers.NewtonSolver(
+            is_nonlinear_problem=is_nonlinear_problem, params=params
+        )
+    else:
+        return nonlinear_solver

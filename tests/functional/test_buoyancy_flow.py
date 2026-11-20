@@ -81,15 +81,12 @@ def _run_buoyancy_model(
         schedule=[0.0, tf],
         dt_init=dt,
         constant_dt=True,
-        iter_max=50,
-        print_info=True,
     )
     model_params = {
         "fractional_flow": True,
         "enable_buoyancy_effects": True,
         "material_constants": {"solid": solid_constants},
         "time_manager": time_manager,
-        "apply_schur_complement_reduction": False,
         "expected_order_loss": expected_order_loss,
     }
     # Combine geometry with model class.
@@ -100,16 +97,17 @@ def _run_buoyancy_model(
     # strictly bound the residual error in the mass conservation equations.
     solver_params = {
         "nl_convergence_criteria": {
-            "res_abs": pp.ResidualBasedAbsoluteCriterion(
-                tol=residual_tolerance, metric=pp.EquationBasedLebesgueMetric(model)
+            "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
+                tol=residual_tolerance,
+                metric=pp.EquationBasedLebesgueMetric(model),
             ),
         },
         "nl_divergence_criteria": {
-            "max_iter": pp.MaxIterationsCriterion(max_iterations=50),
+            "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=50),
         },
     }
 
-    pp.run_time_dependent_model(model, solver_params)
+    pp.ModelRunner(model, solver_params).run()
 
 
 @pytest.mark.skipped  # reason: slow

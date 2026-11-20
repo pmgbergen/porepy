@@ -5,6 +5,7 @@ module for operations on sparse matrices
 from __future__ import annotations
 
 import warnings
+from functools import lru_cache
 from typing import Literal, Optional, Union, cast, overload
 
 import networkx as nx
@@ -19,6 +20,82 @@ try:
     numba_available = True
 except ImportError:
     numba_available = False
+
+if numba_available:
+
+    @lru_cache(maxsize=None)
+    def _get_inv_compiled_function():
+        """Build and cache the Numba-compiled block-inverse function.
+
+        The function is compiled on first use and reused on subsequent calls,
+        which keeps importing PorePy fast and avoids recompiling the function
+        on every inversion.
+
+        Returns:
+            The compiled block-inverse function.
+
+        """
+
+        @njit("f8[::1](b1,f8[::1],i4[::1],i4[::1],i4[::1])", cache=True, parallel=True)
+        def inv_compiled_function(is_csr_q, data, indices, indptr, sz):
+            # Construction of simple data structures (low complexity). Indices for block
+            # positions, flattened inverse block positions and nonzeros. Expanded block
+            # positions.
+            idx_blocks = np.cumsum(sz).astype(np.int32)
+            # Expanded nonzero positions for flattened inverse blocks
+            idx_inv_blocks = np.cumsum(np.square(sz)).astype(np.int32)
+            # Nonzero positions for the given matrix data (i.e. a.data)
+            idx_nnz = np.searchsorted(indices, idx_blocks).astype(np.int32)
+
+            # Retrieve global indices (low complexity)
+            if is_csr_q:
+                cols = indices
+                row_reps = indptr[1 : indptr.size] - indptr[0 : indptr.size - 1]
+            else:
+                rows = indices
+                col_reps = indptr[1 : indptr.size] - indptr[0 : indptr.size - 1]
+
+            # flattened nonzero values of the dense inverse (low complexity)
+            # Numba np.zeros support ensures v is a contiguous array (C-contiguous)
+            v = np.zeros(idx_inv_blocks[-1])
+
+            for ib in prange(sz.size - 1):
+                v_range = np.arange(idx_inv_blocks[ib], idx_inv_blocks[ib + 1])
+                flat_block = v[v_range]
+                # Retrieve global block position
+                idx_shift = idx_blocks[ib]
+                idx_block = idx_blocks[np.array([ib, ib + 1])]
+
+                # Transform from global to local rows and cols positions
+                if is_csr_q:
+                    l_row = (
+                        np.repeat(
+                            np.arange(idx_block[0], idx_block[1]),
+                            row_reps[idx_block[0] : idx_block[1]],
+                        ).astype(np.int32)
+                        - idx_shift
+                    )
+                    l_col = cols[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
+                else:
+                    l_row = rows[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
+                    l_col = (
+                        np.repeat(
+                            np.arange(idx_block[0], idx_block[1]),
+                            col_reps[idx_block[0] : idx_block[1]],
+                        ).astype(np.int32)
+                        - idx_shift
+                    )
+                # Construct flattened local positions (major order of non-zeros)
+                sequence_ij = l_row * sz[ib + 1] + l_col
+                # Assigning flattened positions directly from the matrix data (a.data)
+                flat_block[sequence_ij] = data[idx_nnz[ib] : idx_nnz[ib + 1]]
+                # Reshape flattened block to squared dense block of size[ib]
+                dense_block = np.reshape(flat_block, (sz[ib + 1], sz[ib + 1]))
+                # Perform inversion and assigning values from a 1-D ravelled array
+                v[v_range] = np.ravel(np.linalg.inv(dense_block))
+            return v
+
+        return inv_compiled_function
 
 
 def zero_columns(A: sps.csc_matrix, cols: np.ndarray) -> None:
@@ -332,24 +409,23 @@ def slice_sparse_matrix(A: sps.spmatrix, ind: np.ndarray | int) -> sps.spmatrix:
     # The slicing will be done based on a numpy array of indices (row and column for csr
     # and csc, respectively). The provided index can be an array of booleans, or a
     # single integer. Convert these to numpy arrays of indices.
-    if np.asarray(ind).dtype == "bool":
-        ind = np.where(ind)[0]
-    if isinstance(ind, int):
-        ind = np.array([ind])
+    ind_arr = np.asarray(ind)
+    if ind_arr.dtype == "bool":
+        ind_arr = np.where(ind_arr)[0]
 
     # Dimension of the sliced matrix along the axis of the slicing.
-    N = ind.size
+    N = ind_arr.size
     # Expand the indices along the compressed axis. To understand this command, it is
     # necessary to be familiar with the compressed storage format.
     ind_slice = pp.array_operations.expand_index_pointers(
-        A.indptr[ind], A.indptr[ind + 1]
+        A.indptr[ind_arr], A.indptr[ind_arr + 1]
     )
     # Pick out the subset of the indices from A that are also in the slice.
     indices = A.indices[ind_slice]
     # Make a new indptr array and fill it with the relevant parts of the original indptr
     # array.
-    indptr = np.zeros(ind.size + 1)
-    indptr[1:] = np.cumsum(A.indptr[ind + 1] - A.indptr[ind])
+    indptr = np.zeros(ind_arr.size + 1)
+    indptr[1:] = np.cumsum(A.indptr[ind_arr + 1] - A.indptr[ind_arr])
     # Data can be extracted directly from the data array of A.
     data = A.data[ind_slice]
 
@@ -438,14 +514,12 @@ class ArraySlicer:
         delayed evaluation to first carry out the slicing (S @ y), and then apply 'A x'
         to the result.
 
-        *However*, this only works if the methods __rmul__ etc. are called in the first
-        place. Fundamental data types in python (int, float) will do so, as will scipy
-        sparse matrices. *Numpy arrays will most likely not do so*. Instead, it will use
-        its own __mul__ method with the ArraySlicer as the right operand, and probably
-        return a numpy array with data type object. Some rules of thumb therefore apply:
-            1. Be careful when using the ArraySlicer in chained operations, in
-               particular with numpy arrays.
-            2. If in doubt, use parantheses.
+        This requires that the methods __rmul__ etc. are called in the first place.
+        Fundamental data types in python (int, float) will do so, as will scipy sparse
+        matrices. Numpy arrays do so only because this class opts out of numpy's
+        operator capture by setting __array_ufunc__ to None. To stay safe, it is
+        recommended to be careful when using the ArraySlicer in chanied operations, and
+        if in doubt, use parentheses to enforce the desired order of operations.
 
     Parameters:
         domain_indices: Row indices to be selected. If not provided, the dimensions of
@@ -462,6 +536,11 @@ class ArraySlicer:
             is added since the domain indices are 0-offset).
 
     """
+
+    # Numpy defers binary operations to the __r*__ methods below only if this is set
+    # to None; without it, `numpy_array * slicer` broadcasts into an object array
+    # holding one ArraySlicer per element (#819).
+    __array_ufunc__ = None
 
     def __init__(
         self,
@@ -602,14 +681,14 @@ class ArraySlicer:
     @overload
     def __matmul__(self, x: np.ndarray) -> np.ndarray: ...
     @overload
-    def __matmul__(self, x: pp.ad.AdArray) -> pp.ad.AdArray: ...
+    def __matmul__(self, x: pp.ad.AdArrayBase) -> pp.ad.AdArray: ...
     @overload
     def __matmul__(self, x: ArraySlicer) -> ArraySlicer: ...
     @overload
     def __matmul__(self, x: sps.spmatrix) -> sps.spmatrix: ...
 
     def __matmul__(
-        self, x: np.ndarray | sps.spmatrix | pp.ad.AdArray | ArraySlicer
+        self, x: np.ndarray | sps.spmatrix | pp.ad.AdArrayBase | ArraySlicer
     ) -> np.ndarray | sps.spmatrix | pp.ad.AdArray | ArraySlicer:
         # Separate handling for different types of input.
         if isinstance(x, ArraySlicer):
@@ -628,7 +707,9 @@ class ArraySlicer:
             sliced = self._slice_vector(x)
         elif isinstance(x, (sps.spmatrix, sps.sparray)):
             sliced = self._slice_matrix(x)
-        elif isinstance(x, pp.ad.AdArray):
+        elif isinstance(x, pp.ad.AdArrayBase):
+            # Slicing mixes the rows, which the diagonal representation cannot express.
+            x = x.to_full()
             val = self._slice_vector(x.val)
             jac = self._slice_matrix(x.jac)
             sliced = pp.ad.AdArray(val, jac)
@@ -1351,177 +1432,8 @@ def invert_diagonal_blocks(
         # Extended block sizes structure
         sz = np.insert(size, 0, 0).astype(np.int32)
 
-        @njit(
-            "f8[::1](b1,f8[::1],i4[::1],i4[::1],i4[::1])",
-            cache=True,
-            parallel=True,
-        )
-        def inv_compiled_function(is_csr_q, data, indices, indptr, sz):
-            # Construction of simple data structures (low complexity). Indices for block
-            # positions, flattened inverse block positions and nonzeros. Expanded block
-            # positions.
-            idx_blocks = np.cumsum(sz).astype(np.int32)
-            # Expanded nonzero positions for flattened inverse blocks
-            idx_inv_blocks = np.cumsum(np.square(sz)).astype(np.int32)
-            # Nonzero positions for the given matrix data (i.e. a.data)
-            idx_nnz = np.searchsorted(indices, idx_blocks).astype(np.int32)
-
-            # Retrieve global indices (low complexity)
-            if is_csr_q:
-                cols = indices
-                row_reps = indptr[1 : indptr.size] - indptr[0 : indptr.size - 1]
-            else:
-                rows = indices
-                col_reps = indptr[1 : indptr.size] - indptr[0 : indptr.size - 1]
-
-            # flattened nonzero values of the dense inverse (low complexity)
-            # Numba np.zeros support ensures v is a contiguous array (C-contiguous)
-            v = np.zeros(idx_inv_blocks[-1])
-
-            for ib in prange(sz.size - 1):
-                v_range = np.arange(idx_inv_blocks[ib], idx_inv_blocks[ib + 1])
-                flat_block = v[v_range]
-                # Retrieve global block position
-                idx_shift = idx_blocks[ib]
-                idx_block = idx_blocks[np.array([ib, ib + 1])]
-
-                # Transform from global to local rows and cols positions
-                if is_csr_q:
-                    l_row = (
-                        np.repeat(
-                            np.arange(idx_block[0], idx_block[1]),
-                            row_reps[idx_block[0] : idx_block[1]],
-                        ).astype(np.int32)
-                        - idx_shift
-                    )
-                    l_col = cols[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
-                else:
-                    l_row = rows[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
-                    l_col = (
-                        np.repeat(
-                            np.arange(idx_block[0], idx_block[1]),
-                            col_reps[idx_block[0] : idx_block[1]],
-                        ).astype(np.int32)
-                        - idx_shift
-                    )
-                # Construct flattened local positions (major order of non-zeros)
-                sequence_ij = l_row * sz[ib + 1] + l_col
-                # Assigning flattened positions directly from the matrix data (a.data)
-                flat_block[sequence_ij] = data[idx_nnz[ib] : idx_nnz[ib + 1]]
-                # Reshape flattened block to squared dense block of size[ib]
-                dense_block = np.reshape(flat_block, (sz[ib + 1], sz[ib + 1]))
-                # Perform inversion and assigning values from a 1-D ravelled array
-                v[v_range] = np.ravel(np.linalg.inv(dense_block))
-            return v
-
+        inv_compiled_function = _get_inv_compiled_function()
         inv_a = inv_compiled_function(is_csr_q, data, indices, indptr, sz)
-        return inv_a
-
-    def invert_diagonal_blocks_numba_old(
-        a: sps.csr_matrix, size: np.ndarray
-    ) -> np.ndarray:
-        """Invert block diagonal matrix by invoking numba acceleration of a simple
-        for-loop based algorithm.
-
-        Currently not used, but may be resurrected if the new implementation fails.
-        Parameters:
-            a : sps.csr matrix
-            size : Size of individual blocks
-
-        Returns:
-            inv_a: Flattened nonzero values of the inverse matrix.
-
-        """
-
-        # This function only supports CSR format.
-        if not sps.isspmatrix_csr(a):
-            raise TypeError("Sparse array type not implemented: ", type(a))
-
-        ptr = a.indptr
-        indices = a.indices
-        dat = a.data
-
-        # Just in time compilation
-        @njit("f8[:](i4[:],i4[:],f8[:],i8[:])", cache=True, parallel=True)
-        def inv_python(indptr, ind, data, sz):
-            """
-            Invert block matrices by explicitly forming local matrices. The code
-            in itself is not efficient, but it is hopefully well suited for
-            speeding up with numba.
-
-            IMPLEMENTATION NOTES BELOW
-
-            The code consists of a loop over the blocks. For each block, a local square
-            matrix is formed, the inverse is computed using numpy (which again will
-            invoke LAPACK), and the inverse is stored in an (raveled) array. The most
-            complex part of the code is the formation of the local matrix: Since the
-            original matrix is sparse, there may be zero elements in the blocks
-            which may not be explicitly represented in the data, and the order of the
-            columns in the sparse format may not be linear. To deal with this, we do a
-            double loop to fill in the local matrix.
-
-            Profiling (June 2022) showed that the overhead in filling in the local
-            matrix by for-loops was minimal; specifically, attempts at speeding up the
-            computations by forcing a full block structure of the matrices (with
-            explicit zeros and linear ordering of columns), so that the local matrix
-            could be formed by a reshape, failed.
-
-            """
-
-            # Index of where the rows start for each block.
-            block_row_starts_ind = np.zeros(sz.size, dtype=np.int32)
-            block_row_starts_ind[1:] = np.cumsum(sz[:-1])
-
-            # Number of columns per row. Will change from one column to the
-            # next
-            num_cols_per_row = indptr[1:] - indptr[0:-1]
-            # Index to where the columns start for each row (NOT blocks)
-            row_cols_start_ind = np.zeros(num_cols_per_row.size + 1, dtype=np.int32)
-            row_cols_start_ind[1:] = np.cumsum(num_cols_per_row)
-
-            # Index to where the (full) data starts. Needed, since the
-            # inverse matrix will generally be full
-            full_block_starts_ind = np.zeros(sz.size + 1, dtype=np.int32)
-            full_block_starts_ind[1:] = np.cumsum(np.square(sz))
-            # Structure to store the solution
-            inv_vals = np.zeros(np.sum(np.square(sz)))
-
-            # Loop over all blocks. Do this in parallel, this has shown significant
-            # speedups by numba.
-            for iter1 in prange(sz.size):
-                n = sz[iter1]
-
-                loc_mat = np.zeros((n, n))
-                # Fill in non-zero elements in local matrix
-                # This requires some work, since not all elements in the local matrix
-                # are represented in the data array (elements may be zero). Also, the
-                # ordering of the data may not correspond to a linear ordering of the
-                # columns.
-                for iter2 in range(n):  # Local rows
-                    global_row = block_row_starts_ind[iter1] + iter2
-                    data_counter = row_cols_start_ind[global_row]
-
-                    # Loop over local columns. Getting the number of columns
-                    #  for each row is a bit involved
-                    for _ in range(
-                        num_cols_per_row[iter2 + block_row_starts_ind[iter1]]
-                    ):
-                        loc_col = ind[data_counter] - block_row_starts_ind[iter1]
-                        loc_mat[iter2, loc_col] = data[data_counter]
-                        data_counter += 1
-                # Compute inverse using np.linalg.inv, which will again invoke an
-                # appropriate lapack function.
-                inv_mat = np.ravel(np.linalg.inv(loc_mat))
-
-                # Store data in the output
-                loc_ind = np.arange(
-                    full_block_starts_ind[iter1], full_block_starts_ind[iter1 + 1]
-                )
-                inv_vals[loc_ind] = inv_mat
-
-            return inv_vals
-
-        inv_a = inv_python(ptr, indices, dat, size)
         return inv_a
 
     # Remove blocks of size 0
@@ -1822,6 +1734,10 @@ def generate_permutation_to_block_diag_matrix(
     structure, where equations and variables are connected if the corresponding
     matrix entry is non-zero. The connected components of this graph then define the
     blocks in the permuted matrix.
+
+    This function is not used in PorePy, because it was replaced by a more targeted
+    :func:`rearrange_matrix_as_array_of_structures`. It remains here because it covers
+    the general case, and therefore might be useful at some point.
 
     Notes:
 

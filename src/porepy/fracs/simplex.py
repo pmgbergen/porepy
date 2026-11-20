@@ -175,6 +175,15 @@ def line_grid_from_gmsh(
     if constraints is None:
         constraints = np.empty(0, dtype=int)
 
+    phys_name_stem_1d = kwargs.pop(
+        "physical_name_stem_1d", PhysicalNames.FRACTURE.value
+    )
+    phys_name_stem_0d = kwargs.pop(
+        "physical_name_stem_0d",
+        PhysicalNames.FRACTURE_INTERSECTION_POINT.value,
+    )
+    sort_1d_nodes = kwargs.pop("sort_1d_nodes", True)
+
     start_time = time.time()
 
     out_file = file_name.with_suffix(".msh")
@@ -187,11 +196,18 @@ def line_grid_from_gmsh(
         cells,
         phys_names,
         cell_info,
-        line_tag=PhysicalNames.FRACTURE.value,
+        line_tag=phys_name_stem_1d,
         constraints=constraints,
+        sort_1d_nodes=sort_1d_nodes,
         **kwargs,
     )
-    g_0d = msh_2_grid.create_0d_grids(pts, cells, phys_names, cell_info)
+    g_0d = msh_2_grid.create_0d_grids(
+        pts,
+        cells,
+        phys_names,
+        cell_info,
+        target_tag_stem=phys_name_stem_0d,
+    )
     grids: list[list[pp.Grid]] = [g_1d, g_0d]  # type: ignore
 
     logger.info(

@@ -63,6 +63,11 @@ class ConstitutiveLawsThermoporomechanics(
     def stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Thermo-poromechanical stress operator.
 
+        The stress is the sum of the reference stress, see
+        :meth:`~.LinearElasticMechanicalStress.reference_stress`,
+        the mechanical stress, the pressure stress and the thermal stress. The
+        mechanical stress is measured relative to the reference state.
+
         Parameters:
             subdomains: List of subdomains where the stress is defined.
 
@@ -72,7 +77,8 @@ class ConstitutiveLawsThermoporomechanics(
         """
         # Simply add the pressure and temperature terms to the mechanical stress
         traction = (
-            self.mechanical_stress(subdomains)
+            self.reference_stress(subdomains)
+            + self.mechanical_stress(subdomains)
             + self.pressure_stress(subdomains)
             + self.thermal_stress(subdomains)
         )

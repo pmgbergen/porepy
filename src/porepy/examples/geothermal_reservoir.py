@@ -34,7 +34,6 @@ from porepy.applications.md_grids.model_geometries import (
     TwoEllipticFractures3d,
     TwoWells3d,
 )
-from porepy.numerics.nonlinear import line_search
 from porepy.viz.data_saving_model_mixin import FractureDeformationExporting
 
 logger = logging.getLogger(__name__)
@@ -79,7 +78,7 @@ class WellBoundaryConditions(pp.PorePyModel):
         # mixin class.
         values = super().bc_values_pressure(bg)  # type: ignore[misc]
         if self.is_well_grid(sd):
-            well = self.well_network.wells[sd.tags["parent_well_index"]]
+            well = self.well_network.wells[sd.well_num]
             well_tag = well.tags["well_name"]
             # Find indices of the well boundary sides.
             domain_sides = self.domain_boundary_sides(bg)
@@ -89,7 +88,7 @@ class WellBoundaryConditions(pp.PorePyModel):
             values[inds] = self.units.convert_units(
                 self.get_well_value(
                     self.well_protocols(well_tag, "pressures"),
-                    self.time_manager.schedule,
+                    self.time_manager.schedule.get_array(),
                     self.time_manager.time,
                 ),
                 "Pa",
@@ -108,7 +107,7 @@ class WellBoundaryConditions(pp.PorePyModel):
         sd = bg.parent
         values = super().bc_values_temperature(bg)  # type: ignore[misc]
         if self.is_well_grid(sd):
-            well_tag = self.well_names[sd.tags["parent_well_index"]]
+            well_tag = self.well_names[sd.well_num]
             # Find indices of the well boundary sides.
             domain_sides = self.domain_boundary_sides(bg)
             inds = domain_sides.top if self.nd == 3 else domain_sides.north
@@ -116,7 +115,7 @@ class WellBoundaryConditions(pp.PorePyModel):
             values[inds] = self.units.convert_units(
                 self.get_well_value(
                     self.well_protocols(well_tag, "temperatures"),
-                    self.time_manager.schedule,
+                    self.time_manager.schedule.get_array(),
                     self.time_manager.time,
                 ),
                 "K",
@@ -165,7 +164,7 @@ class WellBoundaryConditions(pp.PorePyModel):
         Returns:
             Array of protocol values, one entry per scheduled time point.
         """
-        num_times = self.time_manager.schedule.size
+        num_times = self.time_manager.schedule.get_array().size
         raw = self.params.get(f"{well_tag}_{variable}", 0.0)
         if isinstance(raw, (int, float)):
             return np.full(num_times, float(raw))
@@ -208,7 +207,7 @@ class NeumannWellBCsFirstTimeInterval(pp.PorePyModel):
         """
         if (
             self.is_well_grid(sd)
-            and self.time_manager.time <= self.time_manager.schedule[1]
+            and self.time_manager.time <= self.time_manager.schedule.get_array()[1]
         ):
             # Before start of injection, impose Neumann BCs on well grids. A zero-flux
             # condition is imposed by default when no BC values are specified. The <=
@@ -233,7 +232,7 @@ class NeumannWellBCsFirstTimeInterval(pp.PorePyModel):
         """
         if (
             self.is_well_grid(sd)
-            and self.time_manager.time <= self.time_manager.schedule[1]
+            and self.time_manager.time <= self.time_manager.schedule.get_array()[1]
         ):
             # Before start of injection, impose Neumann BCs on well grids. A zero-flux
             # condition is imposed by default when no BC values are specified. The <=
@@ -281,7 +280,7 @@ class GeothermalReservoirWellBCs(  # type: ignore[misc]
 
 def set_model_params():
     # Adjust solid values, while using default values for water.
-    solid_values = cast(dict[str, float], pp.solid_values.basalt)
+    solid_values = cast(dict[str, float], pp.solid_values.basalt.copy())
     solid_values.update(
         {
             "dilation_angle": 0.1,  # [rad]
@@ -357,6 +356,9 @@ def set_model_params():
             "cell_size": length_scale / 5.0,
             "cell_size_fracture": fracture_size * length_scale / 2.5,
         },
+        "well_meshing_arguments": {
+            "cell_size": length_scale / 10.0,
+        },
         "fracture_params": {  # Other options are available in the geometry mixin.
             "fracture_major_axes": np.array(
                 (fracture_size, fracture_size)
@@ -390,7 +392,7 @@ def set_solver_params():
         # improving the robustness of the nonlinear solver at the cost of some
         # additional computational overhead. Delete/comment the following lines for the
         # default Newton's method.
-        "nonlinear_solver": line_search.ConstraintLineSearchNonlinearSolver,
+        "nonlinear_solver": pp.solvers.ConstraintLineSearchNonlinearSolver,
         # Set to 1 to use turn on a residual-based line search. This involves some extra
         # residual evaluations and may be quite costly.
         "global_line_search": 0,
@@ -402,6 +404,14 @@ def set_solver_params():
     return solver_params
 
 
-if __name__ == "__main__":
+def run_example() -> list[pp.PorePyModel]:
+    """Run the geothermal reservoir example and return the model."""
+    models: list[pp.PorePyModel] = []
     model = GeothermalReservoirWellBCs(set_model_params())
-    pp.run_time_dependent_model(model, set_solver_params())
+    pp.ModelRunner(model, set_solver_params()).run()
+    models.append(model)
+    return models
+
+
+if __name__ == "__main__":
+    run_example()

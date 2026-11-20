@@ -511,7 +511,13 @@ class FractureNetwork(ABC):
 
             distances = gmsh.model.occ.getDistance(self.nd - 1, f_0, self.nd - 1, f_1)
 
-            if distances[0] > mesh_size_computer.refinement_threshold():
+            if (
+                distances[0] > mesh_size_computer.refinement_threshold()
+                or distances[0] < self._tol
+            ):
+                # No refinement for distant or intersecting entities. The latter is a
+                # modeling choice which is necessary to avoid excessive refinement (and
+                # computational cost in mesh construction) for intersecting fractures.
                 continue
 
             # Compute the points to be inserted on both fractures. Insert them.

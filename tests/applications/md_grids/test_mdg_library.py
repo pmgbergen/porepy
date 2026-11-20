@@ -210,7 +210,7 @@ class TestMixedDimensionalGrids:
         )
         self.domain = network.domain
         self.check_matrix("simplex")
-        self.check_fractures(6, [7, 7, 4, 4, 2, 2])
+        self.check_fractures(6, [8, 8, 4, 4, 2, 2])
         self.check_intersections(9)
         self.check_domain(1, 1)
 

@@ -14,6 +14,7 @@ The tests combine simple unit tests and comparisons of norm computations for:
 
 """
 
+from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
@@ -26,6 +27,7 @@ from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
+from porepy.numerics.ad.equation_system import GridEntity
 
 
 @pytest.fixture(scope="module")
@@ -53,12 +55,12 @@ def test_euclidean_metric_basic():
     """Simple unit test of EuclideanMetric - independent of models."""
     m = pp.EuclideanMetric()
     arr = np.array([3.0, 4.0])
-    assert np.isclose(m(arr), 5.0 / np.sqrt(2))
-    assert m(np.array([])) == 0.0
-    assert m(np.array([1.0])) == 1.0
+    assert np.isclose(m(arr)["norm"], 5.0 / np.sqrt(2))
+    assert m(np.array([]))["norm"] == 0.0
+    assert m(np.array([1.0]))["norm"] == 1.0
     for i in range(1, 10):
         arr = np.ones(i)
-        assert np.isclose(m(arr), 1.0)
+        assert np.isclose(m(arr)["norm"], 1.0)
 
 
 @pytest.mark.parametrize(
@@ -73,7 +75,7 @@ def test_euclidean_metric_on_grids(orthogonal_2d_model, assignment, expected_val
     m = pp.EuclideanMetric()
     for g in orthogonal_2d_model.mdg.subdomains():
         arr = assignment(g.num_cells)
-        assert np.isclose(m(arr), expected_value(g.num_cells))
+        assert np.isclose(m(arr)["norm"], expected_value(g.num_cells))
 
 
 @pytest.mark.parametrize(
@@ -84,7 +86,7 @@ def test_euclidean_metric_on_grids(orthogonal_2d_model, assignment, expected_val
     ],
 )
 def test_variable_based_euclidean_metric_on_grids(
-    orthogonal_2d_model, assignment, expected_value
+    orthogonal_2d_model: pp.PorePyModel, assignment, expected_value
 ):
     """Test integration of VariableBasedEuclideanMetric in models with grids."""
     m = pp.VariableBasedEuclideanMetric(orthogonal_2d_model)
@@ -119,7 +121,7 @@ def test_variable_based_euclidean_metric_on_grids(
         assert np.isclose(value, expected_value(len(dofs)))
 
 
-def test_variable_based_lebesgue_metric_on_grids(orthogonal_2d_model):
+def test_variable_based_lebesgue_metric_on_grids(orthogonal_2d_model: pp.PorePyModel):
     """Test integration of VariableBasedLebesgueMetric in models with grids.
 
     Check that the integration of 1-s over the domain results in the expected L2 norm,
@@ -142,9 +144,9 @@ def test_variable_based_lebesgue_metric_on_grids(orthogonal_2d_model):
     variables = orthogonal_2d_model.equation_system.variables
     result = {v.name: 0.0 for v in variables}
     for v in variables:
-        domain = v.domain
+        domain = v.domains[0]
         volume = domain.cell_volumes.sum()
-        dimensionality = v._cells
+        dimensionality = v.target.dof_info.cells
         result[v.name] += volume * dimensionality
     for name in result:
         result[name] = np.sqrt(result[name])
@@ -161,26 +163,29 @@ def test_variable_based_lebesgue_metric_on_grids(orthogonal_2d_model):
     ],
 )
 def test_equation_based_euclidean_metric_on_grids(
-    orthogonal_2d_model, assignment, expected_value
+    orthogonal_2d_model: pp.PorePyModel, assignment, expected_value
 ):
     """Test integration of EquationBasedEuclideanMetric in models with grids."""
     # Generate a dummy residual array filled with ones.
-    # NOTE: Evaluate Jacobian to initialize the equation system properly.
-    _, dummy_residual_array = orthogonal_2d_model.equation_system.assemble()
+    dummy_residual_array = orthogonal_2d_model.equation_system.assemble(
+        evaluate_jacobian=False
+    )
 
-    # Define array and expected norm values.
-    equations = orthogonal_2d_model.equation_system.equations
+    # Define array and expected norm values from the same row arrangement as the
+    # assembled residual.
+    equation_indexer = orthogonal_2d_model.equation_system.equation_indexer
+    equation_blocks: dict[str, list[np.ndarray]] = {}
+    for equation, indices in equation_indexer.indices.items():
+        equation_blocks.setdefault(equation.name, []).append(indices)
+
     result = {}
-    for name in equations:
-        if name not in orthogonal_2d_model.equation_system.assembled_equation_indices:
-            continue
-        dofs = orthogonal_2d_model.equation_system.assembled_equation_indices[name]
-        if len(dofs) == 0:
-            # Expect zero norm for empty equations
+    for name, index_blocks in equation_blocks.items():
+        indices = np.concatenate(index_blocks)
+        if indices.size == 0:
             result[name] = 0.0
             continue
-        dummy_residual_array[dofs] = assignment(len(dofs))
-        result[name] = expected_value(len(dofs))
+        dummy_residual_array[indices] = assignment(indices.size)
+        result[name] = expected_value(indices.size)
 
     # Compute Lebesgue metric values.
     m = pp.EquationBasedEuclideanMetric(orthogonal_2d_model)
@@ -198,52 +203,94 @@ def test_equation_based_euclidean_metric_on_grids(
     assert deepdiff_result == {}
 
 
-def test_equation_based_lebesgue_metric_on_grid(orthogonal_2d_model):
-    """Test whether the integration of 1-s over the domain results in volume."""
+@dataclass(frozen=True)
+class OnDomain(pp.solvers.DomainFilter):
+    """Helper domain filter used in the tests:
+    - :func:`test_equation_based_metric_with_restricted_indexer`
+    - :func:`test_variable_based_metric_with_restricted_indexer`
 
-    # Fetch the equations.
-    equations = orthogonal_2d_model.equation_system.equations
+    """
 
-    # Generate a dummy residual array filled with ones scaled with the cell volumes.
-    # NOTE: Evaluate Jacobian to initialize the equation system properly.
-    _, dummy_residual_array = orthogonal_2d_model.equation_system.assemble()
-    dummy_residual_array.fill(1.0)
+    domain: pp.GridLike
 
-    # Scale with the right cell volumes.
-    # Simultaneously compute the expected L2 norm of the 1 vector (incl dimensionality).
-    result = {name: 0.0 for name in equations}
-    for eqn in equations:
-        domains = orthogonal_2d_model.equation_system.equation_image_space_composition[
-            eqn
-        ].keys()
-        if len(domains) == 0:
-            continue
-        indices = orthogonal_2d_model.equation_system.assembled_equation_indices[eqn]
-        cell_volumes = np.hstack([_sd.cell_volumes for _sd in domains])
-        eq_dim = orthogonal_2d_model.equation_system.equation_image_size_info[eqn][
-            "cells"
-        ]
-        dummy_residual_array[indices] *= np.repeat(cell_volumes, repeats=eq_dim)
-        result[eqn] += sum(cell_volumes) * eq_dim
+    def filter(self, domain, model: pp.PorePyModel) -> bool:
+        return domain == self.domain
 
-    # Take square root to get L2 norm.
-    for name in result:
-        result[name] = np.sqrt(result[name])
 
-    # Compute Lebesgue metric values.
-    m = pp.EquationBasedLebesgueMetric(orthogonal_2d_model)
-    metric_values = m(dummy_residual_array)
-
-    # Make sure that the dictionaries are the same.
-    deepdiff_result = DeepDiff(
-        result,
-        metric_values,
-        significant_digits=6,
-        ignore_order=True,
-        number_format_notation="e",
-        ignore_numeric_type_changes=True,
+@pytest.mark.parametrize(
+    "metric_class", [pp.EquationBasedEuclideanMetric, pp.EquationBasedLebesgueMetric]
+)
+def test_equation_based_metric_with_restricted_indexer(
+    orthogonal_2d_model: pp.PorePyModel, metric_class: type
+):
+    """Metric must compute residual only for the given equations."""
+    # Get the first 3 equations an assemble residual only for them. They are:
+    # [normal contact on grid 1; normal contact on grid 2; tangential contact on grid 1]
+    all_fractures = orthogonal_2d_model.mdg.subdomains(dim=1)
+    equations = {
+        "normal_fracture_deformation_equation": all_fractures,
+        "tangential_fracture_deformation_equation": [all_fractures[0]],
+    }
+    residual = orthogonal_2d_model.equation_system.assemble(
+        evaluate_jacobian=False, equations=equations
     )
-    assert deepdiff_result == {}
+
+    # Assemble and evaluate the metric.
+    metric = metric_class(
+        orthogonal_2d_model,
+        equation_tags=[
+            pp.solvers.EquationTag(name="normal_fracture_deformation_equation"),
+            pp.solvers.EquationTag(
+                name="tangential_fracture_deformation_equation",
+                defined_on=OnDomain(domain=all_fractures[0]),
+            ),
+        ],
+    )
+    norms = metric(residual)
+
+    # It will be only 2 norms: for normal contact (on both grids) and tangential (on a
+    # single grid).
+    assert len(norms) == 2
+    # The returned keys must only include expected equation names.
+    assert set(norms) == set(equations)
+    # The values must be scalar numbers.
+    assert all(np.isscalar(val) for val in norms.values())
+
+
+@pytest.mark.parametrize(
+    "metric_class", [pp.VariableBasedEuclideanMetric, pp.VariableBasedLebesgueMetric]
+)
+def test_variable_based_metric_with_restricted_indexer(
+    orthogonal_2d_model: pp.PorePyModel, metric_class: type
+):
+    """Metric must compute solution norm only for the given variables."""
+    # Get the first 3 variables an assemble residual only for them. They are:
+    # [contact traction on grid 1; contact traction on grid 2; pressure on grid 0].
+    variables = list(orthogonal_2d_model.equation_system.variables)[:3]
+    solution = orthogonal_2d_model.equation_system.evaluate(variables)
+    solution = np.concatenate(solution)
+
+    # Assemble and evaluate the metric.
+    metric = metric_class(
+        orthogonal_2d_model,
+        variable_tags=[
+            pp.solvers.VariableTag(name="contact_traction"),
+            pp.solvers.VariableTag(
+                name="pressure",
+                defined_on=OnDomain(
+                    domain=orthogonal_2d_model.mdg.subdomains(dim=2)[0]
+                ),
+            ),
+        ],
+    )
+    norms = metric(solution)
+
+    # It will be only 2 norms: for contact traction (on both grids) and pressure.
+    assert len(norms) == 2
+    # The returned keys must only include expected variable names.
+    assert set(norms) == set(variable.name for variable in variables)
+    # The values must be scalar numbers.
+    assert all(np.isscalar(val) for val in norms.values())
 
 
 class UnitSquare:
@@ -322,7 +369,7 @@ class DummyEquations(pp.PorePyModel):
         """Set dummy equations based on the polynomial expression."""
         subdomains = self.mdg.subdomains()
         sd_eq = self.sd_eq(subdomains)
-        self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
+        self.equation_system.set_equation(sd_eq)
 
 
 class SimpleVolumeIntegralMixin(pp.models.constitutive_laws.DimensionReduction):
@@ -384,8 +431,8 @@ def test_variable_based_lebesgue_metric_with_model(random_polynomial_setup):
     """Test integral of a random polynomial expression via variables."""
     # Evaluate the numerical norm using the VariableBasedLebesgueMetric.
     model = DummyModel()
-    m_var = pp.VariableBasedEuclideanMetric(model)
     model.prepare_simulation()
+    m_var = pp.VariableBasedEuclideanMetric(model)
 
     # Use cell centers to define the polynomial expression.
     assert len(model.mdg.subdomains()) == 1
@@ -428,8 +475,8 @@ def test_equation_based_lebesgue_metric_with_model(random_polynomial_setup):
             "exp_y": random_polynomial_setup["exponents_y"],
         }
     )
-    m_eq = pp.EquationBasedLebesgueMetric(model)
     model.prepare_simulation()
+    m_eq = pp.EquationBasedLebesgueMetric(model)
 
     # Use cell centers and pass as values for the model variables.
     assert len(model.mdg.subdomains()) == 1
@@ -438,7 +485,8 @@ def test_equation_based_lebesgue_metric_with_model(random_polynomial_setup):
 
     # Compute the Lebesgue norm of the equation which corresponds to the
     # mass weighted polynomial expression, defined above.
-    _, dummy_residual_array = model.equation_system.assemble()
+    linear_system = model.equation_system.assemble()
+    dummy_residual_array = linear_system.rhs
     metric_values_eq = m_eq(dummy_residual_array)
     l2_norm_numerical = metric_values_eq["sd_eq"]
 

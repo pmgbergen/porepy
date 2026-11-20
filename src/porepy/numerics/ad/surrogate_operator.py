@@ -17,10 +17,10 @@ Note:
 on some specified grids, at a specified time and iterate index.
 
 Note:
-    A connection between operator and factory class is established via
-    :attr:`SurrogateOperator.fetch_data`. Since operators are in general *not aware* of
-    the mixed-dimensional grid, a connection to the factory is required to fetch the
-    data for the correct grids, at the correct time and iterate index.
+    A connection between operator and factory class is established via the argument
+    ``fetch_data`` of :class:`SurrogateOperator`. Since operators are in general *not
+    aware* of the mixed-dimensional grid, a connection to the factory is required to
+    fetch the data for the correct grids, at the correct time and iterate index.
     Therefore, the class :class:`SurrogateOperator` should not be instantiated directly,
     but only calling the factory class.
 
@@ -121,17 +121,20 @@ Example:
 
 from __future__ import annotations
 
-from functools import lru_cache
-from typing import Any, Callable, Optional, Sequence, cast
+import operator
+from functools import lru_cache, reduce
+from typing import Any, Callable, Mapping, Optional, Sequence, Union, cast
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.forward_mode import AdArray
+from porepy.numerics.ad.ad_array import AdArrayBase
 
+from ._operator_states import IterativeOperator, TimeDependentOperator
 from .functions import FloatType
-from .operators import IterativeOperator, Operations, TimeDependentOperator
+from .grid_entity import GridEntities, GridEntity
+from .operators import Operations, Operator
 
 __all__ = [
     "SurrogateOperator",
@@ -139,10 +142,7 @@ __all__ = [
 ]
 
 
-class SurrogateOperator(
-    TimeDependentOperator,
-    IterativeOperator,
-):
+class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
     """Operator representing a :class:`SurrogateFactory` in AD operator form on
     specified subdomains or interfaces, at a time or iterate index.
 
@@ -152,8 +152,10 @@ class SurrogateOperator(
     The surrogate operator is essentially like a
     :class:`~porepy.numerics.ad.operator_functions.Function`. Upon evaluation it fetches
     the stored values and the derivative values.
-    The derivative values are inserted into the Jacobians of the first-order
-    dependencies (identity blocks).
+    The Jacobian is assembled from the derivative values and the Jacobians of the
+    first-order dependencies by the chain rule. Since the dependencies are variables,
+    with identity blocks as Jacobians, the derivative values end up in the columns of
+    the respective variables.
 
     For an example of how to use it, see
     :module:`~porepy.numerics.ad.surrogate_operator`.
@@ -163,7 +165,13 @@ class SurrogateOperator(
         domains: Arguments to its call.
         children: The first-order dependencies of the called
             :class:`SurrogateFactory` in AD form (defined on the same ``domains``).
-
+        fetch_data: A function returning the stored data for a surrogate operator on a
+            grid, see :meth:`SurrogateFactory.fetch_data`.
+        dof_info: Mapping from grid entities to the number of DOFs per entity. Defaults
+            to ``{GridEntity.cells: 1}``.
+        domain_type: The type of domain (subdomains or interfaces) that *domains*
+            represents. If not given, it is inferred from the grid types found in
+            *domains*.
     """
 
     def __init__(
@@ -171,20 +179,30 @@ class SurrogateOperator(
         name: str,
         domains: Sequence[pp.Grid] | Sequence[pp.MortarGrid],
         children: Sequence[pp.ad.Variable],
+        fetch_data: Callable[[SurrogateOperator, pp.GridLike, bool], np.ndarray],
+        dof_info: Optional[Union[GridEntities, Mapping[GridEntity, int]]] = None,
+        domain_type: Optional[pp.ad.DomainType] = None,
     ) -> None:
-        super().__init__(
-            name=name,
-            domains=domains,
-            operation=Operations.evaluate,
-            children=children,
+        op_space = pp.ad.OperatorSpace.from_domains(
+            list(domains), dof_info, domain_type=domain_type
         )
 
-        self._fetch_data: Callable[[SurrogateOperator, pp.GridLike, bool], np.ndarray]
+        super().__init__(
+            name=name,
+            operation=Operations.evaluate,
+            children=children,
+            source=op_space,
+            target=op_space,
+        )
+
+        self._fetch_data: Callable[
+            [SurrogateOperator, pp.GridLike, bool], np.ndarray
+        ] = fetch_data
         """A function returning the stored data for a surrogate operator on a grid,
         which is time step and iterate index dependent.
 
-        This function is assigned by the factory class :class:`SurrogateFactory`
-        which has a reference to the md-grid and must not be touched by the user.
+        This function is passed by the factory class :class:`SurrogateFactory`, which
+        has a reference to the md-grid, and must not be touched by the user.
 
         Note:
             This method is private in the surrogate **operator**, because it is not
@@ -204,9 +222,12 @@ class SurrogateOperator(
         """String representation giving information on name, time and iterate index, as
         well as domains and dependencies."""
 
+        domain_type = self._source.domain_type if self._source else None
+        num_grids = len(self.domains)
+        domain_label = domain_type.value if domain_type is not None else "unknown"
         msg = (
             f"Surrogate operator {self.name}.\n"
-            + f"\nDefined on {len(self._domains)} {self._domain_type}.\n"
+            + f"\nDefined on {num_grids} {domain_label}.\n"
             + f"Dependent on {len(self.children)} independent variables.\n"
         )
 
@@ -232,28 +253,104 @@ class SurrogateOperator(
         op.children = [child.previous_iteration(steps=steps) for child in self.children]
         return op
 
-    def func(self, *args: FloatType) -> float | np.ndarray | AdArray:
-        """See :meth:`~porepy.numerics.ad.operator_functions.AbstractFunction.func`.
+    def func(self, *args: FloatType) -> float | np.ndarray | AdArrayBase:
+        """Evaluate this operator, given its children in evaluated form.
+
+        The values are those stored for this operator at its time or iterate index, see
+        :meth:`get_values`. If any argument is an Ad array, the result also holds the
+        derivatives, see :meth:`_apply_chain_rule`.
 
         Note:
             This class cannot inherit from
             :class:`~porepy.numerics.ad.operator_functions.AbstractFunction` because
             that parent would block arithmetic overloads.
-            But it uses the operation ``evaluate`` and the ``AbstractFunction.func``
-            with ``self`` as an explicit argument.
+            But it uses the operation ``evaluate`` and, like ``AbstractFunction``,
+            implements ``func``.
+
+        Parameters:
+            *args: The children of this operator (its dependencies) in evaluated form.
+
+        Returns:
+            The values as a numpy array if no argument is an Ad array. Otherwise an Ad
+            array holding the values and the derivatives.
 
         """
-        # Use the functionality of AbstractFunction to call get_values and get_jacobian
-        # correctly based on the types of input arguments.
-        # Ignore arg-type of self, because it does not inherit from AbstractFunction.
-
         # TODO The concept of Operator functions needs to be revisited.
         # Most likely they will not be operators anymore, but operator factories.
         # Hence there will be no blocking of arithmetic overloads and we can rework the
         # hierarchical structure between this class and AbstractFunction
-        return pp.ad.AbstractFunction.func(self, *args)  # type:ignore[arg-type]
+        values = self.get_values(*args)
+        if not any(isinstance(arg, AdArrayBase) for arg in args):
+            return values
+        return self._apply_chain_rule(values, *args)
 
-    def get_values(self, *args: float | np.ndarray | AdArray) -> np.ndarray:
+    def _apply_chain_rule(
+        self, values: np.ndarray, *args: float | np.ndarray | AdArrayBase
+    ) -> AdArrayBase:
+        r"""Assemble the Jacobian of this operator by the chain rule.
+
+        With :math:`f` denoting this operator and :math:`a_k` its arguments, the
+        Jacobian is
+
+        .. math::
+
+            \frac{\partial f}{\partial x} = \sum_k \frac{\partial f}{\partial a_k}
+            \frac{\partial a_k}{\partial x},
+
+        where :math:`\partial f / \partial a_k` are the stored derivative values, and
+        :math:`\partial a_k / \partial x` are the Jacobians of the arguments. Arguments
+        which are not Ad arrays do not contribute to the Jacobian.
+
+        If the arguments are variables, as they are when this operator is created by
+        :class:`SurrogateFactory`, the Jacobian of each argument is an identity block,
+        and the derivative values end up in the columns of the respective variable. The
+        chain rule makes no assumptions on the Jacobians of the arguments, though, and
+        is valid also for other arguments.
+
+        The representation of the result (diagonal or a standard AdArray) follows from
+        the arguments, see :class:`~porepy.numerics.ad.ad_array.AdArrayBase`: The result
+        is diagonal if all contributing arguments are, and sparse otherwise.
+
+        Parameters:
+            values: The values of this operator, see :meth:`get_values`.
+            *args: The children of this operator in evaluated form. At least one of them
+                must be an Ad array.
+
+        Raises:
+            ValueError: If the number of rows in the stored derivative values differs
+                from the number of arguments.
+
+        Returns:
+            An Ad array with ``values`` as value and the Jacobian given by the chain
+            rule.
+
+        """
+        derivatives = np.hstack([self._fetch_data(self, g, True) for g in self.domains])
+        if derivatives.shape[0] != len(args):
+            raise ValueError(
+                f"Surrogate operator {self.name} has derivatives with respect to"
+                f" {derivatives.shape[0]} dependencies, but {len(args)} arguments."
+            )
+        # Row k of derivatives holds the derivative of this operator with respect to
+        # argument k, one value per element. Multiplying an Ad array by a numpy array
+        # scales the rows of its Jacobian elementwise, thus arg * derivative is the term
+        # diag(df/da_k) * da_k/dx of the chain rule. Arguments which are not Ad arrays
+        # have no Jacobian and are skipped. Summing the terms with the arithmetic of
+        # Ad arrays lets the representation of the result follow that of the
+        # arguments. The caller ensures that at least one argument is an Ad array, so
+        # the list is not empty.
+        result = reduce(
+            operator.add,
+            [
+                arg * derivative
+                for arg, derivative in zip(args, derivatives)
+                if isinstance(arg, AdArrayBase)
+            ],
+        )
+        # The value of the sum above is not the value of this operator; replace it.
+        return result.copy(val=values)
+
+    def get_values(self, *args: float | np.ndarray | AdArrayBase) -> np.ndarray:
         """Fetches the values stored for this operator at its time or iterate index.
 
         Note:
@@ -265,61 +362,27 @@ class SurrogateOperator(
         """
         return np.hstack([self._fetch_data(self, g, False) for g in self.domains])
 
-    def get_jacobian(self, *args: float | np.ndarray | AdArray) -> sps.spmatrix:
-        """Fetches the derivative values stored for this operator at its time or iterate
-        index.
+    def get_jacobian(
+        self, *args: float | np.ndarray | AdArrayBase
+    ) -> sps.spmatrix | sps.sparray:
+        """Assemble the Jacobian of this operator in the full representation.
 
-        Note:
-            The assumption here is that ``*args`` are of first order (pure variables)
-            with only 1 identity block in their Jacobian.
+        Parameters:
+            *args: The children of this operator in evaluated form. At least one of them
+                must be an Ad array.
 
-            In this case, the derivative values of this operator w.r.t. its dependencies
-            can be safely assigned.
+        Raises:
+            ValueError: If no argument is an Ad array, or as described in
+                :meth:`_apply_chain_rule`.
 
-            If ``*args`` is a general operator with multiple derivatives bundled in
-            their Jacobians, the number of provided derivative values and required
-            values can mismatch. Hence there is no clear way to insert the provided
-            derivative values in the Jacobian.
+        Returns:
+            The Jacobian, assembled by the chain rule as described in
+            :meth:`_apply_chain_rule`, as a sparse matrix.
 
         """
-
-        derivatives = np.hstack([self._fetch_data(self, g, True) for g in self.domains])
-
-        # NOTE: The Jacobians of individual args must be of same shape, with a
-        # diagonal (identity) in some column block per arg.
-        # Otherwise this operator has no way of knowing in which column to insert the
-        # derivative values.
-        # Also, the comlete Jacobian of this operator is created by summing the
-        # Jacobians of arguments, with the derivative data inserted in the diagonal
-        # of the block, per argument/dependency/provided derivative value.
-
-        # Checking Jacobian shapes to assert they are consistent
-        shapes = set()
-        for arg in args:
-            if isinstance(arg, AdArray):
-                shapes.add(arg.jac.shape)
-        assert len(shapes) <= 1, (
-            "Inconsistent shapes of Jacobians of dependencies."
-            + " Cannot insert provided derivative values safely."
-        )
-
-        # Get the size of the Jacobian of the operator.
-        num_rows, num_cols = shapes.pop() if shapes else (0, 0)
-        num_args = len(args)
-
-        # By assumption, there will be one argument per row per dependency.
-        row_ptr = np.arange(0, num_args * num_rows + 1, num_args)
-
-        # Make sure all the Jacobians are CSR matrices before fetching the indices of
-        # the data.
-        csr_jacs = [arg.jac.tocsr() for arg in args if isinstance(arg, AdArray)]
-        # Stack the derivative values, then ravel them in Fortran order, so that the
-        # indices for the zeroth row comes in the first num_args places etc.
-        indices = np.vstack([jac.indices for jac in csr_jacs]).ravel("F")
-        # Do the same for the data, which is the derivative values.
-        data = np.vstack(list(derivatives)).ravel("F")
-        # Create the sparse matrix in CSR format and return it.
-        return sps.csr_matrix((data, indices, row_ptr), shape=(num_rows, num_cols))
+        if not any(isinstance(arg, AdArrayBase) for arg in args):
+            raise ValueError("A Jacobian requires at least one Ad array as argument.")
+        return self._apply_chain_rule(self.get_values(*args), *args).full_jac
 
 
 def _check_expected_values(
@@ -431,7 +494,9 @@ class SurrogateFactory:
             dependencies are defined there.
         dof_info: ``default=None``
 
-            See
+            A :class:`~porepy.numerics.ad.grid_entity.GridEntities`, or (for backwards
+            compatibility) a mapping from :class:`GridEntity` to the number of DOFs
+            per that entity. See also
             :meth:`~porepy.numerics.ad.equation_system.EquationSystem.create_variables`.
 
             The number of DOFs of this expression is used to validate the shape of
@@ -449,16 +514,10 @@ class SurrogateFactory:
         name: str,
         mdg: pp.MixedDimensionalGrid,
         dependencies: Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]],
-        dof_info: Optional[dict[pp.ad.equation_system.GridEntity, int]] = None,
+        dof_info: Optional[Union[GridEntities, Mapping[GridEntity, int]]] = None,
     ) -> None:
         if len(dependencies) == 0:
             raise ValueError("Surrogate operators must have dependencies.")
-
-        if dof_info is None:
-            dof_info = {"cells": 1}
-
-        # help mypy with default values
-        dof_info = cast(dict[pp.ad.equation_system.GridEntity, int], dof_info)
 
         self._dependencies: Sequence[
             Callable[[pp.GridLikeSequence], pp.ad.Variable]
@@ -469,8 +528,13 @@ class SurrogateFactory:
         self._name: str = name
         """See :meth:`name`."""
 
-        self._dof_info: dict[pp.ad.equation_system.GridEntity, int] = dof_info
-        """Passed at insantiation, with default value leading to scalar, cell-wise dofs.
+        self._dof_info: Optional[GridEntities] = (
+            None if dof_info is None else GridEntities.from_mapping(dof_info)
+        )
+        """Passed at insantiation, normalized to a
+        :class:`~porepy.numerics.ad.grid_entity.GridEntities`. ``None`` leads to
+        scalar, cell-wise dofs (see
+        :meth:`~porepy.numerics.ad.operator_space.OperatorSpace.from_domains`).
         """
 
         self.mdg: pp.MixedDimensionalGrid = mdg
@@ -492,12 +556,19 @@ class SurrogateFactory:
         Raises:
             ValueError: If ``domains`` is not composed of either grids, mortar grids or
                 boundary grids.
+            TypeError: If a dependency is not a variable, see
+                :meth:`_check_dependency`.
+            ValueError: If a dependency is not defined on ``domains``, in the same
+                order, or has a different number of DOFs than this expression, see
+                :meth:`_check_dependency`.
 
         """
 
         # This is for completeness reasons, when calling equations on empty list
         if len(domains) == 0:
-            return pp.wrap_as_dense_ad_array(np.zeros((0,)), name=self.name)
+            return pp.wrap_as_dense_ad_array(
+                np.zeros((0,)), name=self.name, grids=domains
+            )
         # On the boundary, this is a Time-Dependent dense array
         elif all(isinstance(grid, pp.BoundaryGrid) for grid in domains):
             return pp.ad.TimeDependentDenseArray(self.name, domains)
@@ -511,27 +582,69 @@ class SurrogateFactory:
             # Call the provided method for obtaining children (independent variables) on
             # the domains.
             children = [child(domains_) for child in self._dependencies]
-
-            # Check if first-order dependency
-            assert all(isinstance(child, pp.ad.Variable) for child in children), (
-                "Surrogate operators must depend on independent variables, not"
-                + f" {[type(c) for c in children]}."
-            )
+            for child in children:
+                self._check_dependency(child, domains_)
 
             # always start with operator at current time step, current iterate
-            op = SurrogateOperator(
+            return SurrogateOperator(
                 name=self.name,
                 domains=domains_,
                 children=children,
+                fetch_data=self.fetch_data,
+                dof_info=self._dof_info,
             )
-
-            # assign the function which extracts the data
-            op._fetch_data = self.fetch_data
-
-            return op
         else:
             raise ValueError(
                 f"Unsupported domain configuration {[type(g) for g in domains]}."
+            )
+
+    def _check_dependency(
+        self,
+        dependency: pp.ad.Operator,
+        domains: Sequence[pp.Grid] | Sequence[pp.MortarGrid],
+    ) -> None:
+        """Check that a dependency, called on some domains, is consistent with the
+        surrogate operator on the same domains.
+
+        The values and derivative values of a surrogate operator are stacked in the
+        order of the domains it is called with, while the rows of a variable follow the
+        order of its sub-variables. In the evaluation, the derivative values are
+        combined with the rows of the dependencies, hence the two orders, as well as
+        the numbers of DOFs, must coincide.
+
+        Parameters:
+            dependency: A dependency of this expression, called on ``domains``.
+            domains: The domains this expression is called with.
+
+        Raises:
+            TypeError: If ``dependency`` is not a variable.
+            ValueError: If ``dependency`` is not defined on ``domains``, in the same
+                order, or if its number of DOFs differs from that of this expression on
+                ``domains``.
+
+        """
+        if not isinstance(dependency, pp.ad.Variable):
+            raise TypeError(
+                f"Surrogate operator {self.name} must depend on variables, not on"
+                f" {type(dependency)}."
+            )
+        if isinstance(dependency, pp.ad.MixedDimensionalVariable):
+            dependency_domains = [var.domain for var in dependency.sub_vars]
+        else:
+            dependency_domains = [dependency.domain]
+        if len(dependency_domains) != len(domains) or any(
+            a is not b for a, b in zip(dependency_domains, domains)
+        ):
+            raise ValueError(
+                f"Dependency {dependency.name} of surrogate operator {self.name} must"
+                " be defined on the domains the operator is called with, in the same"
+                " order."
+            )
+        num_dofs = sum(self.num_dofs_on_grid(grid) for grid in domains)
+        if dependency.size != num_dofs:
+            raise ValueError(
+                f"Dependency {dependency.name} of surrogate operator {self.name} has"
+                f" {dependency.size} DOFs, but the operator has {num_dofs}."
             )
 
     def fetch_data(
@@ -543,7 +656,7 @@ class SurrogateFactory:
         ``op`` has a time step or iterate index, which specifies which data should be
         fetched.
 
-        This function is assigned to :attr:`SurrogateOperator.fetch_data`
+        This function is passed to :class:`SurrogateOperator` as ``fetch_data``
         (a work-around such that the Ad operator has no reference to the md-grid like
         the other operators).
 
@@ -636,7 +749,7 @@ class SurrogateFactory:
 
         Returns:
             For boundary grids and interfaces it returns ``grid.num_cells`` multiplied
-            with ``dof_info['cells']``.
+            with ``dof_info.cells``.
             For subdomains, it returns information based on ``dof_info``,
             number of cells, number of faces and number of nodes in ``grid``.
 
@@ -644,20 +757,9 @@ class SurrogateFactory:
             TypeError: If ``grid`` is neither a boundary, interface or subdomain.
 
         """
-        if isinstance(grid, (pp.BoundaryGrid, pp.MortarGrid)):
-            # NOTE using default value of 1, because this is the general default value
-            # and only cells are supported on boundaries and interfaces
-            return self._dof_info.get("cells", 1) * grid.num_cells
-        elif isinstance(grid, pp.Grid):
-            # NOTE cannot use default value of scalar, cell-wise, to not mess with
-            # cases where the user defines only node- or face-wise dofs.
-            return (
-                self._dof_info.get("cells", 0) * grid.num_cells
-                + self._dof_info.get("faces", 0) * grid.num_faces
-                + self._dof_info.get("nodes", 0) * grid.num_nodes
-            )
-        else:
+        if not isinstance(grid, (pp.BoundaryGrid, pp.MortarGrid, pp.Grid)):
             raise TypeError(f"Unsupported type of grid {type(grid)}.")
+        return pp.ad.OperatorSpace.from_domains((grid,), self._dof_info).num_dofs()
 
     @property
     def name(self) -> str:

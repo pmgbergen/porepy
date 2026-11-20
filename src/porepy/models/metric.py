@@ -4,138 +4,240 @@ From plain Euclidean norms to model-specific L2 norms of states and equations.
 
 """
 
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
 from functools import partial
+from typing import Optional, Sequence, cast
 
 import numpy as np
 
 import porepy as pp
+from porepy.numerics.ad.grid_entity import GridEntity
+from porepy.numerics.ad.operator_space import OperatorSpace
 from porepy.numerics.ad.operators import DenseArray
 
 
-class EuclideanMetric:
-    """Plain Euclidean norm for variables and equations."""
+class Metric(ABC):
+    """Abstract base class for metrics used in convergence checks.
 
-    def _euclidean_norm(self, values: np.ndarray) -> float:
-        """Compute the Euclidean norm of an array.
-
-        Parameters:
-            values: array to compute the norm of.
-
-        Returns:
-            float: measure of values
-
-        """
-        return np.linalg.norm(values) / np.sqrt(values.size) if values.size > 0 else 0.0
-
-    def __call__(self, values: np.ndarray) -> float:
-        """Compute the Euclidean norm of an array.
-
-        Parameters:
-            values: array to compute the norm of.
-
-        Returns:
-            float: measure of values
-
-        """
-        return self._euclidean_norm(values)
-
-
-class VariableBasedEuclideanMetric(EuclideanMetric):
-    """Plain Euclidean norm for variables and equations, computed per variable and
-    equation block.
+    A metric maps an array of values (e.g., a nonlinear increment or a residual) to a
+    dictionary of named norms.
 
     """
 
-    def __init__(self, model) -> None:
-        self.model = model
+    @abstractmethod
+    def __call__(self, values: np.ndarray) -> dict[str, float]:
+        """Compute the norms of an array.
 
-    def __call__(self, values: np.ndarray) -> dict[str, float]:  # type: ignore[override]
+        Parameters:
+            values: Array to compute the norms of.
+
+        Returns:
+            Dictionary mapping a name (e.g., of a variable or equation) to its norm.
+
+        """
+        pass
+
+
+def _normalized_euclidean_norm(values: np.ndarray) -> float:
+    """Compute the Euclidean norm of an array, normalized by the root of its size.
+
+    Parameters:
+        values: Array to compute the norm of.
+
+    Returns:
+        Normalized norm of ``values``. Zero if ``values`` is empty.
+
+    """
+    return float(
+        np.linalg.norm(values) / np.sqrt(values.size) if values.size > 0 else 0.0
+    )
+
+
+def _initialize_indexer[T: (pp.ad.EquationOnDomain, pp.ad.Variable)](
+    model: pp.PorePyModel,
+    global_indexer: pp.ad.Indexer[T],
+    tags: Sequence[pp.solvers.OperatorTag[T]] | None,
+) -> pp.ad.Indexer[T]:
+    """Get the indexer to be used by a metric, restricted to ``tags`` if given.
+
+    Parameters:
+        model: The PorePy model, passed on when restricting the indexer.
+        global_indexer: Indexer over all variables or equations of the model.
+        tags: Tags defining a subset of variables or equations. If None, no
+            restriction is made.
+
+    Returns:
+        ``global_indexer`` if ``tags`` is None, otherwise an indexer restricted to the
+        entries identified by ``tags``.
+
+    """
+    if tags is not None:
+        # Restrict to a subset of variables or equations.
+        return global_indexer.construct_restricted_indexer_from_tags(
+            tags=tags, model=model
+        )
+    return global_indexer
+
+
+class EuclideanMetric(Metric):
+    """Plain Euclidean norm of an array, without splitting into variables or equations.
+
+    The norm is normalized by the square root of the array size. The result is a
+    dictionary with the single key ``"norm"``.
+
+    """
+
+    def __call__(self, values: np.ndarray) -> dict[str, float]:
+        """Compute the Euclidean norm of an array.
+
+        Parameters:
+            values: Array to compute the norm of.
+
+        Returns:
+            Dictionary with the key ``"norm"`` and the norm as value.
+
+        """
+        return {"norm": _normalized_euclidean_norm(values)}
+
+
+class VariableBasedEuclideanMetric(Metric):
+    """Plain Euclidean norm for variables, computed per variable block.
+
+    Parameters:
+        model: The model used to compute the metric.
+        variable_tags: Define a subset of variables to evaluate the metric on. If
+            None (default), uses all variables.
+
+    """
+
+    def __init__(
+        self,
+        model: pp.PorePyModel,
+        variable_tags: Optional[list[pp.solvers.VariableTag]] = None,
+    ) -> None:
+        self.model = model
+        """The PorePy model to access variable DoFs."""
+        self.variable_tags = variable_tags
+        """Define a subset of variables to evaluate the metric on. If None (default),
+        uses all variables.
+
+        """
+        self.variable_indexer: pp.ad.VariableIndexer | None = None
+        """Indexer for a subset of variables provided by :attr:`variable_tags`.
+        Initialized the first time the metric is called.
+
+        """
+
+    def __call__(self, values: np.ndarray) -> dict[str, float]:
         """Compute the Euclidean norm of each separate variable.
 
         Parameters:
-            values: algebraic representation of a mixed-dimensional variable
+            values: Algebraic representation of a mixed-dimensional variable.
 
         Returns:
-            dict[str, float]: measure of values for each variable block
+            Dictionary mapping each variable name to the norm of its block of
+            ``values``.
 
         """
-        # Collect variable blocks based on variable names
-        variable_names = [
-            variable.name for variable in self.model.equation_system.variables
-        ]
-        variable_blocks = {
-            (variable.name, variable.domain): (
-                self.model.equation_system.dofs_of([variable])
+        # Lazy initialization of variable indexer.
+        if self.variable_indexer is None:
+            self.variable_indexer = _initialize_indexer(
+                model=self.model,
+                global_indexer=self.model.equation_system.variable_indexer,
+                tags=self.variable_tags,
             )
-            for variable in self.model.equation_system.variables
-        }
-        concatenated_variable_blocks: dict[str, list[int]] = {
-            name: [] for name in set(variable_names)
-        }
-        for (name, _), indices in variable_blocks.items():
-            concatenated_variable_blocks[name].extend(indices)
 
         # Compute norms for each variable block
-        norms = {name: 0.0 for name in set(variable_names)}
-        for name, indices in concatenated_variable_blocks.items():
-            norms[name] = self._euclidean_norm(values[indices])
+        norms: dict[str, float] = {}
+        for name, domains_dofs in self.variable_indexer.group_by_name().items():
+            indices = np.concatenate(list(domains_dofs.values()))
+            norms[name] = _normalized_euclidean_norm(values[indices])
 
         return norms
 
 
-class EquationBasedEuclideanMetric(EuclideanMetric):
-    """Plain Euclidean norm for variables and equations, computed per variable and
-    equation block.
+class EquationBasedEuclideanMetric(Metric):
+    """Plain Euclidean norm for equations, computed per equation block.
+
+    Parameters:
+        model: The model used to compute the metric.
+        equation_tags: Define a subset of equations to evaluate the metric on. If
+            None (default), uses all equations.
 
     """
 
-    def __init__(self, model) -> None:
+    def __init__(
+        self,
+        model: pp.PorePyModel,
+        equation_tags: Optional[list[pp.solvers.EquationTag]] = None,
+    ) -> None:
         self.model = model
+        """The PorePy model to access equation DoFs."""
+        self.equation_tags = equation_tags
+        """Define a subset of equations to evaluate the metric on. If None (default),
+        uses all equations.
 
-    def __call__(self, values: np.ndarray) -> dict[str, float]:  # type: ignore[override]
+        """
+        self.equation_indexer: pp.ad.EquationIndexer | None = None
+        """Indexer for a subset of equations provided by :attr:`equation_tags`.
+        Initialized the first time the metric is called.
+
+        """
+
+    def __call__(self, values: np.ndarray) -> dict[str, float]:
         """Compute the Euclidean norm of each separate equation.
 
         Parameters:
             values: Algebraic representation of a mixed-dimensional equation.
 
         Returns:
-            dict[str, float]: measure of values for each equation block.
+            Dictionary mapping each equation name to the norm of its block of
+            ``values``.
 
         """
+        # Lazy initialization of equation indexer.
+        if self.equation_indexer is None:
+            self.equation_indexer = _initialize_indexer(
+                model=self.model,
+                global_indexer=self.model.equation_system.equation_indexer,
+                tags=self.equation_tags,
+            )
+
         norms = {}
-        equation_blocks = self.model.equation_system.assembled_equation_indices
-        for name, indices in equation_blocks.items():
-            norms[name] = self._euclidean_norm(values[indices])
+        for name, domains_dofs in self.equation_indexer.group_by_name().items():
+            indices = np.concatenate(list(domains_dofs.values()))
+            norms[name] = _normalized_euclidean_norm(values[indices])
         return norms
 
 
-class LebesgueMetric:
-    def __init__(self, model) -> None:
-        self.model = model
+def _lebesgue2_norm(
+    model: pp.PorePyModel,
+    values: DenseArray,
+    dim: int,
+    grids: pp.GridLikeSequence,
+) -> float:
+    """Compute the Lebesgue L2 norm of a variable or equation.
 
-    def _lebesgue2_norm(
-        self,
-        values: DenseArray,
-        dim: int,
-        grids: pp.GridLikeSequence,
-    ) -> float:
-        """Compute the Lebesgue L2 norm of a variable or equation.
+    Parameters:
+        model: The PorePy model, used to evaluate and integrate the norm.
+        values: Algebraic representation of a mixed-dimensional variable or
+            equation.
+        dim: Dimension of the variable or equation.
+        grids: Grids over which to integrate.
 
-        Parameters:
-            values: Algebraic representation of a mixed-dimensional variable or
-                equation.
-            dim: Dimension of the variable or equation.
-            grids: list of grids over which to integrate
+    Returns:
+        Lebesgue L2 norm of ``values`` over ``grids``.
 
-        Returns:
-            float: measure of values
-
-        """
-        l2_norm = pp.ad.Function(partial(pp.ad.l2_norm, dim), "l2_norm")
-        return np.sqrt(
+    """
+    domain_and_range = OperatorSpace.from_domains(grids)
+    l2_norm = pp.ad.Function(partial(pp.ad.l2_norm, dim), "l2_norm", domain_and_range)
+    return float(
+        np.sqrt(
             np.sum(
-                self.model.equation_system.evaluate(
-                    self.model.volume_integral(
+                model.equation_system.evaluate(
+                    model.volume_integral(
                         l2_norm(values) * l2_norm(values),
                         grids,
                         1,
@@ -143,10 +245,36 @@ class LebesgueMetric:
                 )
             )
         )
+    )
 
 
-class VariableBasedLebesgueMetric(LebesgueMetric):
-    """Lebesgue L2 norm for variables and equations, computed per variable block."""
+class VariableBasedLebesgueMetric(Metric):
+    """Lebesgue L2 norm for variables, computed per variable block.
+
+    Parameters:
+        model: The model used to compute the metric.
+        variable_tags: Define a subset of variables to evaluate the metric on. If
+            None (default), uses all variables.
+
+    """
+
+    def __init__(
+        self,
+        model: pp.PorePyModel,
+        variable_tags: Optional[list[pp.solvers.VariableTag]] = None,
+    ) -> None:
+        self.model = model
+        """The PorePy model to access variable DoFs."""
+        self.variable_tags = variable_tags
+        """Define a subset of variables to evaluate the metric on. If None (default),
+        uses all variables.
+
+        """
+        self.variable_indexer: pp.ad.VariableIndexer | None = None
+        """Indexer for a subset of variables provided by :attr:`variable_tags`.
+        Initialized the first time the metric is called.
+
+        """
 
     def __call__(self, values: np.ndarray) -> dict[str, float]:
         """Compute the Lebesgue L2 norm of each separate variable.
@@ -155,29 +283,42 @@ class VariableBasedLebesgueMetric(LebesgueMetric):
             values: Algebraic representation of a mixed-dimensional variable.
 
         Returns:
-            dict[str, float]: measure of values for each variable block.
+            Dictionary mapping each variable name to the norm of the corresponding
+            part of ``values``.
 
         """
+        # Lazy initialization of variable indexer.
+        if self.variable_indexer is None:
+            self.variable_indexer = _initialize_indexer(
+                model=self.model,
+                global_indexer=self.model.equation_system.variable_indexer,
+                tags=self.variable_tags,
+            )
+        variable_indexer = self.variable_indexer
+
         # Sanity check: Ensure that variables are defined on cells.
-        for variable in self.model.equation_system.variables:
-            if not variable._faces == 0 and variable._nodes == 0:
+        for variable in variable_indexer.indices:
+            dof_info = variable.source.dof_info
+
+            if dof_info.faces != 0 or dof_info.nodes != 0:
                 raise NotImplementedError(
                     """VariableBasedLebesgueMetric currently only supports """
                     """variables defined on cells."""
                 )
 
-        norms = {v.name: 0.0 for v in self.model.equation_system.variables}
-        variable_blocks = {
-            (variable.name, variable.domain): (
-                self.model.equation_system.dofs_of([variable]),
-                variable._cells,  # + variable._faces + variable._nodes,
+        norms = {v.name: 0.0 for v in variable_indexer.indices}
+
+        for variable, indices in variable_indexer.indices.items():
+            dim = variable.source.dof_info.cells
+            space = OperatorSpace.from_domains(
+                [variable.domain], {GridEntity.cells: dim}
             )
-            for variable in self.model.equation_system.variables
-        }
-        for (name, sd), (indices, variable_dim) in variable_blocks.items():
-            variable_values = pp.ad.DenseArray(values[indices])
-            norms[name] += (
-                self._lebesgue2_norm(variable_values, variable_dim, [sd]) ** 2
+            variable_values = pp.ad.DenseArray(
+                values[indices], source=space, target=space
+            )
+            domains: pp.GridLikeSequence = [variable.domain]  # type: ignore[assignment]
+            norms[variable.name] += (
+                _lebesgue2_norm(self.model, variable_values, dim, domains) ** 2
             )
         for name in norms:
             norms[name] = np.sqrt(norms[name])
@@ -185,50 +326,71 @@ class VariableBasedLebesgueMetric(LebesgueMetric):
         return norms
 
 
-class EquationBasedLebesgueMetric(LebesgueMetric):
+class EquationBasedLebesgueMetric(Metric):
     """Lebesgue L2 norm for equations, computed per equation block.
 
     NOTE: Assumes equations are intensive quantities and defined only on cells.
 
+    Parameters:
+        model: The model used to compute the metric.
+        equation_tags: Define a subset of equations to evaluate the metric on. If
+            None (default), uses all equations.
+
     """
+
+    def __init__(
+        self,
+        model: pp.PorePyModel,
+        equation_tags: Optional[list[pp.solvers.EquationTag]] = None,
+    ) -> None:
+        self.model = model
+        """The PorePy model to access equation DoFs."""
+        self.equation_tags = equation_tags
+        """Define a subset of equations to evaluate the metric on. If None (default),
+        uses all equations.
+
+        """
+        self.equation_indexer: pp.ad.EquationIndexer | None = None
+        """Indexer for a subset of equations provided by :attr:`equation_tags`.
+        Initialized the first time the metric is called.
+
+        """
 
     def __call__(self, values: np.ndarray) -> dict[str, float]:
         """Compute the Lebesgue L2 norm of each separate equation.
 
         Parameters:
-            values: algebraic representation of a mixed-dimensional equation
+            values: Algebraic representation of a mixed-dimensional equation.
 
         Returns:
-            dict[str, float]: measure of values for each equation block
+            Dictionary mapping each equation name to the norm of the corresponding
+            part of ``values``.
 
         """
-        norms = {name: 0.0 for name in self.model.equation_system.equations}
-
-        equation_blocks = {}
-        for name in self.model.equation_system.equations:
-            if name not in self.model.equation_system.assembled_equation_indices:
-                continue
-            indices = self.model.equation_system.assembled_equation_indices[name]
-            if len(indices) == 0:
-                continue
-            equation_blocks[name] = (
-                indices,
-                list(
-                    self.model.equation_system.equation_image_space_composition[
-                        name
-                    ].keys()
-                ),
-                self.model.equation_system.equation_image_size_info[name]["cells"],
+        # Lazy initialization of equation indexer.
+        if self.equation_indexer is None:
+            self.equation_indexer = _initialize_indexer(
+                model=self.model,
+                global_indexer=self.model.equation_system.equation_indexer,
+                tags=self.equation_tags,
             )
-        for name, (indices, sd, eq_dim) in equation_blocks.items():
-            if len(sd) == 0:
-                norms[name] = 0.0
-            else:
-                equation_values = values[indices].reshape((eq_dim, -1), order="F")
-                cell_weights = np.hstack([_sd.cell_volumes for _sd in sd])
-                intensive_equation_values = pp.ad.DenseArray(
-                    np.linalg.norm(equation_values, ord=2, axis=0) / cell_weights
-                )
-                norms[name] = self._lebesgue2_norm(intensive_equation_values, 1, sd)
+
+        equation_system = self.model.equation_system
+        norms: dict[str, float] = {}
+        for name, grids_dofs in self.equation_indexer.group_by_name().items():
+            indices = np.concatenate(list(grids_dofs.values()))
+            domains = cast(pp.GridLikeSequence, list(grids_dofs.keys()))
+            equation_dim = equation_system.equations[name].target.dof_info.cells
+            equation_values = values[indices].reshape((equation_dim, -1), order="F")
+            cell_weights = np.hstack([domain.cell_volumes for domain in domains])
+            space = OperatorSpace.from_domains(domains, {GridEntity.cells: 1})
+            intensive_equation_values = pp.ad.DenseArray(
+                np.linalg.norm(equation_values, ord=2, axis=0) / cell_weights,
+                source=space,
+                target=space,
+            )
+            norms[name] = _lebesgue2_norm(
+                self.model, intensive_equation_values, 1, domains
+            )
 
         return norms

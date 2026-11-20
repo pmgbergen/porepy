@@ -55,16 +55,10 @@ class Geometry(pp.PorePyModel):
         # Create projections between local and global coordinates for fracture grids.
         pp.set_local_coordinate_projections(self.mdg)
 
+        # Set up well network and add wells to the mixed-dimensional grid.
+        self.set_wells()
         self.set_well_network()
-        if len(self.well_network.wells) > 0:
-            # Compute intersections.
-            assert isinstance(self.fracture_network, FractureNetwork3d)
-            pp.compute_well_fracture_intersections(
-                self.well_network, self.fracture_network
-            )
-            # Mesh wells and add fracture + intersection grids to mixed-dimensional
-            # grid along with these grids' new interfaces to fractures.
-            self.well_network.mesh(self.mdg)
+        self.create_well_mesh()
 
 
 class IntersectionPermeability(Permeability):
@@ -82,7 +76,10 @@ class IntersectionPermeability(Permeability):
         # Use `fracture_permeability` as intersection permeability under the assumption
         # that they are equal. This is valid in the current benchmark case.
         permeability = pp.wrap_as_dense_ad_array(
-            self.solid.fracture_permeability, size, name="intersection permeability"
+            self.solid.fracture_permeability,
+            size=size,
+            name="intersection permeability",
+            grids=subdomains,
         )
         return self.isotropic_second_order_tensor(subdomains, permeability)
 
@@ -115,7 +112,7 @@ class BoundaryConditions(pp.PorePyModel):
             cc[2][domain_sides.south] > (1 / 3)
         )
         # Assign unitary flow. Negative since fluid is entering into the domain.
-        val = self.units.convert_units(-1, "m * s^-1")
+        val = self.units.convert_units(-1, "m * Pa")
         values = np.zeros(bg.num_cells)
         values[inlet_faces] = val * bg.cell_volumes[inlet_faces]
         return values
@@ -129,3 +126,30 @@ class FlowBenchmark3dCase3Model(  # type:ignore[misc]
     pp.SinglePhaseFlow,
 ):
     """Mixer class for case 3 from the 3d flow benchmark."""
+
+
+def run_example() -> list[pp.PorePyModel]:
+    """Run the flow benchmark 3d case 3 example and return the model."""
+
+    models: list[pp.PorePyModel] = []
+
+    params = {
+        "material_constants": {
+            "solid": solid_constants,
+        },
+        "refinement_level": 0,  # 0, 1, 2, or 3 for different mesh refinement levels
+    }
+
+    model = FlowBenchmark3dCase3Model(params)  # type: ignore[abstract]
+    solver_parameters = {
+        "nl_convergence_res_atol": 1e-8,  # absolute tolerance on residuals
+    }
+    pp.run_time_dependent_model(model, solver_parameters)
+    models.append(model)
+
+    return models
+
+
+# If executed as main, run simulation.
+if __name__ == "__main__":
+    run_example()

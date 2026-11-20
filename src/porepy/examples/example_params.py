@@ -19,7 +19,6 @@ from porepy.applications.material_values.reference_values import (
 from porepy.applications.material_values.solid_values import (
     extended_granite_values_for_testing as granite,
 )
-from porepy.numerics.nonlinear.line_search import ConstraintLineSearchNonlinearSolver
 
 # Used for conversion of units.
 units = pp.Units()
@@ -28,7 +27,6 @@ units = pp.Units()
 # the default models by 'not invoked by default'.
 
 model_params = {
-    "linear_solver": "pypardiso",
     "units": units,
     "time_manager": pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True),
     "reference_variable_values": pp.ReferenceVariableValues(**reference_values),  # type: ignore[arg-type]
@@ -37,6 +35,7 @@ model_params = {
         "fluid": pp.FluidComponent(**water),  # type: ignore[arg-type]
         "numerical": pp.NumericalConstants(**numerical_values),  # type: ignore[arg-type]
     },
+    "initialize_operator_reference_from_initial_values": True,
     # Meshing
     "grid_type": "cartesian",
     # Depending on the grid type, some subset of the meshing arguments below are used.
@@ -55,8 +54,14 @@ model_params = {
         # centroids to circumcenters in [0, 1). 0 implies no movement.
     },
     "meshing_kwargs": {},
+    "well_meshing_arguments": {
+        # Used for meshing wells.
+        "cell_size": units.convert_units(0.5, "m"),
+    },
     # Used to export the fracture network to enable later reuse. Not invoked by default.
-    "csv_file_name": "fracture_network.csv",
+    "fracture_csv_file_name": "fracture_network.csv",
+    # Used to export the well network to enable later reuse. Not invoked by default.
+    "well_csv_file_name": "well_network.csv",
     # Used to export the gmsh geometry and the created mesh file.
     "gmsh_file_name": "gmsh_frac_file.msh",
     # Exporting and restarting
@@ -77,8 +82,6 @@ model_params = {
     # Compositional model (multiphase multicomponent flow)
     "fractional_flow": True,
     "enable_buoyancy_effects": False,
-    "apply_schur_complement_reduction": False,
-    "schur_complement_inverter": None,
     "eliminate_reference_phase": True,
     "eliminate_reference_component": True,
     "phase_property_params": None,  # See Phase.compute_properties for details.
@@ -102,37 +105,38 @@ solver_params = {
     "nl_metric": pp.EuclideanMetric(),  # Metric for norms.
     # Detailed convergence and divergence criteria - overwrite the defaults.
     "nl_convergence_criteria": {
-        "inc_abs": pp.IncrementBasedAbsoluteCriterion(
+        "inc_abs": pp.solvers.IncrementBasedAbsoluteCriterion(
             tol=1e-6, metric=pp.EuclideanMetric()
         ),
-        "inc_rel": pp.IncrementBasedRelativeCriterion(
+        "inc_rel": pp.solvers.IncrementBasedRelativeCriterion(
             tol=1e-4, metric=pp.EuclideanMetric()
         ),
-        "res_abs": pp.ResidualBasedAbsoluteCriterion(
+        "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
             tol=1e-6, metric=pp.EuclideanMetric()
         ),
-        "res_rel": pp.ResidualBasedRelativeCriterion(
+        "res_rel": pp.solvers.ResidualBasedRelativeCriterion(
             tol=1e-4, metric=pp.EuclideanMetric()
         ),
     },
     "nl_divergence_criteria": {
-        "max_iter": pp.MaxIterationsCriterion(max_iterations=10),
-        "inc_nan": pp.IncrementBasedNanCriterion(),
-        "res_nan": pp.ResidualBasedNanCriterion(),
-        "inc_max": pp.IncrementBasedAbsoluteDivergenceCriterion(
+        "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=10),
+        "inc_nan": pp.solvers.IncrementBasedNanCriterion(),
+        "res_nan": pp.solvers.ResidualBasedNanCriterion(),
+        "inc_max": pp.solvers.IncrementBasedAbsoluteDivergenceCriterion(
             tol=1e20, metric=pp.EuclideanMetric()
         ),
-        "res_max": pp.ResidualBasedAbsoluteDivergenceCriterion(
+        "res_max": pp.solvers.ResidualBasedAbsoluteDivergenceCriterion(
             tol=1e20, metric=pp.EuclideanMetric()
         ),
     },
     # Line search / Solution Strategies. These are considered "advanced" options.
     # Delete the following lines for the default Newton's method.
-    "nonlinear_solver": ConstraintLineSearchNonlinearSolver,  # Must be a class.
+    # "nonlinear_solver" must be a class.
+    "nonlinear_solver": pp.solvers.ConstraintLineSearchNonlinearSolver,
     "global_line_search": 0,  # Set to 1 to use turn on a residual-based line search.
     "residual_line_search_interval_size": 1e-1,
     "residual_line_search_num_steps": 5,
-    "local_line_search": 1,  # Set to 0 to use turn off the tailored line search.
+    "local_line_search": False,  # Set to True to turn on the tailored line search.
     "relative_constraint_transition_tolerance": 2e-1,
     "constraint_violation_tolerance": 3e-1,
     "min_line_search_weight": 1e-10,

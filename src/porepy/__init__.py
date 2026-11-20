@@ -25,7 +25,7 @@ import configparser
 import warnings
 
 
-__version__ = "1.13.0"
+__version__ = "1.14.0"
 
 # Try to read the config file from the directory where python process was launched
 try:
@@ -54,6 +54,7 @@ from porepy.utils.interpolation_tables import (
 )
 from porepy.utils import array_operations
 from porepy.numerics.linalg import matrix_operations
+
 
 # Geometry
 from porepy.geometry import (
@@ -108,11 +109,8 @@ from porepy.fracs.fracture_network_creation import create_fracture_network
 from porepy.grids.mdg_generation import create_mdg
 
 # Wells
-from porepy.fracs.wells_3d import (
-    Well,
-    WellNetwork3d,
-    compute_well_fracture_intersections,
-)
+from porepy.fracs.wells_3d import Well
+from porepy.fracs.well_network import WellNetwork3d
 
 # Numerics
 
@@ -147,25 +145,31 @@ from porepy.numerics.fracture_deformation.conforming_propagation import (
 from porepy.models.protocol import PorePyModel
 
 # Related to models and solvers
-from porepy.numerics.nonlinear.nonlinear_solvers import NewtonSolver
-from porepy.numerics.linear_solvers import LinearSolver
-from porepy.models.run_models import (
-    run_stationary_model,
+from porepy.models.model_runner import (
+    ModelRunnerStatus,
+    ModelRunnerStatusFailure,
+    ModelRunnerStatusSuccess,
+    ModelRunner,
+    EarlyStopCriterion,
+    EarlyStopNotRequested,
     run_time_dependent_model,
+    run_stationary_model,
 )
+from porepy.numerics import solvers
 
 
 from porepy.numerics import ad
 from porepy.numerics.ad.operators import wrap_as_dense_ad_array, wrap_as_sparse_ad_array
 from porepy.numerics.ad.equation_system import EquationSystem
-from porepy.numerics.ad.ad_utils import (
+from porepy.numerics.ad.get_set_values import (
     get_solution_values,
     set_solution_values,
     shift_solution_values,
 )
 
 # Time stepping control
-from porepy.numerics.time_step_control import TimeManager
+from porepy import time_stepper
+from porepy.time_stepper.time_step_control import TimeManager
 
 from porepy import models
 from porepy.models.abstract_equations import (
@@ -257,33 +261,10 @@ from porepy import applications
 
 # Metrics for assessing convergence
 from porepy.models.metric import (
+    Metric,
     EuclideanMetric,
-    LebesgueMetric,
     VariableBasedEuclideanMetric,
     EquationBasedEuclideanMetric,
     VariableBasedLebesgueMetric,
     EquationBasedLebesgueMetric,
-)
-
-# Divergence criteria
-from porepy.numerics.nonlinear.convergence_check import (
-    MaxIterationsCriterion,
-    IncrementBasedNanCriterion,
-    ResidualBasedNanCriterion,
-    IncrementBasedAbsoluteDivergenceCriterion,
-    IncrementBasedRelativeDivergenceCriterion,
-    IncrementBasedCombinedDivergenceCriterion,
-    ResidualBasedAbsoluteDivergenceCriterion,
-    ResidualBasedRelativeDivergenceCriterion,
-    ResidualBasedCombinedDivergenceCriterion,
-)
-
-# Convergence criteria
-from porepy.numerics.nonlinear.convergence_check import (
-    IncrementBasedAbsoluteCriterion,
-    IncrementBasedRelativeCriterion,
-    IncrementBasedCombinedCriterion,
-    ResidualBasedAbsoluteCriterion,
-    ResidualBasedRelativeCriterion,
-    ResidualBasedCombinedCriterion,
 )

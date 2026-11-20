@@ -178,8 +178,9 @@ def plot_fractures(
     # Finally set axis.
     if do_plot:
         plt.show()
-    if kwargs.get("save", None) is not None:
-        plt.savefig(kwargs.get("save"), bbox_inches="tight", pad_inches=0.0)
+    save_path = kwargs.get("save", None)
+    if save_path is not None:
+        plt.savefig(save_path, bbox_inches="tight", pad_inches=0.0)
         plt.close()
 
     return ax

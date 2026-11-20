@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import Optional, TypeVar
 
 import numpy as np
+import scipy.sparse as sps
 
 import porepy as pp
 
@@ -254,6 +255,7 @@ def create_1d_grids(
     tol: float = 1e-4,
     constraints: Optional[np.ndarray] = None,
     return_fracture_tips: bool = True,
+    sort_1d_nodes: bool = True,
 ) -> tuple[list[pp.Grid], np.ndarray] | list[pp.Grid]:
     """Create 1D grids for lines of a specified type from a gmsh tesselation.
 
@@ -361,9 +363,29 @@ def create_1d_grids(
             tip_pts = np.append(tip_pts, np.unique(loc_line_pts))
 
         elif line_type == line_tag[:-1]:
-            loc_pts_1d = np.unique(loc_line_pts)
+            # Read the cell-node relation from meshio and reconstruct the cell-face
+            # relation.
+
+            # Uniquify the points of this line grid. Variable indices gives the mapping
+            # back to the full set of nodes and is used for the cell-face relation
+            # below (exploiting that the face-node relation is an identity mapping).
+            loc_pts_1d, indices = np.unique(loc_line_pts.ravel(), return_inverse=True)
             loc_coord = pts[loc_pts_1d, :].transpose()
-            g = create_embedded_line_grid(loc_coord, loc_pts_1d, tol=tol)
+            num_faces = np.unique(loc_line_pts).size
+            num_cells = loc_line_pts.shape[0]
+            # The face-node relation is an identity mapping.
+            face_nodes = sps.dia_matrix(
+                (np.ones(num_faces, dtype=bool), 0), shape=(num_faces, num_faces)
+            ).tocsc()
+            indptr = np.arange(0, 2 * num_cells + 1, 2, dtype=int)
+            # Arbitrarily assign a positive and negative orientation of the faces. This
+            # will be reflected in the direction of the computed normal vectors.
+            data = np.vstack((np.ones(num_cells), -np.ones(num_cells))).ravel(order="F")
+            cell_faces = sps.csc_matrix(
+                (data, indices, indptr), shape=(num_faces, num_cells)
+            )
+            g = pp.Grid(1, loc_coord, face_nodes, cell_faces, name="TensorGrid")
+            g.global_point_ind = loc_pts_1d
             g = tag_grid(g, phys_names, cell_info)
             g.frac_num = int(frac_num)
             g_1d.append(g)
@@ -457,41 +479,38 @@ def create_0d_grids(
 
 
 def create_embedded_line_grid(
-    loc_coord: np.ndarray, glob_id: np.ndarray, tol: float = 1e-4
+    loc_coord: np.ndarray,
+    glob_id: np.ndarray | None = None,
+    sort: bool = True,
+    tol: float = 1e-4,
 ) -> pp.Grid:
     """Create a 1d grid embedded in a higher dimensional space.
 
     Parameters:
         loc_coord: Coordinates of points to be used in the grid.
         glob_id : Global indexes of the points. Typically refers to a global mesh, where
-            the points of this grid is a subset.
+            the points of this grid is a subset. If provided, the returned grid will
+            have an attribute ``global_point_ind`` that maps from local to global point
+            numbering.
+        sort: Whether to sort the points. The sorting assumes the points are collinear.
         tol: Tolerance used for check of collinearity of the points.
 
     Returns:
         g: 1d grid.
 
     """
-    loc_center = np.mean(loc_coord, axis=1).reshape((-1, 1))
-    (
-        sorted_coord,
-        rot,
-        active_dimension,
-        sort_ind,
-    ) = pp.map_geometry.project_points_to_line(loc_coord, tol)
-    g = pp.TensorGrid(sorted_coord)
+    if sort:
+        *_, sort_ind = pp.map_geometry.project_points_to_line(loc_coord, tol=tol)
+        loc_coord = loc_coord[:, sort_ind]
+    else:
+        sort_ind = np.arange(loc_coord.shape[1])
 
-    # Project back to active dimension.
-    nodes = np.zeros(g.nodes.shape)
-    nodes[active_dimension] = g.nodes[0]
-    g.nodes = nodes
-
-    # Project back again to 3d coordinates.
-    irot = rot.transpose()
-    g.nodes = irot.dot(g.nodes)
-    g.nodes += loc_center
+    g = pp.TensorGrid(np.arange(loc_coord.shape[1]))
+    g.nodes = loc_coord
 
     # Add mapping to global point numbers.
-    g.global_point_ind = glob_id[sort_ind]
+    if glob_id is not None:
+        g.global_point_ind = glob_id[sort_ind]
     return g
 
 
@@ -579,7 +598,7 @@ def tag_grid(
 
             # If an item in PhysicalNames is a prefix of tag_name, we skip it. This
             # avoids creating tags for physical names that are mesh processing specific
-            # (e.g., domain_boundary_line etc.).
+            # (e.g., auxiliary_line etc.).
             if any(
                 tag_name.lower().startswith(prefix.lower())
                 for prefix in PhysicalNames._member_map_

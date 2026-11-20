@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
+import porepy as pp
 from porepy.applications.test_utils.models import Poromechanics
 from porepy.viz.diagnostics_mixin import DiagnosticsMixin
 
@@ -22,7 +23,6 @@ def model() -> PoromechanicsWithDiagnostics:
     model.prepare_simulation()
     model.before_nonlinear_loop()
     model.before_nonlinear_iteration()
-    model.assemble_linear_system()
     return model
 
 
@@ -33,6 +33,7 @@ def model() -> PoromechanicsWithDiagnostics:
 def test_diagnostics_mixin_basic(_, model: PoromechanicsWithDiagnostics) -> None:
     """Tests basic functionality."""
     diagnostics_data = model.run_diagnostics(
+        model.equation_system.assemble(),
         default_handlers=("max", "cond"),
         grouping=None,
     )
@@ -61,6 +62,7 @@ def test_diagnostics_mixin_custom_handler(
         return 0
 
     diagnostics_data = model.run_diagnostics(
+        model.assemble_linear_system(),
         grouping="dense",
         additional_handlers={"custom_handler": custom_handler},
     )
@@ -85,7 +87,9 @@ def test_diagnostics_mixin_grouping(_, model: PoromechanicsWithDiagnostics) -> N
     """Testing custom grouping. We want to investigate only the interface."""
     # Collecting only the interface variable names.
     interface_variable_names = [
-        var.name for var in model.equation_system.variables if len(var.interfaces) > 0
+        var.name
+        for var in model.equation_system.variables
+        if var.target.domain_type == pp.ad.DomainType.interfaces
     ]
 
     def is_interface_block(mat, equation_name, variable_name) -> float:
@@ -94,7 +98,9 @@ def test_diagnostics_mixin_grouping(_, model: PoromechanicsWithDiagnostics) -> N
         return 0
 
     grouping = [model.mdg.interfaces()]
+    linear_system = model.assemble_linear_system()
     diagnostics_data = model.run_diagnostics(
+        linear_system,
         grouping=grouping,
         additional_handlers={"is_interface_block": is_interface_block},
     )
@@ -104,6 +110,7 @@ def test_diagnostics_mixin_grouping(_, model: PoromechanicsWithDiagnostics) -> N
 
     # And checking that keyword "interfaces" will prodice the same result.
     diagnostics_data_new = model.run_diagnostics(
+        linear_system,
         grouping="interfaces",
         additional_handlers={"is_interface_block": is_interface_block},
     )
@@ -118,3 +125,28 @@ def test_diagnostics_mixin_grouping(_, model: PoromechanicsWithDiagnostics) -> N
                 subdomain_data["is_interface_block"]
                 == subdomain_data_new["is_interface_block"]
             )
+
+
+def test_diagnostics_mixin_restricted_system(
+    model: PoromechanicsWithDiagnostics,
+) -> None:
+    """Use matrix indexers when diagnosing a restricted system."""
+    equation_name = next(iter(model.equation_system.equations))
+    variable = model.equation_system.variables[0]
+    equations = [equation_name]
+    variables = [variable]
+
+    linear_system = model.equation_system.assemble(
+        equations=equations, variables=variables
+    )
+
+    diagnostics_data = model.run_diagnostics(linear_system, grouping="dense")
+    matrix = linear_system.matrix
+    assert matrix is not None
+
+    assert len(diagnostics_data) == 1
+    block_data = diagnostics_data[0, 0]
+    assert block_data["equation_name"] == equation_name
+    assert block_data["variable_name"] == variable.name
+    assert block_data["block_dofs_row"].tolist() == list(range(matrix.shape[0]))
+    assert block_data["block_dofs_col"].tolist() == list(range(matrix.shape[1]))

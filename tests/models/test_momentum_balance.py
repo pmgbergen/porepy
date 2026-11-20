@@ -14,8 +14,12 @@ from porepy.applications.md_grids.model_geometries import (
 )
 from porepy.applications.test_utils.models import (
     MomentumBalance,
+    add_mixin,
     compare_scaled_model_quantities,
     compare_scaled_primary_variables,
+)
+from porepy.models.contact_mechanics import (
+    ScaledProjectionTangentialContactMechanicsEquation,
 )
 
 
@@ -76,7 +80,7 @@ def test_2d_single_fracture(
 
     # Create model and run simulation
     model = model_class(params)
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
 
     # Check that the pressure is linear
     matrix_subdomain = model.mdg.subdomains(dim=model.nd)[0]
@@ -175,12 +179,12 @@ def test_unit_conversion(units: dict, uy_north: float):
     reference_params = copy.deepcopy(params)
     # Create model and run simulation.
     reference_model = LinearModel(reference_params)
-    pp.run_time_dependent_model(reference_model)
+    pp.ModelRunner(reference_model).run()
 
     params["units"] = pp.Units(**units)
     model = LinearModel(params)
 
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
     variables = [
         model.displacement_variable,
         model.interface_displacement_variable,
@@ -288,7 +292,7 @@ def test_lithostatic(dim: int):
     """
     # Create model and run simulation
     model = LithostaticModel({"dim": dim, "times_to_export": []})
-    pp.run_stationary_model(model, {})
+    pp.ModelRunner(model).run()
 
     # Check that the pressure is linear
     sd = model.mdg.subdomains(dim=model.nd)[0]
@@ -329,7 +333,102 @@ def test_lithostatic(dim: int):
     assert np.allclose(bottom_traction, -rho * g * sd.cell_volumes.sum())
 
 
+class ReferenceStressModel(LinearModel):
+    """Model with a non-trivial reference stress, linear in the face index."""
+
+    def ic_values_reference_stress(self, sd: pp.Grid) -> np.ndarray:
+        return np.arange(sd.num_faces * self.nd, dtype=float)
+
+
+@pytest.mark.parametrize("model_class", [LinearModel, ReferenceStressModel])
+def test_reference_stress(model_class):
+    """The reference stress is zero by default, equals the values given by
+    ``ic_values_reference_stress`` otherwise, and is zero on boundary grids. In the
+    initial state, the total stress equals the reference stress, since the mechanical
+    stress vanishes there.
+
+    """
+    model = model_class({"times_to_export": [], "fracture_indices": [0]})
+    model.prepare_simulation()
+    sd = model.mdg.subdomains(dim=model.nd)[0]
+    evaluate = model.equation_system.evaluate
+
+    expected = np.zeros(sd.num_faces * model.nd)
+    if model_class is ReferenceStressModel:
+        expected = model.ic_values_reference_stress(sd)
+
+    stored = pp.get_solution_values(
+        name=model.reference_stress_key,
+        data=model.mdg.subdomain_data(sd),
+        reference=True,
+    )
+    assert np.array_equal(stored, expected)
+    assert np.allclose(evaluate(model.reference_stress([sd])), expected)
+    assert np.allclose(evaluate(model.stress([sd])), expected)
+
+    # No reference stress on boundary grids; the stress is only defined on the matrix.
+    boundary_grids = model.mdg.boundaries()
+    assert evaluate(model.reference_stress(boundary_grids)) == 0
+    for fracture in model.mdg.subdomains(dim=model.nd - 1):
+        with pytest.raises(KeyError):
+            pp.get_solution_values(
+                name=model.reference_stress_key,
+                data=model.mdg.subdomain_data(fracture),
+                reference=True,
+            )
+
+
+def test_set_boundary_reference_values():
+    """Without boundary reference values, a non-zero boundary displacement acts in
+    absolute terms and gives a non-zero mechanical stress at the initial state. After
+    ``set_boundary_reference_values``, the boundary data are stored as reference values
+    and the stress vanishes in the initial state.
+
+    """
+    model = LinearModel({"times_to_export": [], "u_north": [0.0, 0.3]})
+    model.prepare_simulation()
+    sd = model.mdg.subdomains(dim=model.nd)[0]
+
+    def boundary_data():
+        for bg, data in model.mdg.boundaries(return_data=True):
+            for name in data[pp.ITERATE_SOLUTIONS]:
+                yield bg, data, name
+
+    # No reference values before the call.
+    for _, data, name in boundary_data():
+        assert name not in data.get(pp.REFERENCE_SOLUTIONS, {})
+    assert np.abs(model.equation_system.evaluate(model.stress([sd]))).max() > 1e-8
+
+    model.set_boundary_reference_values()
+
+    num_checked = 0
+    for _, data, name in boundary_data():
+        current = pp.get_solution_values(name=name, data=data, iterate_index=0)
+        reference = pp.get_solution_values(name=name, data=data, reference=True)
+        assert np.array_equal(current, reference)
+        num_checked += 1
+    assert num_checked > 0
+    assert np.allclose(model.equation_system.evaluate(model.stress([sd])), 0)
+
+
 """Tests for elastoplastic split of fracture deformation below."""
+
+
+# Formulations of the tangential contact condition to be tested in the elastoplastic
+# tests. None refers to the default formulation.
+tangential_contact_formulations = [
+    None,
+    ScaledProjectionTangentialContactMechanicsEquation,
+]
+
+
+def with_tangential_formulation(
+    model_class: type[pp.MomentumBalance], formulation: type | None
+) -> type[pp.MomentumBalance]:
+    """Add a tangential contact formulation to a model class, if one is given."""
+    if formulation is None:
+        return model_class
+    return add_mixin(formulation, model_class)
 
 
 class ElastoplasticModel2d(
@@ -455,8 +554,9 @@ def verify_elastoplastic_deformation(
 
     # Traction on the fracture.
     open_cells = u_p[fracture_ind] > 1e-10
+    scalar_to_nd = pp.ad.sum_projection_list(model.basis([fracture], dim=nd))
     traction = model.equation_system.evaluate(
-        model.characteristic_contact_traction([fracture])
+        (scalar_to_nd @ model.characteristic_contact_traction([fracture]))
         * model.contact_traction([fracture])
     )
     # Rotate to global coordinates.
@@ -492,12 +592,14 @@ def verify_elastoplastic_deformation(
         ([1.0, 1.0], [0, 0], [1, 1], [1, 1], [0, 0]),
     ],
 )
+@pytest.mark.parametrize("formulation", tangential_contact_formulations)
 def test_elastoplastic_2d_single_fracture(
     u_north: list[pp.number],
     u_e_expected: list[pp.number],
     u_p_expected: list[pp.number],
     u_expected: list[pp.number],
     traction_expected: list[pp.number],
+    formulation: type | None,
 ):
     """Test that the solution is qualitatively sound.
 
@@ -510,21 +612,25 @@ def test_elastoplastic_2d_single_fracture(
         u_expected: Expected value of displacement of cells above the fracture.
         traction_expected: Expected value of traction on the fracture in global
             coordinates.
+        formulation: Tangential contact formulation mixin, or None for the default.
 
     """
     # Instantiate constants and store in params.
 
     solid = pp.SolidConstants(**solid_vals_elastoplastic)
-    params = {
+    model_params = {
         "times_to_export": [],  # Suppress output for tests
         "material_constants": {"solid": solid},
         "u_north": u_north,
         "fracture_indices": [1],  # Single fracture with constant y coordinate.
     }
+    solver_params = {
+        "nl_convergence_res_atol": 1e-9,
+    }
 
     # Create model and run simulation.
-    model = ElastoplasticModel2d(params)
-    pp.run_time_dependent_model(model, params)
+    model = with_tangential_formulation(ElastoplasticModel2d, formulation)(model_params)
+    pp.ModelRunner(model, solver_params).run()
     verify_elastoplastic_deformation(
         model,
         u_e_expected,
@@ -569,12 +675,14 @@ cases_3d = [
     "u_north,u_e_expected,u_p_expected,u_expected,traction_expected",
     cases_3d,
 )
+@pytest.mark.parametrize("formulation", tangential_contact_formulations)
 def test_elastoplastic_3d_single_fracture(
     u_north: list[pp.number],
     u_e_expected: list[pp.number],
     u_p_expected: list[pp.number],
     u_expected: list[pp.number],
     traction_expected: list[pp.number],
+    formulation: type | None,
 ):
     """Test that the solution is qualitatively sound.
 
@@ -591,20 +699,24 @@ def test_elastoplastic_3d_single_fracture(
             above the fracture.
         traction_expected: Expected values of traction on the fracture in global
             coordinates.
+        formulation: Tangential contact formulation mixin, or None for the default.
 
     """
     # Instantiate constants and store in params.
     solid = pp.SolidConstants(**solid_vals_elastoplastic)
-    params = {
+    model_params = {
         "times_to_export": [],  # Suppress output for tests
         "material_constants": {"solid": solid},
         "fracture_indices": [1],
         "u_north": u_north,
     }
+    solver_params = {
+        "nl_convergence_res_atol": 1e-9,
+    }
 
     # Create model and run simulation
-    model = ElastoplasticModel3d(params)
-    pp.run_time_dependent_model(model, params)
+    model = with_tangential_formulation(ElastoplasticModel3d, formulation)(model_params)
+    pp.ModelRunner(model, solver_params).run()
     verify_elastoplastic_deformation(
         model,
         u_e_expected,
@@ -663,7 +775,8 @@ class ElastoplasticModelTimeDependentBCs(
     pass
 
 
-def test_time_dependent_bc():
+@pytest.mark.parametrize("formulation", tangential_contact_formulations)
+def test_time_dependent_bc(formulation: type | None):
     # Note: The performance of the Newton solver is quite sensitive to the parameters
     # of this test.
     solid = pp.SolidConstants(
@@ -682,8 +795,10 @@ def test_time_dependent_bc():
     }
 
     # Create model and run simulation. The north displacement is [1, -0.5, 1].
-    model = ElastoplasticModelTimeDependentBCs(params)
-    pp.run_time_dependent_model(model, params)
+    model = with_tangential_formulation(
+        ElastoplasticModelTimeDependentBCs, formulation
+    )(params)
+    pp.ModelRunner(model, params).run()
     tols = [5e-2, 1e-10, 1e-3, 5e-2]
 
     verify_elastoplastic_deformation(
@@ -708,7 +823,7 @@ def test_time_dependent_bc():
     # Same goes here. We expect -0.375, since the top coordinate is 0.75 and we
     # displace the top by 0.5 and have a linear displacement profile.
     u_top = [0.96536718, -0.375, 14.48052228]
-    pp.run_time_dependent_model(model, params)
+    pp.ModelRunner(model, params).run()
     verify_elastoplastic_deformation(
         model,
         u_e,

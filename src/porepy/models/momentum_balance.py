@@ -74,10 +74,8 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         interfaces = self.mdg.interfaces(dim=self.nd - 1, codim=1)
         matrix_eq = self.momentum_balance_equation(matrix_subdomains)
         intf_eq = self.interface_force_balance_equation(interfaces)
-        self.equation_system.set_equation(
-            matrix_eq, matrix_subdomains, {"cells": self.nd}
-        )
-        self.equation_system.set_equation(intf_eq, interfaces, {"cells": self.nd})
+        self.equation_system.set_equation(matrix_eq)
+        self.equation_system.set_equation(intf_eq)
 
     def momentum_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Momentum balance equation in the matrix.
@@ -197,7 +195,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         )
 
 
-class AngularMomentumEquation:
+class AngularMomentumEquation(pp.PorePyModel):
     """Conservation equation for the angular momentum balance.
 
     Intended used for mechanics formulations that employ the two-point stress
@@ -212,16 +210,7 @@ class AngularMomentumEquation:
     """Operator for the total rotation over a face."""
     rotation_stress: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Rotation stress variable."""
-    nd: int
-    """Ambient spatial dimension."""
-    mdg: pp.MixedDimensionalGrid
-    """The mixed-dimensional grid."""
-    equation_system: pp.EquationSystem
-    """The equation system."""
-    volume_integral: Callable[
-        [pp.ad.Operator, pp.SubdomainsOrBoundaries, int], pp.ad.Operator
-    ]
-    """Method to compute volume integrals."""
+
     balance_equation: Callable[
         [
             pp.SubdomainsOrBoundaries,
@@ -232,20 +221,20 @@ class AngularMomentumEquation:
         ],
         pp.ad.Operator,
     ]
-    """Method to construct balance equations."""
+    """Method to construct balance equations. Provided by
+    :class:`~porepy.models.abstract_equations.BalanceEquation`."""
 
     def set_equations(self) -> None:
         """Add the angular momentum equation to the set of equations."""
 
         # Set other equations, including for momentum balance and fracture deformation,
-        # by calling the parent class.
-        super().set_equations()  # type: ignore[misc]
+        # by calling the parent class. Mypy only sees the protocol's trivial body here;
+        # the call resolves to a sibling mixin at runtime.
+        super().set_equations()  # type: ignore[safe-super]
         matrix_subdomains = self.mdg.subdomains(dim=self.nd)
 
         angular_momentum = self.angular_momentum_equation(matrix_subdomains)
-        self.equation_system.set_equation(
-            angular_momentum, matrix_subdomains, {"cells": self.rotation_dimension()}
-        )
+        self.equation_system.set_equation(angular_momentum)
 
     def angular_momentum_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Define the equation for angular momentum balance.
@@ -291,13 +280,18 @@ class AngularMomentumEquation:
 
         """
         num_cells = sum(sd.num_cells for sd in subdomains)
+        space = pp.ad.OperatorSpace.from_domains(
+            subdomains, {pp.ad.GridEntity.cells: self.rotation_dimension()}
+        )
         return pp.ad.DenseArray(
             np.zeros(num_cells * self.rotation_dimension()),
             "zero angular momentum source",
+            source=space,
+            target=space,
         )
 
 
-class SolidMassEquation:
+class SolidMassEquation(pp.PorePyModel):
     """Conservation equation for the solid mass balance.
 
     Intended used for mechanics formulations that employ the two-point stress
@@ -310,16 +304,7 @@ class SolidMassEquation:
     """The second Lamé parameter."""
     total_pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
     """The total pressure variable."""
-    nd: int
-    """Ambient spatial dimension."""
-    mdg: pp.MixedDimensionalGrid
-    """The mixed-dimensional grid."""
-    equation_system: pp.EquationSystem
-    """The equation system."""
-    volume_integral: Callable[
-        [pp.ad.Operator, pp.SubdomainsOrBoundaries, int], pp.ad.Operator
-    ]
-    """Method to compute volume integrals."""
+
     balance_equation: Callable[
         [
             pp.SubdomainsOrBoundaries,
@@ -330,16 +315,17 @@ class SolidMassEquation:
         ],
         pp.ad.Operator,
     ]
-    """Method to construct balance equations."""
+    """Method to construct balance equations. Provided by
+    :class:`~porepy.models.abstract_equations.BalanceEquation`."""
 
     def set_equations(self) -> None:
         """Add the solid mass conservation equation to the system."""
-        super().set_equations()  # type: ignore[misc]
+        super().set_equations()  # type: ignore[safe-super]
         matrix_subdomains = self.mdg.subdomains(dim=self.nd)
 
         solid_mass = self.solid_mass_equation(matrix_subdomains)
 
-        self.equation_system.set_equation(solid_mass, matrix_subdomains, {"cells": 1})
+        self.equation_system.set_equation(solid_mass)
 
     def solid_mass_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Define the solid mass conservation equation and add it to the EquationSystem.
@@ -381,7 +367,13 @@ class SolidMassEquation:
 
         """
         num_cells = sum(sd.num_cells for sd in subdomains)
-        return pp.ad.DenseArray(np.zeros(num_cells), "zero solid mass source")
+        space = pp.ad.OperatorSpace.from_domains(subdomains)
+        return pp.ad.DenseArray(
+            np.zeros(num_cells),
+            "zero solid mass source",
+            source=space,
+            target=space,
+        )
 
 
 class ConstitutiveLawsMomentumBalance(
@@ -395,15 +387,18 @@ class ConstitutiveLawsMomentumBalance(
     def stress(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Stress operator.
 
+        The stress is the sum of the reference stress, see
+        :meth:`~.LinearElasticMechanicalStress.reference_stress`,
+        and the mechanical stress, which is measured relative to the reference state.
+
         Parameters:
-            subdomains: List of subdomains where the stress is defined.
+            domains: List of subdomains where the stress is defined.
 
         Returns:
             Operator for the stress.
 
         """
-        # Method from constitutive library's LinearElasticRock.
-        return self.mechanical_stress(domains)
+        return self.reference_stress(domains) + self.mechanical_stress(domains)
 
 
 class VariablesMomentumBalance(VariableMixin):
@@ -429,13 +424,13 @@ class VariablesMomentumBalance(VariableMixin):
         super().create_variables()
 
         self.equation_system.create_variables(
-            dof_info={"cells": self.nd},
+            dof_info={pp.ad.GridEntity.cells: self.nd},
             name=self.displacement_variable,
             subdomains=self.mdg.subdomains(dim=self.nd),
             tags={"si_units": "m"},
         )
         self.equation_system.create_variables(
-            dof_info={"cells": self.nd},
+            dof_info={pp.ad.GridEntity.cells: self.nd},
             name=self.interface_displacement_variable,
             interfaces=self.mdg.interfaces(dim=self.nd - 1, codim=1),
             tags={"si_units": "m"},
@@ -458,12 +453,13 @@ class VariablesMomentumBalance(VariableMixin):
                 grids
 
         """
-        if len(domains) == 0 or all(
-            isinstance(grid, pp.BoundaryGrid) for grid in domains
-        ):
+        if len(domains) == 0:
+            return self.equation_system.md_variable(self.displacement_variable, [])
+
+        if all(isinstance(grid, pp.BoundaryGrid) for grid in domains):
             domains = cast(Sequence[pp.BoundaryGrid], domains)
             return self.create_boundary_operator(
-                name=self.displacement_variable, domains=domains
+                name=self.displacement_variable, domains=domains, dim=self.nd
             )
         # Check that the subdomains are grids
         if not all(isinstance(grid, pp.Grid) for grid in domains):
@@ -506,7 +502,7 @@ class VariablesMomentumBalance(VariableMixin):
         )
 
 
-class VariablesThreeFieldMomentumBalance:
+class VariablesThreeFieldMomentumBalance(pp.PorePyModel):
     """Variables used in the three-field formulation of the momentum balance, needed to
     use the Tpsa discretization scheme.
 
@@ -522,12 +518,6 @@ class VariablesThreeFieldMomentumBalance:
     """String name of the rotation stress variable."""
     total_pressure_variable: str
     """String name of the total pressure variable."""
-    nd: int
-    """Ambient spatial dimension."""
-    mdg: pp.MixedDimensionalGrid
-    """The mixed-dimensional grid."""
-    equation_system: pp.EquationSystem
-    """The equation system."""
 
     def create_variables(self) -> None:
         """Set variables related to the three-field formulation of momentum balance.
@@ -542,12 +532,8 @@ class VariablesThreeFieldMomentumBalance:
             ValueError: If the spatial dimension is less than 2.
 
         """
-        # Call super to create variables defined by other mixin classes. EK: This class
-        # should really inherit from VariableMixin, which contains the necessary
-        # super().create_variables(). However, doing so lead to a completely
-        # incomprehensible MRO issue. Various workarounds did not work, and ignoring a
-        # safe-super issue seemed like the only reasonable approach.
-        super().create_variables()  # type:ignore[misc]
+        # Call super to create variables defined by other mixin classes.
+        super().create_variables()  # type: ignore[safe-super]
 
         # It is unclear to EK what to do with a 1d medium, so we raise an error.
         if self.nd < 2:
@@ -556,13 +542,12 @@ class VariablesThreeFieldMomentumBalance:
         matrix_subdomains = self.mdg.subdomains(dim=self.nd)
 
         self.equation_system.create_variables(
-            dof_info={"cells": self.rotation_dimension()},
+            dof_info={pp.ad.GridEntity.cells: self.rotation_dimension()},
             name=self.rotation_stress_variable,
             subdomains=matrix_subdomains,
             tags={"si_units": "Pa"},
         )
         self.equation_system.create_variables(
-            dof_info={"cells": 1},
             name=self.total_pressure_variable,
             subdomains=matrix_subdomains,
             tags={"si_units": "Pa"},
@@ -586,7 +571,7 @@ class VariablesThreeFieldMomentumBalance:
         """
         if len(domains) == 0:
             return pp.wrap_as_dense_ad_array(
-                0, size=0, name="empty_" + self.rotation_stress_variable
+                0, size=0, name="empty_" + self.rotation_stress_variable, grids=domains
             )
         # There should be no boundary condition for the rotation_stress variable.
         if any(isinstance(grid, pp.BoundaryGrid) for grid in domains):
@@ -615,7 +600,7 @@ class VariablesThreeFieldMomentumBalance:
         """
         if len(domains) == 0:
             return pp.wrap_as_dense_ad_array(
-                0, size=0, name="empty_" + self.total_pressure_variable
+                0, size=0, name="empty_" + self.total_pressure_variable, grids=domains
             )
         # There should be no boundary condition for the total_pressure variable.
         if any(isinstance(grid, pp.BoundaryGrid) for grid in domains):
@@ -690,6 +675,13 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
 
         """
 
+        self.reference_stress_key: str = "reference_stress"
+        """Key used to store the reference stress in the subdomain data dictionaries.
+
+        See :meth:`~.LinearElasticMechanicalStress.reference_stress`.
+
+        """
+
     def update_discretization_parameters(self) -> None:
         """Updates the stiffness tensor and BC type for the mechanics problem."""
 
@@ -713,7 +705,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         return self.mdg.dim_min() < self.nd
 
 
-class SolutionStrategyThreeFieldMomentumBalance:
+class SolutionStrategyThreeFieldMomentumBalance(pp.PorePyModel):
     """Solution strategy for the three-field formulation of the momentum balance.
 
     This class is not meant to be mixed in directly, but is used by other mixin classes,
@@ -722,9 +714,9 @@ class SolutionStrategyThreeFieldMomentumBalance:
     """
 
     def __init__(self, params: Optional[dict] = None) -> None:
-        # No explicit parent class, but we expect different mixins with __init__ methods
-        # to be available.
-        super().__init__(params)  # type: ignore[call-arg]
+        # Mypy sees the protocol's trivial __init__; at runtime this reaches the
+        # SolutionStrategy of whichever model this is mixed into.
+        super().__init__(params)  # type: ignore[safe-super]
 
         # The only task is to set some keywords.
         self.rotation_stress_variable: str = "rotation_stress"
@@ -779,14 +771,24 @@ class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
         return np.zeros((self.nd, bg.num_cells)).ravel("F")
 
     def bc_values_stress(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """Stress values for the Nirichlet boundary condition.
+        r"""Stress values for the Neumann boundary condition.
+
+        The values correspond to the integrated boundary traction
+        :math:`\int_{\sigma} (\boldsymbol{\sigma} \cdot \mathbf{n})\, dA`
+        on each boundary face :math:`\sigma`, with SI unit
+        :math:`\mathrm{Pa}\,\mathrm{m}^{n_d-1}`,
+        where :math:`n_d` is the ambient dimension.
+
+        Important:
+            Override this method to provide custom Neumann data for the integrated
+            boundary traction, per boundary grid as a numpy array with numerical values.
 
         Parameters:
             bg: Boundary grid to evaluate values on.
 
         Returns:
-            An array with shape (bg.num_cells,) containing the stress values
-            on the provided boundary grid.
+            An array with ``shape=(self.nd * bg.num_cells,)`` containing the
+            integrated boundary traction values on the provided boundary grid.
 
         """
         return np.zeros((self.nd, bg.num_cells)).ravel("F")
@@ -813,6 +815,49 @@ class InitialConditionsMomentumBalance(pp.InitialConditionMixin):
 
     interface_displacement: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
     """See :class:`VariablesMomentumBalance`."""
+
+    reference_stress_key: str
+    """See :class:`SolutionStrategyMomentumBalance`."""
+
+    def initial_condition(self) -> None:
+        """After the super-call, it stores the reference stress.
+
+        See also:
+
+            - :meth:`ic_values_reference_stress`
+
+        """
+        super().initial_condition()
+
+        # The stress, and hence the reference stress, is only defined on subdomains
+        # of ambient dimension.
+        for sd, data in self.mdg.subdomains(return_data=True, dim=self.nd):
+            pp.set_solution_values(
+                name=self.reference_stress_key,
+                values=self.ic_values_reference_stress(sd),
+                data=data,
+                reference=True,
+            )
+
+    def ic_values_reference_stress(self, sd: pp.Grid) -> np.ndarray:
+        """Values for the reference stress on the matrix grid.
+
+        Override this method to prescribe a non-zero reference stress, see
+        :meth:`~.LinearElasticMechanicalStress.reference_stress`.
+
+        Note:
+            This method will only be called with the matrix grid (ambient dimension),
+            since the stress is only defined there.
+
+        Parameters:
+            sd: A subdomain in the md-grid.
+
+        Returns:
+            The reference stress on the faces of the matrix with
+            ``shape=(sd.num_faces * nd,)``. Defaults to zero array.
+
+        """
+        return np.zeros(sd.num_faces * self.nd)
 
     def set_initial_values_primary_variables(self) -> None:
         """Method to set initial values for displacement, contact traction and interface
@@ -886,7 +931,7 @@ class InitialConditionsMomentumBalance(pp.InitialConditionMixin):
         return np.zeros(intf.num_cells * self.nd)
 
 
-class InitialConditionsThreeFieldMomentumBalance:
+class InitialConditionsThreeFieldMomentumBalance(pp.PorePyModel):
     """Mixin for setting initial conditions for the rotation and total pressure
     variables."""
 
@@ -896,12 +941,6 @@ class InitialConditionsThreeFieldMomentumBalance:
     """Operator for the rotation stress variable."""
     total_pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Operator for the total pressure variable."""
-    nd: int
-    """Ambient spatial dimension."""
-    equation_system: pp.ad.EquationSystem
-    """The equation system."""
-    mdg: pp.MixedDimensionalGrid
-    """The mixed-dimensional grid."""
 
     def set_initial_values_primary_variables(self) -> None:
         """Method to set initial values for displacement, contact traction and interface
@@ -913,8 +952,9 @@ class InitialConditionsThreeFieldMomentumBalance:
             - :meth:`ic_values_total_pressure`
 
         """
-        # Super call for compatibility with multi-physics.
-        super().set_initial_values_primary_variables()  # type: ignore[misc]
+        # Super call for compatibility with multi-physics. Mypy only sees the protocol's
+        # trivial body; the call resolves to a sibling mixin at runtime.
+        super().set_initial_values_primary_variables()  # type: ignore[safe-super]
 
         for sd in self.mdg.subdomains():
             # Displacement is only defined on grids with ambient dimension.

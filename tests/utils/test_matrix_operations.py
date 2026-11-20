@@ -335,21 +335,18 @@ def test_matrix_slicer_delayed_evaluation_sparse(
     _matrix_slicer_delayed_evaluation_backend(A, other_mode, target_mode, operator)
 
 
-@pytest.mark.parametrize("other_mode", ["ad", "float"])
+@pytest.mark.parametrize("other_mode", ["ad", "float", "dense"])
 @pytest.mark.parametrize("target_mode", ["ad", "dense", "float"])
 @pytest.mark.parametrize("operator", ["*", "/", "+", "-", "**"])
 def test_matrix_slicer_delayed_evaluation_ad_dense_float(
     A: sps.spmatrix,
-    other_mode: Literal["ad", "float"],
+    other_mode: Literal["ad", "float", "dense"],
     target_mode: Literal["ad", "dense", "float"],
     operator: Literal["*", "/", "+", "-", "**"],
 ):
     """Test the application of the ArraySlicer to numpy and AdArrays, as well as scalars
     (floats), with delayed evaluation.
 
-    Note that the parametrization of 'other_mode' does not include 'dense' (i.e. a numpy
-    array), since this does not make sense in the context of the ArraySlicer. See the
-    docstring of that class for more information.
     """
     # The actual test is left to a backend function, to avoid code duplication.
     _matrix_slicer_delayed_evaluation_backend(A, other_mode, target_mode, operator)
@@ -969,50 +966,67 @@ def test_invert_permuted_block_diag_mat_on_mdg(mdg: pp.MixedDimensionalGrid):
     sf1 = equation_system.create_variables(name="sf1", interfaces=mdg.interfaces())
     sf2 = equation_system.create_variables(name="sf2", interfaces=mdg.interfaces())
 
-    # Define equation‐to‐grid-entity mapping: one equation per cell.
-    eq_per_gridEntity = {"cells": 1, "faces": 0, "nodes": 0}
-
     # On each subdomain cell, register 4 equations.
     Scalar = pp.ad.Scalar
     expr_p1 = p1 + s1 * Scalar(2.0) - Scalar(1.0)
     expr_p1.set_name("eq_p1")
-    equation_system.set_equation(expr_p1, mdg.subdomains(), eq_per_gridEntity)
+    equation_system.set_equation(expr_p1)
 
     expr_p2 = p2 * Scalar(1.0) + s2 * Scalar(2.0) - Scalar(2.0)
     expr_p2.set_name("eq_p2")
-    equation_system.set_equation(expr_p2, mdg.subdomains(), eq_per_gridEntity)
+    equation_system.set_equation(expr_p2)
 
     expr_s1 = p1 * Scalar(3.0) + s1 * Scalar(1.0) - Scalar(3.0)
     expr_s1.set_name("eq_s1")
-    equation_system.set_equation(expr_s1, mdg.subdomains(), eq_per_gridEntity)
+    equation_system.set_equation(expr_s1)
 
     expr_s2 = p2 * Scalar(3.0) + s2 * Scalar(1.0) - Scalar(4.0)
     expr_s2.set_name("eq_s2")
-    equation_system.set_equation(expr_s2, mdg.subdomains(), eq_per_gridEntity)
+    equation_system.set_equation(expr_s2)
 
     # On each interface, register 3 equations.
     eq_pf = pf ** Scalar(2.0) - Scalar(2.0)
     eq_pf.set_name("eq_p_f")
-    equation_system.set_equation(eq_pf, mdg.interfaces(), eq_per_gridEntity)
+    equation_system.set_equation(eq_pf)
 
     eq_sf1 = pf + sf2 + sf1 * Scalar(2.5) - Scalar(1.0)
     eq_sf1.set_name("eq_s_f_1")
-    equation_system.set_equation(eq_sf1, mdg.interfaces(), eq_per_gridEntity)
+    equation_system.set_equation(eq_sf1)
 
     eq_sf2 = pf + sf2 * sf1 + sf1 - Scalar(10.0)
     eq_sf2.set_name("eq_s_f_2")
-    equation_system.set_equation(eq_sf2, mdg.interfaces(), eq_per_gridEntity)
+    equation_system.set_equation(eq_sf2)
 
     # Define "secondary" list of equations & variables.
     secondaryEqList = ["eq_s_f_1", "eq_s_f_2"]
     secondaryVarList = ["sf1", "sf2"]
 
+    # ``pf`` occurs in the selected equations, but is not part of the selected
+    # variable block. Consequently, assembly reads its value from the iterate
+    # data rather than from ``state``. Populate that data explicitly for every
+    # interface.
+    for interface, data in mdg.interfaces(return_data=True):
+        pp.set_solution_values(
+            name="pf",
+            values=np.zeros(interface.num_cells),
+            data=data,
+            iterate_index=0,
+        )
+
+    # Access the secondary variables size, needed to mock the secondary state.
+    secondary_indexer = equation_system.variable_indexer.construct_restricted_indexer(
+        equation_system.get_variables(secondaryVarList)
+    )
+    secondary_variables_size = secondary_indexer.size
+
     # Extract the secondary block matrix.
-    A_ss, _ = equation_system.assemble(
+    secondary_linear_system = equation_system.assemble(
         equations=secondaryEqList,
         variables=secondaryVarList,
-        state=np.zeros(equation_system.num_dofs()),
+        state=np.zeros(secondary_variables_size),
     )
+    A_ss = secondary_linear_system.matrix
+    assert A_ss is not None
 
     # Invert the non-diagonal block matrix A_ss.
     row_perm, col_perm, block_sizes = (
@@ -1036,3 +1050,21 @@ def test_diagonal_scaling_matrix():
 
     D = pp.matrix_operations.diagonal_scaling_matrix(sps.csr_matrix(A))
     assert compare_arrays(values, D.diagonal())
+
+
+def test_array_slicer_diagonal_ad_array():
+    """The ArraySlicer accepts Ad arrays in the diagonal representation, and returns the
+    slice of their full representation."""
+    diagonal = pp.ad.initialize_diagonal_ad_arrays(
+        [np.array([1.0, 2.0, 3.0])], [np.array([0, 1, 2])], 3
+    )[0]
+    slicer = matrix_operations.ArraySlicer(
+        domain_indices=np.array([0, 2]), range_indices=np.array([1, 0])
+    )
+
+    sliced = slicer @ diagonal
+    reference = slicer @ diagonal.to_full()
+
+    assert isinstance(sliced, pp.ad.AdArray)
+    assert np.allclose(sliced.val, reference.val)
+    assert np.allclose(sliced.jac.toarray(), reference.jac.toarray())

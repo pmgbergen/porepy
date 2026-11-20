@@ -10,13 +10,12 @@ from typing import Any, Optional, Type
 
 import numpy as np
 
-from porepy.numerics.nonlinear.convergence_check import (
-    ConvergenceInfoCollection,
-    ConvergenceInfoHistory,
-    ConvergenceStatusCollection,
-    ConvergenceStatusHistory,
-    SimulationStatus,
-    _recursive_append,
+from porepy.numerics import solvers
+from porepy.numerics.solvers.convergence_check import _recursive_append
+from porepy.time_stepper.time_step_status import (
+    TimeStepperStatus,
+    TimeStepperStatusContinueIterating,
+    TimeStepperStatusFailure,
 )
 
 logger = logging.getLogger(__name__)
@@ -62,10 +61,20 @@ class SolverStatistics:
     """Number of cells in each dimension."""
     num_domains: dict[str, int] = field(default_factory=dict)
     """Number of domains in each dimension."""
-    simulation_status: SimulationStatus = field(default=SimulationStatus.IN_PROGRESS)
-    """Overall simulation status."""
-    simulation_status_history: list[SimulationStatus] = field(default_factory=list)
-    """Overall simulation status history."""
+    solver_status: solvers.NonlinearSolverStatus = field(
+        default_factory=lambda: solvers.NewtonSolverConverged(
+            linear_solver_statuses=[],
+            convergence_statuses=solvers.ConvergenceStatusCollection(),
+            divergence_statuses=solvers.ConvergenceStatusCollection(),
+        )
+    )
+    """Nonlinear solver status."""
+    simulation_status: TimeStepperStatus = field(
+        default_factory=lambda: TimeStepperStatusContinueIterating(attempts=[])
+    )
+    """Simulation time step status."""
+    simulation_status_history: list[TimeStepperStatus] = field(default_factory=list)
+    """Simulation time step status history."""
     custom_data: dict[str, Any] = field(default_factory=dict)
     """Custom data to be added to the statistics object."""
 
@@ -98,12 +107,12 @@ class SolverStatistics:
             self.num_domains[dim_str] += 1
 
     def log_simulation_status(
-        self, simulation_status: SimulationStatus, **kwargs
+        self, simulation_status: TimeStepperStatus, **kwargs
     ) -> None:
-        """Log overall simulation status.
+        """Log the status of the simulation.
 
         Parameters:
-            simulation_status: Overall simulation status.
+            status: A status enum.
             **kwargs: Additional keyword arguments, for potential extension.
 
         """
@@ -113,6 +122,19 @@ class SolverStatistics:
                 self.simulation_status_history.append(self.simulation_status)
             else:
                 self.simulation_status_history[-1] = self.simulation_status
+
+    def log_solver_status(
+        self, solver_status: solvers.NonlinearSolverStatus, **kwargs
+    ) -> None:
+        """Log the status of the solver.
+
+        Parameters:
+            status: A status enum.
+            **kwargs: Additional keyword arguments, for potential extension.
+
+        """
+        if solver_status is not None:
+            self.solver_status = solver_status
 
     def log_custom_data(self, append: bool = False, **kwargs) -> None:
         """Log custom data to be added to the statistics object with custom keys.
@@ -146,7 +168,9 @@ class SolverStatistics:
 
         """
 
-        str_simulation_status_history = [str(s) for s in self.simulation_status_history]
+        str_simulation_status_history = [
+            status.serialize() for status in self.simulation_status_history
+        ]
         final_str_simulation_status = (
             None
             if len(self.simulation_status_history) == 0
@@ -188,7 +212,8 @@ class SolverStatistics:
         """
         data[str(self.index)].update(
             {
-                "simulation_status": str(self.simulation_status),
+                "simulation_status": self.simulation_status.serialize(),
+                "solver_status": self.solver_status.serialize(),
             }
         )
         return data
@@ -206,6 +231,10 @@ class SolverStatistics:
         # Disable appending in invalid mode.
         if self.index == -1:
             return data
+
+        # Initialize global entry if non-existing.
+        if "global" not in data:
+            data["global"] = {}
 
         # Initialize index entry if non-existing.
         if str(self.index) not in data:
@@ -277,12 +306,12 @@ class NonlinearSolverStatistics(SolverStatistics):
     """Number of (logged) non-linear iterations."""
     num_iterations_history: list[int] = field(default_factory=list)
     """History of number of iterations for entire run."""
-    convergence_status: ConvergenceStatusHistory = field(
-        default_factory=ConvergenceStatusHistory
+    convergence_status: solvers.ConvergenceStatusHistory = field(
+        default_factory=solvers.ConvergenceStatusHistory
     )
     """History of convergence status over nonlinear iterations."""
-    convergence_info: ConvergenceInfoHistory = field(
-        default_factory=ConvergenceInfoHistory
+    convergence_info: solvers.ConvergenceInfoHistory = field(
+        default_factory=solvers.ConvergenceInfoHistory
     )
     """History of convergence information over nonlinear iterations."""
 
@@ -298,7 +327,7 @@ class NonlinearSolverStatistics(SolverStatistics):
         self.convergence_info.clear()
 
     def log_convergence_status(
-        self, convergence_status: ConvergenceStatusCollection, **kwargs
+        self, convergence_status: solvers.ConvergenceStatusCollection, **kwargs
     ) -> None:
         """Log and collect the convergence status of the solver.
 
@@ -322,7 +351,7 @@ class NonlinearSolverStatistics(SolverStatistics):
             self.num_iterations_history[-1] = self.num_iterations
 
     def log_convergence_info(
-        self, convergence_info: ConvergenceInfoCollection, **kwargs
+        self, convergence_info: solvers.ConvergenceInfoCollection, **kwargs
     ) -> None:
         """Log info produced from convergence criteria.
 
@@ -350,13 +379,15 @@ class NonlinearSolverStatistics(SolverStatistics):
         # Extract final convergence status.
         final_convergence_status = _leafs_only(self.convergence_status.to_str())
 
-        # Determine number of waisted iterations.
+        # Determine number of wasted iterations.
+        # TODO: Rethink during upgrade of time integration.
         total_num_waisted_iterations = 0
-        for simulation_status, num_iterations in zip(
-            self.simulation_status_history, self.num_iterations_history
-        ):
-            if simulation_status != SimulationStatus.SUCCESSFUL:
-                total_num_waisted_iterations += num_iterations
+        for simulation_status in self.simulation_status_history:
+            if isinstance(simulation_status, TimeStepperStatusFailure):
+                for attempt in simulation_status.attempts:
+                    total_num_waisted_iterations += (
+                        attempt.nonlinear_solve_status.number_of_iterations()
+                    )
 
         # Update global data.
         data["global"].update(
@@ -376,11 +407,12 @@ class NonlinearSolverStatistics(SolverStatistics):
         data[str(self.index)].update(
             {
                 "num_iterations": self.num_iterations,
-                "simulation_status": str(
+                "simulation_status": (
                     None
                     if len(self.simulation_status_history) == 0
-                    else self.simulation_status_history[-1]
+                    else self.simulation_status_history[-1].serialize()
                 ),
+                "solver_status": self.solver_status.serialize(),
                 "convergence_status": self.convergence_status.to_str().copy(),
                 "convergence_info": self.convergence_info.copy(),
             }
@@ -449,9 +481,10 @@ class TimeStatistics(SolverStatistics):
         # Simulation status identifies success of time step.
         total_num_time_steps = 0
         total_num_failed_time_steps = 0
+        # TODO: Rethink during upgrade of time integration.
         for simulation_status in self.simulation_status_history:
             total_num_time_steps += 1
-            if simulation_status != SimulationStatus.SUCCESSFUL:
+            if not simulation_status.is_success():
                 total_num_failed_time_steps += 1
 
         # Update global data.

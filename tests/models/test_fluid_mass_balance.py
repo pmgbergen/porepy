@@ -18,6 +18,7 @@ from __future__ import annotations
 import copy
 from typing import Literal, Optional
 
+import gmsh
 import numpy as np
 import pytest
 import scipy.sparse as sps
@@ -41,6 +42,23 @@ from porepy.applications.md_grids.model_geometries import (
 from porepy.applications.test_utils import models, well_models
 from porepy.applications.test_utils.arrays import projection_matrix_from_array_slicers
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
+
+
+@pytest.fixture(autouse=True)
+def finalize_gmsh():
+    """Fixture to ensure gmsh is finalized after each test.
+
+    This is to avoid tests failing because gmsh was not cleared after a previously
+    breaking test.
+    """
+    yield  # This is where the test runs
+    try:
+        # Try to clear and finalize gmsh after each test. This will raise an error
+        # if gmsh was not initialized in the test, but we can ignore that.
+        gmsh.clear()
+        gmsh.finalize()
+    except Exception:
+        pass
 
 
 @pytest.fixture(scope="function")
@@ -175,6 +193,12 @@ def test_tested_vs_testable_methods_single_phase_flow(
     #       while running all the tests from the module so that you don't incur in (1).
     #
     assert all_tested_methods == all_testable_methods
+
+
+def test_darcy_flux_domain_is_unclear(model: pp.PorePyModel) -> None:
+    """Darcy flux depends on both subdomain and interface quantities."""
+    op = model.darcy_flux(model.mdg.subdomains())
+    assert op.source == pp.ad.OperatorSpace.unclear()
 
 
 # NOTE: The tests for darcy_flux, fluid_flux, fluid_flux, fluid_source,
@@ -612,12 +636,12 @@ def test_unit_conversion(units, grid_class):
 
     # Create model and run simulation
     reference_model = LocalModel(reference_params)
-    pp.run_time_dependent_model(reference_model, reference_solver_params)
+    pp.ModelRunner(reference_model, reference_solver_params).run()
 
     params["units"] = pp.Units(**units)
     model = LocalModel(params)
 
-    pp.run_time_dependent_model(model, solver_params)
+    pp.ModelRunner(model, solver_params).run()
     variables = [model.pressure_variable, model.interface_darcy_flux_variable]
     variable_units = ["Pa", "Pa * m^2 * s^-1"]
     models.compare_scaled_primary_variables(
@@ -670,7 +694,7 @@ def test_well_incompressible_pressure_values():
     }
 
     model = WellModel(params)
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
     # Check that the matrix pressure is close to linear in z
     matrix_subdomain = model.mdg.subdomains(dim=3)[0]
     matrix_pressure = model.equation_system.evaluate(model.pressure([matrix_subdomain]))
@@ -849,13 +873,15 @@ def model_setup_gravity(
                     self.units.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
                     * self.fluid.reference_component.density
                 )
-                return super().gravity_force(grids, material) / default
+                return super().gravity_force(grids, material) / pp.ad.Scalar(default)
             num_cells = int(np.sum([g.num_cells for g in grids]))
             values = np.zeros((self.nd, num_cells))
             # Angle of zero means force vector of [0, -1]
             values[1] = self.units.convert_units(-np.cos(gravity_angle), "m*s^-2")
             values[0] = self.units.convert_units(np.sin(gravity_angle), "m*s^-2")
-            source = pp.wrap_as_dense_ad_array(values.ravel("F"), name="gravity force")
+            source = pp.wrap_as_dense_ad_array(
+                values.ravel("F"), name="gravity force", grids=grids
+            )
             return source
 
         def _bound_sides(
@@ -939,7 +965,7 @@ class TestMixedDimGravity:
     """Test gravity effects in a mixed-dimensional flow model."""
 
     def solve(self):
-        pp.run_time_dependent_model(self.model, self.model.params)
+        pp.ModelRunner(self.model, self.model.params).run()
         pressure = self.model.equation_system.get_variable_values(
             [self.model.pressure_variable], time_step_index=0
         )

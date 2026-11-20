@@ -160,25 +160,10 @@ def network_from_csv(
         raise ValueError("The CSV file contains no data.")
 
     if has_domain:
-        if nd == 2:
-            domain = {
-                "xmin": domain_points[0],
-                "xmax": domain_points[2],
-                "ymin": domain_points[1],
-                "ymax": domain_points[3],
-            }
-        else:  # nd == 3
-            domain = {
-                "xmin": domain_points[0],
-                "xmax": domain_points[3],
-                "ymin": domain_points[1],
-                "ymax": domain_points[4],
-                "zmin": domain_points[2],
-                "zmax": domain_points[5],
-            }
+        domain = pp.Domain.from_numpy_array(domain_points)
 
     return pp.create_fracture_network(
-        fractures, pp.Domain(domain) if has_domain else None, tol=tol
+        fractures, domain if has_domain else None, tol=tol
     )
 
 

@@ -157,7 +157,6 @@ class TerzaghiDataSaving(pp.PorePyModel):
             grid=sd,
             true_array=exact_pressure,
             approx_array=cast(np.ndarray, approx_pressure),
-            is_scalar=True,
             is_cc=True,
             relative=True,
         )
@@ -382,10 +381,11 @@ class TerzaghiUtils(VerificationUtils):
         h = self.height()  # scaled [m]
         m_v = self.confined_compressibility()  # scaled [m * s^-2]
         vertical_load = self.applied_load()  # scaled [Pa]
-        t = self.time_manager.time  # scaled [s]
         u_faces = self.face_displacement(sd)
 
-        if t == 0:  # initially, the soil is unconsolidated
+        if (
+            self.time_manager.is_at_initial_time()
+        ):  # initially, the soil is unconsolidated
             consol_deg = 0.0
         else:
             u_inf = m_v * h * vertical_load
@@ -466,7 +466,7 @@ class TerzaghiUtils(VerificationUtils):
         )  # [-]
 
         nondim_t = np.asarray(
-            [self.nondim_time(t) for t in self.time_manager.schedule[1:]]
+            [self.nondim_time(t) for t in self.time_manager.schedule.get_array()[1:]]
         )  # scaled [s]
         numerical_consolidation = np.asarray(
             [result.approx_consolidation_degree for result in self.results]
@@ -711,3 +711,27 @@ class TerzaghiModel(  # type: ignore[misc]
             - viscosity
 
     """
+
+
+def run_example() -> list[pp.PorePyModel]:
+    """Run Terzaghi's consolidation example and return the model."""
+    models: list[pp.PorePyModel] = []
+
+    # Run Terzaghi model with the full poromechanics model.
+    model_params_poromech = {
+        "material_constants": {
+            "solid": pp.SolidConstants(**terzaghi_solid_constants),  # type: ignore[arg-type]
+            "fluid": pp.FluidComponent(**terzaghi_fluid_constants),  # type: ignore[arg-type]
+        },
+        "num_cells": 10,
+        "times_to_export": [],  # Suppress output for tests
+    }
+    model_biot = TerzaghiModel(model_params_poromech)  # type: ignore[abstract]
+    pp.run_time_dependent_model(model=model_biot)
+    models.append(model_biot)
+    return models
+
+
+# If executed as main, run simulation.
+if __name__ == "__main__":
+    run_example()

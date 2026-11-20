@@ -13,14 +13,13 @@ import porepy.applications.md_grids.model_geometries
 from porepy.applications.discretizations.flux_discretization import FluxDiscretization
 from porepy.applications.test_utils import well_models
 from porepy.examples.geothermal_reservoir import (
-    BoundaryConditionsMechanicsNeumann,
     GeothermalReservoirWellBCs,
     NeumannWellBCsFirstTimeInterval,
     WellBoundaryConditions,
     set_model_params,
     set_solver_params,
 )
-from porepy.numerics.nonlinear import line_search
+from porepy.numerics.solvers import line_search
 
 
 class FastMeshingMixin:
@@ -60,12 +59,14 @@ def well_subdomains(neuBC_model):
     return wells
 
 
-def test_NeumannWellBCs_in_FirstTimeInterval(neuBC_model, well_subdomains):
+def test_NeumannWellBCs_in_FirstTimeInterval(
+    neuBC_model: pp.PorePyModel, well_subdomains
+):
     """
     Test that well grids have Neumann BCs during the first time interval.
     """
     model = neuBC_model
-    model.time_manager.time = model.time_manager.schedule[0]
+    model.time_manager.time = model.time_manager.time_init
     for sd in well_subdomains:
         bc = model.bc_type_darcy_flux(sd)
         assert not np.any(bc.is_dir)
@@ -105,7 +106,7 @@ def test_well_bcs_pressure(well_bc_model):
     Test the boundary conditions of one well for pressure.
     """
     model = well_bc_model
-    model.time_manager.time = model.time_manager.schedule[0]
+    model.time_manager.time = model.time_manager.time_init
     wells = [sd for sd in model.mdg.subdomains() if model.is_well_grid(sd)]
     assert len(wells) == 1
 
@@ -122,7 +123,7 @@ def test_well_bcs_temperature(well_bc_model):
     Test the boundary conditions of one well for temperature.
     """
     model = well_bc_model
-    model.time_manager.time = model.time_manager.schedule[0]
+    model.time_manager.time = model.time_manager.time_init
     wells = [sd for sd in model.mdg.subdomains() if model.is_well_grid(sd)]
     assert len(wells) == 1
 
@@ -132,51 +133,6 @@ def test_well_bcs_temperature(well_bc_model):
     values = model.bc_values_temperature(bg)
 
     assert np.any(np.isclose(values, expected_value))
-
-
-class GeothermalModelMechanics(
-    FastMeshingMixin,
-    well_models.OneVerticalWell,
-    porepy.applications.md_grids.model_geometries.CubeDomainOrthogonalFractures,
-    BoundaryConditionsMechanicsNeumann,
-    pp.Poromechanics,
-):
-    pass
-
-
-@pytest.fixture
-def mechanics_bc_model():
-    model = GeothermalModelMechanics()
-    model.prepare_simulation()
-    return model
-
-
-def test_mechanics_bcs_neumann(mechanics_bc_model):
-    """
-    Test the boundary conditions of mechanics.
-    """
-    model = mechanics_bc_model
-    matrix_grids = [sd for sd in model.mdg.subdomains() if sd.dim == model.nd]
-    assert len(matrix_grids) == 1
-
-    sd = matrix_grids[0]
-    bc = model.bc_type_mechanics(sd)
-
-    faces = model.faces_to_fix(sd)
-
-    expected_dir = [
-        np.array([False, True, True]),
-        np.array([False, True, True]),
-        np.array([True, False, True]),
-    ]
-
-    assert len(faces) == 3
-    assert np.any(bc.is_dir)
-    assert not np.all(bc.is_dir)
-
-    for i, value in zip(faces, expected_dir):
-        assert np.array_equal(bc.is_dir[:, i], value)
-        assert np.array_equal(bc.is_neu[:, i], ~value)
 
 
 # MARK: Integration
@@ -286,7 +242,7 @@ def test_geothermal_reservoir():
             mdg: pp.MixedDimensionalGrid = self.mdg
             matrix = mdg.subdomains(dim=self.nd)
             t = self.time_manager.time
-            if t <= self.time_manager.schedule[1]:
+            if t <= self.time_manager.schedule.get_array()[1]:
                 pressure_data_initialization.append(
                     self.equation_system.evaluate(self.pressure(matrix))
                 )
@@ -297,7 +253,7 @@ def test_geothermal_reservoir():
                     self.equation_system.evaluate(self.displacement(matrix))
                 )
 
-            if np.any(abs(t - self.time_manager.schedule) < 1e-6):
+            if np.any(abs(t - self.time_manager.schedule.get_array()) < 1e-6):
                 # Hitting the checkpoint.
                 self._collect_data_for_tests()
 
@@ -318,15 +274,9 @@ def test_geothermal_reservoir():
             # Identifying injection and production well subdomains, one well can be
             # defined on multiple subdomains.
             all_wells = [sd for sd in mdg.subdomains() if self.is_well_grid(sd)]
-            injection_wells = [
-                well
-                for well in all_wells
-                if well.tags["parent_well_index"] == inj_well_index
-            ]
+            injection_wells = [sd for sd in all_wells if sd.well_num == inj_well_index]
             production_wells = [
-                well
-                for well in all_wells
-                if well.tags["parent_well_index"] == prod_well_index
+                sd for sd in all_wells if sd.well_num == prod_well_index
             ]
             # Fluxes are defined along normal vectors. Below, we check whether fluxes
             # point upwards or downwards along the z axis. Hence, we multiply the flux
@@ -334,41 +284,28 @@ def test_geothermal_reservoir():
             injection_signs = [np.sign(sd.face_normals[2]) for sd in injection_wells]
             production_signs = [np.sign(sd.face_normals[2]) for sd in production_wells]
 
-            def identify_well_fracture(parent_well_index):
+            def identify_well_fracture(well_index: int) -> pp.Subdomain:
                 # Identifying the fracture corresponding to this well index.
 
-                # Getting the intersections well-fracture.
-                intersections_0d = mdg.subdomains(dim=0)
-                # Getting the intersection that corresponds to the this well.
-                injection_intersection_0d = [
-                    x
-                    for x in intersections_0d
-                    if x.tags["parent_well_index"] == parent_well_index
+                # Pick the well subdomain (1d) with the given well index.
+                sd_well = [
+                    sd for sd in mdg.subdomains(dim=1) if sd.well_num == well_index
                 ][0]
-                # Getting the corresponding interfaces. It's 3 interfaces: two codim==1
-                # (with the well subdomains above and below the intersection) and one
-                # codim==2 (with the fracture). The latter is what we need.
-                interfaces_of_0d_sd = self.mdg.subdomain_to_interfaces(
-                    injection_intersection_0d
+                # To get the connected fracture, we first get the neighboring 0d
+                # subdomain at the well-fracture intersection, then get all its
+                # neighboring subdomains (should be the well and the fracture), and
+                # finally pick the one with dim == nd - 1 (the fracture).
+                sd_0d = mdg.neighboring_subdomains(sd_well, only_lower=True)[0]
+                neighbors = mdg.neighboring_subdomains(sd_0d, only_higher=True)
+                injection_fracture = [sd for sd in neighbors if sd.dim == self.nd - 1]
+                # Safeguarding.
+                assert len(injection_fracture) == 1, (
+                    "There should be exactly one fracture neighboring the well."
                 )
-                intf_codim_2 = [x for x in interfaces_of_0d_sd if x.codim == 2][0]
-                # Getting subdomains of this interface (well intersection and fracture.)
-                fracture_and_intersection = self.mdg.interface_to_subdomain_pair(
-                    intf_codim_2
-                )
-                # Keeping only the fracture (it should be one element in this list).
-                injection_fractures = [
-                    x for x in fracture_and_intersection if x.dim == self.nd - 1
-                ]
-                assert len(injection_fractures) == 1
-                return injection_fractures
+                return injection_fracture
 
-            injection_fractures = identify_well_fracture(
-                parent_well_index=inj_well_index
-            )
-            production_fractures = identify_well_fracture(
-                parent_well_index=prod_well_index
-            )
+            injection_fractures = identify_well_fracture(well_index=inj_well_index)
+            production_fractures = identify_well_fracture(well_index=prod_well_index)
 
             # Saving the data for the tests.
             pressure_data_injection_well.append(

@@ -231,9 +231,8 @@ class BoundaryConditionsMechanicsDirNorthSouth(pp.PorePyModel):
             return values.ravel("F")
 
         if "uy_north" in self.params or "uy_south" in self.params:
-            warnings.warn(
-                "uy_north and uy_south are deprecated. Use u_north and u_south instead."
-            )
+            s = "uy_north and uy_south are deprecated. Use u_north and u_south instead."
+            warnings.warn(s, FutureWarning, stacklevel=2)
         # Wrap as array for convert_units. Thus, the passed values can be scalar or
         # list. Then tile for correct broadcasting below.
         u_n = np.tile(
@@ -287,7 +286,7 @@ class TimeDependentMechanicalBCsDirNorthSouth(BoundaryConditionsMechanicsDirNort
         else:
             frac_val = 0
         values[1, domain_sides.north] = frac_val
-        if self.time_manager.time > 1e-5:
+        if not self.time_manager.is_at_initial_time():
             return values.ravel("F") + super().bc_values_displacement(bg)
         else:
             return values.ravel("F")
@@ -298,11 +297,14 @@ class BoundaryConditionsMechanicsNeumann:
     boundaries.
 
     The only exception is that internal boundaries are converted to Dirichlet and three
-    points are partly fixed to avoid rigid body motions. We pick maximum z coordinate
-    for all three points. The points have
-            1) min x and max y coordinate, (fixed in y and z directions)
-            2) max x and max y coordinate,  (fixed in y and z directions)
-            3) mean x and min y coordinate. (fixed in x and z directions)
+    points are partly fixed to avoid rigid body motions.
+
+    In both 2D and 3D, the anchor points are ordered west, south, east.
+
+    In 3D, the points are selected at maximum z coordinate:
+        1) min x and high y coordinate, (fixed in y and z directions)
+        2) mean x and min y coordinate, (fixed in x and z directions)
+        3) max x and high y coordinate. (fixed in y and z directions)
     Seen from above, this looks like:
 
                 -------
@@ -311,6 +313,12 @@ class BoundaryConditionsMechanicsNeumann:
                 |     |             |
                 -------             +---> x
                    3 (no x)
+
+    In 2D, the points are selected at mean y on west/east and mean x on south, with
+    the same ordering and constraints:
+        1) west boundary: fix y
+        2) south boundary: fix x
+        3) east boundary: fix y
     """
 
     domain: pp.domain.Domain
@@ -339,16 +347,45 @@ class BoundaryConditionsMechanicsNeumann:
             return bc
         bc.internal_to_dirichlet(sd)
         faces_to_fix = self.faces_to_fix(sd)
-        # Fix y and z displacements on face 1 and 2, x and z displacements on face 3.
-        dir = [
-            np.array([False, True, True]),  # Fix y and z on face 1 (west)
-            np.array([False, True, True]),  # Fix y and z on face 2 (east)
-            np.array([True, False, True]),  # Fix x and z on face 3 (south)
-        ]
-        for i, face in enumerate(faces_to_fix):
-            bc.is_dir[:, face] = dir[i]
-            bc.is_neu[:, face] = ~dir[i]  # Negate for Neumann
+        dir_masks = self._anchor_dirichlet_component_masks()
+        if len(faces_to_fix) != len(dir_masks):
+            raise ValueError("Number of anchor faces and component masks must match.")
+        for face, mask in zip(faces_to_fix, dir_masks):
+            if mask.shape != (self.nd,):
+                raise ValueError(
+                    f"Anchor mask shape {mask.shape} incompatible with nd={self.nd}."
+                )
+            bc.is_dir[:, np.atleast_1d(face)] = mask[:, None]
+            bc.is_neu[:, np.atleast_1d(face)] = ~mask[:, None]  # Negate for Neumann
         return bc
+
+    def _anchor_dirichlet_component_masks(self) -> list[np.ndarray]:
+        """Return Dirichlet component masks for anchor faces.
+
+        Returns:
+            A list of boolean arrays, one for each anchor face. `True` indicates the
+            component is fixed with Dirichlet data.
+
+        """
+        if self.nd == 2:
+            # Fix y on face 1 (west), x on face 2 (south), y on face 3 (east).
+            return [
+                np.array([False, True]),
+                np.array([True, False]),
+                np.array([False, True]),
+            ]
+        if self.nd == 3:
+            # In 3D, use the same west-south-east ordering as in 2D, with
+            # additional z-fixing to remove out-of-plane rigid-body motion.
+            return [
+                np.array([False, True, True]),
+                np.array([True, False, True]),
+                np.array([False, True, True]),
+            ]
+        raise NotImplementedError(
+            "BoundaryConditionsMechanicsNeumann is only implemented for nd=2 or nd=3, "
+            + f" got nd={self.nd}."
+        )
 
     def faces_to_fix(self, sd: pp.Grid) -> list[np.int64]:
         """Return list of faces to fix to avoid rigid body motions.
@@ -365,34 +402,49 @@ class BoundaryConditionsMechanicsNeumann:
         domain_sides = self.domain_boundary_sides(sd)
         box = self.domain.bounding_box
 
-        # Point 1 is on the center top of the west boundary, having min x coordinate and
-        # y coordinate slightly smaller than the max y coordinate. This is intended to
-        # avoid picking a face along the z-aligned edge.
         x_mean = 0.5 * (box["xmax"] + box["xmin"])
-        # Compute a cell size h to place the point slightly inside the domain along the
-        # y direction instead of at the very corner.
-        h = np.mean(np.sqrt(sd.face_areas[domain_sides.west]))
-        y_high = box["ymax"] - 0.5 * h
-        z_max = box["zmax"]
-        point_1 = np.array([box["xmin"], y_high, z_max])
-        pts = sd.face_centers[:, domain_sides.west]
-        ind_1 = domain_sides.west.nonzero()[0][
-            np.argmin(pp.distances.point_pointset(point_1, pts))
-        ]
-        # Point 2 is on the center top of the east boundary.
-        point_2 = np.array([box["xmax"], y_high, z_max])
-        pts = sd.face_centers[:, domain_sides.east]
-        ind_2 = domain_sides.east.nonzero()[0][
-            np.argmin(pp.distances.point_pointset(point_2, pts))
-        ]
-        # Point 3 is on the center top of the south boundary, having min y coordinate
-        # and mean x coordinate.
-        point_3 = np.array([x_mean, box["ymin"], z_max])
-        pts = sd.face_centers[:, domain_sides.south]
-        ind_3 = domain_sides.south.nonzero()[0][
-            np.argmin(pp.distances.point_pointset(point_3, pts))
-        ]
-        return [ind_1, ind_2, ind_3]
+
+        def face_index(side, point):
+            """For a given side of a domain and a target point, find the index of the
+            face closest to the point."""
+            side_mask = domain_sides.__getattribute__(side)
+            points_on_side = sd.face_centers[: self.nd, side_mask]
+            return side_mask.nonzero()[0][
+                np.argmin(pp.distances.point_pointset(point, points_on_side))
+            ]
+
+        if self.nd == 2:
+            y_mean = 0.5 * (box["ymax"] + box["ymin"])
+            # Point 1: center on west boundary.
+            ind_1 = face_index("west", np.array([box["xmin"], y_mean]))
+
+            # Point 2: center of south boundary.
+            ind_2 = face_index("south", np.array([x_mean, box["ymin"]]))
+
+            # Point 3: center on east boundary.
+            ind_3 = face_index("east", np.array([box["xmax"], y_mean]))
+            return [ind_1, ind_2, ind_3]
+
+        if self.nd == 3:
+            # Point 1 is on the center top of the west boundary, having min x
+            # coordinate and y coordinate slightly smaller than the max y coordinate.
+            # This avoids picking a face along the z-aligned edge.
+            h = np.mean(np.sqrt(sd.face_areas[domain_sides.west]))
+            y_high = box["ymax"] - 0.5 * h
+            z_max = box["zmax"]
+            ind_1 = face_index("west", np.array([box["xmin"], y_high, z_max]))
+
+            # Point 2 is on the center top of the south boundary.
+            ind_2 = face_index("south", np.array([x_mean, box["ymin"], z_max]))
+
+            # Point 3 is on the center top of the east boundary.
+            ind_3 = face_index("east", np.array([box["xmax"], y_high, z_max]))
+            return [ind_1, ind_2, ind_3]
+
+        raise NotImplementedError(
+            "BoundaryConditionsMechanicsNeumann is only implemented for nd=2 or nd=3, "
+            + f" got nd={self.nd}."
+        )
 
 
 class GravityMagnitude:
@@ -452,6 +504,8 @@ class LithostaticBoundaryStressValues(GravityMagnitude):
 
     """
 
+    nd: int
+    """Number of spatial dimensions."""
     params: dict
     """Model parameters."""
     depth: Callable[[np.ndarray], np.ndarray]
@@ -466,6 +520,23 @@ class LithostaticBoundaryStressValues(GravityMagnitude):
     """Time manager associated with the model."""
 
     @property
+    def lithostatic_stress_offset(self) -> np.ndarray:
+        """Return datum lithostatic stress.
+
+        Defaults to 0. For geometries below the datum, typical values
+        are lithostatic stress multiplier times effective overburden stress
+        at datum of the domain due to gravity.
+
+        Returns:
+            Datum lithostatic stress in Pa. Default is 0 Pa.
+
+        """
+        datum_lithostatic_stress = self.params.get(
+            "datum_lithostatic_stress", np.zeros(self.nd)
+        )
+        return self.units.convert_units(datum_lithostatic_stress, units="Pa")
+
+    @property
     def lithostatic_stress_multipliers(self) -> np.ndarray:
         """Return multipliers for lithostatic stress.
 
@@ -474,7 +545,7 @@ class LithostaticBoundaryStressValues(GravityMagnitude):
             Default is an array of ones.
 
         """
-        return self.params.get("lithostatic_stress_multipliers", np.ones(3))
+        return self.params.get("lithostatic_stress_multipliers", np.ones(self.nd))
 
     def bc_values_stress(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Stress values.
@@ -488,15 +559,17 @@ class LithostaticBoundaryStressValues(GravityMagnitude):
 
         """
         # Initialize array for stress values.
-        values = np.zeros((3, boundary_grid.num_cells))
+        values = np.zeros((self.nd, boundary_grid.num_cells))
         # Assume zero initial stress state.
-        if self.time_manager.time < 1e-5:
+        if self.time_manager.is_at_initial_time():
             return values.ravel("F")
 
         gravity = self.gravity_force_magnitude("bulk")
         # Multiply with lithostatic stress multipliers, which can be used to set
         # different stresses in different directions.
         gradient = self.lithostatic_stress_multipliers * gravity
+        # Allow for explicit offset.
+        offset = self.lithostatic_stress_offset
         # Get domain sides and depth at boundary cell centers.
         domain_sides = self.domain_boundary_sides(boundary_grid)
         depth = self.depth(boundary_grid.cell_centers)
@@ -513,8 +586,7 @@ class LithostaticBoundaryStressValues(GravityMagnitude):
                 if np.any(ind):
                     # Set ith component of stress on these faces.
                     values[i, ind] = (
-                        gradient[i]
-                        * depth[ind]
+                        (offset[i] + gradient[i] * depth[ind])
                         * sign
                         * boundary_grid.cell_volumes[ind]
                     )
@@ -529,14 +601,33 @@ class HydrostaticPressureValues(GravityMagnitude):
 
     """
 
+    params: dict
+    """Model parameters."""
+
+    @property
+    def hydrostatic_pressure_offset(self) -> float:
+        """Return hydrostatic pressure at datum.
+
+        Default is atmospheric pressure, assuming the top of the domain
+        corresponds to the surface of the Earth. To control the effective
+        hydrostatic pressure at the datum, set the parameter "datum_pressure"
+        in the model parameters.
+
+        Returns:
+            Datum pressure in Pa.
+
+        """
+        datum_pressure = self.params.get("datum_pressure", pp.ATMOSPHERIC_PRESSURE)
+        return self.units.convert_units(datum_pressure, units="Pa")
+
     def hydrostatic_pressure(self, depth: np.ndarray) -> np.ndarray:
         r"""Compute hydrostatic pressure at given depths.
 
         The hydrostatic pressure at depth z is given by
         .. math::
-            p(z) = \rho g z + p_{atm}
+            p(z) = \rho g z + p_{offset}
         where :math:`\rho` is the fluid density, :math:`g` is the gravity acceleration,
-        and :math:`p_{atm}` is the atmospheric pressure.
+        and :math:`p_{offset}` is the offset pressure.
 
         Parameters:
             depth: Array of depths at which to compute hydrostatic pressure.
@@ -546,9 +637,7 @@ class HydrostaticPressureValues(GravityMagnitude):
 
         """
         gravity = self.gravity_force_magnitude("fluid")
-        pressure = gravity * depth + self.units.convert_units(
-            pp.ATMOSPHERIC_PRESSURE, units="Pa"
-        )
+        pressure = gravity * depth + self.hydrostatic_pressure_offset
         return pressure
 
 

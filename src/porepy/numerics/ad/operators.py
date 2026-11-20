@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import copy
+import dataclasses
 import inspect
+import numbers
 from collections import deque
 from enum import Enum
 from functools import reduce, wraps
@@ -14,6 +16,7 @@ from typing import (
     Any,
     Callable,
     Literal,
+    Mapping,
     Optional,
     Sequence,
     TypeVar,
@@ -29,15 +32,30 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-from .forward_mode import AdArray
+from ._operations import Operations
+from ._operator_states import (
+    IterativeOperator,
+    ReferenceOperator,
+    TimeDependentOperator,
+    _get_previous_time_or_iterate,
+    _get_reference,
+)
+from .ad_array import AdArray, AdArrayBase
+from .grid_entity import GridEntities, GridEntity
+from .operator_space import DomainType, OperatorSpace
 
 if TYPE_CHECKING:
     from porepy.utils.porepy_types import GridLike, GridLikeSequence
 
+    _TimeDependentOperator = TypeVar(
+        "_TimeDependentOperator", bound=TimeDependentOperator
+    )
+    _IterativeOperator = TypeVar("_IterativeOperator", bound=IterativeOperator)
+    _ReferenceOperator = TypeVar("_ReferenceOperator", bound=ReferenceOperator)
+
+
 __all__ = [
     "Operator",
-    "TimeDependentOperator",
-    "IterativeOperator",
     "SparseArray",
     "DenseArray",
     "TimeDependentDenseArray",
@@ -52,124 +70,6 @@ __all__ = [
 ]
 
 
-def _get_previous_time_or_iterate(
-    op: Operator, prev_time: bool = True, steps: int = 1
-) -> Operator:
-    """Helper function which traverses an operator's tree recursively to get a
-    copy of it and it's children, representing ``op`` at a previous time or
-    iteration.
-
-    Parameters:
-        op: Some operator whose tree should be traversed.
-        prev_time: ``default=True``
-
-            If True, it calls :meth:`Operator.previous_timestep`, otherwise it calls
-            :meth:`Operator.previous_iteration`.
-
-            This is the only difference in the recursion and we can avoid duplicate
-            code.
-        steps: ``default=1``
-
-            Number of steps backwards in time or iterate sense.
-
-    Returns:
-        A copy of the operator and its children, representing the previous time or
-        iteration.
-
-    """
-
-    # The recursion reached an atomic operator, which has some time- or
-    # iterate-dependent behaviour
-    if isinstance(op, TimeDependentOperator) and prev_time:
-        return op.previous_timestep(steps=steps)
-    elif isinstance(op, IterativeOperator) and not prev_time:
-        return op.previous_iteration(steps=steps)
-    # NOTE The previous_iteration of a time-dependent operator will return the operator
-    # itself. Vice-versa, the previous_timestep of an Iterative operator will return
-    # itself. Holds only if the operator is original (no previous_* operation performed)
-
-    # The recursion reached an operator without children and without time- or iterate-
-    # dependent behaviour
-    elif op.is_leaf():
-        return op
-    # Else we are in the middle of the operator tree and need to go deeper, creating
-    # copies along.
-    else:
-        # Create new operator from the tree, with the only difference being the new
-        # children, for which the recursion is invoked
-        # NOTE copy takes care of references to original_operator and func
-        new_op = copy.copy(op)
-        new_op.children = [
-            _get_previous_time_or_iterate(child, prev_time=prev_time, steps=steps)
-            for child in op.children
-        ]
-        return new_op
-
-
-class Operations(Enum):
-    """Object representing all supported operations by the operator class.
-
-    Used to construct the operator tree and identify Operations.
-
-    """
-
-    # NOTE: The string values of the operations are used in the construction of hash
-    # keys for compound operators. If adding new operations, these must be assigned
-    # unique string values.
-
-    void = "void"
-    add = "add"
-    sub = "sub"
-    mul = "mul"
-    rmul = "rmul"
-    matmul = "matmul"
-    rmatmul = "rmatmul"
-    div = "div"
-    rdiv = "rdiv"
-    evaluate = "evaluate"
-    approximate = "approximate"
-    pow = "pow"
-    rpow = "rpow"
-
-    @classmethod
-    def to_symbol(cls, value):
-        symbols = {
-            cls.add: "+",
-            cls.sub: "-",
-            cls.mul: "*",
-            cls.rmul: "*",
-            cls.matmul: "@",
-            cls.rmatmul: "@",
-            cls.div: "/",
-            cls.rdiv: "/",
-            cls.pow: "**",
-            cls.rpow: "**",
-            cls.evaluate: "evaluate",
-            cls.approximate: "approximate",
-            cls.void: "void",
-        }
-        return symbols.get(value, "unknown")
-
-    @classmethod
-    def to_str(cls, value):
-        strings = {
-            cls.add: "adding",
-            cls.sub: "subtracting",
-            cls.mul: "multiplying",
-            cls.rmul: "multiplying",
-            cls.matmul: "matrix multiplying",
-            cls.rmatmul: "matrix multiplying",
-            cls.div: "dividing",
-            cls.rdiv: "dividing",
-            cls.pow: "raising to the power of",
-            cls.rpow: "raising to the power of",
-            cls.evaluate: "evaluating",
-            cls.approximate: "approximating",
-            cls.void: "void",
-        }
-        return strings.get(value, "unknown")
-
-
 class Operator:
     """Parent class for all AD operators.
 
@@ -182,44 +82,42 @@ class Operator:
     Provides overload functions for basic arithmetic operations.
 
     Parameters:
-        name: Name of this operator. Used for string representations
-        subdomains (optional): List of subdomains on which the operator is defined.
-            Will be empty for operators not associated with any subdomains.
-            Defaults to None (converted to empty list).
-        interfaces (optional): List of interfaces in the mixed-dimensional grid on which
-            the operator is defined. Will be empty for operators not associated with any
-            interface. Defaults to None (converted to empty list).
+        name: Name of this operator. Used for string representations.
         operation (optional): Arithmetic or other operation represented by this
             operator. Defaults to void operation.
         children (optional): List of children, other AD operators. Defaults to empty
             list.
+        source: Algebraic source space of this operator.
+        target: Algebraic target space of this operator. If not given (or explicitly
+            ``None``), defaults to ``source``, i.e. the operator is assumed to be a
+            self-mapping. Subclasses representing a genuinely non-self-mapping
+            operator (source and target differ) should declare ``target`` as a
+            required parameter in their own ``__init__`` rather than relying on this
+            default.
 
     """
 
     def __init__(
         self,
         name: Optional[str] = None,
-        domains: Optional[GridLikeSequence] = None,
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
+        *,
+        source: OperatorSpace,
+        target: Optional[OperatorSpace] = None,
     ) -> None:
-        if domains is None:
-            domains = []
-        self._domains: GridLikeSequence = domains
-        self._domain_type: Literal["subdomains", "interfaces", "boundary grids"]
-        if all([isinstance(d, pp.Grid) for d in domains]):
-            self._domain_type = "subdomains"
-        elif all([isinstance(d, pp.MortarGrid) for d in domains]):
-            self._domain_type = "interfaces"
-        elif all([isinstance(d, pp.BoundaryGrid) for d in domains]):
-            self._domain_type = "boundary grids"
-        else:
-            raise ValueError(
-                "An operator must be associated with either"
-                " interfaces, subdomains or boundary grids."
+        if source is None:
+            raise TypeError(
+                f"{self.__class__.__name__} must be constructed with a non-None "
+                "source OperatorSpace."
             )
+        if target is None:
+            target = source
 
-        self.func: Callable[..., float | np.ndarray | AdArray]
+        self._source: OperatorSpace = source
+        self._target: OperatorSpace = target
+
+        self.func: Callable[..., float | np.ndarray | AdArrayBase]
         """Functional representation of this operator.
 
         As of now, only instances of
@@ -259,32 +157,19 @@ class Operator:
         self._cached_key: Optional[str] = None
 
     @property
-    def interfaces(self):
-        """List of interfaces on which the operator is defined, passed at instantiation.
-
-        Will be empty for operators not associated with specific interfaces.
-
-        """
-        return self._domains if self._domain_type == "interfaces" else []
+    def source(self) -> OperatorSpace:
+        """The algebraic source space of this operator."""
+        return self._source
 
     @property
-    def subdomains(self):
-        """List of subdomains on which the operator is defined, passed at instantiation.
-
-        Will be empty for operators not associated with specific subdomains.
-
-        """
-        return self._domains if self._domain_type == "subdomains" else []
+    def target(self) -> OperatorSpace:
+        """The algebraic target space of this operator."""
+        return self._target
 
     @property
-    def domain_type(self) -> Literal["subdomains", "interfaces", "boundary grids"]:
-        """Type of domains where the operator is defined."""
-        return self._domain_type
-
-    @property
-    def domains(self) -> GridLikeSequence:
+    def domains(self) -> tuple[GridLike, ...]:
         """List of domains where the operator is defined."""
-        return self._domains
+        return self._target.grids
 
     @property
     def name(self) -> str:
@@ -430,6 +315,19 @@ class Operator:
         """
         return _get_previous_time_or_iterate(self, prev_time=False, steps=steps)
 
+    def reference(self) -> pp.ad.Operator:
+        """Base method to trigger a recursion over the operator tree and create a
+        shallow copy of this operator with reference behaviour.
+
+        For more information, see :class:`ReferenceOperator`.
+
+        """
+        return _get_reference(self)
+
+    def perturbation_from_reference(self) -> pp.ad.Operator:
+        """Returns the perturbation of this operator from its reference value."""
+        return self - self.reference()
+
     def parse(self, mdg: pp.MixedDimensionalGrid) -> Any:
         """Translate the operator into a numerical expression.
 
@@ -537,8 +435,10 @@ class Operator:
             matrix.
 
         """
-        msg = "This method is deprecated. Use the `evaluate` method of EquationSystem."
-        warn(msg, DeprecationWarning)
+        msg = (
+            "Operator.value is deprecated. Use the `evaluate` method of EquationSystem."
+        )
+        warn(msg, FutureWarning, stacklevel=2)
 
         return self._evaluate(equation_system, state=state, evaluate_jacobian=False)
 
@@ -564,8 +464,11 @@ class Operator:
                 depends on the operator.
 
         """
-        msg = "This method is deprecated. Use the `evaluate` method of EquationSystem."
-        warn(msg, DeprecationWarning)
+        msg = (
+            "Operator.value_and_jacobian is deprecated. Use the `evaluate` method of "
+            "EquationSystem."
+        )
+        warn(msg, FutureWarning, stacklevel=2)
         ad = self._evaluate(equation_system, state=state, evaluate_jacobian=True)
 
         # Casting the result to AdArray or raising an error.
@@ -588,15 +491,6 @@ class Operator:
             )
         else:
             return ad
-
-    def evaluate(
-        self,
-        equation_system: pp.ad.EquationSystem,
-        state: Optional[np.ndarray] = None,
-    ):
-        raise ValueError(
-            "`evaluate` is deprecated. Use `value` or `value_and_jacobian` instead."
-        )
 
     def _evaluate(
         self,
@@ -670,11 +564,20 @@ class Operator:
         # When using the sum operator on a list with a single item, Python will call the
         # addition operator with other == 0. Convert that other to an Ad Scalar with
         # value 0 to avoid errors in the addition operator.
-        if other == 0:
-            other = Scalar(0)
+        if isinstance(other, (int, float)) and other == 0:
+            other = Scalar(0, domains=self.domains)
 
+        self._raise_if_number(other, Operations.add)
+        source, target = Operations.add.infer_source_target(self, other)
         children = self._parse_other(other)
-        return Operator(children=children, operation=Operations.add, name="+ operator")
+
+        return Operator(
+            children=children,
+            operation=Operations.add,
+            name="+ operator",
+            source=source,
+            target=target,
+        )
 
     def __radd__(self, other: Operator) -> Operator:
         """Add two operators.
@@ -701,8 +604,16 @@ class Operator:
             The difference of self and other.
 
         """
+        self._raise_if_number(other, Operations.sub)
+        source, target = Operations.sub.infer_source_target(self, other)
         children = self._parse_other(other)
-        return Operator(children=children, operation=Operations.sub, name="- operator")
+        return Operator(
+            children=children,
+            operation=Operations.sub,
+            name="- operator",
+            source=source,
+            target=target,
+        )
 
     def __rsub__(self, other: Operator) -> Operator:
         """Subtract two operators.
@@ -714,11 +625,18 @@ class Operator:
             The difference of other and self.
 
         """
-        # consider the expression a-b. right-subtraction means self == b
+        self._raise_if_number(other, Operations.sub)
+        source, target = Operations.sub.infer_source_target(self, other)
         children = self._parse_other(other)
         # we need to change the order here since a-b != b-a
         children = [children[1], children[0]]
-        return Operator(children=children, operation=Operations.sub, name="- operator")
+        return Operator(
+            children=children,
+            operation=Operations.sub,
+            name="- operator",
+            source=source,
+            target=target,
+        )
 
     def __mul__(self, other: Operator) -> Operator:
         """Elementwise multiplication of two operators.
@@ -730,8 +648,16 @@ class Operator:
             The elementwise product of self and other.
 
         """
+        self._raise_if_number(other, Operations.mul)
+        source, target = Operations.mul.infer_source_target(self, other)
         children = self._parse_other(other)
-        return Operator(children=children, operation=Operations.mul, name="* operator")
+        return Operator(
+            children=children,
+            operation=Operations.mul,
+            name="* operator",
+            source=source,
+            target=target,
+        )
 
     def __rmul__(self, other: Operator) -> Operator:
         """Elementwise multiplication of two operators.
@@ -746,11 +672,15 @@ class Operator:
             The elementwise product of self and other.
 
         """
+        self._raise_if_number(other, Operations.mul)
+        source, target = Operations.mul.infer_source_target(self, other)
         children = self._parse_other(other)
         return Operator(
             children=children,
             operation=Operations.rmul,
             name="right * operator",
+            source=source,
+            target=target,
         )
 
     def __truediv__(self, other: Operator) -> Operator:
@@ -763,8 +693,17 @@ class Operator:
             The elementwise division of self and other.
 
         """
+        self._raise_if_number(other, Operations.div)
+        source, target = Operations.div.infer_source_target(self, other)
+
         children = self._parse_other(other)
-        return Operator(children=children, operation=Operations.div, name="/ operator")
+        return Operator(
+            children=children,
+            operation=Operations.div,
+            name="/ operator",
+            source=source,
+            target=target,
+        )
 
     def __rtruediv__(self, other: Operator) -> Operator:
         """Elementwise division of two operators.
@@ -779,11 +718,16 @@ class Operator:
             The elementwise division of other and self.
 
         """
+        self._raise_if_number(other, Operations.div)
+        source, target = Operations.div.infer_source_target(self, other)
+
         children = self._parse_other(other)
         return Operator(
             children=children,
             operation=Operations.rdiv,
             name="right / operator",
+            source=source,
+            target=target,
         )
 
     def __pow__(self, other: Operator) -> Operator:
@@ -822,8 +766,16 @@ class Operator:
             # integers, the same problem as above applies). We explicitly disallow this.
             raise ValueError("Cannot take SparseArray to the power of an DenseArray.")
 
+        self._raise_if_number(other, Operations.pow)
         children = self._parse_other(other)
-        return Operator(children=children, operation=Operations.pow, name="** operator")
+        source, target = Operations.pow.infer_source_target(self, other)
+        return Operator(
+            children=children,
+            operation=Operations.pow,
+            name="** operator",
+            source=source,
+            target=target,
+        )
 
     def __rpow__(self, other: Operator) -> Operator:
         """Elementwise exponentiation of two operators.
@@ -838,11 +790,15 @@ class Operator:
             The elementwise exponentiation of other and self.
 
         """
+        self._raise_if_number(other, Operations.pow)
+        source, target = Operations.pow.infer_source_target(self, other)
         children = self._parse_other(other)
         return Operator(
             children=children,
             operation=Operations.rpow,
             name="reverse ** operator",
+            source=source,
+            target=target,
         )
 
     def __matmul__(self, other: Operator) -> Operator:
@@ -855,9 +811,15 @@ class Operator:
             The matrix product of self and other.
 
         """
+        self._raise_if_number(other, Operations.matmul)
         children = self._parse_other(other)
+        source, target = Operations.matmul.infer_source_target(self, other)
         return Operator(
-            children=children, operation=Operations.matmul, name="@ operator"
+            children=children,
+            operation=Operations.matmul,
+            name="@ operator",
+            source=source,
+            target=target,
         )
 
     def __rmatmul__(self, other):
@@ -873,11 +835,15 @@ class Operator:
             The matrix product of other and self.
 
         """
+        self._raise_if_number(other, Operations.rmatmul)
         children = self._parse_other(other)
+        source, target = Operations.rmatmul.infer_source_target(self, other)
         return Operator(
             children=children,
             operation=Operations.rmatmul,
             name="reverse @ operator",
+            source=source,
+            target=target,
         )
 
     def __hash__(self):
@@ -913,14 +879,30 @@ class Operator:
             self._cached_key = " ".join(tmp)
         return self._cached_key
 
+    def _raise_if_number(self, other: Any, operation: Operations) -> None:
+        """Raise an error if ``other`` is a plain number rather than an Ad operator.
+
+        Numbers must be wrapped as :class:`Scalar` before they are combined with Ad
+        operators, since a plain number carries no information on its source and target
+        spaces.
+
+        Parameters:
+            other: The second operand of an arithmetic operation with self.
+            operation: The operation that is attempted. Used in the error message.
+
+        Raises:
+            ValueError: If ``other`` is a number (including numpy scalars).
+
+        """
+        if isinstance(other, numbers.Number):
+            raise ValueError(
+                f"Cannot combine the Ad operator {self!r} with the number {other!r} "
+                f"when {Operations.to_str(operation)}. Wrap the number as "
+                f"pp.ad.Scalar({other!r}) first."
+            )
+
     def _parse_other(self, other):
-        if isinstance(other, float) or isinstance(other, int):
-            return [self, Scalar(other)]
-        elif isinstance(other, np.ndarray):
-            return [self, DenseArray(other)]
-        elif isinstance(other, (sps.spmatrix, sps.sparray)):
-            return [self, SparseArray(other)]
-        elif isinstance(other, AdArray):
+        if isinstance(other, AdArray):
             # This may happen when using nested pp.ad.Function.
             return [self, other]
         elif isinstance(other, pp.ad.AbstractFunction):
@@ -934,230 +916,43 @@ class Operator:
             raise ValueError(f"Cannot parse {other} as an AD operator")
 
 
-class TimeDependentOperator(Operator):
-    """Intermediate parent class for operator classes, which can have a time-dependent
-    representation.
+def _check_space_shape_consistency(
+    space: Optional[OperatorSpace], actual_size: int, role: str, class_name: str
+) -> None:
+    """Verify that ``space`` (if given, and if grid-based) predicts ``actual_size``
+    degrees of freedom.
 
-    Implements the notion of time step indices, as well as a method to create a
-    representation of an operator instance at a previous time.
+    Parameters:
+        space: The candidate source or target space.
+        actual_size: The actual size (number of rows, columns, or vector
+            entries) of the wrapped array/matrix along the dimension
+            associated with ``space``.
+        role: Either ``"source"`` or ``"target"``, used only for the error
+            message.
+        class_name: Name of the calling class, used only for the error message.
 
-    Operators created via constructor always start at the current time.
-
-    """
-
-    def __init__(
-        self,
-        name: str | None = None,
-        domains: Optional[pp.GridLikeSequence] = None,
-        operation: Optional[Operations] = None,
-        children: Optional[Sequence[Operator]] = None,
-    ) -> None:
-        super().__init__(
-            name=name, domains=domains, operation=operation, children=children
-        )
-
-        self.original_operator: Operator
-        """Reference to the operator representing this operator at the current time amd
-        iterate.
-
-        This attribute is only available in operators representing previous time steps.
-
-        """
-
-        self._time_step_index: int = -1
-        """Time step index, starting with 0 (current time) and increasing for previous
-        time steps."""
-
-    @property
-    def is_previous_time(self) -> bool:
-        """True, if the operator represents a previous time-step."""
-        return True if self._time_step_index >= 0 else False
-
-    @property
-    def time_step_index(self) -> int | None:
-        """Returns the time step index this instance represents.
-
-        - None indicates the current time (unknown value)
-        - 0 indicates this is an operator at the first previous time step
-        - 1 at the time step before
-        - ...
-
-        """
-        if self._time_step_index < 0:
-            return None
-        else:
-            return self._time_step_index
-
-    def previous_timestep(
-        self: _TimeDependentOperator, steps: int = 1
-    ) -> _TimeDependentOperator:
-        """Returns a copy of the time-dependent operator with an advanced time-step
-        index.
-
-        Time-dependent operators do not invoke the recursion (like the base class),
-        but represent a leaf in the recursion tree.
-
-        Note:
-            You cannot create operators at the previous time step from operators which
-            are at some previous iterate. Use the :attr:`original_operator` instead.
-
-        Parameters:
-            steps: ``default=1``
-
-                Number of steps backwards in time.
-
-        Raises:
-            ValueError: If this instance represents an operator at a previous iterate.
-            AssertionError: If ``steps`` is not strictly positive.
-
-        """
-        if isinstance(self, IterativeOperator):
-            if self.is_previous_iterate:
-                raise ValueError(
-                    "Cannot create an operator representing a previous time step,"
-                    + " if it already represents a previous iterate."
-                )
-
-        assert steps > 0, "Number of steps backwards must be strictly positive."
-        # TODO copy or deepcopy? Is this enough for every operator class?
-        op = copy.copy(self)
-        # Delete the cached key, so that this must be regenerated for the new operator,
-        # which is different from the original one.
-        op._cached_key = None
-
-        # NOTE Use private time step index, because it is always an integer
-        # The public time step index is NONE for current time
-        # (which translates to -1 for the private index)
-        op._time_step_index = self._time_step_index + int(steps)
-
-        # keeping track to the very first one
-        if self.is_current_iterate:
-            op.original_operator = self
-        else:
-            op.original_operator = self.original_operator
-
-        return op
-
-
-_TimeDependentOperator = TypeVar("_TimeDependentOperator", bound=TimeDependentOperator)
-
-
-class IterativeOperator(Operator):
-    """Intermediate parent class for operator classes, which can have multiple
-    representations in the iterative sense.
-
-    Implements the notion of iterate indices, as well as a method to create a
-    representation of an operator instance at a iterate time.
-
-    Operators created via constructor always start at the current iterate.
-
-    Note:
-        Operators which represents some previous iterate represent also
-        always the current time.
+    Raises:
+        ValueError: If ``space`` is grid-based (not scalar/unclear/``None``)
+            and its predicted DOF count does not match ``actual_size``.
 
     """
-
-    def __init__(
-        self,
-        name: str | None = None,
-        domains: Optional[pp.GridLikeSequence] = None,
-        operation: Optional[Operations] = None,
-        children: Optional[Sequence[Operator]] = None,
-    ) -> None:
-        super().__init__(
-            name=name, domains=domains, operation=operation, children=children
+    if space is None or space.domain_type in (
+        DomainType.scalar,
+        DomainType.unclear,
+        DomainType.waived,
+    ):
+        # Scalar/unclear spaces carry no grid-based size prediction; a `None`
+        # space means the check simply cannot be performed (yet) for this
+        # construction site.
+        return
+    expected_size = space.num_dofs()
+    if expected_size != actual_size:
+        raise ValueError(
+            f"{class_name}: {role} space predicts {expected_size} degrees of "
+            f"freedom (domain_type={space.domain_type}, grids={space.grids}, "
+            f"dof_info={space.dof_info}), but the wrapped array/matrix has "
+            f"{actual_size} along that dimension."
         )
-
-        self.original_operator: Operator
-        """Reference to the operator representing this operator at the current time amd
-        iterate.
-
-        This attribute is only available in operators representing previous time steps.
-
-        """
-
-        self._iterate_index: int = -1
-        """Iterate index, starting with 0 (current iterate at current time) and
-        increasing for previous iterates."""
-
-    @property
-    def is_previous_iterate(self) -> bool:
-        """True, if the operator represents a previous iterate."""
-        return True if self._iterate_index >= 0 else False
-
-    @property
-    def iterate_index(self) -> int | None:
-        """Returns the iterate index this instance represents, at the current time.
-
-        - None indicates this instance is at a previous time
-        - 0 represents the most recently computed iterate.
-        - 1 represents the iterate before that
-        - ...
-
-        Note:
-            Operators at current time (unknown value) also have the index 0, since those
-            values are used to linearize the system and construct the Jacobian.
-
-        """
-        # Operators at previous time have no iterate indices
-        if isinstance(self, TimeDependentOperator):
-            if self.is_previous_time:
-                return None
-
-        # operators representing at current time use the values stored at index 0
-        # in that case the private index is -1
-        if self._iterate_index < 0:
-            return 0
-        # return respective index
-        else:
-            return self._iterate_index
-
-    def previous_iteration(
-        self: _IterativeOperator, steps: int = 1
-    ) -> _IterativeOperator:
-        """Returns a copy of the iterative operator with an advanced iterate index.
-
-        Iterative operators do not invoke the recursion (like the base class),
-        but represent a leaf in the recursion tree.
-
-        Note:
-            You cannot create operators at the previous iterates from operators which
-            are at some previous time step. Use the :attr:`original_operator` instead.
-
-        Parameters:
-            steps: ``default=1``
-
-                Number of steps backwards in the iterate sense.
-
-        Raises:
-            ValueError: If this instance represents an operator at a previous time step.
-            AssertionError: If ``steps`` is not strictly positive.
-
-        """
-        if isinstance(self, TimeDependentOperator):
-            if self.is_previous_time:
-                raise ValueError(
-                    "Cannot create an operator representing a previous iterate,"
-                    + " if it already represents a previous time step."
-                )
-        assert steps > 0, "Number of steps backwards must be strictly positive."
-        # See TODO in TimeDependentOperator.previous_timestep
-        op = copy.copy(self)
-        # Delete the cached key, so that this must be regenerated for the new operator,
-        # which is different from the original one.
-        op._cached_key = None
-        op._iterate_index = self._iterate_index + int(steps)
-
-        # keeping track to the very first one
-        if self.is_current_iterate:
-            op.original_operator = self
-        else:
-            op.original_operator = self.original_operator
-
-        return op
-
-
-_IterativeOperator = TypeVar("_IterativeOperator", bound=IterativeOperator)
 
 
 class SparseArray(Operator):
@@ -1171,10 +966,26 @@ class SparseArray(Operator):
     Parameters:
         mat: Sparse matrix to be wrapped as an AD operator.
         name: Name of this operator
+        source: Source space of this operator.
+        target: Target space of this operator. Deliberately required (unlike
+            :class:`Operator`, which defaults ``target`` to ``source``): a
+            ``SparseArray`` is routinely used to wrap genuinely rectangular matrices
+            where source and target differ, so silently defaulting here would risk
+            masking a forgotten ``target`` rather than raising a clear error.
 
     """
 
-    def __init__(self, mat: sps.spmatrix, name: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        mat: sps.spmatrix,
+        name: Optional[str] = None,
+        *,
+        source: OperatorSpace,
+        target: OperatorSpace,
+    ) -> None:
+        _check_space_shape_consistency(source, mat.shape[1], "source", "SparseArray")
+        _check_space_shape_consistency(target, mat.shape[0], "target", "SparseArray")
+
         self._mat = mat
         # Force the data to be float, so that we limit the number of combinations of
         # data types that we need to consider in parsing.
@@ -1217,7 +1028,7 @@ class SparseArray(Operator):
         self._hash_value: str = self._compute_spmatrix_hash(mat)
         """String to uniquly identify the contents of the matrix."""
 
-        super().__init__(name=name)
+        super().__init__(name=name, source=source, target=target)
 
     def _key(self) -> str:
         if self._cached_key is None:
@@ -1242,7 +1053,12 @@ class SparseArray(Operator):
 
         """
         new_name = None if self.name is None else f"minus {self.name}"
-        return SparseArray(mat=-self._mat, name=new_name)
+        return SparseArray(
+            mat=-self._mat,
+            name=new_name,
+            source=self._source,
+            target=self._target,
+        )
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> sps.spmatrix:
         """See :meth:`Operator.parse`.
@@ -1255,7 +1071,10 @@ class SparseArray(Operator):
 
     def transpose(self) -> SparseArray:
         """Returns an AD operator representing the transposed matrix."""
-        return SparseArray(self._mat.transpose())
+        # Transposing swaps source and target.
+        return SparseArray(
+            self._mat.transpose(), source=self._target, target=self._source
+        )
 
     @property
     def T(self) -> SparseArray:
@@ -1324,16 +1143,24 @@ class DenseArray(Operator):
 
     Parameters:
         values: Numpy array to be represented.
+        name: Name of the DenseArray.
+        source: Source space of the DenseArray.
+        target: Target space of the DenseArray. Deliberately required (unlike
+            :class:`Operator`, which defaults ``target`` to ``source``).
 
     """
 
-    def __init__(self, values: np.ndarray, name: Optional[str] = None) -> None:
-        """Construct an Ad representation of a numpy array.
+    def __init__(
+        self,
+        values: np.ndarray,
+        name: Optional[str] = None,
+        *,
+        source: OperatorSpace,
+        target: OperatorSpace,
+    ) -> None:
+        _check_space_shape_consistency(source, values.size, "source", "DenseArray")
+        _check_space_shape_consistency(target, values.size, "target", "DenseArray")
 
-        Parameters:
-            values: Numpy array to be represented.
-
-        """
         # Force the data to be float, so that we limit the number of combinations of
         # data types that we need to consider in parsing.
         self._values = values.astype(float, copy=False)
@@ -1347,7 +1174,7 @@ class DenseArray(Operator):
             usedforsecurity=False,  # type: ignore[arg-type]
         ).hexdigest()
         """String to uniquly identify the array."""
-        super().__init__(name=name)
+        super().__init__(name=name, source=source, target=target)
 
     def _key(self) -> str:
         if self._cached_key is None:
@@ -1372,7 +1199,12 @@ class DenseArray(Operator):
 
         """
         new_name = None if self.name is None else f"minus {self.name}"
-        return DenseArray(values=-self._values, name=new_name)
+        return DenseArray(
+            values=-self._values,
+            name=new_name,
+            source=self._source,
+            target=self._target,
+        )
 
     @property
     def size(self) -> int:
@@ -1389,7 +1221,7 @@ class DenseArray(Operator):
         return self._values
 
 
-class TimeDependentDenseArray(TimeDependentOperator):
+class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator, Operator):
     """An Ad-wrapper around a time-dependent numpy array.
 
     The array is tied to a MixedDimensionalGrid, and is distributed among the data
@@ -1407,11 +1239,12 @@ class TimeDependentDenseArray(TimeDependentOperator):
     Parameters:
         name: Name of the variable. Should correspond to items in
             ``data[pp.TIME_STEP_SOLUTIONS]``.
-        subdomains: Subdomains on which the array is defined. Defaults to None.
-        interfaces: Interfaces on which the array is defined. Defaults to None.
-            Exactly one of subdomains and interfaces must be non-empty.
-        previous_timestep: Flag indicating if the array should be evaluated at the
-            previous time step.
+        domains: Subdomains or interfaces on which the array is defined.
+        dof_info: Optional mapping from :class:`GridEntity` to the number of DOFs per
+            grid entity. Defaults to ``{GridEntity.cells: 1}``.
+        domain_type: The type of domain (subdomains, interfaces, or boundary grids)
+            that *domains* represents. If not given, it is inferred from the grid
+            types found in *domains*.
 
     Attributes:
         previous_timestep: If True, the array will be evaluated using
@@ -1421,6 +1254,8 @@ class TimeDependentDenseArray(TimeDependentOperator):
 
     Raises:
         ValueError: If either none of, or both of, subdomains and interfaces are empty.
+        ValueError: If the domain type cannot be inferred from the grids or from the
+            provided domain_type.
 
     """
 
@@ -1428,16 +1263,29 @@ class TimeDependentDenseArray(TimeDependentOperator):
         self,
         name: str,
         domains: GridLikeSequence,
+        dof_info: Optional[Union[GridEntities, Mapping[GridEntity, int]]] = None,
+        domain_type: Optional[DomainType] = None,
     ):
-        super().__init__(name=name, domains=domains)
+        if domains or domain_type is not None:
+            space = OperatorSpace.from_domains(
+                list(domains), dof_info, domain_type=domain_type
+            )
+        else:
+            f = (
+                "TimeDependentDenseArray: Either domains or domain_type must be"
+                " provided."
+            )
+            raise ValueError(f)
+        super().__init__(name=name, source=space, target=space)
 
     def _key(self) -> str:
         if self._cached_key is None:
             domain_ids = [domain.id for domain in self.domains]
             key = (
-                f"(time_dependent_dense_array, name={self.name}, domains={domain_ids} "
-                f"previous_time={self.is_previous_time},"
-                f"time_step_index={self.time_step_index})"
+                f"(time_dependent_dense_array, name={self.name}, domains={domain_ids}\n"
+                f"previous_time={self.is_previous_time}, "
+                f"time_step_index={self.time_step_index}), "
+                f"reference={self.is_reference})"
             )
             self._cached_key = key
         return self._cached_key
@@ -1459,26 +1307,34 @@ class TimeDependentDenseArray(TimeDependentOperator):
 
         """
         vals = []
-        if self.is_previous_time:
+        if self.is_reference:
+            reference = True
+            index_kwarg = {}
+        elif self.is_previous_time:
+            reference = False
             index_kwarg = {"time_step_index": self.time_step_index}
         else:
+            reference = False
             index_kwarg = {"iterate_index": 0}
 
-        for grid in self._domains:
-            if self._domain_type == "subdomains":
+        domain_type = self.target.domain_type
+        for grid in self.domains:
+            if domain_type == DomainType.subdomains:
                 assert isinstance(grid, pp.Grid)
                 data = mdg.subdomain_data(grid)
-            elif self._domain_type == "interfaces":
+            elif domain_type == DomainType.interfaces:
                 assert isinstance(grid, pp.MortarGrid)
                 data = mdg.interface_data(grid)
-            elif self._domain_type == "boundary grids":
+            elif domain_type == DomainType.boundary_grids:
                 assert isinstance(grid, pp.BoundaryGrid)
                 data = mdg.boundary_grid_data(grid)
             else:
-                raise ValueError(f"Unknown grid type: {self._domain_type}.")
+                raise ValueError(f"Unknown grid type: {domain_type}.")
 
             vals.append(
-                pp.get_solution_values(name=self._name, data=data, **index_kwarg)
+                pp.get_solution_values(
+                    name=self._name, data=data, reference=reference, **index_kwarg
+                )
             )
 
         if len(vals) > 0:
@@ -1489,9 +1345,10 @@ class TimeDependentDenseArray(TimeDependentOperator):
             return np.empty(0, dtype=float)
 
     def __repr__(self) -> str:
+        domain_label = self._source.domain_type.value
         msg = (
             f"Wrapped time-dependent array with name {self._name}.\n"
-            f"Defined on {len(self._domains)} {self._domain_type}.\n"
+            f"Defined on {len(self.domains)} {domain_label}.\n"
         )
         if self.is_previous_time:
             msg += f"Evaluated at the previous time step {self.time_step_index}.\n"
@@ -1511,12 +1368,23 @@ class Scalar(Operator):
 
     """
 
-    def __init__(self, value: float, name: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        value: float,
+        name: Optional[str] = None,
+        *,
+        domains: Optional[Sequence[pp.Grid | pp.MortarGrid | pp.BoundaryGrid]] = None,
+    ) -> None:
         # Force the data to be float, so that we limit the number of combinations of
         # data types that we need to consider in parsing.
         self._value = float(value)
+        # Domain-bearing scalars are cell-wise quantities on the provided grids.
+        if domains:
+            space = OperatorSpace.from_domains(domains)
+        else:
+            space = OperatorSpace.scalar()
         # Call the super constructor after setting the value.
-        super().__init__(name=name)
+        super().__init__(name=name, source=space, target=space)
 
     def _key(self) -> str:
         if self._cached_key is None:
@@ -1549,7 +1417,11 @@ class Scalar(Operator):
 
         """
         new_name = None if self.name is None else f"minus {self.name}"
-        return Scalar(value=-self._value, name=new_name)
+        # Propagate any grid context attached to this Scalar.
+        doms: Optional[list[pp.Grid | pp.MortarGrid | pp.BoundaryGrid]] = (
+            list(self._source.grids) if self._source.grids else None
+        )
+        return Scalar(value=-self._value, name=new_name, domains=doms)
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> float:
         """See :meth:`Operator.parse`.
@@ -1573,7 +1445,7 @@ class Scalar(Operator):
         self._value = value
 
 
-class Variable(TimeDependentOperator, IterativeOperator):
+class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Operator):
     """AD operator representing a variable defined on a single grid or mortar grid.
 
     For combinations of variables on different subdomains, see
@@ -1597,8 +1469,8 @@ class Variable(TimeDependentOperator, IterativeOperator):
 
     Parameters:
         name: Variable name.
-        ndof: Number of dofs per grid element.
-            Valid keys are ``cells``, ``faces`` and ``nodes``.
+        ndof: Number of dofs per grid element. If not given, one DOF per cell is
+            assumed.
         domain: A subdomain or interface on which the variable is defined.
         tags: A dictionary of tags.
 
@@ -1616,7 +1488,7 @@ class Variable(TimeDependentOperator, IterativeOperator):
     def __init__(
         self,
         name: str,
-        ndof: dict[Literal["cells", "faces", "nodes"], int],
+        ndof: Optional[Union[GridEntities, Mapping[GridEntity, int]]],
         domain: GridLike,
         tags: Optional[dict[str, Any]] = None,
     ) -> None:
@@ -1628,20 +1500,21 @@ class Variable(TimeDependentOperator, IterativeOperator):
 
         self._id: int = next(Variable._ids)
         """See :meth:`id`."""
-        self._grid: GridLike = domain
-        """See :meth:`domain`"""
+
+        # Construct the OperatorSpace for this variable's source/target. If no ndof is
+        # given, the called method will assign one dof per cell.
+        op_space = OperatorSpace.from_domains([domain], ndof)  # type: ignore[arg-type]
 
         # Block a mypy warning here: Domain is known to be GridLike (grid, mortar grid,
         # or boundary grid), thus the below wrapping in a list gives a list of GridLike,
         # but the super constructor expects a sequence of grids, sequence or mortar
         # grids etc. Mypy makes a difference, but the additional entropy needed to
         # circumvent the warning is not worth it.
-        super().__init__(name=name, domains=[domain])  # type: ignore [arg-type]
-
-        # dofs per
-        self._cells: int = ndof.get("cells", 0)
-        self._faces: int = ndof.get("faces", 0)
-        self._nodes: int = ndof.get("nodes", 0)
+        super().__init__(  # type: ignore[arg-type,call-arg]
+            name=name,
+            source=op_space,
+            target=op_space,
+        )
 
         # tag
         self._tags: dict[str, Any] = tags if tags is not None else {}
@@ -1669,40 +1542,21 @@ class Variable(TimeDependentOperator, IterativeOperator):
         return self._id
 
     @property
-    def domain(self) -> GridLike:
-        """The grid or mortar grid on which this variable is defined.
-
-        Note:
-            Not to be confused with :meth:`domains`, which has the grid in a sequence
-            of length 1.
-
-            This is for inheritance reasons, since :class:`Variable` inherits from
-            :class:`Operator`.
-
-            TODO: Clean up.
-
-
-        """
-        return self._grid
-
-    @property
     def tags(self) -> dict[str, Any]:
         """A dictionary of tags associated with this variable."""
         return self._tags
 
     @property
+    def domain(self) -> pp.Grid | pp.MortarGrid:
+        """Returns the subdomain or interface on which this variable is defined."""
+        # This method is added to the atomic variable for the purpose of filtering
+        # in the Indexer class.
+        return cast(pp.Grid | pp.MortarGrid, self.target.grids[0])
+
+    @property
     def size(self) -> int:
         """Returns the total number of dofs this variable has."""
-        if isinstance(self.domain, pp.MortarGrid):
-            # This is a mortar grid. Assume that there are only cell dofs
-            return self.domain.num_cells * self._cells
-        if isinstance(self.domain, pp.Grid):
-            return (
-                self.domain.num_cells * self._cells
-                + self.domain.num_faces * self._faces
-                + self.domain.num_nodes * self._nodes
-            )
-        raise ValueError()
+        return self.target.num_dofs()
 
     def set_name(self, name: str) -> None:
         """
@@ -1718,10 +1572,10 @@ class Variable(TimeDependentOperator, IterativeOperator):
         index."""
 
         # By logic in the constructor, it can only be a subdomain or interface
-        if isinstance(self._grid, pp.Grid):
-            data = mdg.subdomain_data(self._grid)
-        elif isinstance(self._grid, pp.MortarGrid):
-            data = mdg.interface_data(self._grid)
+        if isinstance(self.domain, pp.Grid):
+            data = mdg.subdomain_data(self.domain)
+        elif isinstance(self.domain, pp.MortarGrid):
+            data = mdg.interface_data(self.domain)
 
         # We can safely use both indices as arguments, without checking prev time,
         # because iterate index is None if prev time, and vice versa
@@ -1730,6 +1584,7 @@ class Variable(TimeDependentOperator, IterativeOperator):
             data,
             iterate_index=self.iterate_index,
             time_step_index=self.time_step_index,
+            reference=self.is_reference,
         )
 
     def __repr__(self) -> str:
@@ -1738,11 +1593,17 @@ class Variable(TimeDependentOperator, IterativeOperator):
             s += f" on interface {self.domain.id}\n"
         else:
             s += f" on grid {self.domain.id}\n"
+
+        assert self.target is not None
+        dof_info = self.target.dof_info
         s += (
-            f"Degrees of freedom: cells ({self._cells}), faces ({self._faces}), "
-            f"nodes ({self._nodes})\n"
+            f"Degrees of freedom: cells ({dof_info.cells}), "
+            f"faces ({dof_info.faces}), "
+            f"nodes ({dof_info.nodes})\n"
         )
-        if self.is_previous_iterate:
+        if self.is_reference:
+            s += f"Evaluated at the reference solution.\n"
+        elif self.is_previous_iterate:
             s += f"Evaluated at the previous iteration {self.iterate_index}.\n"
         elif self.is_previous_time:
             s += f"Evaluated at the previous time step {self.time_step_index}.\n"
@@ -1800,15 +1661,27 @@ class MixedDimensionalVariable(Variable):
         time_indices = []
         iter_indices = []
         current_iter = []
+        reference = []
         names = []
         domains = []
+        dof_infos: list[GridEntities] = []
 
         for var in variables:
             time_indices.append(var.time_step_index)
             iter_indices.append(var.iterate_index)
             current_iter.append(var.is_current_iterate)
+            reference.append(var.is_reference)
             names.append(var.name)
             domains.append(var.domain)
+            # Every Variable (atomic or itself a MixedDimensionalVariable) is
+            # guaranteed a non-None source by its own constructor (see
+            # Variable.__init__ and the else-branch below for the 0-variable case),
+            # so this should always succeed; the assert documents and guards the
+            # invariant rather than silently tolerating a None source.
+            assert var.source is not None, (
+                "Internal error: every Variable must have a populated source space."
+            )
+            dof_infos.append(var.source.dof_info)
 
         # check assumptions
         if len(variables) > 0:
@@ -1822,18 +1695,39 @@ class MixedDimensionalVariable(Variable):
             assert len(set(iter_indices)) == 1 and len(set(current_iter)) == 1, (
                 "Cannot create md-variable from variables at different iterates."
             )
+            assert len(set(reference)) == 1, (
+                "Cannot create md-variable from variables with different reference "
+                "states."
+            )
             assert len(set(names)) == 1, (
                 "Cannot create md-variable from variables with different names."
             )
             assert len(set(domains)) == len(domains), (
                 "Cannot create md-variable from variables with overlapping domains."
             )
+            unique_dof_infos = set(dof_infos)
+            all_same_grid_class = (
+                all(isinstance(grid, pp.Grid) for grid in domains)
+                or all(isinstance(grid, pp.MortarGrid) for grid in domains)
+                or all(isinstance(grid, pp.BoundaryGrid) for grid in domains)
+            )
+            if len(unique_dof_infos) == 1 and all_same_grid_class:
+                op_space = OperatorSpace.from_domains(domains, dof_infos[0])
+            else:
+                # The sub-variables genuinely disagree on dof_info and/or grid class:
+                # there is no single OperatorSpace that correctly describes this
+                # md-variable, so mark it unclear rather than silently using None.
+                # TODO: Consider to raise here instead.
+                op_space = OperatorSpace.unclear()
+
         # Default values for empty md variable
         else:
             time_indices = [-1]
             iter_indices = [None]
-            names = ["empty_md_variable"]
             current_iter = [True]
+            reference = [False]
+            names = ["empty_md_variable"]
+            op_space = OperatorSpace.scalar()
 
         # NOTE everything below here is redundent with a proper super() call
         # See top comment in constructor
@@ -1855,12 +1749,13 @@ class MixedDimensionalVariable(Variable):
             # value.
             self._iterate_index = -1 if iter_indices[0] is None else iter_indices[0]
 
+        # Check if reference
+        self._is_reference = reference[0]
+
         self._name = names[0]
 
-        # Mypy complains that we do not know that all variables have the same type of
-        # domain. While formally correct, this should be picked up in other places so we
-        # ignore the warning here.
-        self._domains = domains  # type: ignore[assignment]
+        self._source: OperatorSpace = op_space
+        self._target: OperatorSpace = op_space
 
         # If someone attempts to create a prev time or iter md-variable using
         # atomic variables at prev time and iter, we have a missing reference to the
@@ -1883,7 +1778,7 @@ class MixedDimensionalVariable(Variable):
         """
 
         self._initialize_children()
-        self.copy_common_sub_tags()
+        self._copy_common_sub_tags()
         self._cached_key: Optional[str] = None
 
     def __repr__(self) -> str:
@@ -1906,7 +1801,7 @@ class MixedDimensionalVariable(Variable):
 
         return s
 
-    def copy_common_sub_tags(self) -> None:
+    def _copy_common_sub_tags(self) -> None:
         """Copy any shared tags from the sub-variables to this variable.
 
         Only tags with identical values are copied. Thus, the md variable can "trust"
@@ -1930,11 +1825,6 @@ class MixedDimensionalVariable(Variable):
             values = set(var.tags[key] for var in self.sub_vars)
             if len(values) == 1:
                 self.tags[key] = values.pop()
-
-    @property
-    def domain(self) -> list[GridLike]:  # type: ignore[override]
-        """A tuple of all domains on which the atomic sub-variables are defined."""
-        return [var.domain for var in self.sub_vars]
 
     @property
     def size(self) -> int:
@@ -1964,6 +1854,13 @@ class MixedDimensionalVariable(Variable):
         op.sub_vars = [var.previous_iteration(steps=steps) for var in self.sub_vars]
         return op
 
+    def reference(self) -> MixedDimensionalVariable:
+        """Mixed-dimensional variables have sub-variables which also need to be
+        obtained as reference."""
+        op = super().reference()
+        op.sub_vars = [var.reference() for var in self.sub_vars]
+        return op
+
 
 class Projection(Operator):
     """Wrapper class for Ad representations of projection operators."""
@@ -1973,6 +1870,8 @@ class Projection(Operator):
         domain_indices: np.ndarray,
         range_indices: np.ndarray,
         domain_size: int,
+        source: OperatorSpace,
+        target: OperatorSpace,
         range_size: int,
         name: Optional[str] = None,
     ):
@@ -1983,7 +1882,17 @@ class Projection(Operator):
             range_indices: Indices of the range space.
             domain_size: Size of the domain space.
             range_size: Size of the range space.
+            source: The operator space of the domain, if known from the grid/dof
+                context the projection was built from. Its
+                :meth:`~porepy.numerics.ad.operator_space.OperatorSpace.num_dofs` must
+                match *domain_size*.
+            target: The operator space of the range, analogous to *source*. Its
+                ``num_dofs()`` must match *range_size*.
             name: Name of the operator. Default is None.
+
+        Raises:
+            ValueError: If *source*/*target* is given and its ``num_dofs()`` does not
+                match *domain_size*/*range_size*.
 
         """
         self._slicer: pp.matrix_operations.ArraySlicer = (
@@ -1994,7 +1903,9 @@ class Projection(Operator):
                 domain_size=domain_size,
             )
         )
-        super().__init__(name=name)
+        _check_space_shape_consistency(source, domain_size, "source", "Projection")
+        _check_space_shape_consistency(target, range_size, "target", "Projection")
+        super().__init__(name=name, source=source, target=target)
 
     def transpose(self) -> Projection:
         """Return the transpose of the operator."""
@@ -2005,6 +1916,8 @@ class Projection(Operator):
             range_size=self._slicer.domain_size,
             domain_size=self._slicer.range_size,
             name=self.name + "transpose",
+            source=self.target,
+            target=self.source,
         )
 
     def __repr__(self) -> str:
@@ -2088,8 +2001,26 @@ class ProjectionList(Operator):
                 operations (e.g., subtraction) are not supported.
             name: Optional name for the projection list.
 
+        Raises:
+            ValueError: If the operators in the list do not all share the same
+                source, or do not all share the same target.
+
         """
-        super().__init__(name=name, children=operators)
+        sources = {op.source for op in operators}
+        targets = {op.target for op in operators}
+        if len(sources) > 1:
+            raise ValueError(
+                "Cannot build a ProjectionList from operators with different "
+                f"sources: {sources}."
+            )
+        if len(targets) > 1:
+            raise ValueError(
+                "Cannot build a ProjectionList from operators with different "
+                f"targets: {targets}."
+            )
+        source = sources.pop()
+        target = targets.pop()
+        super().__init__(name=name, children=operators, source=source, target=target)
 
     def _key(self) -> str:
         if self._cached_key is None:
@@ -2115,8 +2046,11 @@ class ProjectionList(Operator):
 def _ad_wrapper(
     vals: Union[pp.number, np.ndarray],
     as_array: Literal[False],
+    *,
+    grids: Sequence[GridLike],
     size: Optional[int] = None,
     name: Optional[str] = None,
+    grid_entity: GridEntity = GridEntity.cells,
 ) -> SparseArray:
     # See md_grid for explanation of overloading and type hints.
     ...
@@ -2126,16 +2060,22 @@ def _ad_wrapper(
 def _ad_wrapper(
     vals: Union[pp.number, np.ndarray],
     as_array: Literal[True],
+    *,
+    grids: Sequence[GridLike],
     size: Optional[int] = None,
     name: Optional[str] = None,
+    grid_entity: GridEntity = GridEntity.cells,
 ) -> DenseArray: ...
 
 
 def _ad_wrapper(
     vals: Union[pp.number, np.ndarray],
     as_array: bool,
+    *,
+    grids: Sequence[GridLike],
     size: Optional[int] = None,
     name: Optional[str] = None,
+    grid_entity: GridEntity = GridEntity.cells,
 ) -> DenseArray | pp.ad.SparseArray:
     """Create ad array or diagonal matrix.
 
@@ -2144,8 +2084,12 @@ def _ad_wrapper(
     Parameters:
         vals: Values to be wrapped. Floats are broadcast to an np array.
         array: Whether to return a matrix or vector.
+        grids: Grids on which the wrapped object is defined.If empty, the returned
+            operator has the scalar source/target space.
         size: Size of the array or matrix. If not set, the size is inferred from vals.
         name: Name of ad object.
+        grid_entity: The grid entity (cells, faces or nodes) the wrapped values are
+            associated with.
 
     Returns:
         Values wrapped as an Ad object.
@@ -2157,51 +2101,98 @@ def _ad_wrapper(
     else:
         value_array = vals
 
-    if as_array:
-        return pp.ad.DenseArray(value_array, name)
+    if size is None:
+        size = value_array.size
+
+    domain_and_range: OperatorSpace
+    if grids:
+        if grid_entity == GridEntity.faces:
+            num_entities = sum(
+                grid.num_faces for grid in grids if isinstance(grid, pp.Grid)
+            )
+        elif grid_entity == GridEntity.nodes:
+            num_entities = sum(
+                grid.num_nodes
+                for grid in grids
+                if isinstance(grid, (pp.Grid, pp.MortarGrid))
+            )
+        else:
+            num_entities = sum(grid.num_cells for grid in grids)
+        dofs_per_entity = (
+            int(value_array.size / num_entities) if num_entities > 0 else 1
+        )
+        domain_and_range = pp.ad.OperatorSpace.from_domains(
+            grids, {grid_entity: dofs_per_entity}
+        )
     else:
-        if size is None:
-            size = value_array.size
+        # Empty sequence of grids: interpret as the scalar space.
+        domain_and_range = pp.ad.OperatorSpace.scalar()
+
+    if as_array:
+        return pp.ad.DenseArray(
+            value_array, name=name, source=domain_and_range, target=domain_and_range
+        )
+    else:
         matrix = sps.diags(vals, shape=(size, size))
-        return pp.ad.SparseArray(matrix, name)
+        return pp.ad.SparseArray(
+            matrix, name=name, source=domain_and_range, target=domain_and_range
+        )
 
 
 def wrap_as_dense_ad_array(
     vals: pp.number | np.ndarray,
+    *,
+    grids: Sequence[GridLike],
     size: Optional[int] = None,
     name: Optional[str] = None,
+    grid_entity: GridEntity = GridEntity.cells,
 ) -> DenseArray:
     """Wrap a number or array as ad array.
 
     Parameters:
         vals: Values to be wrapped. Floats are broadcast to an np array.
+        grids: Grids on which the wrapped array is defined. If empty, the returned
+            operator has the scalar source/target space.
         size: Size of the array. If not set, the size is inferred from vals.
         name: Name of ad object.
+        grid_entity: The grid entity (cells, faces or nodes) the wrapped values are
+            associated with.
 
     Returns:
         Values wrapped as an ad Array.
 
     """
-    return _ad_wrapper(vals, True, size=size, name=name)
+    return _ad_wrapper(
+        vals, True, grids=grids, size=size, name=name, grid_entity=grid_entity
+    )
 
 
 def wrap_as_sparse_ad_array(
     vals: Union[pp.number, np.ndarray],
+    *,
+    grids: Sequence[GridLike],
     size: Optional[int] = None,
     name: Optional[str] = None,
+    grid_entity: GridEntity = GridEntity.cells,
 ) -> SparseArray:
     """Wrap a number or array as ad matrix.
 
     Parameters:
         vals: Values to be wrapped. Floats are broadcast to an np array.
+        grids: Grids on which the wrapped array is defined. If empty, the returned
+            operator has the scalar source/target space.
         size: Size of the array. If not set, the size is inferred from vals.
         name: Name of ad object.
+        grid_entity: The grid entity (cells, faces or nodes) the wrapped values are
+            associated with.
 
     Returns:
         Values wrapped as an ad Matrix.
 
     """
-    return _ad_wrapper(vals, False, size=size, name=name)
+    return _ad_wrapper(
+        vals, False, grids=grids, size=size, name=name, grid_entity=grid_entity
+    )
 
 
 def sum_operator_list(
@@ -2298,8 +2289,35 @@ def sum_projection_list(
 
             # Create a copy of the second (rightmost) slicer, since we will modify it.
             slicer_1_copy = slicer_1.copy()
+            # NOTE: ArraySlicer.__matmul__ uses delayed evaluation when both operands
+            # are ArraySlicers: `slicer_0 @ slicer_1_copy` returns `slicer_1_copy`
+            # itself (with `slicer_0` attached as a pending operand to be applied once
+            # the slicer eventually acts on an array/matrix). Consequently, the
+            # `domain_size`/`range_size` of the returned object are *not* updated to
+            # reflect the full composed operator: `domain_size` stays correct (it
+            # equals the domain of the rightmost slicer, which is unaffected by the
+            # leftmost operand), but `range_size` remains the rightmost slicer's own
+            # (pre-composition) range, not the true composed range. The true composed
+            # range is the leftmost slicer's own range (`slicer_0.range_size`), since
+            # a matrix product's number of rows equals the number of rows of the left
+            # operand.
             prod = slicer_0 @ slicer_1_copy
             child_1._slicer = prod
+            # child_1 (i.e. the second/right Projection of the matmul) is repurposed
+            # to represent the *entire* composed operator `op`, not just its own
+            # original sub-slicer. Its source is unchanged (matmul's source is the
+            # right operand's source), but its target must be updated from its own
+            # target (the left operand `op.children[0]`'s source) to the composed
+            # operator's target (the left operand's target) to stay consistent with
+            # the new, combined slicer.
+            child_1._source = op.source
+            child_1._target = op.target
+            _check_space_shape_consistency(
+                child_1._source, slicer_1.domain_size, "source", "Projection"
+            )
+            _check_space_shape_consistency(
+                child_1._target, slicer_0.range_size, "target", "Projection"
+            )
             # Child is now a representation of the combined projection.
             new_operators.append(child_1)
 

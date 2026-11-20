@@ -82,7 +82,7 @@ class Permeability(DimensionDependentPermeability):
 
         """
         if len(subdomains) == 0:
-            return pp.wrap_as_dense_ad_array(1, size=0)
+            return pp.wrap_as_dense_ad_array(1, size=0, grids=[])
         permeabilities = []
         for sd in subdomains:
             permeabilities.append(
@@ -91,7 +91,9 @@ class Permeability(DimensionDependentPermeability):
                     "m^2",
                 )
             )
-        permeability = pp.wrap_as_dense_ad_array(np.concatenate(permeabilities))
+        permeability = pp.wrap_as_dense_ad_array(
+            np.concatenate(permeabilities), grids=subdomains
+        )
         return self.isotropic_second_order_tensor(subdomains, permeability)
 
     def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
@@ -105,7 +107,7 @@ class Permeability(DimensionDependentPermeability):
 
         """
         if len(interfaces) == 0:
-            return pp.wrap_as_dense_ad_array(1, size=0)
+            return pp.wrap_as_dense_ad_array(1, size=0, grids=[])
         permeabilities = []
         for intf in interfaces:
             # Get hold of the fracture subdomain.
@@ -133,7 +135,7 @@ class Permeability(DimensionDependentPermeability):
                 self.units.convert_units(val * np.ones(intf.num_cells), "m^2")
             )
         return pp.wrap_as_dense_ad_array(
-            np.hstack(permeabilities), name="normal_permeability"
+            np.hstack(permeabilities), name="normal_permeability", grids=interfaces
         )
 
 
@@ -155,3 +157,43 @@ class FlowBenchmark2dCase3bModel(  # type:ignore[misc]
     pp.SinglePhaseFlow,
 ):
     """Mixer class for case 3b (left-to-right flow) from the 2d flow benchmark."""
+
+
+def run_example() -> list[pp.PorePyModel]:
+    """Run the flow benchmark 2d case 3 and return the models."""
+
+    models: list[pp.PorePyModel] = []
+    for model_class, direction in zip(
+        [FlowBenchmark2dCase3aModel, FlowBenchmark2dCase3bModel],
+        ["x", "y"],
+    ):
+        model_params = {
+            "material_constants": {"solid": solid_constants},
+            "grid_type": "simplex",
+            "meshing_arguments": {"cell_size": 0.3},
+        }
+        model = model_class(model_params)  # type: ignore[abstract]
+        solver_parameters = {
+            "nl_convergence_res_atol": 1e-8,  # absolute tolerance on residuals
+        }
+        pp.run_time_dependent_model(model, solver_parameters)
+        models.append(model)
+
+        title = f"Pressure distribution. \n Flow in {direction}-direction."
+        pp.plot_grid(
+            model.mdg,
+            model.pressure_variable,
+            figsize=(12, 10),
+            plot_2d=True,
+            title=title,
+            pointsize=20,
+            fracturewidth_1d=3,
+            linewidth=0.2,
+        )
+
+    return models
+
+
+# If executed as main, run simulation.
+if __name__ == "__main__":
+    run_example()

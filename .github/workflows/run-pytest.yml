@@ -29,7 +29,7 @@ jobs:
     # https://help.github.com/en/actions/language-and-framework-guides/using-python-with-github-actions#specifying-a-python-version
     strategy:
       matrix:
-        python-version:  ["3.12", "3.13", "3.14"]
+        python-version:  ["3.13", "3.14"]
       # Complete all versions in matrix even if one fails.
       fail-fast: false
 
@@ -73,8 +73,16 @@ jobs:
     - name: Install requirements and PorePy
       run: |
         pip install .[testing]
+        pip install pypardiso
         pip freeze
 
     - name: Run tests
       if: ${{always()}}
-      run: pytest tests -m "not tutorials"
+      # Run on a single thread to make results (e.g., from the pypardiso solver)
+      # deterministic.
+      env:
+        OMP_NUM_THREADS: 1
+        MKL_NUM_THREADS: 1
+        OPENBLAS_NUM_THREADS: 1
+        NUMBA_NUM_THREADS: 1
+      run: pytest tests -m "not tutorials and not examples"

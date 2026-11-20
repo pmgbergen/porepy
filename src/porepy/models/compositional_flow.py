@@ -213,7 +213,6 @@ def log_cf_model_configuration(model: pp.PorePyModel) -> None:
     c_elim = model._is_reference_component_eliminated()
     is_ff = is_fractional_flow(model)
     et = compositional.get_local_equilibrium_condition(model)
-    schur = model.params.get("apply_schur_complement_reduction", False)
     var_names = set([v.name for v in model.equation_system.variables])
     dofs = model.equation_system.num_dofs()
     dofs_loc = dofs / len(var_names)
@@ -223,7 +222,6 @@ def log_cf_model_configuration(model: pp.PorePyModel) -> None:
         f"Configuration of model {model}:\n"
         + f"\tEquilibrium condition: {et}\n"
         + f"\tFractional flow: {is_ff}"
-        + f"\tEliminating secondary block via Schur complement: {schur}"
         + f"\tNumber of phases: {model.fluid.num_phases}\n"
         + f"\tNumber of components: {model.fluid.num_components}\n"
         + f"\tReference phase eliminated: {p_elim}\n"
@@ -443,7 +441,11 @@ class EnthalpyBasedEnergyBalanceEquations(
 
         op: pp.ad.Operator | pp.ad.TimeDependentDenseArray
 
-        if is_fractional_flow(self) and all(
+        if len(domains) == 0:
+            op = pp.wrap_as_dense_ad_array(
+                0, size=0, grids=[], name="advected_enthalpy"
+            )
+        elif is_fractional_flow(self) and all(
             [isinstance(g, pp.BoundaryGrid) for g in domains]
         ):
             op = self.create_boundary_operator(
@@ -470,23 +472,49 @@ class EnthalpyBasedEnergyBalanceEquations(
         return op
 
     def enthalpy_flux(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        if (
-            len(subdomains) == 0
-            or all(isinstance(d, pp.BoundaryGrid) for d in subdomains)
-        ) and is_fractional_flow(self):
+        """Enthalpy flux, extended to the fractional flow setting and to buoyancy
+        effects.
+
+        If buoyancy effects are enabled (parameter ``'enable_buoyancy_effects'``), the
+        :attr:`enthalpy_buoyancy` is added to the flux on subdomains.
+
+        Parameters:
+            subdomains: List of subdomains or boundary grids.
+
+        Returns:
+            Operator representing the enthalpy flux.
+
+        """
+        if len(subdomains) == 0:
+            return pp.wrap_as_dense_ad_array(0, size=0, grids=[], name="enthalpy_flux")
+
+        on_boundary = all(isinstance(d, pp.BoundaryGrid) for d in subdomains)
+        if on_boundary and is_fractional_flow(self):
             flux = self.advection_weight_energy_balance(subdomains) * self.darcy_flux(
                 subdomains
             )
         else:
             flux = super().enthalpy_flux(subdomains)
-        buoyancy_condition: bool = self.params.get(
-            "enable_buoyancy_effects", False
-        ) and not all([isinstance(g, pp.BoundaryGrid) for g in subdomains])
+        buoyancy_condition: bool = (
+            self.params.get("enable_buoyancy_effects", False) and not on_boundary
+        )
         if buoyancy_condition:
             flux += self.enthalpy_buoyancy(subdomains)
         return flux
 
     def energy_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Energy source term, extended to buoyancy effects.
+
+        If buoyancy effects are enabled (parameter ``'enable_buoyancy_effects'``), the
+        :attr:`enthalpy_buoyancy_jump` is added to the source term of the parent class.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Operator representing the energy source term.
+
+        """
         source = super().energy_source(subdomains)
         buoyancy_condition: bool = self.params.get("enable_buoyancy_effects", False)
         if buoyancy_condition:
@@ -613,7 +641,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         for component in self.fluid.components:
             if self.has_independent_fraction(component):
                 sd_eq = self.component_mass_balance_equation(component, subdomains)
-                self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
+                self.equation_system.set_equation(sd_eq)
 
     def component_mass_balance_equation(
         self, component: pp.Component, subdomains: list[pp.Grid]
@@ -698,7 +726,11 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
 
         op: pp.ad.Operator | pp.ad.TimeDependentDenseArray
 
-        if is_fractional_flow(self) and all(
+        if len(domains) == 0:
+            op = pp.wrap_as_dense_ad_array(
+                0, size=0, grids=[], name="advected_component_mass"
+            )
+        elif is_fractional_flow(self) and all(
             [isinstance(g, pp.BoundaryGrid) for g in domains]
         ):
             op = self.create_boundary_operator(
@@ -735,7 +767,12 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
             returned as an AD operator.
 
         """
-        if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
+        if len(domains) == 0:
+            return pp.wrap_as_dense_ad_array(
+                0, size=0, grids=[], name=f"component_flux_{component.name}"
+            )
+
+        if all(isinstance(d, pp.BoundaryGrid) for d in domains):
             if is_fractional_flow(self):
                 return self.advection_weight_component_mass_balance(
                     component, domains
@@ -1193,9 +1230,13 @@ class BoundaryConditionsMulticomponent(pp.BoundaryConditionMixin):
         r"""**Massic** component flux values on the boundary flagged as ``'neu'`` by
         :meth:`bc_type_fluid_flux`.
 
-        The value of the component flux is given by :math:`\mathbf{f}\cdot\mathbf{n}`,
-        where :math:`\mathbf{f} = a\mathbf{d}`. I.e. the massic component flux is
-        given by the Darcy flux and an additional advection weight.
+        The values represent the boundary contribution of the component mass flux
+        :math:`\mathbf{f}\cdot\mathbf{n} = (a\mathbf{d})\cdot\mathbf{n}`
+        integrated over each boundary face, with SI unit
+        :math:`\mathrm{kg} \cdot \mathrm{m}^{n_d - 3} \cdot \mathrm{s}^{-1}`
+        where :math:`n_d` is the ambient dimension. Here :math:`\mathbf{d}` is the Darcy
+        flux and :math:`a` is the advection weight; the massic component flux combines
+        the two.
 
         Important:
             The component flux must be given for **each** component on the boundary,
@@ -1210,9 +1251,8 @@ class BoundaryConditionsMulticomponent(pp.BoundaryConditionMixin):
             bg: Boundary grid to provide values for.
 
         Returns:
-            An array with ``shape=(bg.num_cells,)`` containing the mass
-            component flux values on the provided boundary grid.
-            Defaults to a zero array.
+            An array with ``shape=(bg.num_cells,)`` containing the mass component flux
+            values on the provided boundary grid. Defaults to a zero array.
 
         """
         return np.zeros(bg.num_cells)
@@ -1781,6 +1821,13 @@ class SolutionStrategyExtendedFluidMassAndEnergy(
     """
 
     def __init__(self, params: Optional[dict] = None) -> None:
+        """Initialize the solution strategy and set the name of the enthalpy variable
+        and the enthalpy keyword.
+
+        Parameters:
+            params: Model parameters, passed on to the parent class.
+
+        """
         super().__init__(params)
 
         self.enthalpy_variable: str = "enthalpy"

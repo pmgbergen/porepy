@@ -13,10 +13,10 @@ PorePy is a simulation tool that targets multiphysics processes in fractured por
 * Ready-made simulation setups for coupled processes, including:
     * Thermo-poromechanics coupled with fracture deformation.
     * Multiphase flow and transport.
-    
+
     The code design prioritizes easy adaptation of these setups to allow for rapid prototyping.
 
-The video below showcases a fully coupled flow and heat transport simulation in a fractured porous medium with 52 fractures. 
+The video below showcases a fully coupled flow and heat transport simulation in a fractured porous medium with 52 fractures.
 In the simulation, cold fluid is injected through an injection well in the top right of the domain and produced from a production well on the opposite side.
 
 <p align="center">
@@ -25,13 +25,17 @@ In the simulation, cold fluid is injected through an injection well in the top r
 
 # How do I get started?
 The best place to start is the [tutorials]( https://github.com/pmgbergen/porepy/tree/develop/tutorials); we suggest looking at the Readme file for guidance on how to approach the tutorials.
-The tutorials show how to use the code for various common cases and explain key PorePy functionality. 
+The tutorials show how to use the code for various common cases and explain key PorePy functionality.
 For additional inspiration, the [examples](https://github.com/pmgbergen/porepy/tree/develop/src/porepy/examples) folder contains a curated collection of simulation setups, including flow and poromechanics benchmarks, which can serve as starting points for your own simulations.
 
 The code can be accessed in several ways:
 *	The most immediate access is running PorePy in your web browser. If you have a GitHub account, use a GitHub codespace for PorePy following [these instructions]( https://docs.github.com/en/codespaces/developing-in-a-codespace/creating-a-codespace-for-a-repository#creating-a-codespace-for-a-repository). Note that the building time will be a few minutes.
 *	If you want to run the code on your own machine, you have two options:
-    *	If you have Docker installed, we recommend pulling the PorePy Docker image through ‘docker pull porepy/stable’.
+    *	We recommend the PorePy Docker images (requires [Docker](https://www.docker.com/)): `docker pull porepy/stable`, then `docker run -it porepy/stable`.
+    *	For development, we recommend VS Code [Dev Containers](https://code.visualstudio.com/docs/devcontainers/containers) based on the image `porepy/dev:latest`.
+    PorePy is installed in editable mode at `/workdir/porepy` in the container; add it to a [multi-root workspace](https://code.visualstudio.com/docs/editor/workspaces/multi-root-workspaces) to work on it alongside your project.
+    Note that changes there are stored in the container only, so commit and push them before rebuilding.
+    *	If running large simulations, you may want to consider the image containing the [PETSc](https://www.mcs.anl.gov/petsc/) library and linear solvers for PorePy: `docker pull porepy/extended`. Please note that the included pp_solver library is somewhat experimental and has limited documentation.
     *	To install PorePy manually, follow the [install instructions]( https://github.com/pmgbergen/porepy/blob/develop/Install.md).
 
 Documentation can be found [here](https://pmgbergen.github.io/porepy/html/docsrc/porepy/porepy.html) (still under construction).
@@ -40,7 +44,7 @@ Documentation can be found [here](https://pmgbergen.github.io/porepy/html/docsrc
 Please see the [guidelines]( https://github.com/pmgbergen/porepy/blob/develop/CONTRIBUTING.md) for contributing.
 
 # Acknowledgements
-PorePy is mainly developed by the [Porous Media Group](https://www4.uib.no/en/research/research-groups/porous-media-group) at the University of Bergen, Norway. 
+PorePy is mainly developed by the [Porous Media Group](https://www4.uib.no/en/research/research-groups/porous-media-group) at the University of Bergen, Norway.
 The software is developed under projects funded by the Research Council of Norway, the European Research Council and Equinor.
 
 

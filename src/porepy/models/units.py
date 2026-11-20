@@ -35,7 +35,7 @@ class Units:
     Parameters:
         **kwargs: Dictionary of units. The keys are the name of the unit, and the
             values are the scaling factor. For example, if the user wants to specify
-            length in kilometers, time in hours and substance amount in millimolar,
+            length in kilometers, weight in grams and substance amount in millimolar,
             the dictionary should be
 
             .. code-block:: Python
@@ -145,7 +145,7 @@ class Units:
         Parameters:
             value: Value to be converted. Either a number (int, float) or a numpy array.
             units: Units of ``value`` defined as a string in the form of
-                ``unit1 * unit2 * unit3^-1``, e.g., ``"Pa*m^3/kg"``.
+                ``unit1 * unit2 * unit3^-1``, e.g., ``"Pa*m^3*kg^-1"``.
 
                 Valid units are the attributes and properties of the :attr:`units`
                 defined at instantiation.

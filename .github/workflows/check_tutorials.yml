@@ -85,4 +85,11 @@ jobs:
 
     - name: Check tutorials
       if: ${{always()}}
+      # Run on a single thread to make results (e.g., from the pypardiso solver)
+      # deterministic.
+      env:
+        OMP_NUM_THREADS: 1
+        MKL_NUM_THREADS: 1
+        OPENBLAS_NUM_THREADS: 1
+        NUMBA_NUM_THREADS: 1
       run: pytest tests -m tutorials

@@ -6,6 +6,7 @@ import copy
 import logging
 from pathlib import Path
 from typing import Callable, Literal, Optional, Sequence, Union, cast
+from warnings import warn
 
 import numpy as np
 import scipy.sparse as sps
@@ -52,8 +53,9 @@ class ModelGeometry(pp.PorePyModel):
         pp.set_local_coordinate_projections(self.mdg)
 
         # Set up well network and add wells to the mixed-dimensional grid.
+        self.set_wells()
         self.set_well_network()
-        self.add_wells_to_mdg()
+        self.create_well_mesh()
 
         # Move cell centers if requested.
         self.move_cell_centers()
@@ -103,21 +105,41 @@ class ModelGeometry(pp.PorePyModel):
             **self.meshing_kwargs(),
         )
 
-    def set_well_network(self) -> None:
-        """Assign well network class."""
-        self.well_network = pp.WellNetwork3d(domain=self._domain)
+    @property
+    def wells(self) -> list[pp.Well]:
+        """Wells of the problem."""
+        return self._wells
 
-    def add_wells_to_mdg(self) -> None:
-        """Add wells to the mixed-dimensional grid."""
-        if len(self.well_network.wells) > 0:
-            # Compute intersections.
-            assert isinstance(self.fracture_network, FractureNetwork3d)
-            pp.compute_well_fracture_intersections(
-                self.well_network, self.fracture_network
+    def set_wells(self) -> None:
+        """Set wells in the well network.
+
+        Override this method to define a geometry with wells.
+
+        """
+        self._wells: list[pp.Well] = []
+
+    def set_well_network(self) -> None:
+        """Assign well network class.
+
+        Raises:
+            NotImplementedError: If the model is 2D and wells are defined.
+
+        """
+        self.well_network = pp.WellNetwork3d(self._wells, domain=self._domain)
+
+    def create_well_mesh(self) -> None:
+        """Create well mesh and add them to the mixed-dimensional grid.
+
+        Raises:
+            NotImplementedError: If the model is 2D and wells are defined.
+        """
+        if len(self._wells) > 0 and self.nd == 2:
+            raise NotImplementedError(
+                "Well-fracture intersection meshing is not implemented for 2D cases."
             )
-            # Mesh wells and add fracture + intersection grids to mixed-dimensional
-            # grid along with these grids' new interfaces to fractures.
-            self.well_network.mesh(self.mdg)
+        self.well_network.mesh(
+            self.fracture_network, self.mdg, self.well_meshing_arguments()
+        )
 
     def is_well_grid(self, grid: pp.Grid | pp.MortarGrid) -> bool:
         """Check if a subdomain is a well.
@@ -159,6 +181,21 @@ class ModelGeometry(pp.PorePyModel):
         # If meshing arguments are provided in the params, they should already be
         # scaled by the length unit.
         return self.params.get("meshing_arguments", default_meshing_args)
+
+    def well_meshing_arguments(self) -> dict[str, float]:
+        """Meshing arguments for well meshing.
+
+        Returns:
+            Meshing arguments compatible with
+            :meth:`~porepy.fracs.well_network.WellNetwork3d.mesh`.
+
+        """
+        # Default value of 1/2, scaled by the length unit.
+        cell_size = self.units.convert_units(0.5, "m")
+        default_meshing_args: dict[str, float] = {"cell_size": cell_size}
+        # If meshing arguments are provided in the params, they should already be
+        # scaled by the length unit.
+        return self.params.get("well_meshing_arguments", default_meshing_args)
 
     def meshing_kwargs(self) -> dict:
         """Keyword arguments for md-grid creation.
@@ -324,6 +361,7 @@ class ModelGeometry(pp.PorePyModel):
         attr: str,
         *,
         dim: int,
+        grid_entity: pp.ad.GridEntity = pp.ad.GridEntity.cells,
     ) -> pp.ad.DenseArray:
         """Wrap a grid attribute as an ad matrix.
 
@@ -336,6 +374,8 @@ class ModelGeometry(pp.PorePyModel):
                 exclude the z-component of a vector attribute in 2d, to achieve
                 compatibility with code which is explicitly 2d (e.g. fv
                 discretizations).
+            grid_entity: The grid entity (cells, faces, or nodes) that ``attr`` is
+                actually defined on.
 
         Returns:
             class:`porepy.numerics.ad.DenseArray`: `(shape=(dim *
@@ -360,11 +400,6 @@ class ModelGeometry(pp.PorePyModel):
             if not all(isinstance(getattr(g, attr), np.ndarray) for g in grids):
                 raise ValueError(f"Attribute {attr} is not a ndarray")
 
-            # NOTE: We do not rule out the combination of subdomains and interfaces
-            # in the same list. There should be no chance of errors here, and although
-            # such a case seems to EK at the moment to be a bit of an edge case, there
-            # is no reason to rule it out.
-
             if dim is None:
                 # Default to all dimensions
                 vals = np.hstack([getattr(g, attr).ravel("F") for g in grids])
@@ -379,11 +414,27 @@ class ModelGeometry(pp.PorePyModel):
             # For an empty list of grids, return an empty matrix
             vals = np.zeros(0)
 
-        array = pp.ad.DenseArray(vals)
+        if grid_entity == pp.ad.GridEntity.faces:
+            num_entities = sum(g.num_faces for g in grids if isinstance(g, pp.Grid))
+        elif grid_entity == pp.ad.GridEntity.nodes:
+            num_entities = sum(
+                g.num_nodes for g in grids if isinstance(g, (pp.Grid, pp.MortarGrid))
+            )
+        else:
+            num_entities = sum(g.num_cells for g in grids)
+        size = int(vals.size / num_entities) if num_entities > 0 else 1
+
+        domain_and_range = pp.ad.OperatorSpace.from_domains(grids, {grid_entity: size})
+        array = pp.ad.DenseArray(vals, source=domain_and_range, target=domain_and_range)
         array.set_name(f"Array wrapping attribute {attr} on {len(grids)} grids.")
         return array
 
-    def basis(self, grids: Sequence[pp.GridLike], dim: int) -> list[pp.ad.Projection]:
+    def basis(
+        self,
+        grids: Sequence[pp.GridLike],
+        dim: int,
+        domain_type: Optional[pp.ad.DomainType] = None,
+    ) -> list[pp.ad.Projection]:
         """Return a cell-wise basis for all subdomains.
 
         The basis is represented as a list of projections, each of which represents a
@@ -393,36 +444,48 @@ class ModelGeometry(pp.PorePyModel):
 
         Examples:
             To extend a cell-wise scalar to a vector field, use
-            ``sum([e_i for e_i in basis(subdomains)])``. To restrict to a vector in
-            the tangential direction only, use
+            ``sum([e_i for e_i in basis(subdomains)])``. To restrict to a vector in the
+            tangential direction only, use
             ``sum([e_i for e_i in basis(subdomains, dim=nd-1)])``
 
         See also:
             :meth:`e_i` for the construction of a single basis function.
             :meth:`normal_component` for the construction of a restriction to the
                 normal component of a vector only.
-            :meth:`tangential_component` for the construction of a restriction to
-                the tangential component of a vector only.
+            :meth:`tangential_component` for the construction of a restriction to the
+                tangential component of a vector only.
 
         Parameters:
             grids: List of grids on which the basis is defined.
             dim: Dimension of the basis.
+            domain_type: The type of domain (subdomains, interfaces, or boundary grids)
+                that ``grids`` represents. This is only needed if ``grids`` is empty:
+                An empty list carries no information on the domain type, and the basis
+                is by default assigned a scalar operator space. Passing a domain type
+                overrides this, which is necessary if the basis is to be combined with
+                other operators defined on an empty list of grids of that type. If
+                ``grids`` is non-empty, the domain type is inferred from the grids, and
+                a given ``domain_type`` must agree with the inferred type.
 
         Returns:
-            List of pp.ad.SparseArray, each of which represents a basis
-            function.
+            List of pp.ad.SparseArray, each of which represents a basis function.
 
         """
         # Collect the basis functions for each dimension.
         basis: list[pp.ad.Projection] = []
         for i in range(dim):
-            basis.append(self.e_i(grids, i=i, dim=dim))
+            basis.append(self.e_i(grids, i=i, dim=dim, domain_type=domain_type))
         # Stack the basis functions horizontally.
         return basis
 
     @pp.ad.cached_method
     def e_i(
-        self, grids: Sequence[pp.GridLike], *, i: int, dim: int
+        self,
+        grids: Sequence[pp.GridLike],
+        *,
+        i: int,
+        dim: int,
+        domain_type: Optional[pp.ad.DomainType] = None,
     ) -> pp.ad.Projection:
         """Return a cell-wise basis function in a specified dimension.
 
@@ -449,12 +512,17 @@ class ModelGeometry(pp.PorePyModel):
             grids: List of grids on which the basis vector is defined.
             i: Index of the basis function. Note: Counts from 0.
             dim: Dimension of the functions.
+            domain_type: The type of domain (subdomains, interfaces, or boundary
+                grids) that ``grids`` represents. Only needed if ``grids`` is empty,
+                see :meth:`basis` for details.
 
         Returns:
             Ad projection that represents a basis function.
 
         Raises:
-            ValueError: If i is larger than dim - 1.
+            ValueError: If i is larger than dim - 1, if ``grids`` mixes subdomains,
+                interfaces and/or boundary grids, or if ``domain_type`` is inconsistent
+                with a non-empty ``grids``.
 
         """
         if dim is None:
@@ -468,11 +536,18 @@ class ModelGeometry(pp.PorePyModel):
         num_cells = sum([g.num_cells for g in grids])
         range_ind = np.arange(i, dim * num_cells, dim)
 
+        source = pp.ad.OperatorSpace.from_domains(list(grids), domain_type=domain_type)
+        target = pp.ad.OperatorSpace.from_domains(
+            list(grids), {pp.ad.GridEntity.cells: dim}, domain_type=domain_type
+        )
+
         slicer = pp.ad.Projection(
             domain_indices=np.arange(num_cells),
             range_indices=range_ind,
             range_size=num_cells * dim,
             domain_size=num_cells,
+            source=source,
+            target=target,
         )
 
         return slicer
@@ -503,8 +578,18 @@ class ModelGeometry(pp.PorePyModel):
         # secondly t_i (column vector).
         op: pp.ad.Operator = pp.ad.sum_projection_list(
             [
-                self.e_i(subdomains, i=i, dim=self.nd - 1)
-                @ self.e_i(subdomains, i=i, dim=self.nd).T
+                self.e_i(
+                    subdomains,
+                    i=i,
+                    dim=self.nd - 1,
+                    domain_type=pp.ad.DomainType.subdomains,
+                )
+                @ self.e_i(
+                    subdomains,
+                    i=i,
+                    dim=self.nd,
+                    domain_type=pp.ad.DomainType.subdomains,
+                ).T
                 for i in range(self.nd - 1)
             ]
         )
@@ -536,7 +621,12 @@ class ModelGeometry(pp.PorePyModel):
         """
         # Create the basis function for the normal component (which is known to be the
         # last component).
-        e_n = self.e_i(subdomains, i=self.nd - 1, dim=self.nd)
+        e_n = self.e_i(
+            subdomains,
+            i=self.nd - 1,
+            dim=self.nd,
+            domain_type=pp.ad.DomainType.subdomains,
+        )
         e_n.set_name("normal_component")
         return e_n.T
 
@@ -576,8 +666,12 @@ class ModelGeometry(pp.PorePyModel):
         else:
             # Also treat no subdomains.
             local_coord_proj = sps.csr_matrix((0, 0))
-        return pp.ad.SparseArray(local_coord_proj)
+        space = pp.ad.OperatorSpace.from_domains(
+            subdomains, {pp.ad.GridEntity.cells: self.nd}
+        )
+        return pp.ad.SparseArray(local_coord_proj, source=space, target=space)
 
+    @pp.ad.cached_method
     def subdomain_projections(self, dim: int) -> pp.ad.SubdomainProjections:
         """Return the projection operators for all subdomains in md-grid.
 
@@ -595,13 +689,11 @@ class ModelGeometry(pp.PorePyModel):
             proj: Projection operator.
 
         """
-        name = f"_subdomain_proj_of_dimension_{dim}"
-        if hasattr(self, name):
-            proj = getattr(self, name)
-        else:
-            proj = pp.ad.SubdomainProjections(self.mdg.subdomains(), dim)
-            setattr(self, name, proj)
-        return proj
+        msg = "This method is deprecated. Please use `pp.ad.SubdomainProjections` "
+        msg += "directly."
+        warn(msg, FutureWarning, stacklevel=2)
+
+        return pp.ad.SubdomainProjections(self.mdg.subdomains(), dim)
 
     def domain_boundary_sides(
         self, domain: pp.Grid | pp.BoundaryGrid, tol: Optional[float] = 1e-10
@@ -718,9 +810,16 @@ class ModelGeometry(pp.PorePyModel):
             Operator with flipped signs if normal vector points inwards.
 
         """
+        space = pp.ad.OperatorSpace.from_domains(
+            subdomains,
+            {pp.ad.GridEntity.faces: dim},
+            domain_type=pp.ad.DomainType.subdomains,
+        )
         if len(subdomains) == 0:
             # Special case if no interfaces.
-            sign_flipper = pp.ad.SparseArray(sps.csr_matrix((0, 0)))
+            sign_flipper = pp.ad.SparseArray(
+                sps.csr_matrix((0, 0)), source=space, target=space
+            )
         else:
             # There is already a method to construct a switcher matrix in grid_utils,
             # so we use that. Loop over all subdomains, construct a local switcher
@@ -741,7 +840,9 @@ class ModelGeometry(pp.PorePyModel):
 
             # Construct the block diagonal matrix.
             sign_flipper = pp.ad.SparseArray(
-                pp.matrix_operations.sparse_dia_from_sparse_blocks(matrices)
+                pp.matrix_operations.sparse_dia_from_sparse_blocks(matrices),
+                source=space,
+                target=space,
             )
         sign_flipper.set_name("Flip_normal_vectors")
         return sign_flipper
@@ -767,7 +868,12 @@ class ModelGeometry(pp.PorePyModel):
         """
         if len(interfaces) == 0:
             # Special case if no interfaces.
-            return pp.ad.DenseArray(np.zeros(0))
+            space = pp.ad.OperatorSpace.from_domains(
+                interfaces,
+                {pp.ad.GridEntity.cells: self.nd},
+                domain_type=pp.ad.DomainType.interfaces,
+            )
+            return pp.ad.DenseArray(np.zeros(0), source=space, target=space)
 
         # Main ingredients: Normal vectors for primary subdomains for each interface,
         # and a switcher matrix to flip the sign if the normal vector points inwards.
@@ -788,7 +894,10 @@ class ModelGeometry(pp.PorePyModel):
             self.mdg, primary_subdomains, interfaces, dim=self.nd
         )
         primary_face_normals = self.wrap_grid_attribute(
-            primary_subdomains, "face_normals", dim=self.nd
+            primary_subdomains,
+            "face_normals",
+            dim=self.nd,
+            grid_entity=pp.ad.GridEntity.faces,
         )
         # Account for sign of boundary face normals. This will give a matrix with a
         # shape equal to the total number of faces in all primary subdomains.
@@ -810,14 +919,19 @@ class ModelGeometry(pp.PorePyModel):
         # Normalize by face area if requested.
         if unitary:
             # 1 over cell volumes on the interfaces
-            cell_volumes_inv = pp.ad.Scalar(1) / self.wrap_grid_attribute(
-                interfaces, "cell_volumes", dim=self.nd
-            )
+            cell_volumes_inv = pp.ad.Scalar(
+                1, domains=interfaces
+            ) / self.wrap_grid_attribute(interfaces, "cell_volumes", dim=self.nd)
 
-            # Expand cell volumes to nd by multiplying from left by e_i and summing
-            # over all dimensions.
+            # Expand cell volumes to nd by multiplying from left by e_i and summing over
+            # all dimensions.
             cell_volumes_inv_nd = pp.ad.sum_operator_list(
-                [e @ cell_volumes_inv for e in self.basis(interfaces, self.nd)]
+                [
+                    e @ cell_volumes_inv
+                    for e in self.basis(
+                        interfaces, self.nd, domain_type=pp.ad.DomainType.interfaces
+                    )
+                ]
             )
             # Scale normals.
             outwards_normals = cell_volumes_inv_nd * outwards_normals
@@ -868,7 +982,8 @@ class LoadGeometryMixin(pp.PorePyModel):
         folder_path = file_name.parent
         msh_path = (folder_path / file_name.stem).with_suffix(".msh")
         geo_path = (folder_path / file_name.stem).with_suffix(".geo_unrolled")
-        fracture_network_path = folder_path / self.csv_file_name()
+        fracture_network_path = folder_path / self.fracture_csv_file_name()
+        well_network_path = folder_path / self.well_csv_file_name()
 
         # Check whether the msh or geo file exists. If used as in the docstring example,
         # both exist and the msh file is used to avoid remeshing unnecessarily.
@@ -892,11 +1007,13 @@ class LoadGeometryMixin(pp.PorePyModel):
         # Set file permissions. This turned out to be important for GH actions.
         msh_path.chmod(777)
         fracture_network_path.chmod(777)
+        well_network_path.chmod(777)
 
         # Load mixed-dimensional grid from geo or msh file.
         self.fracture_network = pp.fracture_importer.network_from_csv(
             fracture_network_path
         )
+        self.well_network = pp.WellNetwork3d.from_csv(well_network_path)
         self.nd = self.fracture_network.nd
 
         self.mdg = pp.fracture_importer.dfm_from_gmsh(gmsh_path, dim=self.nd)
@@ -904,22 +1021,32 @@ class LoadGeometryMixin(pp.PorePyModel):
         # Obtain domain and fracture list directly from the fracture network.
         self._domain = cast(pp.Domain, self.fracture_network.domain)
         self._fractures = self.fracture_network.fractures
+        self._wells = self.well_network.wells
 
         # Create projection between local and global coordinates for fracture grids.
         pp.set_local_coordinate_projections(self.mdg)
 
         # Create well network and mesh.
         self.set_well_network()
-        self.add_wells_to_mdg()
+        self.create_well_mesh()
 
-    def csv_file_name(self) -> Path:
+    def fracture_csv_file_name(self) -> Path:
         """Name of the file used for input and output of fracture network csv files.
 
         Returns:
             Name of the fracture network csv file.
 
         """
-        return Path(self.params.get("csv_file_name", "fracture_network.csv"))
+        return Path(self.params.get("fracture_csv_file_name", "fracture_network.csv"))
+
+    def well_csv_file_name(self) -> Path:
+        """Name of the file used for input and output of well network csv files.
+
+        Returns:
+            Name of the well network csv file.
+
+        """
+        return Path(self.params.get("well_csv_file_name", "well_network.csv"))
 
     def create_and_export_geometry(self, set_geometry_class=None) -> None:
         """Export mesh and fracture network to ``msh``, ``geo``, and ``csv`` files.
@@ -946,10 +1073,16 @@ class LoadGeometryMixin(pp.PorePyModel):
         set_geometry_class.set_geometry(self)  # type: ignore[attr-defined]
 
         # In addition, save the fracture network.
-        folder_path = Path(self.csv_file_name()).parent.absolute()
-        csv_file_name = Path(self.csv_file_name())
-        fracture_network_path = folder_path / csv_file_name
+        folder_path = Path(self.fracture_csv_file_name()).parent.absolute()
+        fracture_csv_file_name = Path(self.fracture_csv_file_name())
+        fracture_network_path = folder_path / fracture_csv_file_name
         self.fracture_network.to_csv(fracture_network_path)
+
+        # Also save the well network.
+        folder_path = Path(self.well_csv_file_name()).parent.absolute()
+        well_csv_file_name = Path(self.well_csv_file_name())
+        well_network_path = folder_path / well_csv_file_name
+        self.well_network.to_csv(well_network_path)
 
     def meshing_kwargs(self) -> dict:
         """Provide default meshing kwargs for storing and loading `mdg` and the fracture
@@ -965,7 +1098,8 @@ class LoadGeometryMixin(pp.PorePyModel):
         # Add kwargs related to storing the geometry files to the meshing kwargs of
         # ``ModelGeometry``.
         default_meshing_kwargs = {
-            "csv_file_name": self.csv_file_name(),
+            "fracture_csv_file_name": self.fracture_csv_file_name(),
+            "well_csv_file_name": self.well_csv_file_name(),
         }
         meshing_kwargs = super().meshing_kwargs()  # type: ignore[safe-super]
         default_meshing_kwargs.update(meshing_kwargs)

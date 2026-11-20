@@ -9,17 +9,17 @@ from __future__ import annotations
 
 import logging
 import time
-import warnings
 from functools import partial
 from pathlib import Path
-from typing import Any, Callable, Optional, cast
+from typing import Any, Callable, Never, Optional, cast
 from warnings import warn
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.nonlinear.convergence_check import SimulationStatus
+from porepy.numerics import solvers
+from porepy.numerics.ad import OperatorSpace
 from porepy.viz.solver_statistics import SolverStatisticsFactory
 
 logger = logging.getLogger(__name__)
@@ -41,11 +41,22 @@ class SolutionStrategy(pp.PorePyModel):
         if params is None:
             params = {}
 
+        # Print deprecation warning for an old parameter.
+        if "linear_solver" in params:
+            warn(
+                "Linear solver was moved outside the PorePy model. If you previously "
+                "passed 'linear_solver' backend string (e.g. 'pypardiso') in model "
+                "params, replace it with "
+                "pp.solvers.NewtonSolver(linear_solver=pp.LinearSolverDirect(backend="
+                "'pypardiso')). The current passed value is ignored.",
+                category=FutureWarning,
+                stacklevel=2,
+            )
+
         # Set default parameters, these will be overwritten by any parameters passed.
         default_params = {
             "folder_name": "visualization",
             "file_name": "data",
-            "linear_solver": "pypardiso",
         }
 
         default_params.update(params)
@@ -106,7 +117,7 @@ class SolutionStrategy(pp.PorePyModel):
                 # Path to json file (of type pathlib.Path) containing evolution of
                 # exported time steps and used time step size at that time. If 'None'
                 # a default value is used internally, as defined in
-                # :class:`~porepy.numerics.time_step_control.TimeManager.
+                # :class:`~porepy.time_stepper.time_step_control.TimeManager.
                 "time_index": -1,
                 # Index addressing history in times_file; only relevant if "vtu_files"
                 # is not 'None' or "is_mdg_pvd" is 'True'. The index corresponds to
@@ -132,14 +143,22 @@ class SolutionStrategy(pp.PorePyModel):
         to construct.
         """
 
-        self._schur_complement_primary_variables: list[str] = []
-        """See :meth:`schur_complement_primary_variables`."""
-
-        self._schur_complement_primary_equations: list[str] = []
-        """See :meth:`schur_complement_primary_equations`."""
-
     def prepare_simulation(self) -> None:
-        """Run at the start of simulation. Used for initialization etc."""
+        """Run at the start of simulation. Used for initialization etc.
+
+        Can be called more than once, which discards the previous preparation. This is
+        used e.g. to change constitutive laws after the model state was found.
+
+        The time manager and the model parameters are not reset, and objects created
+        before the call (e.g. a solver) keep references to the previous equation system
+        and mixed-dimensional grid, which are replaced.
+
+        """
+        # Discard what was set during a previous call.
+        self._operator_cache.clear()
+        self._nonlinear_discretizations.clear()
+        self._nonlinear_diffusive_flux_discretizations.clear()
+
         # Set the material and geometry of the problem. The geometry method must be
         # implemented in a ModelGeometry class.
         self.set_materials()
@@ -162,6 +181,7 @@ class SolutionStrategy(pp.PorePyModel):
         # opposed to e.g. pressure or temperature.
         self.assign_thermodynamic_properties_to_phases()
         self.initial_condition()
+        self.initialize_operator_reference_values_from_initial_state()
         self.initialize_previous_iterate_and_time_step_values()
 
         # Initialize time dependent ad arrays, including those for boundary values.
@@ -171,10 +191,9 @@ class SolutionStrategy(pp.PorePyModel):
 
         self.update_discretization_parameters()
         self.discretize()
-        self._initialize_linear_solver()
         self.set_nonlinear_discretizations()
 
-        # Export initial condition (only if time-dependent)
+        # Export initial condition (only if time-dependent).
         if self._is_time_dependent():
             self.save_data_time_step()
 
@@ -198,10 +217,54 @@ class SolutionStrategy(pp.PorePyModel):
                 time_step_index=time_step_index,
             )
 
+    def initialize_operator_reference_values_from_initial_state(self) -> None:
+        """Initialize AD operator reference values from iterate-0 state.
+
+        This compatibility step aligns linearization references used by
+        :meth:`porepy.numerics.ad.operators.Operator.perturbation_from_reference`
+        with initialized primary-variable values for pressure and temperature.
+
+        The behavior can be disabled by setting
+        ``params['initialize_operator_reference_from_initial_values'] = False``.
+
+        NOTE: This method is intended as a temporary bridge from PR #1696 until
+        downstream PRs on initialization have been merged.
+
+        """
+        if not self.params.get(
+            "initialize_operator_reference_from_initial_values", True
+        ):
+            return
+
+        for quantity_name in ("pressure", "temperature"):
+            variable_attr = f"{quantity_name}_variable"
+            if not hasattr(self, variable_attr):
+                continue
+
+            reference_value = cast(
+                pp.number, getattr(self.reference_variable_values, quantity_name, 0.0)
+            )
+            if np.isclose(reference_value, 0.0):
+                continue
+
+            variable_name = getattr(self, variable_attr)
+            domains = cast(list[pp.GridLike], self.mdg.subdomains())
+            variables = self.equation_system.get_variables([variable_name], domains)
+            if len(variables) == 0:
+                continue
+
+            values = self.equation_system.get_variable_values(
+                variables=variables, iterate_index=0
+            )
+            self.equation_system.set_variable_values(
+                np.full_like(values, reference_value),
+                variables=variables,
+                reference=True,
+            )
+
     def set_equation_system_manager(self) -> None:
         """Create an equation_system manager on the mixed-dimensional grid."""
-        if not hasattr(self, "equation_system"):
-            self.equation_system = pp.ad.EquationSystem(self.mdg)
+        self.equation_system = pp.ad.EquationSystem(self.mdg)
 
     def set_nonlinear_solver_statistics(self) -> None:
         """Set the solver statistics object.
@@ -260,83 +323,125 @@ class SolutionStrategy(pp.PorePyModel):
         """
         return np.array([0])
 
-    @property
-    def schur_complement_primary_equations(self) -> list[str]:
-        """Names of the primary equations for the Schur complement reduction of the
-        linear system.
+    def before_time_step(self) -> None:
+        """Called from the outside of the model at the start of each time step.
 
-        They define the row-block which does not contain the sub-matrix which is to be
-        inverted for the Schur complement.
+        The model must prepare its state for the target simulation time ``t``,
+        available through :attr:`time_manager`. The nonlinear solver then attempts
+        to advance the discretized problem to that time. If the solve fails, it may
+        be retried with a different time-step size, so this method may be called
+        multiple times with different target times.
 
-        See also:
+        The base method does the following:
 
-            - :meth:`assemble_linear_system`
-            - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.
-              assemble_schur_complement_system`
-
-        Parameters:
-            names: List of equation names to be set as primary equations.
-
-        Raises:
-            ValueError: If any name is not known to the model's equation system or the
-                given names are not unique.
-
-        Returns:
-            The names of the equations (currently) defined as primary equations.
+        1. Update :attr:`ad_time_step` with the current time step size.
+        2. Call :meth:`update_time_dependent_ad_arrays` to update BC values and other
+           time-dependent operators.
+        3. Call :meth:`update_derived_quantities` to update them based on the
+           time-dependent values.
 
         """
-        return self._schur_complement_primary_equations
+        self.ad_time_step.set_value(self.time_manager.dt)
+        self.initialize_nonlinear_solution()
+        self.update_time_dependent_ad_arrays()
+        self.update_derived_quantities()
 
-    @schur_complement_primary_equations.setter
-    def schur_complement_primary_equations(self, names: list[str]) -> None:
-        known_equations = list(self.equation_system.equations.keys())
-        for n in names:
-            if n not in known_equations:
-                raise ValueError(f"Equation {n} unknown to the equation system.")
-        if len(set(names)) != len(names):
-            raise ValueError("Primary equation names must be unique.")
-        # Shallow copy for safety, and keep order of equation system.
-        self._schur_complement_primary_equations = [
-            n for n in known_equations if n in names
-        ]
+    def before_nonlinear_loop(self) -> None:
+        """Called before entering a nonlinear solver loop.
 
-    @property
-    def schur_complement_primary_variables(self) -> list[str]:
-        """Names of the primary variables for the Schur complement reduction of the
-        linear system.
+        With the default ``NewtonSolver``, each time step has a single nonlinear
+        loop so this method is called once after ``before_time_step``. More advanced
+        solvers may use multiple nonlinear loops per time step and call this method
+        before each one.
 
-        They define the column-block which does not contain the sub-matrix which is to
-        be inverted for the Schur complement.
+        The base method does the following:
 
-        See also:
-
-            - :meth:`assemble_linear_system`
-            - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.
-              assemble_schur_complement_system`
-
-        Parameters:
-            names: List of variable names to be set as primary variables.
-
-        Raises:
-            ValueError: If any name is not known to the model's equation system or the
-                given names are not unique.
-
-        Returns:
-            The names of the variables (currently) defined as primary variables.
+        1. Increases the statistics index.
 
         """
-        return self._schur_complement_primary_variables
+        self.nonlinear_solver_statistics.increase_index()
 
-    @schur_complement_primary_variables.setter
-    def schur_complement_primary_variables(self, names: list[str]) -> None:
-        known_variables = list(set(v.name for v in self.equation_system.variables))
-        for n in names:
-            if n not in known_variables:
-                raise ValueError(f"Variable {n} unknown to the equation system.")
-        if len(set(names)) != len(names):
-            raise ValueError("Primary variables names must be unique.")
-        # Shallow copy for safety
-        self._schur_complement_primary_variables = [n for n in names]
+    def before_nonlinear_iteration(self) -> None:
+        """Method to be called at the start of every non-linear iteration.
+
+        The base method only defines the method signature.
+
+        """
+
+    def after_nonlinear_iteration(
+        self,
+        nonlinear_increment: np.ndarray,
+        updated_variables: Optional[list[pp.ad.Variable]] = None,
+    ) -> None:
+        """Method to be called after every non-linear iteration.
+
+        The base method does the following:
+
+        1. Shift the existing solutions backwards in the iterative sense.
+        2. Store the ``nonlinear_increment`` in the current iterate additively.
+        3. Calls :meth:`update_derived_quantities`.
+
+        Parameters:
+            nonlinear_increment: The new solution, as computed by the non-linear solver.
+            updated_variables: Variables to update with `nonlinear_increment`. If
+                `None`, all variables are updated.
+
+        """
+        self.equation_system.shift_iterate_values(max_index=len(self.iterate_indices))
+        self.equation_system.set_variable_values(
+            values=nonlinear_increment,
+            variables=updated_variables,
+            additive=True,
+            iterate_index=0,
+        )
+        self.update_derived_quantities()
+
+    def after_nonlinear_convergence(self) -> None:
+        """Called after a nonlinear solver loop converges.
+
+        With the default ``NewtonSolver``, each time step has a single nonlinear
+        loop, so this method is called exactly once, before
+        ``after_time_step_convergence``. More advanced solvers may use multiple
+        nonlinear loops per time step and call this method after each converged
+        loop.
+
+        Use this method for loop-specific post-processing.
+
+        """
+
+    def after_nonlinear_failure(self) -> None:
+        """Called after a nonlinear solver loop fails to converge.
+
+        With the default ``NewtonSolver``, each time step has a single nonlinear
+        loop, so this method is called exactly once, before
+        ``after_time_step_failure``. More advanced solvers may use multiple
+        nonlinear loops per time step and call this method after each failed loop.
+
+        """
+
+    def after_time_step_convergence(self) -> None:
+        """Called after a new time step solution has been achieved.
+
+        The base method does the following:
+
+        1. Call :meth:`update_time_step_solution`.
+        2. Call :meth:`save_data_time_step`.
+        3. Call :meth:`save_statistics`.
+
+        """
+        self.update_time_step_solution()
+        self.save_data_time_step()
+        self.save_statistics()
+
+    def after_time_step_failure(self) -> None:
+        """Called after a time step has failed to converge.
+
+        The base method reverts the trial time step being executed.
+        It also calls :meth:`save_statistics`.
+
+        """
+        self.revert_trial_time_step_solution()
+        self.save_statistics()
 
     def reset_state_from_file(self) -> None:
         """Reset states but through a restart from file.
@@ -357,11 +462,13 @@ class SolutionStrategy(pp.PorePyModel):
                 )
             else:
                 vtu_files = self.restart_options["vtu_files"]
-                time_index = self.restart_options.get("time_index", -1)
+                export_index = self.restart_options.get("export_index", -1)
+                if "time_index" in self.restart_options:
+                    raise KeyError("Rename time_index into export_index")
                 times_file = self.restart_options.get("times_file", None)
                 self.load_data_from_vtu(
                     vtu_files,
-                    time_index,
+                    export_index,
                     times_file,
                 )
             vals = self.equation_system.get_variable_values(time_step_index=0)
@@ -371,7 +478,7 @@ class SolutionStrategy(pp.PorePyModel):
             # Update the boundary conditions to both the time step and iterate solution.
             self.update_time_dependent_ad_arrays()
 
-    def set_materials(self):
+    def set_materials(self) -> None:
         """Set material parameters.
 
         Searches for entries in ``params['material_constants']`` with keys ``'fluid'``
@@ -432,10 +539,10 @@ class SolutionStrategy(pp.PorePyModel):
         # Store the fluid component to be accessible by the FluidMixin for creating the
         # default fluid object of the model
         if "material_constants" not in self.params:
-            self.params["material_constants"] = {"fluid": fluid}
+            self.params["material_constants"] = {"fluid": fluid}  # type:ignore[assignment]
         else:
             # by logic, params['material_constants'] is ensured to be a dict
-            self.params["material_constants"]["fluid"] = fluid
+            self.params["material_constants"]["fluid"] = fluid  # type:ignore[index]
         self.create_fluid()
 
     def discretize(self) -> None:
@@ -578,266 +685,79 @@ class SolutionStrategy(pp.PorePyModel):
 
         """
 
-    def before_nonlinear_loop(self) -> None:
-        """Method to be called before entering the non-linear solver, thus at the start
-        of a new time step.
-
-        The base method does the following:
-
-        1. Update the time step size in :attr:`ad_time_step`.
-        2. Reset the nonlinear solver statistics :meth:`~porepy.viz.solver_statistics.
-           SolverStatistics.reset`.
-        3. Calls :meth:`update_time_dependent_ad_arrays`.
-        4. Calls :meth:`update_derived_quantities`.
+    def initialize_nonlinear_solution(self) -> None:
+        """Set the previous time step solution as the initial guess for the nonlinear
+        solver.
 
         """
-        # Update time step size.
-        self.ad_time_step.set_value(self.time_manager.dt)
-        # Empty the log in the statistics object.
-        self.nonlinear_solver_statistics.increase_index()
-        # Update the boundary conditions to both the time step and iterate solution.
-        self.update_time_dependent_ad_arrays()
-        # Update other dependent quantities such as discretizations.
-        self.update_derived_quantities()
+        prev_solution = self.equation_system.get_variable_values(time_step_index=0)
+        self.equation_system.set_variable_values(prev_solution, iterate_index=0)
 
-    def before_nonlinear_iteration(self) -> None:
-        """Method to be called at the start of every non-linear iteration.
-
-        The base method only defines the method signature.
-
-        """
-
-    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
-        """Method to be called after every non-linear iteration.
-
-        The base method does the following:
-
-        1. Shift the existing solutions backwards in the iterative sense.
-        2. Store the ``nonlinear_increment`` in the current iterate additively.
-        3. Calls :meth:`update_derived_quantities`.
+    def update_time_step_solution(self) -> None:
+        """Shifts the solution per time step index and sets the provided solution
+        as the recent time step solution.
 
         Parameters:
-            nonlinear_increment: The new solution, as computed by the non-linear solver.
+            solution: Global, accepted solution vector.
 
         """
-        self.equation_system.shift_iterate_values(max_index=len(self.iterate_indices))
-        self.equation_system.set_variable_values(
-            values=nonlinear_increment, additive=True, iterate_index=0
-        )
-        self.update_derived_quantities()
-
-    def after_nonlinear_convergence(self) -> None:
-        """Method to be called after the non-linear iterations converge.
-
-        The base method does the following:
-
-        1. Shift existing solutions backwards in time.
-        2. Saves the current iterate values as the most recent time step values
-           (see :meth:`update_solution`).
-        3. Flags the model as converged (:attr:`convergence_status`).
-        4. Calls :meth:`save_data_time_step`.
-
-        Possible usage is to distribute information on the solution, visualization, etc.
-
-        """
-        solution = self.equation_system.get_variable_values(iterate_index=0)
-
-        # Update the time step magnitude if the dynamic scheme is used.
-        if not self.time_manager.is_constant:
-            assert isinstance(
-                self.nonlinear_solver_statistics, pp.NonlinearSolverStatistics
-            )
-            self.time_manager.compute_time_step(
-                iterations=self.nonlinear_solver_statistics.num_iterations
-            )
-        self.update_solution(solution)
-
-        self.save_data_time_step()
-
-    def update_solution(self, solution: np.ndarray) -> None:
         self.equation_system.shift_time_step_values(
             max_index=len(self.time_step_indices)
         )
+        solution = self.equation_system.get_variable_values(iterate_index=0)
         self.equation_system.set_variable_values(
             values=solution, time_step_index=0, additive=False
         )
 
-    def after_nonlinear_failure(self) -> SimulationStatus:
-        """Method to be called if the non-linear solver fails to converge.
+    def revert_trial_time_step_solution(self) -> None:
+        """Revert the solution to the previous time step solution.
 
-        Allowed to adapt the convergence status, used for orchestration of the
-        simulation.
-
-        Returns:
-            SimulationStatus: The status of the simulation - either failed or stopped
-                if serious issues are detected.
+        This method is intended to be used in the case of a failed time step, where the
+        trial solution should be reverted to the last known good solution. All iterate
+        indices are updated to the previous time step solution, which is stored at time
+        step index 0. I.e., we assume time step solution has *not* been shifted yet.
 
         """
-        self.save_data_time_step()
-        if not self._is_nonlinear_problem():
-            warn("Failed to solve linear system for the linear problem.")
-            return SimulationStatus.STOPPED
-
-        if self.time_manager.is_constant:
-            warn("Failed to solve the nonlinear problem.")
-            return SimulationStatus.STOPPED
-        else:
-            # Update the time step magnitude if the dynamic scheme is used.
-            # Note: It will also raise a ValueError if the minimal time step is reached.
-            try:
-                self.time_manager.compute_time_step(recompute_solution=True)
-            except ValueError as e:
-                # Redirect the exception as a warning, and give the control to
-                # the run_models module to stop the simulation.
-                warn(str(e))
-                return SimulationStatus.STOPPED
-
-            # Reset the iterate values. This ensures that the initial guess for an
-            # unknown time step equals the known time step.
-            prev_solution = self.equation_system.get_variable_values(time_step_index=0)
-            self.equation_system.set_variable_values(prev_solution, iterate_index=0)
-
-        return SimulationStatus.FAILED
+        prev_solution = self.equation_system.get_variable_values(time_step_index=0)
+        for ind in self.iterate_indices:
+            self.equation_system.set_variable_values(prev_solution, iterate_index=ind)
 
     def after_simulation(self) -> None:
         """Run at the end of simulation. Can be used for cleanup etc."""
-        pass
+        self.save_statistics()
 
-    def _initialize_linear_solver(self) -> None:
-        """Initialize linear solver.
-
-        The default linear solver is Pardiso; this can be overridden by user choices.
-        If Pardiso is not available, backup solvers will automatically be invoked in
-        :meth:`solve_linear_system`.
-
-        To use a custom solver in a model, override this method (and possibly
-        :meth:`solve_linear_system`).
-
-        Raises:
-            ValueError if the chosen solver is not among the three currently supported,
-            see linear_solve.
-
-        """
-        solver = self.params["linear_solver"]
-        self.linear_solver = solver
-
-        if solver not in ["scipy_sparse", "pypardiso", "umfpack"]:
-            raise ValueError(f"Unknown linear solver {solver}")
-
-    def assemble_linear_system(self) -> None:
-        """Assemble the linearized system and store it in :attr:`linear_system`.
+    def assemble_linear_system(self) -> solvers.LinearSystem:
+        """Assemble the linearized system.
 
         The linear system is defined by the current state of the model.
 
-        If ``params['apply_schur_complement_reduction']`` is True, the
-        :meth:`schur_complement_primary_variables` and
-        :meth:`schur_complement_primary_equations` are used to perform a Schur
-        complement technique.
-
-        To invert the secondary block, :meth:`~porepy.numerics.ad.equation_system.
-        EquationSystem.default_schur_complement_inverter` is used by default.
-        This inverter assumes the secondary equations to consist of non-overlapping
-        blocks (local equations, block-diagonal matrix).
-        The user can provide a custom inverter
-        ``model.params['schur_complement_inverter']``, which is a callable taking a
-        sparse matrix and returning the inverse (sparse) matrix.
-
         See Also:
-
-            - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.
-              assemble_schur_complement_system`
             - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.assemble`
 
+        Returns:
+            The assembled matrix and right-hand side vector.
+
         """
+        warn(
+            "The method model.assemble_linear_system is deprecated and will be removed."
+            " Use model.equation_system.assemble instead.",
+            category=FutureWarning,
+            stacklevel=2,
+        )
         t_0 = time.time()
 
-        if self._apply_schur_complement_reduction():
-            assert self.schur_complement_primary_variables, (
-                "Primary column block for Schur technique not found."
-            )
-            assert self.schur_complement_primary_equations, (
-                "Primary row block for Schur technique not defined."
-            )
-            self.linear_system = self.equation_system.assemble_schur_complement_system(
-                self.schur_complement_primary_equations,
-                self.schur_complement_primary_variables,
-                inverter=cast(
-                    Callable[[sps.spmatrix], sps.spmatrix],
-                    self.params.get("schur_complement_inverter", None),
-                ),
-            )
-        else:
-            self.linear_system = self.equation_system.assemble()
+        linear_system = self.equation_system.assemble()
 
         t_1 = time.time()
         logger.debug(f"Assembled linear system in {t_1 - t_0:.2e} seconds.")
+        return linear_system
 
-    def solve_linear_system(self) -> np.ndarray:
-        """Solve linear system.
-
-        Default method is a direct solver. The linear solver is chosen in the
-        initialize_linear_solver of this model. Implemented options are
-            - scipy.sparse.spsolve with and without call to umfpack
-            - pypardiso.spsolve
-
-        See also:
-            :meth:`initialize_linear_solver`
-
-        Returns:
-            np.ndarray: Solution vector.
-
-        """
-        A, b = self.linear_system
-        t_0 = time.time()
-        logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
-        logger.debug(
-            f"""Max {np.max(np.sum(np.abs(A), axis=1)):.2e} and min
-            {np.min(np.sum(np.abs(A), axis=1)):.2e} A sum."""
+    def solve_linear_system(self) -> Never:
+        raise AttributeError(
+            "Linear solver was moved outside the PorePy model. If you override this "
+            "function, provide a custom linear solver to the nonlinear solver, e.g.: "
+            "pp.NewtonSolver(linear_solver=CustomLinearSolver())"
         )
-
-        solver = self.linear_solver
-        if solver == "pypardiso":
-            # This is the default option which is invoked unless explicitly overridden
-            # by the user. We need to check if the pypardiso package is available.
-            try:
-                from pypardiso import spsolve as sparse_solver  # type: ignore
-            except ImportError:
-                # Fall back on the standard scipy sparse solver.
-                sparse_solver = sps.linalg.spsolve
-                warnings.warn(
-                    """PyPardiso could not be imported,
-                    falling back on scipy.sparse.linalg.spsolve"""
-                )
-            x = sparse_solver(A, b)
-        elif solver == "umfpack":
-            # Following may be needed:
-            # A.indices = A.indices.astype(np.int64)
-            # A.indptr = A.indptr.astype(np.int64)
-            x = sps.linalg.spsolve(A, b, use_umfpack=True)
-        elif solver == "scipy_sparse":
-            x = sps.linalg.spsolve(A, b)
-        else:
-            raise ValueError(
-                f"AbstractModel does not know how to apply the linear solver {solver}"
-            )
-
-        x = np.atleast_1d(x)
-        if self._apply_schur_complement_reduction():
-            x = self.equation_system.expand_schur_complement_solution(x)
-
-        logger.info(f"Solved linear system in {time.time() - t_0:.2e} seconds.")
-        return x
-
-    def _apply_schur_complement_reduction(self) -> bool:
-        """Returns the model parameter on whether the linear system should be reduced
-        via Schur complement using the defined primary and secondary equations and
-        variables.
-
-        Can be set via ``model.params['apply_schur_complement_reduction'].
-        Returns False by default.
-
-        """
-        return bool(self.params.get("apply_schur_complement_reduction", False))
 
     def _is_nonlinear_problem(self) -> bool:
         """Specifies whether the Model problem is nonlinear.
@@ -890,7 +810,7 @@ class SolutionStrategy(pp.PorePyModel):
            (see :meth:`update_material_properties`).
         2. Update discretization parameters, most crucially those entering the flux
            discretization (see :meth:`update_discretization_parameters`).
-        3. Rediscretize the non-linear fluxes depending on above tensors
+        3. Rediscretize the nonlinear fluxes depending on above tensors
            (see :meth:`rediscretize_fluxes`).
         4. Evaluate and store fluxes for upstream discretizations
            (see :meth:`update_flux_values`).
@@ -1059,7 +979,9 @@ class ContactIndicators(pp.PorePyModel):
         # Mapping from a full vector to the tangential component
         nd_vec_to_tangential = self.tangential_component(subdomains)
 
-        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
+        tangential_basis = self.basis(
+            subdomains, dim=self.nd - 1, domain_type=pp.ad.DomainType.subdomains
+        )
 
         # Variables: The tangential component of the contact traction and the
         # displacement jump
@@ -1067,14 +989,25 @@ class ContactIndicators(pp.PorePyModel):
         u_t: pp.ad.Operator = nd_vec_to_tangential @ self.displacement_jump(subdomains)
         # The time increment of the tangential displacement jump
         u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
-        zeros_frac = pp.ad.DenseArray(np.zeros(num_cells))
+        domain_and_range = OperatorSpace.from_domains(subdomains)
+        zeros_frac = pp.ad.DenseArray(
+            np.zeros(num_cells), source=domain_and_range, target=domain_and_range
+        )
 
-        f_max = pp.ad.Function(pp.ad.maximum, "max_function")
-        f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
+        f_max = pp.ad.Function(pp.ad.maximum, "max_function", domain_and_range)
+        f_norm = pp.ad.Function(
+            partial(pp.ad.l2_norm, self.nd - 1),
+            "norm_function",
+            domain_and_range,
+        )
         # Heaviside function. The 0 as the second argument to partial() implies
         # f_heaviside(0)=0, a choice that is not expected to affect the result in this
         # context.
-        f_heaviside = pp.ad.Function(partial(pp.ad.heaviside, 0), "heaviside_function")
+        f_heaviside = pp.ad.Function(
+            partial(pp.ad.heaviside, 0),
+            "heaviside_function",
+            domain_and_range,
+        )
 
         c_num_as_scalar = self.contact_mechanics_numerical_constant(subdomains)
 
@@ -1111,11 +1044,21 @@ class ContactIndicators(pp.PorePyModel):
 
         """
         t: pp.ad.Operator = self.contact_traction(subdomains)
-        e_n = self.e_i(subdomains, dim=self.nd, i=self.nd - 1)
+        e_n = self.e_i(
+            subdomains,
+            dim=self.nd,
+            i=self.nd - 1,
+            domain_type=pp.ad.DomainType.subdomains,
+        )
 
         u = self.displacement_jump(subdomains) - e_n @ self.fracture_gap(subdomains)
         c_num = self.contact_mechanics_numerical_constant(subdomains)
-        f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd), "norm_function")
+        domain_and_range = OperatorSpace.from_domains(subdomains)
+        f_norm = pp.ad.Function(
+            partial(pp.ad.l2_norm, self.nd),
+            "norm_function",
+            domain_and_range,
+        )
         return f_norm(t) + f_norm(c_num * u)
 
     def compute_traction_norm(self, val: np.ndarray) -> float:

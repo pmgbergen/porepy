@@ -444,8 +444,8 @@ def face_on_side(
     Raises:
         ValueError if not supported keyword is used to identify a boundary part.
     """
-    msg = "This functionality is deprecated and will be removed in a future version"
-    warnings.warn(msg, DeprecationWarning)
+    msg = "face_on_side is deprecated and will be removed in a future version."
+    warnings.warn(msg, FutureWarning, stacklevel=2)
     if isinstance(side, str):
         side = [side]
 

@@ -118,6 +118,60 @@ class Mpsa(Discretization):
         """
         return sd.dim * sd.num_cells
 
+    def get_row_entities(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
+        """Return the grid entities occupying the rows of the named Mpsa matrix.
+
+        Parameters:
+            matrix_key: Attribute-name fragment (e.g. ``"stress"``).
+            nd: Spatial dimension.
+
+        Raises:
+            ValueError: If the matrix_key is not recognized by this discretization.
+
+        Returns:
+            A :class:`~porepy.numerics.ad.GridEntities` with the number of matrix
+            rows per entity.
+
+        """
+        recognised = {
+            "stress",
+            "bound_stress",
+            "bound_displacement_cell",
+            "bound_displacement_face",
+        }
+        if matrix_key in recognised:
+            return pp.ad.GridEntities(faces=nd)
+        raise ValueError(
+            f"Unrecognized matrix key '{matrix_key}' for Mpsa discretization."
+        )
+
+    def get_col_entities(self, matrix_key: str = "", nd: int = 1) -> pp.ad.GridEntities:
+        """Return the grid entities occupying the columns of the named Mpsa matrix.
+
+        Parameters:
+            matrix_key: Attribute-name fragment (e.g. ``"stress"``).
+            nd: Spatial dimension.
+
+        Raises:
+            ValueError: If the matrix_key is not recognized by this discretization.
+
+        Returns:
+            A :class:`~porepy.numerics.ad.GridEntities` with the DOFs per entity.
+
+        """
+
+        mapping: dict[str, pp.ad.GridEntities] = {
+            "stress": pp.ad.GridEntities(cells=nd),
+            "bound_stress": pp.ad.GridEntities(faces=nd),
+            "bound_displacement_cell": pp.ad.GridEntities(cells=nd),
+            "bound_displacement_face": pp.ad.GridEntities(faces=nd),
+        }
+        if matrix_key in mapping:
+            return mapping[matrix_key]
+        raise ValueError(
+            f"Unrecognized matrix key '{matrix_key}' for Mpsa discretization."
+        )
+
     def discretize(self, sd: pp.Grid, data: dict) -> None:
         """
         Discretize the second order vector elliptic equation using multi-point stress
@@ -233,6 +287,15 @@ class Mpsa(Discretization):
             bound, active_grid, extracted_faces
         )
 
+        # If eta is a vector it is indexed over the subfaces of sd. Restrict eta to the
+        # subfaces of active_grid so that the inner subproblems loop (which uses
+        # active_grid's local face numbering) indexes eta correctly. When all cells are
+        # active, extracted_faces = arange(sd.num_faces) and this is a no-op.
+        if isinstance(eta, np.ndarray):
+            eta = _fvutils.adjust_eta_length(
+                eta=eta, l2g_faces=extracted_faces, parent_grid=sd
+            )
+
         # Bookkeeping.
         nd = active_grid.dim
         nf = active_grid.num_faces
@@ -301,7 +364,7 @@ class Mpsa(Discretization):
             # partitioned subgrid.
             if isinstance(eta, np.ndarray):
                 loc_eta = _fvutils.adjust_eta_length(
-                    eta=eta, sub_sd=sub_g, l2g_faces=l2g_faces
+                    eta=eta, l2g_faces=l2g_faces, parent_grid=active_grid
                 )
 
             # Non-array eta suggests eta is scalar. Thus no changes happen to eta.

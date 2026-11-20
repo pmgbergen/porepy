@@ -54,15 +54,12 @@ def _build_buoyancy_model(
         schedule=[0.0, tf],
         dt_init=dt,
         constant_dt=True,
-        iter_max=50,
-        print_info=True,
     )
     params = {
         "fractional_flow": True,
         "enable_buoyancy_effects": True,
         "material_constants": {"solid": solid_constants},
         "time_manager": time_manager,
-        "apply_schur_complement_reduction": False,
         "nl_convergence_inc_atol": np.inf,
         "nl_convergence_res_atol": np.inf,
     }
@@ -204,7 +201,9 @@ def __subdomains_assertions(model):
         )
     assert are_equal(rho_hat, rho_hat_expected)
 
-    w_flux = eval(model.density_driven_flux(subdomains, pp.ad.Scalar(1.0)))
+    w_flux = eval(
+        model.density_driven_flux(subdomains, pp.ad.Scalar(1.0, domains=subdomains))
+    )
     if len(phase_context) == 2:
         w_flux_expected = np.array(
             [
@@ -480,7 +479,9 @@ def __interface_assertions(model):
     are_equal = lambda a, b: np.allclose(a, b)
 
     intf_w_flux = eval(
-        model.interface_density_driven_flux(interfaces, pp.ad.Scalar(1.0))
+        model.interface_density_driven_flux(
+            interfaces, pp.ad.Scalar(1.0, domains=subdomains)
+        )
     )
     if len(phase_context) == 2:
         intf_w_flux_expected = np.array(

@@ -35,9 +35,9 @@ For the more experienced user, some more specific tutorials are also available. 
 Also, see the [reference parameter dictionaries](../src/porepy/examples/example_params.py) for PorePy models. They can be used as a starting point for a PorePy user to copy the relevant parameters for your own problem.
 
 ## Technical tutorials
-These are tutorials that cover technical aspects of the code, 
+These are tutorials that cover technical aspects of the code.
 
-14. [Grids](./grids.ipynb) describes the structure of individual grids and demonstrates construction of different types of grids. It also shows how to access and manipulate grid quantities.
+14. [Grids](./grid_class.ipynb) describes the structure of individual grids and demonstrates construction of different types of grids. It also shows how to access and manipulate grid quantities.
 15. [Grid topology](./grid_topology.ipynb) covers how to access various topological properties of grids in PorePy. This includes the relation between cells, faces and nodes, as well as the direction of the face normal vectors.
 16. [Flux discretizations](./flux_discretizations.ipynb) shows different discretization methods available for diffusive fluxes. These are used for Darcy's law for fluid fluxes in a mass balance equation.
 17. [Stress discretization](./stress_discretization.ipynb) describes the discretization method used for the vector version of tutorial #16, which arises in the linear elastisity equations.

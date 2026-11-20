@@ -15,12 +15,12 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Callable, Optional, Sequence, Union, cast
+from typing import Callable, Mapping, Optional, Sequence, Union, cast
 
 import numpy as np
 
 import porepy as pp
-from porepy.numerics.ad.equation_system import GridEntity
+from porepy.numerics.ad.equation_system import GridEntities, GridEntity
 
 
 class EquationMixin(pp.PorePyModel):
@@ -231,7 +231,9 @@ class LocalElimination(EquationMixin):
         dependencies: Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]],
         func: Callable[..., tuple[np.ndarray, np.ndarray]],
         domains: Sequence[pp.Grid | pp.MortarGrid | pp.BoundaryGrid],
-        equations_per_grid_entity: Optional[dict[GridEntity, int]] = None,
+        equations_per_grid_entity: Optional[
+            Union[GridEntities, Mapping[GridEntity, int]]
+        ] = None,
     ) -> None:
         """Method to add a secondary equation eliminating a variable by some
         constitutive law depending on *other* variables.
@@ -279,12 +281,12 @@ class LocalElimination(EquationMixin):
             equations_per_grid_entity: ``default=None``.
 
                 Argument for when adding above equation to the equation system and
-                creating a surrogate factory. If None, the default ``{'cells':1}`` is
-                assigned.
+                creating a surrogate factory. If None, the default
+                ``GridEntities(cells=1)`` is assigned.
 
         """
         if equations_per_grid_entity is None:
-            equations_per_grid_entity = {"cells": 1}
+            equations_per_grid_entity = GridEntities(cells=1)
 
         # Separate these two because Boundary values for independent quantities are
         # stored differently.
@@ -310,11 +312,7 @@ class LocalElimination(EquationMixin):
         equ_name = f"elimination_of_{sec_var.name}_on_grids_{g_ids}"
         local_equ = sec_var - sec_expr(non_boundaries)
         local_equ.set_name(equ_name)
-        self.equation_system.set_equation(
-            local_equ,
-            cast(list[pp.Grid] | list[pp.MortarGrid], non_boundaries),
-            equations_per_grid_entity,
-        )
+        self.equation_system.set_equation(local_equ)
 
         self._add_local_elimination(
             equ_name, sec_var, sec_expr, func, cast(pp.GridLikeSequence, domains)
@@ -506,20 +504,30 @@ class VariableMixin(pp.PorePyModel):
         """
         pass
 
-    def perturbation_from_reference(self, name: str, grids: list[pp.Grid]):
-        """Perturbation of some quantity ``name`` from its reference value.
+    def perturbation_from_thermodynamic_state(self, name: str, grids: list[pp.Grid]):
+        """Perturbation of some quantity ``name`` from its thermodynamic state.
 
         The parameter ``name`` should be the name of a mixed-in method, returning an
         AD operator for given ``grids``.
 
-        ``name`` should also be defined in the model's :attr:`reference_values`.
+        ``name`` should also be defined in the model's reference thermodynamic values.
 
         This method calls the model method with given ``name`` on given ``grids`` to
-        create an operator ``A``. It then fetches the respective reference value and
-        wraps it into an AD scalar ``A_0``. The return value is an operator ``A - A_0``.
+        create an operator ``A``. It then fetches the respective thermodynamic state
+        value and wraps it into an AD scalar ``A_0``. The return value is an operator
+        ``A - A_0``.
+
+        Note:
+            This method is for scalar constitutive baselines (thermodynamic state).
+            It is distinct from
+            :meth:`porepy.numerics.ad.operators.Operator.perturbation_from_reference`,
+            which is the AD linearization reference and may be spatially heterogeneous.
+            Use the operator-level method when the reference state is stored in the
+            equation system.
 
         Parameters:
-            name: Name of the quantity to be perturbed from a reference value.
+            name: Name of the quantity to be perturbed from a thermodynamic state
+                value.
             grids: List of subdomain or interface grids on which the quantity is
                 defined.
 
@@ -530,7 +538,7 @@ class VariableMixin(pp.PorePyModel):
         quantity = getattr(self, name)
         # This will throw an error if the attribute is not callable
         quantity_op = cast(pp.ad.Operator, quantity(grids))
-        # the reference values are a data class instance storing only numbers
+        # The thermodynamic state values are stored as scalar constants.
         quantity_ref = cast(pp.number, getattr(self.reference_variable_values, name))
         # The casting reflects the expected outcome, and is used to help linters find
         # the set_name method

@@ -31,6 +31,7 @@ from porepy.examples.flow_benchmark_2d_case_1 import (
     Permeability,
 )
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
+from porepy.numerics.solvers.linear_solvers.linear_solver import LinearSolverDirect
 
 solid_constants_conductive = FractureSolidConstants(
     residual_aperture=1e-4,
@@ -64,17 +65,9 @@ class Geometry(pp.PorePyModel):
         # Create projection between local and global coordinates fracture grids.
         pp.set_local_coordinate_projections(self.mdg)
 
-        # Create well network.
+        # Set up well network and add wells to the mixed-dimensional grid.
+        self.set_wells()
         self.set_well_network()
-        if len(self.well_network.wells) > 0:
-            # Compute intersections.
-            assert isinstance(self.fracture_network, FractureNetwork3d)
-            pp.compute_well_fracture_intersections(
-                self.well_network, self.fracture_network
-            )
-            # Mesh wells and add fractures + intersection grids to mixed-dimensional
-            # grid along with these grids' new interfaces to fractures
-            self.well_network.mesh(self.mdg)
 
 
 class PermeabilitySpecification(Permeability):
@@ -129,7 +122,7 @@ class PermeabilitySpecification(Permeability):
                 vals.append(kxx)  # This is just a placeholder, it will not be used.
 
         if len(subdomains) > 0:
-            permeability = pp.wrap_as_dense_ad_array(np.hstack(vals))
+            permeability = pp.wrap_as_dense_ad_array(np.hstack(vals), grids=subdomains)
         else:
             # This part is need it only to set up the model, not actually used.
             permeability = self.solid.permeability  # type:ignore
@@ -150,7 +143,10 @@ class PermeabilitySpecification(Permeability):
         # Use `fracture_permeability` as intersection permeability under the assumption
         # that they are equal. This is valid in the current benchmark case.
         permeability = pp.wrap_as_dense_ad_array(
-            self.solid.fracture_permeability, size, name="intersection_permeability"
+            self.solid.fracture_permeability,
+            size=size,
+            name="intersection_permeability",
+            grids=subdomains,
         )
         return self.isotropic_second_order_tensor(subdomains, permeability)
 
@@ -213,7 +209,7 @@ class BoundaryConditions(pp.PorePyModel):
         inlet_faces = np.logical_and.reduce(
             tuple(cc[i, :] < 0.25 + 1e-8 for i in range(3))
         )
-        val = self.units.convert_units(-1, "m * s^-1")
+        val = self.units.convert_units(-1, "m * Pa")
         values = np.zeros(nc)
         values[inlet_faces] = val * volumes[inlet_faces]
 
@@ -251,3 +247,46 @@ class FlowBenchmark3dCase2Model(  # type:ignore[misc]
     pp.SinglePhaseFlow,
 ):
     """Mixer class for Case 2: Regular Network from the 3D flow benchmark."""
+
+
+def run_example() -> list[pp.PorePyModel]:
+    """Run the flow benchmark 3D case 2 example and return the models.
+
+    Both the conductive and blocking fracture cases are included.
+
+    """
+    # Run the model for both cases.
+    solid_cases = {
+        "conductive fractures": solid_constants_conductive,
+        "blocking fractures": solid_constants_blocking,
+    }
+    models: list[pp.PorePyModel] = []
+    for _, solid_constants in solid_cases.items():
+        params = {
+            "material_constants": {
+                "solid": solid_constants,
+            },
+            "refinement_level": 0,  # 0, 1, or 2 for different mesh refinement levels
+        }
+
+        model = FlowBenchmark3dCase2Model(params)  # type: ignore[abstract]
+        solver_parameters = {
+            "nl_convergence_res_atol": 1e-8,  # absolute tolerance on residuals
+        }
+        # The linear system is poorly scaled, which makes pypardiso (the default
+        # direct solver) inaccurate. Use SuperLU, which solves the system accurately.
+        nonlinear_solver = pp.solvers.NewtonSolver(
+            params=solver_parameters,
+            linear_solver=LinearSolverDirect(backend="scipy_sparse"),
+        )
+        pp.ModelRunner(
+            model, solver_parameters, nonlinear_solver=nonlinear_solver
+        ).run()
+        models.append(model)
+
+    return models
+
+
+# If executed as main, run simulation.
+if __name__ == "__main__":
+    run_example()

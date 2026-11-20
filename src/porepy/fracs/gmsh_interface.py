@@ -27,82 +27,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Union
+from typing import NamedTuple, Optional, Sequence, Union
 
 import gmsh
 import numpy as np
 
 __all__ = [
-    "GmshData",
-    "GmshData1d",
-    "GmshData2d",
-    "GmshData3d",
-    "Tags",
     "PhysicalNames",
-    "GmshWriter",
 ]
-
-
-class Tags(Enum):
-    """Numerical tags used to identify special objects in a mixed-dimensional geometry.
-
-    These may be mapped to the string-based tag system used in Gmsh (see
-    :class:`PhysicalNames`).
-
-    Used internally in porepy.
-
-    """
-
-    NEUTRAL = 0
-    """A neutral tag. Objects with this tag will not be accounted for in any
-    particular way in grid and geometry processing. """
-
-    DOMAIN_BOUNDARY_POINT = 1
-    """Tag to identify points on the domain boundary."""
-    DOMAIN_BOUNDARY_LINE = 2
-    """Tag to identify lines on the domain boundary."""
-    DOMAIN_BOUNDARY_SURFACE = 3
-    """Tag to identify surfaces on the domain boundary."""
-
-    FRACTURE = 10
-    """Tag for fractures (grids with dimensions lower than the ambient dimension)."""
-
-    AUXILIARY_LINE = 11
-    """Tag for auxiliary lines which represent constraints."""
-    AUXILIARY_PLANE = 12
-    """Tag for auxiliary panes which represent constraints."""
-
-    FRACTURE_TIP = 20
-    """Tag for fracture tips. Can be a point or a line."""
-
-    FRACTURE_INTERSECTION_LINE = 21
-    """Tag to identify a line resulting from at least two intersecting fractures.
-
-    Ambient dimension must be 3 in this case.
-
-    """
-
-    FRACTURE_BOUNDARY_LINE = 22
-    """Tag to identify lines which are both in a fracture and on the domain boundary."""
-
-    FRACTURE_INTERSECTION_POINT = 30
-    """Tag to identify points resulting from intersecting fractures.
-
-    Requires at least 2 fractures in 2D, and at least 3 fractures in 3D.
-
-    """
-
-    FRACTURE_CONSTRAINT_INTERSECTION_POINT = 31
-    """Tag to identify points at the intersection between fractures and constraints or
-    auxiliary lines/planes.
-
-    Ambient dimension must be 3 in this case.
-
-    """
-
-    FRACTURE_BOUNDARY_POINT = 32
-    """Tag for points lying on the intersection between a fracture and the domain
-    boundary."""
 
 
 class PhysicalNames(Enum):
@@ -140,18 +72,8 @@ class PhysicalNames(Enum):
     AUXILIARY_PLANE = "AUXILIARY_PLANE_"
     """Name tag for auxiliary planes."""
 
-    DOMAIN_BOUNDARY_POINT = "DOMAIN_BOUNDARY_POINT_"
-    """Name tag for points on the domain boundary."""
-    DOMAIN_BOUNDARY_LINE = "DOMAIN_BOUNDARY_LINE_"
-    """Name tag for lines on the domain boundary."""
-    DOMAIN_BOUNDARY_SURFACE = "DOMAIN_BOUNDARY_SURFACE_"
-    """Name tag for surfaces on the domain boundary."""
-
     FRACTURE_TIP = "FRACTURE_TIP_"
     """Name tag for fracture tips, which can be points or lines."""
-
-    FRACTURE_BOUNDARY_LINE = "FRACTURE_BOUNDARY_LINE_"
-    """Name tag for lines which are both in a fracture and on the domain boundary."""
 
     FRACTURE_INTERSECTION_LINE = "FRACTURE_INTERSECTION_LINE_"
     """Name tag for lines resulting from at least two intersecting fractures.
@@ -167,14 +89,167 @@ class PhysicalNames(Enum):
 
     """
 
-    FRACTURE_BOUNDARY_POINT = "FRACTURE_BOUNDARY_POINT_"
-    """Name tag for points lying on the intersection between a fracture and the domain
-    boundary."""
+    WELL = "WELL_"
+    """Name tag for wells."""
 
-    FRACTURE_CONSTRAINT_INTERSECTION_POINT = "FRACTURE_CONSTRAINT_INTERSECTION_POINT_"
-    """Name tag to identify points at the intersection between fractures and constraints
-    or auxiliary lines/planes.
+    WELL_FRACTURE_INTERSECTION_POINT = "WELL_FRACTURE_INTERSECTION_POINT_"
+    """Name tag for points at the intersection between wells and fractures."""
 
-    Ambient dimension must be 3 in this case.
+
+@dataclass
+class GmshEntity:
+    """Representation of a single geometric entity, in terms of gmsh tags.
+
+    The object may have been fragmented into multiple sub-entities.
+    """
+
+    index: int
+    dim: int
+    tags: list[int]
+
+
+class GmshLine(GmshEntity):
+    """Representation of a line entity in terms of gmsh tags."""
+
+    def __init__(self, index: int, tags: list[int]):
+        super().__init__(index=index, dim=1, tags=tags)
+
+    def points_on_entity(self) -> tuple[np.ndarray, list[int]]:
+        """Find points that are on the line, either embedded or on the boundary.
+
+        Returns:
+            points: The points on the line, as a list of gmsh point tags.
+            indices: A list of the same length as points, with the index of the line
+                for each point.
+        """
+        points = []
+        for tag in self.tags:
+            _, adjacent_points = gmsh.model.get_adjacencies(self.dim, tag)
+            points.extend(adjacent_points)
+        indices = [self.index] * len(points)
+        return np.array(points), indices
+
+
+class GmshSurface(GmshEntity):
+    """Representation of a surface entity in terms of gmsh tags."""
+
+    def __init__(self, index: int, tags: list[int]):
+        super().__init__(index=index, dim=2, tags=tags)
+
+    def points_on_entity(self) -> tuple[np.ndarray, list[int]]:
+        """Find points that are on the surface, either embedded or on the boundary.
+
+        Returns:
+            points: The points on the surface, as a list of gmsh point tags.
+            indices: A list of the same length as points, with the index of the
+                surface for each point.
+
+        """
+        embedded_points, inds_embedded = self._embedded_points()
+        boundary_points, inds_boundary = self._boundary_points()
+
+        if len(embedded_points) + len(boundary_points) == 0:
+            merged = np.array([], dtype=int)
+        else:
+            merged = np.hstack((embedded_points, boundary_points))
+
+        return merged, inds_embedded + inds_boundary
+
+    def _embedded_points(self):
+        """Find points that are embedded in the surface."""
+        points, inds = [], []
+        for tag in self.tags:
+            for point in gmsh.model.mesh.get_embedded(self.dim, tag):
+                if point[0] == 0:
+                    points.extend([point[1]])
+                    inds += [self.index]
+        return points, inds
+
+    def _boundary_points(self):
+        """Find points that are on the boundary of the surface."""
+        points, inds = [], []
+        for tag in self.tags:
+            boundary_lines = gmsh.model.get_boundary([(self.dim, tag)], oriented=False)
+            for line in boundary_lines:
+                loc_points = gmsh.model.get_boundary([line], oriented=False)
+                points.extend([p[1] for p in loc_points])
+                inds += [self.index] * len(loc_points)
+        return points, inds
+
+
+class PointsOnGmshEntities:
+    """Helper class to store points on Gmsh entities and their corresponding indices."""
+
+    def __init__(self, entities: Sequence[GmshEntity]) -> None:
+        points, inds = [], []
+        for entity in entities:
+            # The called method is duck-typed, ignore error. The comment on the next
+            # line is needed to avoid ruff autoformatting the call into a single line
+            # more than 88 characters long (it seems ruff ignores the line length limit
+            # for lines with comments).
+            loc_points, loc_inds = (  # Making ruff not format..
+                entity.points_on_entity()  # type: ignore[attr-defined]
+            )
+            points.extend(loc_points)
+            inds.extend(loc_inds)
+
+        if len(points) == 0:
+            self.points = np.array([], dtype=int)
+        else:
+            self.points = np.array([p for p in points], dtype=int)
+
+        """Array of point coordinates."""
+        self.inds = inds
+        """List of Gmsh indices."""
+
+
+def fragment(
+    first: Sequence[GmshEntity], second: Sequence[GmshEntity]
+) -> tuple[Sequence[GmshEntity], Sequence[GmshEntity]]:
+    """Fragment two sets of geometric entities.
+
+    See the Gmsh manual for more details on the fragment operation.
+
+    Parameters:
+        first: The first set of geometric entities to fragment.
+        second: The second set of geometric entities to fragment.
+
+    Returns:
+        A tuple of the two sets of geometric entities after fragmentation.
 
     """
+    if len(first) == 0 or len(second) == 0:
+        return first, second
+
+    first_tags = [t for f in first for t in f.tags]
+    second_tags = [t for s in second for t in s.tags]
+    first_dim = first[0].dim if len(first) > 0 else None
+    second_dim = second[0].dim if len(second) > 0 else None
+
+    _, split_objects = gmsh.model.occ.fragment(
+        [(first_dim, t) for t in first_tags],
+        [(second_dim, t) for t in second_tags],
+        removeObject=True,
+        removeTool=True,
+    )
+    gmsh.model.occ.synchronize()
+
+    def gather(before, after):
+        merged = []
+
+        indices_before = np.concatenate([np.full(len(b.tags), b.index) for b in before])
+
+        for i in np.unique(indices_before):
+            ind_in_before = np.where(indices_before == i)[0]
+            tags = []
+            for j in ind_in_before:
+                tags.extend([a[1] for a in after[j]])
+            if before[i].dim == 2:
+                merged.append(GmshSurface(index=i, tags=tags))
+            else:
+                merged.append(GmshLine(index=i, tags=tags))
+        return merged
+
+    return gather(first, split_objects[: len(first_tags)]), gather(
+        second, split_objects[len(first_tags) :]
+    )

@@ -165,7 +165,6 @@ class MandelDataSaving(pp.PorePyModel):
             grid=sd,
             true_array=exact_pressure,
             approx_array=cast(np.ndarray, approx_pressure),
-            is_scalar=True,
             is_cc=True,
             relative=True,
         )
@@ -177,7 +176,6 @@ class MandelDataSaving(pp.PorePyModel):
             grid=sd,
             true_array=exact_displacement,
             approx_array=cast(np.ndarray, approx_displacement),
-            is_scalar=False,
             is_cc=True,
             relative=True,
         )
@@ -190,7 +188,6 @@ class MandelDataSaving(pp.PorePyModel):
             grid=sd,
             true_array=exact_flux,
             approx_array=cast(np.ndarray, approx_flux),
-            is_scalar=True,
             is_cc=False,
             relative=True,
         )
@@ -202,7 +199,6 @@ class MandelDataSaving(pp.PorePyModel):
             grid=sd,
             true_array=exact_force,
             approx_array=cast(np.ndarray, approx_force),
-            is_scalar=False,
             is_cc=False,
             relative=True,
         )
@@ -828,12 +824,10 @@ class MandelUtils(VerificationUtils):
         nu_s = self.poisson_coefficient()  # [-]
         nu_u = self.undrained_poisson_coefficient()  # [-]
 
-        t = self.time_manager.time  # scaled [s]
-
         # Retrieve face displacement
         u_faces = self.face_displacement(sd)
 
-        if t == 0:  # soil is initially unconsolidated
+        if self.time_manager.is_at_initial_time():  # soil is initially unconsolidated
             consol_deg_x, consol_deg_y = 0, 0
         else:
             # Consolidation degree in the horizontal direction
@@ -853,7 +847,7 @@ class MandelUtils(VerificationUtils):
     # -----> Plotting methods
     def plot_results(self):
         """Plot results."""
-        num_lines = len(self.time_manager.schedule) - 1
+        num_lines = len(self.time_manager.schedule.intervals)
         cmap = mcolors.ListedColormap(plt.cm.tab20.colors[:num_lines])
 
         self._plot_pressure(color_map=cmap)
@@ -1173,7 +1167,7 @@ class MandelUtils(VerificationUtils):
         )
 
         # Numerical consolidation degrees
-        times = self.time_manager.schedule[1:]
+        times = self.time_manager.schedule.get_array()[1:]
         approx_consol_degree_x = np.array(
             [result.approx_consolidation_degree[0] for result in self.results]
         )
@@ -1444,3 +1438,48 @@ class MandelModel(  # type: ignore[misc]
             - viscosity
 
     """
+
+
+def run_example() -> list[pp.PorePyModel]:
+    """Run Mandel's consolidation example and return the model."""
+    models: list[pp.PorePyModel] = []
+
+    # Set material constants.
+    material_constants = {
+        "solid": pp.SolidConstants(**mandel_solid_constants),  # type: ignore[arg-type]
+        "fluid": pp.FluidComponent(**mandel_fluid_constants),  # type: ignore[arg-type]
+    }
+
+    # Set scaling.
+    scaling = {"m": 1e-3}
+    units = pp.Units(**scaling)
+
+    # Create time manager.
+    time_manager = pp.TimeManager(
+        schedule=[0, 1e2, 1e3, 5e3, 1e4],  # [s]
+        dt_init=100,  # [s]
+        constant_dt=True,  # [s]
+    )
+
+    # Set length scaling and mesh size.
+    ls = 1 / units.m
+    mesh_arguments = {"cell_size": 5.0 * ls}
+
+    # Collect model parameters.
+    model_params = {
+        "material_constants": material_constants,
+        "meshing_arguments": mesh_arguments,
+        "time_manager": time_manager,
+        "plot_results": False,
+        "units": units,
+    }
+
+    model = MandelModel(params=model_params)  # type: ignore[abstract]
+    pp.run_time_dependent_model(model=model)
+    models.append(model)
+    return models
+
+
+# If executed as main, run simulation.
+if __name__ == "__main__":
+    run_example()

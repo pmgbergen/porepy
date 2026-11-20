@@ -13,13 +13,40 @@ Warning:
     Protocols use ``__slot__`` which leads to unforeseeable behaviour when combined
     with multiple inheritance and mixing.
 
+    Beyond that, the protocol must not appear in the runtime MRO *at all*, not even
+    as an empty placeholder class. Being a common base of most - but not all - mixins,
+    such a placeholder acts as a linearisation barrier: C3 must order it after every
+    class that inherits it, so anything following it in one base's MRO is pushed
+    behind everything preceding it in another. The effect is silent, since an empty
+    class shadows nothing, but it can demote an override mixin behind the very class
+    it was written to override. The runtime stand-in therefore returns an empty tuple
+    from ``__mro_entries__`` (PEP 560), so that ``class X(pp.PorePyModel)`` is
+    compiled as ``class X:``.
+
+Note:
+    Because the protocol is a base class for mypy but not at runtime, the two see
+    different linearisations of a composed model. Mypy resolves an inter-mixin call to
+    the protocol's declaration and computes an MRO that still contains
+    :class:`PorePyModel`; at runtime the call resolves to whichever mixin the
+    composition actually put first, and :class:`PorePyModel` is absent from
+    ``__mro__`` entirely.
+
+    This is why ``# type: ignore[safe-super]`` is occasionally needed on ``super()``
+    calls into sibling mixins - mypy sees the protocol's trivial body - and why
+    ``isinstance(model, PorePyModel)`` raises a ``TypeError``: the runtime object is
+    not a class, and the protocol is not ``runtime_checkable``. Annotate with the
+    protocol instead of testing against it.
+
+    The divergence is benign precisely as long as every implementation of a protocol
+    member stays signature-compatible with the declaration here, which ``mypy src``
+    enforces.
+
 """
 
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Protocol, Sequence
 
 import numpy as np
-import scipy.sparse as sps
 
 # Conditional importing ensures that the protocols do not mess with the runtime
 # definitions, i.e., the protocol empty method is accidentally called as a proper method
@@ -27,8 +54,36 @@ import scipy.sparse as sps
 if not TYPE_CHECKING:
     # This branch is accessed in python runtime.
     # NOTE See Warning in module docstring before attempting anything here.
-    class PorePyModel:
-        """This is an empty placeholder of the protocol, used mainly for type hints."""
+    class _PorePyModelPlaceholder:
+        """Runtime stand-in for the PorePyModel protocol.
+
+        Returning an empty tuple from ``__mro_entries__`` (PEP 560) means that
+        ``class X(pp.PorePyModel)`` is compiled as ``class X:``. The protocol
+        contributes *nothing* to the MRO and can therefore never act as a
+        linearisation barrier between mixins.
+
+        Note that this makes ``pp.PorePyModel`` an instance rather than a class at
+        runtime. Annotations, ``type[...]``, ``Optional[...]`` and ``TypeVar``
+        bounds are unaffected; ``isinstance`` against it raises a ``TypeError``.
+
+        Dynamic class assembly must use ``types.new_class`` rather than the
+        three-argument ``type``: only the former resolves ``__mro_entries__``. This
+        concerns the protocol alone - ``type`` remains fine for assembling models from
+        ordinary mixins, as :func:`porepy.applications.test_utils.models.add_mixin`
+        does.
+
+        """
+
+        __name__ = "PorePyModel"
+        __qualname__ = "PorePyModel"
+
+        def __mro_entries__(self, bases: tuple) -> tuple:
+            return ()
+
+        def __repr__(self) -> str:
+            return "<protocol porepy.models.protocol.PorePyModel>"
+
+    PorePyModel = _PorePyModelPlaceholder()
 
 else:
     # This branch is accessed by mypy and linters.
@@ -81,7 +136,10 @@ else:
         def set_well_network(self) -> None:
             """Assign well network class :attr:`well_network`."""
 
-        def add_wells_to_mdg(self) -> None:
+        def create_well_mesh(self) -> None:
+            """Create well mesh and add to mixed-dimensional grid."""
+
+        def set_wells(self) -> None:
             """Add wells to the mixed-dimensional grid."""
 
         def is_well_grid(self, grid: pp.Grid | pp.MortarGrid) -> bool:
@@ -185,6 +243,7 @@ else:
             attr: str,
             *,
             dim: int,
+            grid_entity: pp.ad.GridEntity = pp.ad.GridEntity.cells,
         ) -> pp.ad.DenseArray:
             """Wrap a grid attribute as an ad matrix.
 
@@ -197,6 +256,8 @@ else:
                     exclude the z-component of a vector attribute in 2d, to achieve
                     compatibility with code which is explicitly 2d (e.g. fv
                     discretizations).
+                grid_entity: The grid entity (cells, faces, or nodes) that ``attr``
+                    is actually defined on.
 
             Returns:
                 class:`porepy.numerics.ad.DenseArray`: `(shape=(dim *
@@ -213,7 +274,10 @@ else:
             """
 
         def basis(
-            self, grids: Sequence[pp.GridLike], dim: int
+            self,
+            grids: Sequence[pp.GridLike],
+            dim: int,
+            domain_type: Optional[pp.ad.DomainType] = None,
         ) -> list[pp.ad.Projection]:
             """Return a cell-wise basis for all subdomains.
 
@@ -237,6 +301,8 @@ else:
             Parameters:
                 grids: List of grids on which the basis is defined.
                 dim: Dimension of the basis.
+                domain_type: The type of domain (subdomains, interfaces, or boundary
+                    grids) that *grids* represents. See :meth:`basis` for details.
 
             Returns:
                 List of pp.ad.SparseArray, each of which represents a basis
@@ -245,7 +311,12 @@ else:
             """
 
         def e_i(
-            self, grids: Sequence[pp.GridLike], *, i: int, dim: int
+            self,
+            grids: Sequence[pp.GridLike],
+            *,
+            i: int,
+            dim: int,
+            domain_type: Optional[pp.ad.DomainType] = None,
         ) -> pp.ad.Projection:
             """Return a cell-wise basis function in a specified dimension.
 
@@ -271,6 +342,8 @@ else:
                 grids: List of grids on which the basis vector is defined.
                 i: Index of the basis function. Note: Counts from 0.
                 dim: Dimension of the functions.
+                domain_type: The type of domain (subdomains, interfaces, or boundary
+                    grids) that *grids* represents. See :meth:`basis` for details.
 
             Returns:
                 Ad projection that represents a basis function.
@@ -508,12 +581,6 @@ else:
         Will be set by :meth:`set_equation_system_manager`.
 
         """
-        linear_system: tuple[sps.spmatrix, np.ndarray]
-        """The linear system to be solved in each iteration of the non-linear solver.
-
-        The tuple contains the sparse matrix and the right hand side residual vector.
-
-        """
         params: dict
         """Dictionary of parameters."""
         units: pp.Units
@@ -589,6 +656,56 @@ else:
         def prepare_simulation(self) -> None:
             """Run at the start of simulation. Used for initialization etc."""
 
+        def set_materials(self) -> None:
+            """Set material parameters.
+
+            Searches for entries in ``params['material_constants']`` with keys
+            ``'fluid'`` and ``'solid'`` for respective material constant instances. If
+            not found, default materials are instantiated.
+
+            Provides the :attr:`solid` material constants as an attribute to the model,
+            as well as the :attr:`fluid` object by calling :attr:`create_fluid`.
+
+            By default, a 1-phase, 1-component fluid is created based on the fluid
+            component provided in ``params['material_constants']``.
+
+            """
+
+        def set_equation_system_manager(self) -> None:
+            """Create an equation_system manager on the mixed-dimensional grid."""
+
+        def initialize_previous_iterate_and_time_step_values(self) -> None:
+            """Method to be called after initial values are set at ``iterate_index=0``
+            in the mixins for initial conditions.
+
+            This methods copies respective values to all other iterate and time step
+            indices to finalize the initialization procedure.
+
+            """
+
+        def reset_state_from_file(self) -> None:
+            """Reset states but through a restart from file.
+
+            Similar to :meth:`initial_condition`.
+
+            """
+
+        def update_discretization_parameters(self) -> None:
+            """Method for evaluating and storing discretization parameters required for
+            discretizing fluxes and other discretizations.
+
+            This primarily involves second order tensors such as permeability and
+            thermal conductivity.
+
+            The base method only defines the signature and individual physics model have
+            to override this method. A super-call to trigger other physics' update is
+            required.
+
+            """
+
+        def discretize(self) -> None:
+            """Discretize all terms."""
+
         def after_simulation(self) -> None:
             """Run at the end of simulation. Can be used for cleanup etc."""
 
@@ -616,6 +733,29 @@ else:
             """Returns True if ``params['eliminate_reference_component'] == True`.
             Defaults to True."""
 
+        def before_time_step(self) -> None:
+            """Called from the outside of the model at the start of each time step.
+
+            The model must prepare its state for the target simulation time ``t``,
+            available through ``model.time_manager``. The nonlinear solver then attempts
+            to advance the discretized problem to that time. If the solve fails, it may
+            be retried with a different time-step size, so this method may be called
+            multiple times with different target times.
+
+            """
+
+        def before_nonlinear_loop(self) -> None:
+            """Called before entering a nonlinear solver loop.
+
+            With the default ``NewtonSolver``, each time step has a single nonlinear
+            loop so this method is called once after ``before_time_step``. More advanced
+            solvers may use multiple nonlinear loops per time step and call this method
+            before each one.
+
+            Use this method for loop-specific setup, such as updating discretizations.
+
+            """
+
         def before_nonlinear_iteration(self) -> None:
             """Method to be called at the start of every non-linear iteration.
 
@@ -623,35 +763,55 @@ else:
 
             """
 
-        def after_nonlinear_convergence(self) -> None:
+        def after_nonlinear_iteration(
+            self,
+            nonlinear_increment: np.ndarray,
+            updated_variables: Optional[list[pp.ad.Variable]] = None,
+        ) -> None:
             """Method to be called after every non-linear iteration.
 
-            Possible usage is to distribute information on the solution, visualization,
-            etc.
+            Parameters:
+                nonlinear_increment: The new solution, as computed by the non-linear
+                    solver.
+                updated_variables: Variables to update with `nonlinear_increment`. If
+                    `None`, all variables are updated.
 
             """
+
+        def after_nonlinear_convergence(self) -> None:
+            """Called after a nonlinear solver loop converges.
+
+            With the default ``NewtonSolver``, each time step has a single nonlinear
+            loop, so this method is called exactly once, before
+            ``after_time_step_convergence``. More advanced solvers may use multiple
+            nonlinear loops per time step and call this method after each converged
+            loop.
+
+            Use this method for loop-specific post-processing.
+
+            """
+
+        def after_nonlinear_failure(self) -> None:
+            """Called after a nonlinear solver loop fails to converge.
+
+            With the default ``NewtonSolver``, each time step has a single nonlinear
+            loop, so this method is called exactly once, before
+            ``after_time_step_failure``. More advanced solvers may use multiple
+            nonlinear loops per time step and call this method after each failed loop.
+
+            """
+
+        def after_time_step_convergence(self) -> None:
+            """Called once after a time step converges."""
+
+        def after_time_step_failure(self) -> None:
+            """Called once after a time step fails to converge."""
 
         def set_nonlinear_discretizations(self) -> None:
             """Set the list of nonlinear discretizations.
 
             This method is called before the discretization is performed. It is intended
             to be used to set the list of nonlinear discretizations.
-
-            """
-
-        def solve_linear_system(self) -> np.ndarray:
-            """Solve linear system.
-
-            Default method is a direct solver. The linear solver is chosen in the
-            initialize_linear_solver of this model. Implemented options are
-                - scipy.sparse.spsolve with and without call to umfpack
-                - pypardiso.spsolve
-
-            See also:
-                :meth:`initialize_linear_solver`
-
-            Returns:
-                np.ndarray: Solution vector.
 
             """
 
@@ -662,6 +822,43 @@ else:
             The base method only defines the signature and individual physics model have
             to override this method. A super-call to trigger other physics' update is
             required.
+
+            """
+
+        def update_time_dependent_ad_arrays(self) -> None:
+            """Update the time dependent arrays before a new time step.
+
+            The base implementation updates those for the boundary condition values.
+            Override it to update other model-specific time dependent arrays.
+
+            """
+
+        def update_derived_quantities(self) -> None:
+            """Performs an update of derived and secondary quantities entering the
+            equations.
+
+            These updates include flux values and discretization matrices, or surrogate
+            operators which wrap externalized computations. In principle, anything not
+            part of the evaluation process in the AD framework, can be put here if it
+            requires an update for the evaluation to lead to correct values.
+
+            The base method performs the following updates:
+
+            1. Update material properties (if necessary) based on the current state
+            (see :meth:`update_material_properties`).
+            2. Update discretization parameters, most crucially those entering the flux
+            discretization (see :meth:`update_discretization_parameters`).
+            3. Rediscretize the non-linear fluxes depending on above tensors
+            (see :meth:`rediscretize_fluxes`).
+            4. Evaluate and store fluxes for upstream discretizations
+            (see :meth:`update_flux_values`).
+            5. Rediscretize upstream (and possibly other) discretizations
+            (see :meth:`rediscretize`).
+
+            For a consistent evaluation of the system, this method is called in
+            :meth:`after_solver_iteration` (after the global state vector changes)
+            and in :meth:`before_nonlinear_loop` (after the boundary conditions and
+            other time-dependent quantities change).
 
             """
 
@@ -714,23 +911,28 @@ else:
         """This protocol provides the declarations of the methods and the properties,
         typically defined in VariableMixin."""
 
-        def perturbation_from_reference(
+        def perturbation_from_thermodynamic_state(
             self, variable_name: str, grids: list[pp.Grid]
         ) -> pp.ad.Operator:
-            """Perturbation of some quantity ``name`` from its reference value.
+            """Perturbation of some quantity ``name`` from its thermodynamic state.
 
             The parameter ``name`` should be the name of a mixed-in method, returning an
             AD operator for given ``grids``.
 
-            ``name`` should also be defined in the model's :attr:`reference_values`.
+            ``name`` should also be defined in the model's reference thermodynamic
+            values.
 
             This method calls the model method with given ``name`` on given ``grids`` to
-            create an operator ``A``. It then fetches the respective reference value and
-            wraps it into an AD scalar ``A_0``. The return value is an operator
-            ``A - A_0``.
+            create an operator ``A``. It then fetches the respective thermodynamic
+            state value and wraps it into an AD scalar ``A_0``. The return value is an
+            operator ``A - A_0``.
+
+            Use the operator-level perturbation method when the reference state is
+            stored in the equation system.
 
             Parameters:
-                name: Name of the quantity to be perturbed from a reference value.
+                name: Name of the quantity to be perturbed from a thermodynamic state
+                    value.
                 grids: List of subdomain or interface grids on which the quantity is
                     defined.
 
@@ -750,7 +952,7 @@ else:
         """
 
         def create_boundary_operator(
-            self, name: str, domains: Sequence[pp.BoundaryGrid]
+            self, name: str, domains: Sequence[pp.BoundaryGrid], dim: int = 1
         ) -> pp.ad.TimeDependentDenseArray:
             """Creates an operator on boundary grids.
 
@@ -810,6 +1012,9 @@ else:
 
             """
 
+        def set_boundary_reference_values(self) -> None:
+            """Store the current boundary values as the reference state."""
+
         def update_boundary_condition(
             self,
             name: str,
@@ -837,7 +1042,7 @@ else:
             """Interface method for the solution strategy to be called to set initial
             values for all variables.
 
-            Calls the methods :meth:`set_initial_values_primary_variables`.
+            Calls the method :meth:`set_initial_values_primary_variables`.
 
             Can be overridden to set other initial conditions after a super-call.
 
@@ -847,6 +1052,9 @@ else:
                 get a runable model.
 
             """
+
+        def set_initial_values_primary_variables(self) -> None:
+            """Set the initial values for the primary variables."""
 
     class EquationProtocol(Protocol):
         """This protocol provides declarations of methods and properties related to
@@ -898,9 +1106,10 @@ else:
                 * `list`: Export if time is in the list. If the list is empty, then no
                 times are exported.
 
-            In addition, save the solver statistics to file if the option is set.
-
             """
+
+        def save_statistics(self) -> None:
+            """Save the solver statistics to file if the option is set."""
 
         def initialize_data_saving(self) -> None:
             """Initialize data saving.
@@ -917,23 +1126,31 @@ else:
         def load_data_from_vtu(
             self,
             vtu_files: Path | list[Path],
-            time_index: int,
+            export_index: int,
             times_file: Optional[Path] = None,
             keys: Optional[str | list[str]] = None,
             **kwargs,
         ) -> None:
             """Initialize data in the model by reading from a pvd file.
 
+            The model is assumed to be identical to the one that wrote the file: same
+            grids in the same order, same equations and same units. This is not
+            validated.
+
             Parameters:
-                vtu_files: path(s) to vtu file(s).
-                keys: keywords addressing cell data to be transferred. If 'None', the
+                vtu_files: Path(s) to vtu file(s).
+                export_index: Index of the time step to be loaded.
+                times_file: Path to json file storing history of time and time step
+                    size. If ``None``, the same default path as in
+                    :meth:`write_pvd_and_vtu` is used.
+                keys: Keywords addressing cell data to be transferred. If ``None``, the
                     mixed-dimensional grid is checked for keywords corresponding to
-                    primary variables identified through pp.TIME_STEP_SOLUTIONS.
-                keyword arguments: see documentation of
+                    primary variables identified through ``pp.TIME_STEP_SOLUTIONS``.
+                **kwargs: See documentation of
                     :meth:`porepy.viz.exporter.Exporter.import_state_from_vtu`
 
             Raises:
-                ValueError: if incompatible file type provided.
+                ValueError: If incompatible file types are provided.
 
             """
 
@@ -1068,9 +1285,15 @@ else:
         such as VSCode can properly autocomplete these hints. You must either inherit
         from this class or provide it as a type annotation for the PorePy model object.
 
+        Inheriting from it is safe in any base position: at runtime the protocol is
+        replaced by a placeholder which contributes nothing to the MRO, so it can
+        neither reorder sibling mixins nor provoke a ``TypeError`` about an
+        inconsistent MRO. See the Warning in the module docstring.
+
         Note:
             This can also be considered the list of the functionality which must be
             implemented by an instanciated model, although it does not verify it in
-            runtime, since it is not an abstract base class.
+            runtime, since it is not an abstract base class. In particular,
+            ``isinstance`` cannot be used against this protocol.
 
         """

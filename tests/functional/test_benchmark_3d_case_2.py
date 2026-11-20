@@ -34,6 +34,22 @@ class ModelWithEffectivePermeability(
     """Model with functionality to calculate effective permeabilities."""
 
 
+def _run_model(model: ModelWithEffectivePermeability, solver_params: dict) -> None:
+    """Run the model with a direct solver that uses partial pivoting.
+
+    The linear system is poorly scaled (matrix entries span more than 20 orders of
+    magnitude). Pardiso, which uses static pivoting with pivot perturbations, then
+    produces inaccurate solutions, and whether the Newton loop recovers depends on the
+    MKL version and hardware. SuperLU (scipy_sparse) solves the system accurately.
+
+    """
+    nonlinear_solver = pp.solvers.NewtonSolver(
+        params=solver_params,
+        linear_solver=pp.solvers.LinearSolverDirect(backend="scipy_sparse"),
+    )
+    pp.ModelRunner(model, solver_params, nonlinear_solver=nonlinear_solver).run()
+
+
 @pytest.fixture(
     scope="module",
     params=[
@@ -63,8 +79,13 @@ def model_conductive(
         "flux_discretization": flux_discretization,
         "times_to_export": [],  # Suppress output for tests
     }
+    solver_params = {
+        "nl_max_iterations": 100,
+        "nl_convergence_res_atol": 1e-4,
+        "nl_convergence_inc_atol": 1e-4,
+    }
     model = ModelWithEffectivePermeability(model_params)
-    pp.run_time_dependent_model(model)
+    _run_model(model, solver_params)
     return model
 
 
@@ -87,7 +108,12 @@ def model_blocking(
         "times_to_export": [],  # Suppress output for tests
     }
     model = ModelWithEffectivePermeability(model_params)
-    pp.run_time_dependent_model(model)
+    solver_params = {
+        "nl_max_iterations": 100,
+        "nl_convergence_res_atol": 1e-6,
+        "nl_convergence_inc_atol": 1e-6,
+    }
+    _run_model(model, solver_params)
     return model
 
 

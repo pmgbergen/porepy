@@ -158,7 +158,7 @@ class NonzeroFractureGapPoromechanics(pp.PorePyModel):
                 # Distribute source term over cells based on cell volumes.
                 vals.append(val * sd.cell_volumes / np.sum(sd.cell_volumes))
         fracture_source = pp.wrap_as_dense_ad_array(
-            np.hstack(vals), name="fracture_fluid_source"
+            np.hstack(vals), name="fracture_fluid_source", grids=subdomains
         )
         return internal_boundaries + fracture_source
 
@@ -305,7 +305,7 @@ def test_2d_single_fracture(
     model = create_model_with_fracture(
         solid_vals, {}, {}, north_displacement, model_class
     )
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
     u_vals, p_vals, p_frac, jump, traction = get_variables(model)
 
     # Create model and run simulation
@@ -368,7 +368,7 @@ def test_poromechanics_model_no_modification():
     Failure of this test would signify rather fundamental problems in the model.
     """
     model = pp.Poromechanics({"times_to_export": []})
-    pp.run_stationary_model(model, {})
+    pp.ModelRunner(model).run()
 
 
 @pytest.mark.parametrize("biot_coefficient", [0.0, 0.5])
@@ -386,7 +386,7 @@ def test_without_fracture(biot_coefficient, model_class):
         "times_to_export": [],
     }
     model = model_class(params)
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
 
     sd = model.mdg.subdomains(dim=model.nd)
     u = model.equation_system.evaluate(model.displacement(sd)).reshape(
@@ -415,7 +415,7 @@ def test_without_fracture(biot_coefficient, model_class):
 def test_pull_north_positive_opening(model_class: type):
     """Check solution for a pull on the north side with one horizontal fracture."""
     model = create_model_with_fracture({}, {}, {}, 0.001, model_class)
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
     _, _s, p_frac, jump, traction = get_variables(model)
 
     # All components should be open in the normal direction
@@ -447,7 +447,7 @@ def test_pull_south_positive_opening(model_class):
 
     model = create_model_with_fracture({}, {}, {}, 0.0, model_class)
     model.params["u_south"] = [0.0, -0.001]
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
     u_vals, p_vals, p_frac, jump, traction = get_variables(model)
 
     # All components should be open in the normal direction
@@ -470,7 +470,7 @@ def test_pull_south_positive_opening(model_class):
 
 def test_push_north_zero_opening():
     model = create_model_with_fracture({}, {}, {}, -0.001, TailoredPoromechanics)
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
     u_vals, p_vals, p_frac, jump, traction = get_variables(model)
 
     # All components should be closed in the normal direction
@@ -489,7 +489,7 @@ def test_push_north_zero_opening():
 def test_positive_p_frac_positive_opening(model_class):
     model = create_model_with_fracture({}, {}, {}, 0.0, model_class)
     model.params["fracture_source_value"] = 0.004
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
     _, _, p_frac, jump, traction = get_variables(model)
 
     # All components should be open in the normal direction
@@ -516,7 +516,7 @@ def test_pull_south_positive_reference_pressure():
     reference_model = create_model_with_fracture({}, {}, {}, 0.0, TailoredPoromechanics)
     reference_model.subtract_p_frac = False
     reference_model.params["u_south"] = [0.0, -0.001]
-    pp.run_time_dependent_model(reference_model)
+    pp.ModelRunner(reference_model).run()
     u_vals_ref, p_vals_ref, p_frac_ref, jump_ref, traction_ref = get_variables(
         reference_model
     )
@@ -526,7 +526,7 @@ def test_pull_south_positive_reference_pressure():
     )
     model.subtract_p_frac = False
     model.params["u_south"] = [0.0, -0.001]
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
     u_vals, p_vals, p_frac, jump, traction = get_variables(model)
 
     assert np.allclose(jump, jump_ref)
@@ -574,12 +574,12 @@ def test_unit_conversion(units, model_class):
 
     # Create model and run simulation
     reference_model = model_class(model_reference_params)
-    pp.run_time_dependent_model(reference_model)
+    pp.ModelRunner(reference_model).run()
 
     model_params["units"] = pp.Units(**units)
     model = model_class(model_params)
 
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
     variables = [
         model.pressure_variable,
         model.interface_darcy_flux_variable,
@@ -623,7 +623,7 @@ def test_poromechanics_well():
         "times_to_export": [],
     }
     model = PoromechanicsWell(model_params)
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
 
 
 @pytest.mark.parametrize(
@@ -657,32 +657,34 @@ def test_poromechanics_empty_equation_filter(model_class):
     # regardless of whether the corresponding domains are present in the model.
     all_equations = list(equation_system.equations.keys())
 
-    # Parsed equations after discarding those whose image space is empty.
-    # In poromechanics models without fractures, fracture-related equations are
-    # also registered but have empty image spaces, and are therefore removed here.
-    parsed_equations = list(equation_system._parse_equations().keys())
-
     # Check empty domain equations exist.
     empty_equations = []
+    not_empty_equations = []
     for name in equation_system.equations:
-        total = sum(
-            len(indices)
-            for indices in equation_system.equation_image_space_composition[
-                name
-            ].values()
-        )
-        if total == 0:
+        if len(equation_system.equations[name].domains) == 0:
             empty_equations.append(name)
+        else:
+            not_empty_equations.append(name)
 
     assert len(empty_equations) > 0
+    assert len(not_empty_equations) > 0
 
     # Check empty domain equations are filtered.
     for name in empty_equations:
-        assert name not in parsed_equations
+        assert (
+            name
+            not in equation_system.equation_indexer.equation_image_space_composition
+        )
 
     # Check that the assembled system does not include empty domain equations.
-    A_all, b_all = equation_system.assemble(all_equations)
-    A_filtered, b_filtered = equation_system.assemble(parsed_equations)
+    linear_system_all = equation_system.assemble(equations=all_equations)
+    linear_system_filtered = equation_system.assemble(equations=not_empty_equations)
+    A_all = linear_system_all.matrix
+    A_filtered = linear_system_filtered.matrix
+    assert A_all is not None
+    assert A_filtered is not None
+    b_all = linear_system_all.rhs
+    b_filtered = linear_system_filtered.rhs
 
     assert A_all.shape == A_filtered.shape
     assert np.allclose(b_all, b_filtered)

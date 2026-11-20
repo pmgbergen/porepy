@@ -118,8 +118,11 @@ class TracerFlowModel(  # type: ignore[misc]
     problem."""
 
 
-# If executed as main, run simulation
-if __name__ == "__main__":
+def run_example() -> list[pp.PorePyModel]:
+    """Run the tracer flow example and return the models."""
+
+    models: list[pp.PorePyModel] = []
+
     # Initial time step 60 seconds.
     dt_init = pp.MINUTE
     # Simulation time 20 minutes.
@@ -135,11 +138,9 @@ if __name__ == "__main__":
         schedule=[0, T_end],
         dt_init=dt_init,
         dt_min_max=dt_min_max,
-        iter_max=max_iterations,
         iter_optimal_range=(2, 10),
         iter_relax_factors=(0.8, 1.2),
         recomp_factor=0.8,
-        recomp_max=5,
     )
 
     params = {
@@ -173,7 +174,10 @@ if __name__ == "__main__":
     # @pp.ad.cached_method, however, removing this decorator does not resolve the issue.
 
     model = TracerFlowModel(params)  # type: ignore[abstract]
-    pp.run_time_dependent_model(model, params)
+    runner = pp.ModelRunner(model, params)
+    runner.run()
+    models.append(model)
+
     pp.plot_grid(
         model.mdg,
         "pressure",
@@ -190,3 +194,10 @@ if __name__ == "__main__":
         title="Tracer distribution after 20 minutes",
         plot_2d=True,
     )
+
+    return models
+
+
+# If executed as main, run simulation
+if __name__ == "__main__":
+    run_example()
