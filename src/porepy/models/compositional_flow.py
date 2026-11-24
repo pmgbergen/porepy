@@ -2204,6 +2204,29 @@ class InitialConditionsChemical(pp.InitialConditionMixin):
             initial_conc = self.ic_values_species_concentration(component, sd)
             return initial_conc / phase_conc
 
+
+    def ic_values_partial_fraction_wrap(
+        self,
+        component: pp.Component,
+        phase: pp.Phase,
+        subdomains: list[pp.Grid],
+    ) -> np.ndarray:
+        """Collect initial partial fractions of a component in a phase on all
+        subdomains (concatenated in the order of ``subdomains``).
+
+        Wraps :meth:`ic_values_partial_fraction`, e.g. to obtain the initial
+        value xi_0 of a partial fraction inside an AD expression.
+
+        """
+        return np.hstack(
+            [
+                self.ic_values_partial_fraction(component, phase, sd)
+                for sd in subdomains
+            ]
+        )
+
+
+
     def ic_values_mineral_saturation(
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
