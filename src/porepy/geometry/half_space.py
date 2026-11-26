@@ -170,8 +170,11 @@ def vertexes_of_convex_domain(A: np.ndarray, b: np.ndarray) -> np.ndarray:
         Vertexes of a convex domain.
 
     """
-    msg = "This functionality is deprecated and will be removed in a future version"
-    warnings.warn(msg, DeprecationWarning)
+    msg = (
+        "vertexes_of_convex_domain is deprecated and will be removed in a "
+        "future version."
+    )
+    warnings.warn(msg, FutureWarning, stacklevel=2)
     import scipy.optimize as opt
 
     b = b.reshape((-1, 1))

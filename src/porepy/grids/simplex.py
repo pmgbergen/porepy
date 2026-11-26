@@ -149,8 +149,11 @@ class TriangleGrid(Grid):
             An array with ``shape=(num_cells, 3)``, representing the cell-to-node map.
 
         """
-        msg = "This functionality is deprecated and will be removed in a future version"
-        warn(msg, DeprecationWarning)
+        msg = (
+            "TriangleGrid.cell_node_matrix is deprecated and will be removed in a "
+            "future version."
+        )
+        warn(msg, FutureWarning, stacklevel=2)
 
         # Absolute value needed since cellFaces can be negative
         cn = self.face_nodes * np.abs(self.cell_faces) * sps.eye(self.num_cells)

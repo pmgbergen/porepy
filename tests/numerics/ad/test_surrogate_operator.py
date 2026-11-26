@@ -260,11 +260,11 @@ def test_secondary_operators(
     # with new data
     jacs = []
     for v, d in zip(var_vals, diff_vals):
-        jac_ = v.full_jac.copy()
+        jac_ = v.sparse_jac.copy()
         jac_.data = d
         jacs.append(jac_)
 
-    assert np.all(sop_val.full_jac.toarray() == sum(jacs).toarray())
+    assert np.all(sop_val.sparse_jac.toarray() == sum(jacs).toarray())
 
     # progress values in time and check that only values are progressed, and that
     # they are correct, i.e. current iter is set as previous time
@@ -441,8 +441,8 @@ def _surrogate_and_arguments(
     derivatives: list[float],
 ) -> tuple[
     pp.ad.SurrogateOperator,
-    list[pp.ad.AdArray],
-    list[pp.ad.DiagonalAdArray],
+    list[pp.ad.SparseJacAdArray],
+    list[pp.ad.DiagonalJacAdArray],
     np.ndarray,
 ]:
     """Set up a surrogate operator, its arguments in both representations, and its
@@ -455,7 +455,7 @@ def _surrogate_and_arguments(
         derivatives: Derivative values of the surrogate operator, one per dependency.
 
     Returns:
-        The surrogate operator; Ad arrays in the full representation for the variables
+        The surrogate operator; Ad arrays in the sparse representation for the variables
         ``var1`` and ``var2``; diagonal Ad arrays for the same variables; and the
         expected Jacobian of the surrogate operator, as a dense array. The expected
         Jacobian is assembled directly from the derivative values and the degrees of
@@ -486,7 +486,7 @@ def _surrogate_and_arguments(
     indices = [equation_system.dofs_of([v]) for v in variables]
     values = [np.arange(ind.size, dtype=float) for ind in indices]
     sparse_array = [
-        pp.ad.AdArray(
+        pp.ad.SparseJacAdArray(
             val,
             sps.csr_matrix(
                 (np.ones(ind.size), (np.arange(ind.size), ind)),
@@ -510,41 +510,41 @@ def _surrogate_and_arguments(
 
 def _argument_in_representation(
     representation: str,
-    sparse_array: pp.ad.AdArray,
-    diagonal_array: pp.ad.DiagonalAdArray,
+    sparse_array: pp.ad.SparseJacAdArray,
+    diagonal_array: pp.ad.DiagonalJacAdArray,
 ) -> pp.ad.AdArrayBase:
     """Pick an argument of a surrogate operator in a given representation.
 
     Parameters:
-        representation: ``"full"`` for an Ad array assembled directly in the full
-            representation, ``"diagonal"`` for a diagonal Ad array, and ``"to_full"``
-            for the diagonal Ad array converted to the full representation. The latter
-            differs from ``"full"`` by explicitly stored zeros in its Jacobian.
-        sparse_array: The argument in the full representation.
+        representation: ``"sparse"`` for an Ad array assembled directly in the sparse
+            representation, ``"diagonal"`` for a diagonal Ad array, and ``"to_sparse"``
+            for the diagonal Ad array converted to the sparse representation. The latter
+            differs from ``"sparse"`` by explicitly stored zeros in its Jacobian.
+        sparse_array: The argument in the sparse representation.
         diagonal_array: The argument in the diagonal representation.
 
     Returns:
         The argument in the requested representation.
 
     """
-    if representation == "full":
+    if representation == "sparse":
         return sparse_array
     elif representation == "diagonal":
         return diagonal_array
     else:
-        return diagonal_array.to_full()
+        return diagonal_array.to_sparse()
 
 
-@pytest.mark.parametrize("first", ["full", "diagonal", "to_full"])
-@pytest.mark.parametrize("second", ["full", "diagonal", "to_full"])
+@pytest.mark.parametrize("first", ["sparse", "diagonal", "to_sparse"])
+@pytest.mark.parametrize("second", ["sparse", "diagonal", "to_sparse"])
 def test_jacobian_with_arguments_in_different_representations(
     equation_system: pp.ad.EquationSystem, first: str, second: str
 ):
     """The value and Jacobian of a surrogate operator do not depend on the
-    representation of its arguments, which can be full, diagonal or a mix of the two.
+    representation of its arguments, which can be sparse, diagonal or a mix of the two.
 
     The result is a diagonal Ad array if both arguments are diagonal, and an Ad array
-    in the full representation otherwise.
+    in the sparse representation otherwise.
 
     """
     # Use _surrogate_and_arguments to create a surrogate operator and its arguments in
@@ -565,11 +565,13 @@ def test_jacobian_with_arguments_in_different_representations(
 
     result = sop.func(*args)
     expected_type = (
-        pp.ad.DiagonalAdArray if first == second == "diagonal" else pp.ad.AdArray
+        pp.ad.DiagonalJacAdArray
+        if first == second == "diagonal"
+        else pp.ad.SparseJacAdArray
     )
     assert isinstance(result, expected_type)
     np.testing.assert_allclose(result.val, np.ones(num_cells))
-    np.testing.assert_allclose(result.full_jac.toarray(), expected_jacobian)
+    np.testing.assert_allclose(result.sparse_jac.toarray(), expected_jacobian)
 
 
 def test_diagonal_jacobian_with_variables_not_arguments(
@@ -585,7 +587,7 @@ def test_diagonal_jacobian_with_variables_not_arguments(
 
     Test: Evaluation of the surrogate operator gives a diagonal Ad array with the same
     two-block structure as its argument. The block of ``var1`` contains the derivatives
-    of the surrogate operator, while the block of ``var2`` is zero. The full
+    of the surrogate operator, while the block of ``var2`` is zero. The sparse
     representation equals the expected Jacobian.
 
     """
@@ -599,7 +601,7 @@ def test_diagonal_jacobian_with_variables_not_arguments(
     )
 
     result = sop.func(diagonal_array[0])
-    assert isinstance(result, pp.ad.DiagonalAdArray)
+    assert isinstance(result, pp.ad.DiagonalJacAdArray)
     assert result.jac.shape == (2, sparse_array[0].val.size)
 
     expected_derivatives = known_derivative_value * np.ones(sparse_array[0].val.size)
@@ -609,14 +611,14 @@ def test_diagonal_jacobian_with_variables_not_arguments(
     # not depend on ``var2``.
     np.testing.assert_allclose(result.jac[1], 0.0)
 
-    np.testing.assert_allclose(result.full_jac.toarray(), expected_jacobian)
-    # The same Jacobian is obtained from ``var1`` in the full representation.
+    np.testing.assert_allclose(result.sparse_jac.toarray(), expected_jacobian)
+    # The same Jacobian is obtained from ``var1`` in the sparse representation.
     jac = sop.get_jacobian(sparse_array[0])
     np.testing.assert_allclose(jac.toarray(), expected_jacobian)
 
 
 @pytest.mark.parametrize("argument", ["scaled", "sum"])
-@pytest.mark.parametrize("representation", ["full", "diagonal"])
+@pytest.mark.parametrize("representation", ["sparse", "diagonal"])
 def test_chain_rule_for_arguments_which_are_not_variables(
     equation_system: pp.ad.EquationSystem, argument: str, representation: str
 ):
@@ -636,7 +638,7 @@ def test_chain_rule_for_arguments_which_are_not_variables(
     )
     var1, var2 = (
         (sparse_array[0], sparse_array[1])
-        if representation == "full"
+        if representation == "sparse"
         else (diagonal_array[0], diagonal_array[1])
     )
     arg = 5.0 * var1 if argument == "scaled" else var1 + var2
@@ -644,24 +646,26 @@ def test_chain_rule_for_arguments_which_are_not_variables(
     # The derivative values as set by _surrogate_and_arguments.
     derivatives = 2.0 * np.ones(arg.val.size)
     derivatives[0] = 0.0
-    expected_jacobian = derivatives[:, np.newaxis] * arg.full_jac.toarray()
+    expected_jacobian = derivatives[:, np.newaxis] * arg.sparse_jac.toarray()
 
     np.testing.assert_allclose(sop.get_jacobian(arg).toarray(), expected_jacobian)
     result = sop.func(arg)
     np.testing.assert_allclose(result.val, np.ones(arg.val.size))
-    np.testing.assert_allclose(result.full_jac.toarray(), expected_jacobian)
+    np.testing.assert_allclose(result.sparse_jac.toarray(), expected_jacobian)
 
 
-@pytest.mark.parametrize("representation", ["full", "diagonal"])
+@pytest.mark.parametrize("representation", ["sparse", "diagonal"])
 def test_repeated_argument(equation_system: pp.ad.EquationSystem, representation: str):
     """The derivatives of a surrogate operator with respect to a repeated argument add
     up, in both representations."""
     sop, sparse_array, diagonal_array, expected_jacobian = _surrogate_and_arguments(
         equation_system, [VAR1_NAME, VAR1_NAME], [2.0, 3.0]
     )
-    arg = sparse_array[0] if representation == "full" else diagonal_array[0]
+    arg = sparse_array[0] if representation == "sparse" else diagonal_array[0]
     np.testing.assert_allclose(sop.get_jacobian(arg, arg).toarray(), expected_jacobian)
-    np.testing.assert_allclose(sop.func(arg, arg).full_jac.toarray(), expected_jacobian)
+    np.testing.assert_allclose(
+        sop.func(arg, arg).sparse_jac.toarray(), expected_jacobian
+    )
 
 
 def test_arguments_which_are_not_ad_arrays(equation_system: pp.ad.EquationSystem):
@@ -687,7 +691,7 @@ def test_arguments_which_are_not_ad_arrays(equation_system: pp.ad.EquationSystem
     var2_dofs = equation_system.dofs_of([VAR2_NAME])
     expected = np.zeros_like(expected_jacobian)
     expected[:, var2_dofs] = expected_jacobian[:, var2_dofs]
-    np.testing.assert_allclose(result.full_jac.toarray(), expected)
+    np.testing.assert_allclose(result.sparse_jac.toarray(), expected)
 
     # Both variables are passed by their values.
     values = sop.func(sparse_array[0].val, sparse_array[1].val)
@@ -711,31 +715,22 @@ def test_number_of_arguments_must_match_dependencies(
         sop.get_jacobian(*sparse_array, sparse_array[0])
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Arithmetic on diagonal Ad arrays does not yet check that the arrays share a"
-    " Jacobian structure.",
-)
 def test_separately_initialized_diagonal_arguments(
     equation_system: pp.ad.EquationSystem,
 ):
     """The Jacobian of a surrogate operator is correct also for diagonal arguments that
-    were initialized separately, and thus do not share a Jacobian structure.
-
-    Note:
-        The test states the intended behavior, which is not yet met: Arithmetic on
-        diagonal Ad arrays assumes, but does not check, that the arrays share a
-        Jacobian structure, and the Jacobian computed here is wrong. The test is
-        therefore marked as an expected failure. The mark is strict, so the test
-        fails once the behavior is met, and the mark must then be removed.
-
-    """
+    were initialized separately, and thus do not share a Jacobian structure. The result
+    is then in the sparse representation."""
     sop, _, diagonal_array, expected_jacobian = _surrogate_and_arguments(
         equation_system, [VAR1_NAME, VAR2_NAME], [2.0, 3.0]
     )
     num_dofs = equation_system.num_dofs()
     args = [
-        pp.ad.initialize_diagonal_ad_arrays([arg.val], [arg.row_indices], num_dofs)[0]
-        for arg in diagonal_array
+        pp.ad.initialize_diagonal_ad_arrays(
+            [arg.val], [equation_system.dofs_of([name])], num_dofs
+        )[0]
+        for arg, name in zip(diagonal_array, [VAR1_NAME, VAR2_NAME])
     ]
-    np.testing.assert_allclose(sop.func(*args).full_jac.toarray(), expected_jacobian)
+    result = sop.func(*args)
+    assert isinstance(result, pp.ad.SparseJacAdArray)
+    np.testing.assert_allclose(result.sparse_jac.toarray(), expected_jacobian)

@@ -123,10 +123,10 @@ class Tpfa(pp.FVElliptic):
         # faces:
         if hasattr(sd, "periodic_face_map"):
             msg = (
-                "This functionality is deprecated and will be removed "
-                "in a future version"
+                "Periodic boundary conditions in Tpfa (via periodic_face_map) are "
+                "deprecated and will be removed in a future version."
             )
-            warnings.warn(msg, DeprecationWarning)
+            warnings.warn(msg, FutureWarning, stacklevel=2)
             fi_left = sd.periodic_face_map[0]
             fi_right = sd.periodic_face_map[1]
         else:

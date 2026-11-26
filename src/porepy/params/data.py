@@ -165,14 +165,14 @@ def initialize_data(*args, **kwargs) -> dict:
     if len(args) == 4 and len(kwargs) == 0:
         # initialize_data(grid, data, keyword, specified_parameters) - old signature.
         _, data, keyword, specified_parameters = args
-        warnings.warn(warning_msg)
+        warnings.warn(warning_msg, FutureWarning, stacklevel=2)
     elif len(args) == 3 and len(kwargs) == 1:
         # initialize_data(
         #     grid, data, keyword, specified_parameters=specified_parameters
         # ) - old signature.
         _, data, keyword = args
         specified_parameters = kwargs["specified_parameters"]
-        warnings.warn(warning_msg)
+        warnings.warn(warning_msg, FutureWarning, stacklevel=2)
     elif len(args) == 3 and len(kwargs) == 0:
         # Probably initialize_data(data, keyword, specified_parameters) - new signature.
         data, keyword, specified_parameters = args
@@ -182,7 +182,7 @@ def initialize_data(*args, **kwargs) -> dict:
             _, data, keyword = args
             specified_parameters = None
             assert isinstance(data, dict)
-            warnings.warn(warning_msg)
+            warnings.warn(warning_msg, FutureWarning, stacklevel=2)
 
     elif len(args) == 2:
         # initialize_data(data, keyword) - new signature.

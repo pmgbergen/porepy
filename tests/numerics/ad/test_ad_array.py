@@ -1,12 +1,16 @@
 """Collection of unit tests for the automatic differentiation forward mode. For the
-class AdArray, tests are being conducted on the public attributes self.val, self.jac,
-and self.copy. The tests also cover the initialization of AdArray (joint initiation of
-multiple dependent variables) and the arithmetic operations implemented in AdArray,
-e.g., add, sub, etc., which are also covered in other tests.
+class SparseJacAdArray, tests are being conducted on the public attributes self.val,
+self.jac, and self.copy. The tests also cover the initialization of SparseJacAdArray
+(joint initiation of multiple dependent variables) and the arithmetic operations
+implemented in SparseJacAdArray, e.g., add, sub, etc., which are also covered in other
+tests.
 
 """
 
 from __future__ import annotations
+
+import operator
+from typing import Callable
 
 import numpy as np
 import pytest
@@ -15,25 +19,44 @@ import scipy.sparse as sps
 from porepy.applications.test_utils.arrays import compare_arrays, compare_matrices
 from porepy.numerics.ad import functions as af
 from porepy.numerics.ad.ad_array import (
-    AdArray,
     AdArrayBase,
-    DiagonalAdArray,
+    DiagonalJacAdArray,
+    SparseJacAdArray,
     initialize_diagonal_ad_arrays,
     initialize_partial_ad_array,
 )
 
+# Binary operators, keyed by their symbols. The tests are parametrized by the symbols,
+# which give readable test ids, and call the operator functions directly.
+_ARITHMETIC_OPERATORS: dict[str, Callable] = {
+    "+": operator.add,
+    "-": operator.sub,
+    "*": operator.mul,
+    "/": operator.truediv,
+    "**": operator.pow,
+}
+_COMPARISON_OPERATORS: dict[str, Callable] = {
+    ">": operator.gt,
+    ">=": operator.ge,
+    "<": operator.lt,
+    "<=": operator.le,
+    "==": operator.eq,
+    "!=": operator.ne,
+}
 
-def initAdArrays(variables: list[np.ndarray]) -> list[AdArray]:
-    """Initialize a set of AdArrays, jointly dependent on each other.
 
-    Test helper: creates one AdArray per entry in ``variables``, with the gradients
-    taken with respect to all variables jointly (i.e. each returned AdArray has a unit
-    derivative with respect to itself and a zero derivative with respect to the other
-    variables).
+def initAdArrays(variables: list[np.ndarray]) -> list[SparseJacAdArray]:
+    """Initialize a set of SparseJacAdArrays, jointly dependent on each other.
+
+    Test helper: creates one SparseJacAdArray per entry in ``variables``, with the
+        gradients
+    taken with respect to all variables jointly (i.e. each returned SparseJacAdArray has
+    a unit derivative with respect to itself and a zero derivative with respect to the
+    other variables).
 
     """
     num_values_per_variable = [v.size for v in variables]
-    ad_arrays: list[AdArray] = []
+    ad_arrays: list[SparseJacAdArray] = []
 
     for i, val in enumerate(variables):
         # Initiate zero Jacobian.
@@ -41,9 +64,9 @@ def initAdArrays(variables: list[np.ndarray]) -> list[AdArray]:
         jac = [sps.csc_matrix((n, m)) for m in num_values_per_variable]
         # Set Jacobian of variable i to I.
         jac[i] = sps.diags(np.ones(num_values_per_variable[i])).tocsr()
-        # Initiate AdArray.
+        # Initiate SparseJacAdArray.
         jac = sps.bmat([jac])
-        ad_arrays.append(AdArray(val, jac))
+        ad_arrays.append(SparseJacAdArray(val, jac))
 
     return ad_arrays
 
@@ -67,7 +90,8 @@ def test_quadratic_function():
     x, y = initAdArrays([np.array([1]), np.array([2])])
     z = 1 * x + 2 * y + 3 * x * y + 4 * x * x + 5 * y * y
     val = 35
-    assert z.val == val and np.all(z.jac.toarray() == [15, 25])
+    np.testing.assert_array_equal(z.val, val)
+    np.testing.assert_array_equal(z.jac.toarray(), [[15, 25]])
 
 
 def test_vector_quadratic():
@@ -76,7 +100,8 @@ def test_vector_quadratic():
     val = np.array([35, 65])
     J = np.array([[15, 0, 25, 0], [0, 18, 0, 35]])
 
-    assert np.all(z.val == val) and np.sum(z.jac != J) == 0
+    np.testing.assert_array_equal(z.val, val)
+    np.testing.assert_array_equal(z.jac.toarray(), J)
 
 
 def test_mapping_m_to_n(create_csc: type[sps.csc_matrix] | type[sps.csc_array]):
@@ -87,40 +112,53 @@ def test_mapping_m_to_n(create_csc: type[sps.csc_matrix] | type[sps.csc_array]):
     val = np.array([12, 51])
     J = np.array([[2, 4, 2, 6, 0], [6, 9, 12, 0, 17]])
 
-    assert np.all(z.val == val) and np.sum(z.jac != J) == 0
+    np.testing.assert_array_equal(z.val, val)
+    np.testing.assert_array_equal(z.jac.toarray(), J)
 
 
 def test_add_two_ad_variables_init():
     a, b = initAdArrays([np.array([1]), np.array([-10])])
     c = a + b
-    assert c.val == -9 and np.all(c.jac.toarray() == [1, 1])
-    assert a.val == 1 and np.all(a.jac.toarray() == [1, 0])
-    assert b.val == -10 and np.all(b.jac.toarray() == [0, 1])
+    np.testing.assert_array_equal(c.val, -9)
+    np.testing.assert_array_equal(c.jac.toarray(), [[1, 1]])
+    np.testing.assert_array_equal(a.val, 1)
+    np.testing.assert_array_equal(a.jac.toarray(), [[1, 0]])
+    np.testing.assert_array_equal(b.val, -10)
+    np.testing.assert_array_equal(b.jac.toarray(), [[0, 1]])
 
 
 def test_sub_var_init_with_var_init():
     a, b = initAdArrays([np.array([3]), np.array([2])])
     c = b - a
-    assert np.allclose(c.val, -1) and np.all(c.jac.toarray() == [-1, 1])
-    assert a.val == 3 and np.all(a.jac.toarray() == [1, 0])
-    assert b.val == 2 and np.all(b.jac.toarray() == [0, 1])
+    np.testing.assert_allclose(c.val, -1)
+    np.testing.assert_array_equal(c.jac.toarray(), [[-1, 1]])
+    np.testing.assert_array_equal(a.val, 3)
+    np.testing.assert_array_equal(a.jac.toarray(), [[1, 0]])
+    np.testing.assert_array_equal(b.val, 2)
+    np.testing.assert_array_equal(b.jac.toarray(), [[0, 1]])
 
 
 def test_mul_ad_var_init():
     a, b = initAdArrays([np.array([3]), np.array([2])])
     c = a * b
-    assert a.val == 3 and np.all(a.jac.toarray() == [1, 0])
-    assert b.val == 2 and np.all(b.jac.toarray() == [0, 1])
-    assert c.val == 6 and np.all(c.jac.toarray() == [2, 3])
+    np.testing.assert_array_equal(a.val, 3)
+    np.testing.assert_array_equal(a.jac.toarray(), [[1, 0]])
+    np.testing.assert_array_equal(b.val, 2)
+    np.testing.assert_array_equal(b.jac.toarray(), [[0, 1]])
+    np.testing.assert_array_equal(c.val, 6)
+    np.testing.assert_array_equal(c.jac.toarray(), [[2, 3]])
 
 
 def test_mul_scal_ad_var_init():
     a, b = initAdArrays([np.array([3]), np.array([2])])
     d = 3.0
     c = d * a
-    assert c.val == 9 and np.all(c.jac.toarray() == [3, 0])
-    assert a.val == 3 and np.all(a.jac.toarray() == [1, 0])
-    assert b.val == 2 and np.all(b.jac.toarray() == [0, 1])
+    np.testing.assert_array_equal(c.val, 9)
+    np.testing.assert_array_equal(c.jac.toarray(), [[3, 0]])
+    np.testing.assert_array_equal(a.val, 3)
+    np.testing.assert_array_equal(a.jac.toarray(), [[1, 0]])
+    np.testing.assert_array_equal(b.val, 2)
+    np.testing.assert_array_equal(b.jac.toarray(), [[0, 1]])
 
 
 def test_mul_sps_advar_init(create_csc: type[sps.csc_matrix] | type[sps.csc_array]):
@@ -128,8 +166,8 @@ def test_mul_sps_advar_init(create_csc: type[sps.csc_matrix] | type[sps.csc_arra
     A = create_csc(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
 
     f = A @ x
-    assert np.all(f.val == [14, 32, 50])
-    assert np.all((f.jac == A).toarray())
+    np.testing.assert_array_equal(f.val, [14, 32, 50])
+    np.testing.assert_array_equal(f.jac.toarray(), A.toarray())
 
 
 def test_advar_init_diff_len(create_csc: type[sps.csc_matrix] | type[sps.csc_array]):
@@ -144,10 +182,10 @@ def test_advar_init_diff_len(create_csc: type[sps.csc_matrix] | type[sps.csc_arr
 
     jac_f = sps.hstack((A, zero_32))
     jac_g = sps.hstack((zero_23, B))
-    assert np.all(f.val == [14, 32, 50])
-    assert np.all((f.jac == jac_f).toarray())
-    assert np.all(g.val == [5, 14])
-    assert np.all((g.jac == jac_g).toarray())
+    np.testing.assert_array_equal(f.val, [14, 32, 50])
+    np.testing.assert_array_equal(f.jac.toarray(), jac_f.toarray())
+    np.testing.assert_array_equal(g.val, [5, 14])
+    np.testing.assert_array_equal(g.jac.toarray(), jac_g.toarray())
 
 
 def test_advar_init_cross_jacobi():
@@ -155,55 +193,57 @@ def test_advar_init_cross_jacobi():
 
     z = x * y
     J = np.array([[1, 0, -1, 0], [0, 5, 0, 4]])
-    assert np.all(z.val == [-1, 20])
-    assert np.all((z.jac.toarray() == J))
+    np.testing.assert_array_equal(z.val, [-1, 20])
+    np.testing.assert_array_equal(z.jac.toarray(), J)
 
 
 def test_advar_mul_vec(create_diags):
-    x = AdArray(np.array([1, 2, 3]), create_diags([3, 2, 1]))
+    x = SparseJacAdArray(np.array([1, 2, 3]), create_diags([3, 2, 1]))
     A = np.array([1, 3, 10])
     f = x * A
     sol = np.array([1, 6, 30])
     jac = np.diag([3, 6, 10])
 
-    assert np.all(f.val == sol) and np.all(f.jac == jac)
-    assert np.all(x.val == np.array([1, 2, 3])) and np.all(x.jac == np.diag([3, 2, 1]))
+    np.testing.assert_array_equal(f.val, sol)
+    np.testing.assert_array_equal(f.jac.toarray(), jac)
+    np.testing.assert_array_equal(x.val, [1, 2, 3])
+    np.testing.assert_array_equal(x.jac.toarray(), np.diag([3, 2, 1]))
 
 
 def test_advar_m_mul_vec_n(create_csc, create_diags):
-    x = AdArray(np.array([1, 2, 3]), create_diags([3, 2, 1]))
+    x = SparseJacAdArray(np.array([1, 2, 3]), create_diags([3, 2, 1]))
     vec = np.array([1, 2])
     R = create_csc(np.array([[1, 0, 1], [0, 1, 0]]))
     y = R @ x
     z = y * vec
     Jy = np.array([[3, 0, 1], [0, 2, 0]])
-    Jz = np.array([[1, 0, 3], [0, 4, 0]])
-    assert np.all(y.val == [4, 2])
-    assert np.sum(y.jac.toarray() - Jy) == 0
-    assert np.all(z.val == [4, 4])
-    assert np.sum(z.jac.toarray() - Jz) == 0
+    Jz = np.array([[3, 0, 1], [0, 4, 0]])
+    np.testing.assert_array_equal(y.val, [4, 2])
+    np.testing.assert_array_equal(y.jac.toarray(), Jy)
+    np.testing.assert_array_equal(z.val, [4, 4])
+    np.testing.assert_array_equal(z.jac.toarray(), Jz)
 
 
 def test_mul_sps_advar(create_csc: type[sps.csc_matrix] | type[sps.csc_array]):
     J = create_csc(np.array([[1, 3, 1], [5, 0, 0], [5, 1, 2]]))
-    x = AdArray(np.array([1, 2, 3]), J)
+    x = SparseJacAdArray(np.array([1, 2, 3]), J)
     A = create_csc(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
     f = A @ x
 
-    assert np.all(f.val == [14, 32, 50])
-    assert np.all(f.jac == A @ J.toarray())
+    np.testing.assert_array_equal(f.val, [14, 32, 50])
+    np.testing.assert_array_equal(f.jac.toarray(), A @ J.toarray())
 
 
 def test_mul_advar_vectors(create_csc: type[sps.csc_matrix] | type[sps.csc_array]):
     Ja = create_csc(np.array([[1, 3, 1], [5, 0, 0], [5, 1, 2]]))
     Jb = create_csc(np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]))
-    a = AdArray(np.array([1, 2, 3]), Ja)
-    b = AdArray(np.array([1, 1, 1]), Jb)
+    a = SparseJacAdArray(np.array([1, 2, 3]), Ja)
+    b = SparseJacAdArray(np.array([1, 1, 1]), Jb)
     A = create_csc(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
 
     f = A @ a + b
 
-    assert np.all(f.val == [15, 33, 51])
+    np.testing.assert_array_equal(f.val, [15, 33, 51])
     assert compare_matrices(f.jac, A @ Ja + Jb)
     # Asterix stands for element-wise multiplication for sparrays and matrix
     # multiplication for spmatrix.
@@ -218,25 +258,27 @@ def test_mul_advar_vectors(create_csc: type[sps.csc_matrix] | type[sps.csc_array
 
 
 def test_copy_scalar(create_csr: type[sps.csr_matrix] | type[sps.csr_array]):
-    a = AdArray(np.array([1]), create_csr([[0]]))
+    a = SparseJacAdArray(np.array([1]), create_csr([[0]]))
     b = a.copy()
-    assert a.val == b.val
-    assert a.jac == b.jac
+    np.testing.assert_array_equal(a.val, b.val)
+    np.testing.assert_array_equal(a.jac.toarray(), b.jac.toarray())
     a.val = 2
     a.jac = 3
-    assert b.val == 1
-    assert b.jac == 0
+    np.testing.assert_array_equal(b.val, [1])
+    np.testing.assert_array_equal(b.jac.toarray(), [[0]])
 
 
 def test_copy_vector(create_csr: type[sps.csr_matrix] | type[sps.csr_array]):
-    a = AdArray(np.ones(3), create_csr(np.diag(np.ones((3)))))
+    a = SparseJacAdArray(np.ones(3), create_csr(np.diag(np.ones((3)))))
     b = a.copy()
-    assert np.allclose(a.val, b.val)
-    assert np.allclose(a.jac.toarray(), b.jac.toarray())
+    np.testing.assert_allclose(a.val, b.val)
+    np.testing.assert_allclose(a.jac.toarray(), b.jac.toarray())
     a.val[0] = 3
     a.jac[2] = 4
-    assert np.allclose(b.val, np.ones(3))
-    assert np.allclose(b.jac.toarray(), create_csr(np.diag(np.ones((3)))).toarray())
+    np.testing.assert_allclose(b.val, np.ones(3))
+    np.testing.assert_allclose(
+        b.jac.toarray(), create_csr(np.diag(np.ones((3)))).toarray()
+    )
 
 
 def test_exp_scalar_times_ad_var(create_csc, create_diags):
@@ -249,10 +291,10 @@ def test_exp_scalar_times_ad_var(create_csc, create_diags):
     zero = create_csc((3, 3))
     jac = sps.hstack([c * create_diags(np.exp(c * val)) * J, zero, zero])
     jac_a = sps.hstack([J, zero, zero])
-    assert np.allclose(b.val, np.exp(c * val)) and np.allclose(
-        b.jac.toarray(), jac.toarray()
-    )
-    assert np.all(a.val == [1, 2, 3]) and np.all(a.jac.toarray() == jac_a.toarray())
+    np.testing.assert_allclose(b.val, np.exp(c * val))
+    np.testing.assert_allclose(b.jac.toarray(), jac.toarray())
+    np.testing.assert_array_equal(a.val, [1, 2, 3])
+    np.testing.assert_array_equal(a.jac.toarray(), jac_a.toarray())
 
 
 @pytest.mark.parametrize(
@@ -271,8 +313,8 @@ def test_get_set_slice_ad_var(
     val = np.arange(10)
     jac = create_csr(np.eye(10))
 
-    assert np.all(val == a.val)
-    assert np.all(jac == a.jac.toarray())
+    np.testing.assert_array_equal(a.val, val)
+    np.testing.assert_array_equal(a.jac.toarray(), jac.toarray())
 
     if isinstance(index, int):
         target_val = np.array([val[index]])
@@ -326,7 +368,7 @@ def test_get_set_slice_ad_var(
 
 
 @pytest.mark.parametrize("N", [1, 3])
-@pytest.mark.parametrize("logical_op", [">", ">=", "<", "<=", "==", "!="])
+@pytest.mark.parametrize("logical_op", list(_COMPARISON_OPERATORS))
 @pytest.mark.parametrize(
     "other",
     [
@@ -335,20 +377,22 @@ def test_get_set_slice_ad_var(
         np.ones(2),
         np.ones(3),
         np.ones((2, 2)),
-        AdArray(np.ones(1), sps.csr_matrix(np.eye(1))),
-        AdArray(np.ones(2), sps.csr_matrix(np.eye(2))),
-        AdArray(np.ones(3), sps.csr_matrix(np.eye(3))),
-        AdArray(np.ones(1), sps.csr_array(np.eye(1))),
-        AdArray(np.ones(2), sps.csr_array(np.eye(2))),
-        AdArray(np.ones(3), sps.csr_array(np.eye(3))),
+        SparseJacAdArray(np.ones(1), sps.csr_matrix(np.eye(1))),
+        SparseJacAdArray(np.ones(2), sps.csr_matrix(np.eye(2))),
+        SparseJacAdArray(np.ones(3), sps.csr_matrix(np.eye(3))),
+        SparseJacAdArray(np.ones(1), sps.csr_array(np.eye(1))),
+        SparseJacAdArray(np.ones(2), sps.csr_array(np.eye(2))),
+        SparseJacAdArray(np.ones(3), sps.csr_array(np.eye(3))),
     ],
 )
 def test_logical_operation(
-    N: int, logical_op: str, other: int | np.ndarray | AdArray, create_csr
+    N: int, logical_op: str, other: int | np.ndarray | SparseJacAdArray, create_csr
 ):
     """Logical operations on Ad arrays are implemented such that they operate only on
     values, making them completely equivalent to what numpy does. This test is based
-    onthat premise: Logical operations on AdArrays should yield results identical to
+    onthat premise: Logical operations on SparseJacAdArrays should yield results
+    identical
+        to
     operations on numpy arrays.
 
     Test that they work and that the result of the logical operation is doing the same
@@ -358,26 +402,21 @@ def test_logical_operation(
 
     val = np.arange(N)
     jac = create_csr(np.eye(N))
-    # Ignore ad not being accessed, it is used in the exec statement.
-    ad = AdArray(val, jac)  # noqa: F841
+    ad = SparseJacAdArray(val, jac)
+    op = _COMPARISON_OPERATORS[logical_op]
 
-    global result_numpy, result_ad
-    result_numpy = np.empty(N)
-    result_ad = np.empty(N)
+    # NOTE if the AD array is the right operand, the overload of numpy will be
+    # invoked. Must use the .val member in this case
+    other_numpy = other.val if isinstance(other, SparseJacAdArray) else other
 
     # NOTE Numpy manages to compare arrays, if one of them has shape (1,) by treating
     # it as a scalar. All other cases should raise an error.
     try:
-        # NOTE if the AD array is the right operand, the overload of numpy will be
-        # invoked. Must use the .val member in this case
-        if isinstance(other, AdArray):
-            exec(f"global result_numpy; result_numpy = val {logical_op} other.val")
-        else:
-            exec(f"global result_numpy; result_numpy = val {logical_op} other")
+        result_numpy = op(val, other_numpy)
     # If numpy failes to broadcast the shapes, so should the Ad Array.
     except ValueError as numpy_err:
         with pytest.raises(ValueError) as ad_error:
-            exec(f"result_ad = ad {logical_op} other")
+            op(ad, other)
 
         # Comparison of exceptions by type and message content
         assert ad_error.type is type(numpy_err)
@@ -385,29 +424,29 @@ def test_logical_operation(
     # If numpy does not fail, the logical operation on AD should have same result,
     # dtype and shape
     else:
-        exec(f"global result_ad; result_ad = ad {logical_op} other")
+        result_ad = op(ad, other)
 
         assert result_ad.shape == result_numpy.shape
         assert result_ad.dtype == result_numpy.dtype
-        assert np.all(result_ad == result_numpy)
+        np.testing.assert_array_equal(result_ad, result_numpy)
 
 
-@pytest.mark.parametrize("operator", ["+", "-", "*", "/", "**"])
-def test_numpy_array_as_left_operand(operator: str, create_csr):
-    """A numpy array to the left of an AdArray should give an AdArray.
+@pytest.mark.parametrize("op", list(_ARITHMETIC_OPERATORS))
+def test_numpy_array_as_left_operand(op: str, create_csr):
+    """A numpy array to the left of a SparseJacAdArray should give a SparseJacAdArray.
 
-    This tests the disabling of numpy's ufuncs for AdArray, by setting
-    AdArray.__array_ufunc__ = None. By this trick, numpy broadcasts instead of deferring
-    to __radd__ etc., and returns an object array holding one full AdArray -- values and
-    Jacobian -- per element.
+    This tests the disabling of numpy's ufuncs for SparseJacAdArray, by setting
+    SparseJacAdArray.__array_ufunc__ = None. By this trick, numpy broadcasts instead of
+    deferring to __radd__ etc., and returns an object array holding one SparseJacAdArray
+    -- values and Jacobian -- per element.
 
     """
     val = np.array([2.0, 3.0, 4.0])
     jac = create_csr(np.diag([5.0, 6.0, 7.0]))
-    ad = AdArray(val, jac)
+    ad = SparseJacAdArray(val, jac)
     b = np.array([3.0, 2.0, 5.0])
 
-    res = eval(f"b {operator} ad")
+    res = _ARITHMETIC_OPERATORS[op](b, ad)
 
     # d/dx of (b op x), differentiated by hand.
     derivative = {
@@ -416,29 +455,31 @@ def test_numpy_array_as_left_operand(operator: str, create_csr):
         "*": b,
         "/": -b / val**2,
         "**": b**val * np.log(b),
-    }[operator]
+    }[op]
 
-    assert isinstance(res, AdArray)
-    assert np.allclose(res.val, eval(f"b {operator} val"))
-    assert np.allclose(res.jac.toarray(), np.diag(derivative) @ jac.toarray())
+    assert isinstance(res, SparseJacAdArray)
+    np.testing.assert_allclose(res.val, _ARITHMETIC_OPERATORS[op](b, val))
+    np.testing.assert_allclose(res.jac.toarray(), np.diag(derivative) @ jac.toarray())
     # One Jacobian, not one per element.
     assert res.jac.nnz == jac.nnz
 
 
-@pytest.mark.parametrize("logical_op", [">", ">=", "<", "<=", "==", "!="])
+@pytest.mark.parametrize("logical_op", list(_COMPARISON_OPERATORS))
 def test_numpy_array_as_left_operand_logical(logical_op: str, create_csr):
-    """Test disabling of numpy's ufuncs for AdArray when used with logical operators.
+    """Test disabling of numpy's ufuncs for SparseJacAdArray when used with logical
+    operators.
 
     See test test_numpy_array_as_left_operand for details.
     """
     val = np.array([2.0, 3.0, 4.0])
-    ad = AdArray(val, create_csr(np.eye(3)))
+    ad = SparseJacAdArray(val, create_csr(np.eye(3)))
     b = np.array([3.0, 3.0, 1.0])
 
-    res = eval(f"b {logical_op} ad")
+    op = _COMPARISON_OPERATORS[logical_op]
+    res = op(b, ad)
 
     assert isinstance(res, np.ndarray) and res.dtype == np.bool_
-    assert np.all(res == eval(f"b {logical_op} val"))
+    np.testing.assert_array_equal(res, op(b, val))
 
 
 @pytest.mark.parametrize(
@@ -453,13 +494,14 @@ def test_numpy_array_as_left_operand_logical(logical_op: str, create_csr):
     ],
 )
 def test_initialize_partial_ad_array(state, indices, expected_jac):
-    """The returned AdArray has a unit derivative at the given indices, and a zero
+    """The returned SparseJacAdArray has a unit derivative at the given indices, and a
+    zero
     derivative everywhere else."""
     var = initialize_partial_ad_array(state.copy(), indices)
 
-    assert isinstance(var, AdArray)
-    assert np.allclose(var.val, state)
-    assert np.allclose(var.jac.toarray(), expected_jac)
+    assert isinstance(var, SparseJacAdArray)
+    np.testing.assert_allclose(var.val, state)
+    np.testing.assert_allclose(var.jac.toarray(), expected_jac)
 
 
 def test_initialize_diagonal_ad_arrays_single_variable():
@@ -475,17 +517,17 @@ def test_initialize_diagonal_ad_arrays_single_variable():
 
     assert len(diag_vars) == 1
     var = diag_vars[0]
-    assert isinstance(var, DiagonalAdArray)
-    assert np.allclose(var.val, val)
+    assert isinstance(var, DiagonalJacAdArray)
+    np.testing.assert_allclose(var.val, val)
 
-    full_jac = var.to_full().jac.toarray()
+    sparse_jac = var.to_sparse().jac.toarray()
     expected_jac = np.zeros((3, num_derivatives))
     expected_jac[np.arange(3), global_indices[0]] = 1.0
-    assert np.allclose(full_jac, expected_jac)
+    np.testing.assert_allclose(sparse_jac, expected_jac)
 
 
 def test_initialize_diagonal_ad_arrays_two_variables():
-    """Each returned DiagonalAdArray depends only on itself (unit derivative), not on
+    """Each returned DiagonalJacAdArray depends only on itself (unit derivative), not on
     the other variable passed in the same call."""
     val_0 = np.array([1.0, 2.0])
     val_1 = np.array([3.0, 4.0])
@@ -497,15 +539,15 @@ def test_initialize_diagonal_ad_arrays_two_variables():
     )
 
     assert len(diag_vars) == 2
-    assert np.allclose(diag_vars[0].val, val_0)
-    assert np.allclose(diag_vars[1].val, val_1)
+    np.testing.assert_allclose(diag_vars[0].val, val_0)
+    np.testing.assert_allclose(diag_vars[1].val, val_1)
     for var in diag_vars:
-        assert isinstance(var, DiagonalAdArray)
+        assert isinstance(var, DiagonalJacAdArray)
 
     # Each array's raw (diagonal-representation) Jacobian has a unit derivative in
     # its own row, and zero in the row belonging to the other variable.
-    assert np.allclose(diag_vars[0].jac, np.array([[1.0, 1.0], [0.0, 0.0]]))
-    assert np.allclose(diag_vars[1].jac, np.array([[0.0, 0.0], [1.0, 1.0]]))
+    np.testing.assert_allclose(diag_vars[0].jac, np.array([[1.0, 1.0], [0.0, 0.0]]))
+    np.testing.assert_allclose(diag_vars[1].jac, np.array([[0.0, 0.0], [1.0, 1.0]]))
 
 
 def test_initialize_diagonal_ad_arrays_custom_derivatives():
@@ -518,9 +560,9 @@ def test_initialize_diagonal_ad_arrays_custom_derivatives():
         [val.copy()], indices, num_derivatives, derivatives=derivatives
     )
 
-    full_jac = diag_vars[0].to_full().jac.toarray()
+    sparse_jac = diag_vars[0].to_sparse().jac.toarray()
     expected_jac = np.diag([5.0, 6.0])
-    assert np.allclose(full_jac, expected_jac)
+    np.testing.assert_allclose(sparse_jac, expected_jac)
 
 
 @pytest.mark.parametrize(
@@ -536,14 +578,14 @@ def test_initialize_diagonal_ad_arrays_mismatched(vals, indices, num_derivatives
 
 
 def test_diagonal_ad_array_coerces_int_val_and_jac_to_float():
-    """DiagonalAdArray should enforce the same float-dtype invariant as AdArray."""
+    """DiagonalJacAdArray should enforce the same float-dtype invariant as
+    SparseJacAdArray."""
     val = np.array([1, 2, 3])
     jac = np.array([4, 5, 6])
 
-    var = DiagonalAdArray(
+    var = DiagonalJacAdArray(
         val,
         jac,
-        row_indices=np.arange(3),
         col_indices=[np.arange(3)],
         num_derivatives=3,
     )
@@ -552,19 +594,18 @@ def test_diagonal_ad_array_coerces_int_val_and_jac_to_float():
     assert var.jac.dtype == float
 
 
-def _diagonal_ad_array_with_indices() -> DiagonalAdArray:
-    """A DiagonalAdArray of two entries, at indices 2 and 5 of a system of six."""
-    return DiagonalAdArray(
+def _diagonal_ad_array_with_indices() -> DiagonalJacAdArray:
+    """A DiagonalJacAdArray of two entries, at indices 2 and 5 of a system of six."""
+    return DiagonalJacAdArray(
         np.array([1.0, 2.0]),
         np.array([3.0, 4.0]),
-        row_indices=np.array([2, 5]),
         col_indices=[np.array([2, 5])],
         num_derivatives=6,
     )
 
 
 def test_diagonal_ad_array_copy_with_data():
-    """copy() with new data builds a DiagonalAdArray with that value and Jacobian,
+    """copy() with new data builds a DiagonalJacAdArray with that value and Jacobian,
     used as given, while reusing (not copying) the original's structural indices."""
     var = _diagonal_ad_array_with_indices()
 
@@ -572,10 +613,9 @@ def test_diagonal_ad_array_copy_with_data():
     new_jac = np.array([[30.0, 40.0]])
     new_var = var.copy(new_val, new_jac)
 
-    assert isinstance(new_var, DiagonalAdArray)
+    assert isinstance(new_var, DiagonalJacAdArray)
     assert new_var.val is new_val
     assert new_var.jac is new_jac
-    assert new_var.row_indices is var.row_indices
     assert new_var.col_indices is var.col_indices
     assert new_var.num_derivatives == 6
 
@@ -588,32 +628,28 @@ def test_diagonal_ad_array_copy(deep: bool):
 
     new_var = var.deepcopy() if deep else var.copy()
 
-    assert isinstance(new_var, DiagonalAdArray)
-    assert np.array_equal(new_var.val, var.val)
-    assert np.array_equal(new_var.jac, var.jac)
+    assert isinstance(new_var, DiagonalJacAdArray)
+    np.testing.assert_array_equal(new_var.val, var.val)
+    np.testing.assert_array_equal(new_var.jac, var.jac)
     assert not np.shares_memory(new_var.val, var.val)
     assert not np.shares_memory(new_var.jac, var.jac)
 
-    assert np.array_equal(new_var.row_indices, var.row_indices)
-    assert all(
-        np.array_equal(new, old)
-        for new, old in zip(new_var.col_indices, var.col_indices)
-    )
+    assert len(new_var.col_indices) == len(var.col_indices)
+    for new, old in zip(new_var.col_indices, var.col_indices):
+        np.testing.assert_array_equal(new, old)
     if deep:
-        assert not np.shares_memory(new_var.row_indices, var.row_indices)
         assert not any(
             np.shares_memory(new, old)
             for new, old in zip(new_var.col_indices, var.col_indices)
         )
     else:
-        assert new_var.row_indices is var.row_indices
         assert new_var.col_indices is var.col_indices
 
 
 def test_ad_array_copy_with_data(create_csr):
     """copy() with new data uses the given value and Jacobian, and copies the one that
     is not given."""
-    a = AdArray(np.array([1.0, 2.0]), create_csr(np.eye(2)))
+    a = SparseJacAdArray(np.array([1.0, 2.0]), create_csr(np.eye(2)))
     new_val = np.array([3.0, 4.0])
     new_jac = create_csr(2 * np.eye(2))
 
@@ -623,28 +659,29 @@ def test_ad_array_copy_with_data(create_csr):
 
     c = a.copy(val=new_val)
     assert c.val is new_val
-    assert np.allclose(c.jac.toarray(), a.jac.toarray())
+    np.testing.assert_allclose(c.jac.toarray(), a.jac.toarray())
     assert c.jac is not a.jac
 
 
 def test_ad_array_deepcopy(create_csr):
-    """AdArray has no structural data, so deepcopy() is a plain copy."""
-    a = AdArray(np.array([1.0, 2.0]), create_csr(np.eye(2)))
+    """SparseJacAdArray has no structural data, so deepcopy() is a plain copy."""
+    a = SparseJacAdArray(np.array([1.0, 2.0]), create_csr(np.eye(2)))
     b = a.deepcopy()
-    assert isinstance(b, AdArray)
-    assert np.array_equal(b.val, a.val)
+    assert isinstance(b, SparseJacAdArray)
+    np.testing.assert_array_equal(b.val, a.val)
     assert not np.shares_memory(b.val, a.val)
-    assert np.allclose(b.jac.toarray(), a.jac.toarray())
+    np.testing.assert_allclose(b.jac.toarray(), a.jac.toarray())
     assert b.jac is not a.jac
 
 
-# Tests of the relation between the two representations, AdArray and DiagonalAdArray.
+# Tests of the relation between the two representations, SparseJacAdArray and
+# DiagonalJacAdArray.
 
 
-def _full_and_diagonal_pair() -> tuple[AdArray, DiagonalAdArray]:
-    """An AdArray and a DiagonalAdArray of the same size, in a system of four degrees
-    of freedom, where the diagonal array represents the first two."""
-    full = AdArray(
+def _sparse_and_diagonal_pair() -> tuple[SparseJacAdArray, DiagonalJacAdArray]:
+    """A SparseJacAdArray and a DiagonalJacAdArray of the same size, in a system of four
+    degrees of freedom, where the diagonal array represents the first two."""
+    sparse = SparseJacAdArray(
         np.array([2.0, 3.0]),
         sps.csr_matrix(np.array([[0.0, 1.0, 2.0, 0.0], [0.0, 0.0, 3.0, 4.0]])),
     )
@@ -654,135 +691,249 @@ def _full_and_diagonal_pair() -> tuple[AdArray, DiagonalAdArray]:
         4,
         derivatives=[np.array([7.0, 8.0])],
     )[0]
-    return full, diag
+    return sparse, diag
 
 
 def test_representations_share_base_but_not_type():
-    """AdArray and DiagonalAdArray are siblings: Both are Ad arrays, but neither is an
-    instance of the other, since the meaning of their Jacobians differ."""
-    full, diag = _full_and_diagonal_pair()
+    """SparseJacAdArray and DiagonalJacAdArray are siblings: Both are Ad arrays, but
+    neither
+    is an instance of the other, since the meaning of their Jacobians differ."""
+    sparse, diag = _sparse_and_diagonal_pair()
 
-    assert isinstance(full, AdArrayBase)
+    assert isinstance(sparse, AdArrayBase)
     assert isinstance(diag, AdArrayBase)
-    assert not isinstance(diag, AdArray)
-    assert not isinstance(full, DiagonalAdArray)
+    assert not isinstance(diag, SparseJacAdArray)
+    assert not isinstance(sparse, DiagonalJacAdArray)
 
     with pytest.raises(TypeError):
         AdArrayBase(np.array([1.0]))  # type: ignore[abstract]
 
 
 def test_ad_array_rejects_dense_jacobian():
-    """A dense Jacobian is the diagonal representation, which AdArray cannot
+    """A dense Jacobian is the diagonal representation, which SparseJacAdArray cannot
     interpret."""
     with pytest.raises(TypeError):
-        AdArray(np.array([1.0, 2.0]), np.ones((1, 2)))  # type: ignore[arg-type]
+        SparseJacAdArray(np.array([1.0, 2.0]), np.ones((1, 2)))  # type: ignore[arg-type]
 
 
-def test_diagonal_ad_array_rejects_inconsistent_jacobian():
-    """The diagonal Jacobian must have one column per entry in the value."""
+@pytest.mark.parametrize(
+    "jac, col_indices",
+    [
+        # One column too many in the Jacobian.
+        (np.ones((1, 3)), [np.arange(2)]),
+        # Two blocks in the Jacobian, one array of column indices.
+        (np.ones((2, 2)), [np.arange(2)]),
+        # One column index too few.
+        (np.ones((1, 2)), [np.arange(1)]),
+    ],
+)
+def test_diagonal_ad_array_rejects_inconsistent_jacobian(
+    jac: np.ndarray, col_indices: list[np.ndarray]
+):
+    """The diagonal Jacobian must have one column per entry in the value, and the
+    column indices one array per block of the Jacobian, with one index per entry."""
     with pytest.raises(ValueError):
-        DiagonalAdArray(
+        DiagonalJacAdArray(
             np.array([1.0, 2.0]),
-            np.ones((1, 3)),
-            row_indices=np.arange(2),
-            col_indices=[np.arange(2)],
-            num_derivatives=2,
+            jac,
+            col_indices=col_indices,
+            num_derivatives=4,
         )
 
 
-def test_full_jac():
-    """full_jac gives the sparse Jacobian for both representations."""
-    full, diag = _full_and_diagonal_pair()
+def test_sparse_jac():
+    """sparse_jac gives the sparse Jacobian for both representations."""
+    sparse, diag = _sparse_and_diagonal_pair()
 
-    assert full.full_jac is full.jac
-    assert np.allclose(
-        diag.full_jac.toarray(), np.array([[7.0, 0.0, 0.0, 0.0], [0.0, 8.0, 0.0, 0.0]])
+    assert sparse.sparse_jac is sparse.jac
+    np.testing.assert_allclose(
+        diag.sparse_jac.toarray(),
+        np.array([[7.0, 0.0, 0.0, 0.0], [0.0, 8.0, 0.0, 0.0]]),
     )
 
 
-@pytest.mark.parametrize("op", ["+", "-", "*", "/", "**"])
+@pytest.mark.parametrize("op", list(_ARITHMETIC_OPERATORS))
 @pytest.mark.parametrize("diagonal_first", [True, False])
 def test_operations_between_representations(op: str, diagonal_first: bool):
-    """An operation between the two representations gives an AdArray, with the same
-    value and Jacobian as the operation between the full representations."""
-    full, diag = _full_and_diagonal_pair()
-    left, right = (diag, full) if diagonal_first else (full, diag)
+    """An operation between the two representations gives a SparseJacAdArray, with the
+    same
+    value and Jacobian as the operation between the sparse representations."""
+    sparse, diag = _sparse_and_diagonal_pair()
+    left, right = (diag, sparse) if diagonal_first else (sparse, diag)
 
-    result = eval(f"left {op} right")
-    reference = eval(f"left.to_full() {op} right.to_full()")
+    operation = _ARITHMETIC_OPERATORS[op]
+    result = operation(left, right)
+    reference = operation(left.to_sparse(), right.to_sparse())
 
-    assert isinstance(result, AdArray)
-    assert np.allclose(result.val, reference.val)
-    assert np.allclose(result.jac.toarray(), reference.jac.toarray())
+    assert isinstance(result, SparseJacAdArray)
+    np.testing.assert_allclose(result.val, reference.val)
+    np.testing.assert_allclose(result.jac.toarray(), reference.jac.toarray())
 
 
 @pytest.mark.parametrize("op", ["+", "*", "/", "**"])
 def test_diagonal_ad_array_with_sparse_operand_raises(op: str):
     """The rules for sparse operands are the same for both representations."""
-    _, diag = _full_and_diagonal_pair()
+    _, diag = _sparse_and_diagonal_pair()
     matrix = sps.csr_matrix(np.eye(2))
     with pytest.raises(ValueError):
-        eval(f"diag {op} matrix")
+        _ARITHMETIC_OPERATORS[op](diag, matrix)
 
 
 def test_diagonal_ad_array_left_multiplied_by_matrix():
-    """Left multiplication with a sparse matrix gives an AdArray."""
-    _, diag = _full_and_diagonal_pair()
+    """Left multiplication with a sparse matrix gives a SparseJacAdArray."""
+    _, diag = _sparse_and_diagonal_pair()
     matrix = sps.csr_matrix(np.array([[1.0, 1.0], [0.0, 2.0]]))
 
     result = matrix @ diag
 
-    assert isinstance(result, AdArray)
-    assert np.allclose(result.val, matrix @ diag.val)
-    assert np.allclose(result.jac.toarray(), (matrix @ diag.full_jac).toarray())
+    assert isinstance(result, SparseJacAdArray)
+    np.testing.assert_allclose(result.val, matrix @ diag.val)
+    np.testing.assert_allclose(
+        result.jac.toarray(), (matrix @ diag.sparse_jac).toarray()
+    )
 
 
 def test_setitem_full_into_diagonal_raises_without_modification():
-    """A full Ad array cannot be inserted into a diagonal one. The failed insertion
+    """A sparse Ad array cannot be inserted into a diagonal one. The failed insertion
     must leave the target untouched."""
-    full, diag = _full_and_diagonal_pair()
+    sparse, diag = _sparse_and_diagonal_pair()
     val, jac = diag.val.copy(), diag.jac.copy()
 
     with pytest.raises(NotImplementedError):
-        diag[0:1] = full[0:1]
+        diag[0:1] = sparse[0:1]
 
-    assert np.array_equal(diag.val, val)
-    assert np.array_equal(diag.jac, jac)
+    np.testing.assert_array_equal(diag.val, val)
+    np.testing.assert_array_equal(diag.jac, jac)
 
 
 def test_setitem_diagonal_into_full():
-    """A diagonal Ad array is converted to the full representation when inserted into
-    a full one."""
-    full, diag = _full_and_diagonal_pair()
+    """A diagonal Ad array is converted to the sparse representation when inserted into
+    a sparse one."""
+    sparse, diag = _sparse_and_diagonal_pair()
 
-    full[0:2] = diag
+    sparse[0:2] = diag
 
-    assert np.allclose(full.val, diag.val)
-    assert np.allclose(full.jac.toarray(), diag.full_jac.toarray())
-
-
-@pytest.mark.parametrize("expression", ["2.0 + a", "a - b", "2.0 - a", "2.0 * a", "-a"])
-def test_shared_operations_on_ad_array_return_ad_array(expression: str):
-    """The operations implemented in AdArrayBase return an AdArray when called on an
-    AdArray, also when the other operand is diagonal. The type hints of AdArray rely
-    on this."""
-    a, b = _full_and_diagonal_pair()
-    assert isinstance(eval(expression), AdArray)
+    np.testing.assert_allclose(sparse.val, diag.val)
+    np.testing.assert_allclose(sparse.jac.toarray(), diag.sparse_jac.toarray())
 
 
-@pytest.mark.parametrize("representation", ["full", "diagonal"])
+@pytest.mark.parametrize(
+    "expression",
+    [
+        pytest.param(lambda a, b: 2.0 + a, id="2.0 + a"),
+        pytest.param(lambda a, b: a - b, id="a - b"),
+        pytest.param(lambda a, b: 2.0 - a, id="2.0 - a"),
+        pytest.param(lambda a, b: 2.0 * a, id="2.0 * a"),
+        pytest.param(lambda a, b: -a, id="-a"),
+    ],
+)
+def test_shared_operations_on_ad_array_return_ad_array(
+    expression: Callable[[SparseJacAdArray, DiagonalJacAdArray], AdArrayBase],
+):
+    """The operations implemented in AdArrayBase return a SparseJacAdArray when called
+    on a
+    SparseJacAdArray, also when the other operand is diagonal. The type hints of
+    SparseJacAdArray rely on this."""
+    a, b = _sparse_and_diagonal_pair()
+    assert isinstance(expression(a, b), SparseJacAdArray)
+
+
+@pytest.mark.parametrize("representation", ["sparse", "diagonal"])
 def test_chain_rule(representation: str):
     """chain_rule gives f(x) in the representation of x, with the Jacobian
     diag(f'(x)) @ J."""
-    full, diag = _full_and_diagonal_pair()
-    x = full if representation == "full" else diag
+    sparse, diag = _sparse_and_diagonal_pair()
+    x = sparse if representation == "sparse" else diag
 
     # f = exp, whose derivative equals its value.
     val = np.exp(x.val)
     result = x.chain_rule(val, val)
 
     assert type(result) is type(x)
-    assert np.allclose(result.val, np.exp(x.val))
-    assert np.allclose(
-        result.full_jac.toarray(), (sps.diags(val) @ x.full_jac).toarray()
+    np.testing.assert_allclose(result.val, np.exp(x.val))
+    np.testing.assert_allclose(
+        result.sparse_jac.toarray(), (sps.diags(val) @ x.sparse_jac).toarray()
     )
+
+
+def _diagonal_arrays_with_structures(
+    joint: bool,
+) -> tuple[DiagonalJacAdArray, DiagonalJacAdArray]:
+    """Two diagonal Ad arrays of two entries each, in a system of four degrees of
+    freedom.
+
+    Parameters:
+        joint: If True, the arrays are initialized jointly, and share a Jacobian
+            structure with two blocks. Otherwise, each array is initialized separately,
+            with a single block of its own.
+
+    """
+    vals = [np.array([1.0, 2.0]), np.array([3.0, 4.0])]
+    indices = [np.array([0, 1]), np.array([2, 3])]
+    if joint:
+        a, b = initialize_diagonal_ad_arrays(vals, indices, 4)
+    else:
+        a = initialize_diagonal_ad_arrays(vals[:1], indices[:1], 4)[0]
+        b = initialize_diagonal_ad_arrays(vals[1:], indices[1:], 4)[0]
+    return a, b
+
+
+@pytest.mark.parametrize("op", list(_ARITHMETIC_OPERATORS))
+@pytest.mark.parametrize("joint", [True, False])
+def test_operations_between_diagonal_structures(op: str, joint: bool):
+    """An operation between diagonal Ad arrays gives a DiagonalJacAdArray if they share
+    a
+    Jacobian structure, and a SparseJacAdArray otherwise. In both cases, the value and
+    Jacobian equal those of the operation between the sparse representations."""
+    a, b = _diagonal_arrays_with_structures(joint)
+
+    operation = _ARITHMETIC_OPERATORS[op]
+    result = operation(a, b)
+    reference = operation(a.to_sparse(), b.to_sparse())
+
+    assert isinstance(result, DiagonalJacAdArray if joint else SparseJacAdArray)
+    np.testing.assert_allclose(result.val, reference.val)
+    np.testing.assert_allclose(result.sparse_jac.toarray(), reference.jac.toarray())
+
+
+@pytest.mark.parametrize("same_entries", [True, False])
+def test_operations_between_sliced_diagonal_arrays(same_entries: bool):
+    """Slices of jointly initialized diagonal Ad arrays share a Jacobian structure if
+    they contain the same entries, although the slicing creates new column indices."""
+    a, b = _diagonal_arrays_with_structures(joint=True)
+    key_a = np.array([0])
+    key_b = np.array([0]) if same_entries else np.array([1])
+
+    result = a[key_a] + b[key_b]
+    reference = a[key_a].to_sparse() + b[key_b].to_sparse()
+
+    assert isinstance(result, DiagonalJacAdArray if same_entries else SparseJacAdArray)
+    np.testing.assert_allclose(result.sparse_jac.toarray(), reference.jac.toarray())
+
+
+def test_setitem_diagonal_with_other_structure_raises_without_modification():
+    """A diagonal Ad array which does not share the Jacobian structure of the target
+    cannot be inserted. The failed insertion must leave the target untouched."""
+    a, b = _diagonal_arrays_with_structures(joint=False)
+    val, jac = a.val.copy(), a.jac.copy()
+
+    with pytest.raises(
+        ValueError,
+        match="Cannot insert a DiagonalJacAdArray which does not share the Jacobian",
+    ):
+        # a and b have the same number of entries, but different Jacobian structures.
+        # The insertion should fail.
+        a[0:2] = b
+    # The failed insertion must leave the target untouched.
+    np.testing.assert_array_equal(a.val, val)
+    np.testing.assert_array_equal(a.jac, jac)
+
+
+def test_setitem_diagonal_with_same_structure_succeeds():
+    """A diagonal Ad array which shares the Jacobian structure of the target can be
+    inserted, and the target is modified accordingly."""
+    a, _ = _diagonal_arrays_with_structures(joint=False)
+    # An array with the structure of the target at the key can be inserted.
+    c, _ = _diagonal_arrays_with_structures(joint=False)
+    a[0:1] = 2.0 * c[0:1]
+    np.testing.assert_allclose(a.sparse_jac.toarray()[0], [2.0, 0.0, 0.0, 0.0])

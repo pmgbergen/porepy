@@ -845,8 +845,8 @@ def partition_grid(
             Each element contains the global indices of the local nodes.
 
     """
-    msg = "This functionality is deprecated and will be removed in a future version"
-    warn(msg, DeprecationWarning)
+    msg = "partition_grid is deprecated and will be removed in a future version."
+    warn(msg, FutureWarning, stacklevel=2)
 
     sub_grid: list[pp.Grid] = []
     face_map_list: list[np.ndarray] = []

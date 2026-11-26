@@ -1147,10 +1147,10 @@ class Exporter:
             # If of correct type, convert to unique format and update subdomain data.
             if isinstance_tuple_subdomains_str:
                 msg = (
-                    """This functionality is deprecated and will be removed in a """
-                    """future version."""
+                    "Passing export data as a tuple (list of subdomains, key) is "
+                    "deprecated and will be removed in a future version."
                 )
-                warnings.warn(msg, DeprecationWarning)
+                warnings.warn(msg, FutureWarning, stacklevel=2)
 
                 # By construction, the components are a list of grids and a key.
                 subdomains: list[pp.Grid] = data_pt[0]
@@ -1230,10 +1230,10 @@ class Exporter:
             # If of correct type, convert to unique format and update subdomain data.
             if isinstance_tuple_interfaces_str:
                 msg = (
-                    """This functionality is deprecated and will be removed in a """
-                    """future version."""
+                    "Passing export data as a tuple (list of interfaces, key) is "
+                    "deprecated and will be removed in a future version."
                 )
-                warnings.warn(msg, DeprecationWarning)
+                warnings.warn(msg, FutureWarning, stacklevel=2)
 
                 # By construction, the components are a list of interfaces and a key.
                 interfaces: list[pp.MortarGrid] = data_pt[0]
@@ -1412,10 +1412,10 @@ class Exporter:
             # Convert data to unique format and update the interface data dictionary.
             if isinstance_tuple_str_array:
                 msg = (
-                    """This functionality is deprecated and will be removed in a """
-                    """future version."""
+                    "Passing export data as a tuple (key, array) is "
+                    "deprecated and will be removed in a future version."
                 )
-                warnings.warn(msg, DeprecationWarning)
+                warnings.warn(msg, FutureWarning, stacklevel=2)
                 # Fetch the correct grid. This option is only supported for
                 # mixed-dimensional grids containing a single subdomain.
                 subdomains = self._mdg.subdomains()

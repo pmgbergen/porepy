@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from warnings import warn
 
 import numpy as np
 import scipy.sparse as sps
@@ -344,6 +345,11 @@ class Upwind(Discretization):
         # Form and store discretization matrix.
         # Expand the discretization matrix to more than one component.
         num_components: int = parameter_dictionary.get("num_components", 1)
+        if num_components > 1:
+            msg = "The option 'num_components' is deprecated and will be removed in a "
+            msg += "future version."
+            warn(msg, FutureWarning, stacklevel=2)
+
         matrix_dictionary[self.upwind_matrix_key] = sps.kron(
             upstream_mat, sps.eye(num_components)
         ).tocsr()
