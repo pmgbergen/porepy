@@ -17,6 +17,7 @@ Breaking changes (what users must do when upgrading).
 
 ### Changes
 PR 1844: MAINT: Minor changes related to release of version 1.14.
+PR 1841: First partial replace of assert np.allclose in tests
 PR 1840: BLD: Use Pypardiso in all GH actions. 
 PR 1836: TST: Add tests for arithmetics of DiagonalJacAdArray class.
 PR 1835: MAINT: Refactor test of arithmetic test of Ad operators. 
